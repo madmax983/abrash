@@ -494,6 +494,7 @@ impl WindowApp for ShowcaseApp {
     }
 }
 
-fn main() {
-    run_windowed(ShowcaseApp::new().unwrap())
+fn main() -> Result<(), DemoError> {
+    run_windowed(ShowcaseApp::new());
+    Ok(())
 }

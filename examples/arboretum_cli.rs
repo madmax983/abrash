@@ -137,145 +137,25 @@ mod app {
                     )
                     .split(f.area());
 
-                // Title
-                let title = Paragraph::new("🌿 Arboretum: Procedural Generator")
-                    .style(
-                        Style::default()
-                            .fg(Color::Green)
-                            .add_modifier(Modifier::BOLD),
-                    )
-                    .block(Block::default().borders(Borders::ALL))
-                    .alignment(Alignment::Center);
-                f.render_widget(title, chunks[0]);
-
                 // Split Main Content
                 let main_chunks = Layout::default()
                     .direction(Direction::Horizontal)
                     .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
                     .split(chunks[1]);
 
-                // Genome Panel
-                let mut genome_text = vec![
-                    Line::from(vec![
-                        Span::styled("Axiom: ", Style::default().fg(Color::Cyan)),
-                        Span::raw(&args.axiom),
-                    ]),
-                    Line::from(vec![
-                        Span::styled("Angle: ", Style::default().fg(Color::Cyan)),
-                        Span::raw(format!("{:.1}°", args.angle)),
-                    ]),
-                    Line::from(Span::styled("Rules:", Style::default().fg(Color::Cyan))),
-                ];
-
-                for (k, v) in rules {
-                    genome_text.push(Line::from(format!("  {k} → {v}")));
-                }
-
-                let genome_block = Block::default()
-                    .borders(Borders::ALL)
-                    .title(" 🧬 Genome (Config) ")
-                    .border_style(Style::default().fg(Color::Blue));
-                let genome = Paragraph::new(genome_text).block(genome_block);
-                f.render_widget(genome, main_chunks[0]);
-
-                // Analysis Panel
-                let analysis_text = vec![
-                    Line::from(vec![
-                        Span::styled("Iterations: ", Style::default().fg(Color::Yellow)),
-                        Span::raw(args.iterations.to_string()),
-                    ]),
-                    Line::from(vec![
-                        Span::styled("Generation Time: ", Style::default().fg(Color::Yellow)),
-                        Span::raw(format!("{duration:.2?}")),
-                    ]),
-                    Line::from(""),
-                    Line::from(Span::styled(
-                        "Mesh Statistics:",
-                        Style::default().add_modifier(Modifier::UNDERLINED),
-                    )),
-                    Line::from(vec![
-                        Span::styled("  Vertices: ", Style::default().fg(Color::Magenta)),
-                        Span::raw(vertex_count.to_string()),
-                    ]),
-                    Line::from(vec![
-                        Span::styled("  Triangles: ", Style::default().fg(Color::Magenta)),
-                        Span::raw(triangle_count.to_string()),
-                    ]),
-                    Line::from(""),
-                    Line::from(vec![
-                        Span::styled("  DNA Length: ", Style::default().fg(Color::Magenta)),
-                        Span::raw(format!("{} chars", expanded.len())),
-                    ]),
-                ];
-
-                let analysis_block = Block::default()
-                    .borders(Borders::ALL)
-                    .title(" 📊 Analysis ")
-                    .border_style(Style::default().fg(Color::Yellow));
-                let analysis = Paragraph::new(analysis_text).block(analysis_block);
-                f.render_widget(analysis, main_chunks[1]);
-
-                // DNA Sequence (Bottom)
-                // Colorize the DNA string
-                // F, f -> Green (Growth)
-                // +, -, &, ^, \, / -> Yellow (Rotation)
-                // [, ] -> Blue (Structure)
-                // Others -> White
-                let mut styled_dna = Vec::new();
-                let mut current_span = String::new();
-                let mut current_color = Color::White;
-
-                // Optimization: Don't render huge strings entirely, just a preview.
-                // Safely iterate by chars to avoid slicing inside a multi-byte codepoint.
-                let max_chars = 2000;
-                let mut char_iter = expanded.chars();
-                let display_str: String = char_iter.by_ref().take(max_chars).collect();
-                let is_truncated = char_iter.next().is_some();
-
-                for c in display_str.chars() {
-                    let color = match c {
-                        'F' | 'f' => Color::Green,
-                        '+' | '-' | '&' | '^' | '\\' | '/' | '|' => Color::Yellow,
-                        '[' | ']' => Color::Blue,
-                        _ => Color::White,
-                    };
-
-                    if color != current_color && !current_span.is_empty() {
-                        styled_dna.push(Span::styled(
-                            current_span.clone(),
-                            Style::default().fg(current_color),
-                        ));
-                        current_span.clear();
-                    }
-                    current_color = color;
-                    current_span.push(c);
-                }
-                if !current_span.is_empty() {
-                    styled_dna.push(Span::styled(
-                        current_span,
-                        Style::default().fg(current_color),
-                    ));
-                }
-
-                if is_truncated {
-                    styled_dna.push(Span::styled("...", Style::default().fg(Color::DarkGray)));
-                }
-
-                let dna_block = Block::default()
-                    .borders(Borders::ALL)
-                    .title(" 🧬 DNA Sequence ")
-                    .border_style(Style::default().fg(Color::Magenta));
-
-                let dna_paragraph = Paragraph::new(Line::from(styled_dna))
-                    .block(dna_block)
-                    .wrap(Wrap { trim: true });
-                f.render_widget(dna_paragraph, chunks[2]);
-
-                // Help Bar
-                let help = Paragraph::new(" Press [Q] to Quit ")
-                    .style(Style::default().fg(Color::Black).bg(Color::White))
-                    .alignment(Alignment::Center);
-                f.render_widget(help, chunks[3]);
+                render_title(f, chunks[0]);
+                render_genome(f, main_chunks[0], args, rules);
+                render_analysis(
+                    f,
+                    main_chunks[1],
+                    args,
+                    vertex_count,
+                    triangle_count,
+                    duration,
+                    expanded.len(),
+                );
+                render_dna(f, chunks[2], expanded);
+                render_help(f, chunks[3]);
             })?;
 
             if event::poll(Duration::from_millis(100))?
@@ -287,6 +167,165 @@ mod app {
                 }
             }
         }
+    }
+
+    fn render_title(f: &mut ratatui::Frame, area: ratatui::layout::Rect) {
+        let title = Paragraph::new("🌿 Arboretum: Procedural Generator")
+            .style(
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(ratatui::widgets::BorderType::Rounded),
+            )
+            .alignment(Alignment::Center);
+        f.render_widget(title, area);
+    }
+
+    fn render_genome(
+        f: &mut ratatui::Frame,
+        area: ratatui::layout::Rect,
+        args: &Args,
+        rules: &HashMap<char, String>,
+    ) {
+        let mut genome_text = vec![
+            Line::from(vec![
+                Span::styled("Axiom: ", Style::default().fg(Color::Cyan)),
+                Span::raw(&args.axiom),
+            ]),
+            Line::from(vec![
+                Span::styled("Angle: ", Style::default().fg(Color::Cyan)),
+                Span::raw(format!("{:.1}°", args.angle)),
+            ]),
+            Line::from(Span::styled("Rules:", Style::default().fg(Color::Cyan))),
+        ];
+
+        for (k, v) in rules {
+            genome_text.push(Line::from(format!("  {k} → {v}")));
+        }
+
+        let genome_block = Block::default()
+            .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
+            .title(" 🧬 Genome (Config) ")
+            .border_style(Style::default().fg(Color::Blue));
+        let genome = Paragraph::new(genome_text).block(genome_block);
+        f.render_widget(genome, area);
+    }
+
+    fn render_analysis(
+        f: &mut ratatui::Frame,
+        area: ratatui::layout::Rect,
+        args: &Args,
+        vertex_count: usize,
+        triangle_count: usize,
+        duration: Duration,
+        expanded_len: usize,
+    ) {
+        let analysis_text = vec![
+            Line::from(vec![
+                Span::styled("Iterations: ", Style::default().fg(Color::Yellow)),
+                Span::raw(args.iterations.to_string()),
+            ]),
+            Line::from(vec![
+                Span::styled("Generation Time: ", Style::default().fg(Color::Yellow)),
+                Span::raw(format!("{duration:.2?}")),
+            ]),
+            Line::from(""),
+            Line::from(Span::styled(
+                "Mesh Statistics:",
+                Style::default().add_modifier(Modifier::UNDERLINED),
+            )),
+            Line::from(vec![
+                Span::styled("  Vertices: ", Style::default().fg(Color::Magenta)),
+                Span::raw(vertex_count.to_string()),
+            ]),
+            Line::from(vec![
+                Span::styled("  Triangles: ", Style::default().fg(Color::Magenta)),
+                Span::raw(triangle_count.to_string()),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("  DNA Length: ", Style::default().fg(Color::Magenta)),
+                Span::raw(format!("{} chars", expanded_len)),
+            ]),
+        ];
+
+        let analysis_block = Block::default()
+            .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
+            .title(" 📊 Analysis ")
+            .border_style(Style::default().fg(Color::Yellow));
+        let analysis = Paragraph::new(analysis_text).block(analysis_block);
+        f.render_widget(analysis, area);
+    }
+
+    fn render_dna(f: &mut ratatui::Frame, area: ratatui::layout::Rect, expanded: &str) {
+        // Colorize the DNA string
+        // F, f -> Green (Growth)
+        // +, -, &, ^, \, / -> Yellow (Rotation)
+        // [, ] -> Blue (Structure)
+        // Others -> White
+        let mut styled_dna = Vec::new();
+        let mut current_span = String::new();
+        let mut current_color = Color::White;
+
+        // Optimization: Don't render huge strings entirely, just a preview.
+        // Safely iterate by chars to avoid slicing inside a multi-byte codepoint.
+        let max_chars = 2000;
+        let mut char_iter = expanded.chars();
+        let display_str: String = char_iter.by_ref().take(max_chars).collect();
+        let is_truncated = char_iter.next().is_some();
+
+        for c in display_str.chars() {
+            let color = match c {
+                'F' | 'f' => Color::Green,
+                '+' | '-' | '&' | '^' | '\\' | '/' | '|' => Color::Yellow,
+                '[' | ']' => Color::Blue,
+                _ => Color::White,
+            };
+
+            if color != current_color && !current_span.is_empty() {
+                styled_dna.push(Span::styled(
+                    current_span.clone(),
+                    Style::default().fg(current_color),
+                ));
+                current_span.clear();
+            }
+            current_color = color;
+            current_span.push(c);
+        }
+        if !current_span.is_empty() {
+            styled_dna.push(Span::styled(
+                current_span,
+                Style::default().fg(current_color),
+            ));
+        }
+
+        if is_truncated {
+            styled_dna.push(Span::styled("...", Style::default().fg(Color::DarkGray)));
+        }
+
+        let dna_block = Block::default()
+            .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
+            .title(" 🧬 DNA Sequence ")
+            .border_style(Style::default().fg(Color::Magenta));
+
+        let dna_paragraph = Paragraph::new(Line::from(styled_dna))
+            .block(dna_block)
+            .wrap(Wrap { trim: true });
+        f.render_widget(dna_paragraph, area);
+    }
+
+    fn render_help(f: &mut ratatui::Frame, area: ratatui::layout::Rect) {
+        let help = Paragraph::new(" Press [Q] to Quit ")
+            .style(Style::default().fg(Color::Black).bg(Color::White))
+            .alignment(Alignment::Center);
+        f.render_widget(help, area);
     }
 }
 

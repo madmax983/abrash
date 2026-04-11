@@ -1,3 +1,6 @@
+#![allow(clippy::imprecise_flops)]
+#![allow(clippy::must_use_candidate)]
+
 //! Procedural noise functions for textures, terrain, and animation.
 //!
 //! Implements three complementary noise types:
@@ -832,6 +835,9 @@ pub fn curl_noise_2d(x: f32, y: f32, scale: f32) -> (f32, f32) {
 /// ```
 #[must_use]
 pub fn curl_noise_3d(p: crate::math::Vec3, scale: f32) -> crate::math::Vec3 {
+    const S1: f32 = 3.171_31;
+    const S2: f32 = 7.342_17;
+
     // Curl of (Nx, Ny, Nz): ∇×F = (∂Nz/∂y − ∂Ny/∂z, ∂Nx/∂z − ∂Nz/∂x, ∂Ny/∂x − ∂Nx/∂y)
     // Use three offset potential fields to break symmetry
     let h = 0.001 / scale.max(1e-6);
@@ -841,8 +847,6 @@ pub fn curl_noise_3d(p: crate::math::Vec3, scale: f32) -> crate::math::Vec3 {
     // Nx = simplex at (x, y, z)
     // Ny = simplex at (x+seed1, y+seed1, z+seed1)
     // Nz = simplex at (x+seed2, y+seed2, z+seed2)
-    const S1: f32 = 3.171_31;
-    const S2: f32 = 7.342_17;
 
     let nx = |x: f32, y: f32, z: f32| simplex_3d(x * s, y * s, z * s);
     let ny = |x: f32, y: f32, z: f32| simplex_3d((x + S1) * s, (y + S1) * s, (z + S1) * s);
@@ -1009,7 +1013,7 @@ pub fn voronoi_noise_2d(x: f32, y: f32, jitter: f32) -> (f32, f32, u32) {
             let pt_y = cy as f32 + hy * jitter;
             let dx = fx - pt_x;
             let dy = fy - pt_y;
-            let d = (dx * dx + dy * dy).sqrt();
+            let d = dx.mul_add(dx, dy * dy).sqrt();
             if d < f1 {
                 f2 = f1;
                 f1 = d;
@@ -1284,6 +1288,86 @@ pub fn domain_warp_fbm_3d(
         lacunarity,
         gain,
     )
+}
+
+/// Value-noise fBm in 3D — like [`fbm_3d`] but using value noise instead of gradient noise.
+///
+/// Produces a softer, blotchier look than gradient fBm. Output is normalised to `[-1, 1]`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::fbm_value_3d;
+///
+/// let a = fbm_value_3d(1.0, 2.0, 3.0, 4, 2.0, 0.5);
+/// let b = fbm_value_3d(1.0, 2.0, 3.0, 4, 2.0, 0.5);
+/// assert_eq!(a, b); // deterministic
+/// ```
+#[must_use]
+pub fn fbm_value_3d(x: f32, y: f32, z: f32, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+    let mut value = 0.0_f32;
+    let mut amplitude = 1.0_f32;
+    let mut frequency = 1.0_f32;
+    let mut max_amplitude = 0.0_f32;
+    for _ in 0..octaves {
+        let n = value_noise_3d(x * frequency, y * frequency, z * frequency) * 2.0 - 1.0;
+        value += n * amplitude;
+        max_amplitude += amplitude;
+        amplitude *= gain;
+        frequency *= lacunarity;
+    }
+    if max_amplitude > 0.0 {
+        value / max_amplitude
+    } else {
+        0.0
+    }
+}
+
+/// Cellular noise (2D): returns the distance to the nearest cell border (`f2 - f1`).
+///
+/// Unlike [`voronoi_noise_2d`] which returns raw F1/F2 distances, `cellular_noise_2d`
+/// emphasises the cracks between cells — values near 0 are on a border, values near 1
+/// are deep inside a cell.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::cellular_noise_2d;
+///
+/// let c = cellular_noise_2d(1.5, 2.3, 1.0);
+/// assert!((0.0..=1.0).contains(&c), "cellular in [0,1]: {c}");
+///
+/// // Deterministic
+/// let a = cellular_noise_2d(0.7, -1.2, 0.8);
+/// let b = cellular_noise_2d(0.7, -1.2, 0.8);
+/// assert_eq!(a, b);
+/// ```
+#[must_use]
+pub fn cellular_noise_2d(x: f32, y: f32, jitter: f32) -> f32 {
+    let (f1, f2, _) = voronoi_noise_2d(x, y, jitter);
+    (f2 - f1).clamp(0.0, 1.0)
+}
+
+/// Cellular noise (3D): returns the distance to the nearest cell border (`f2 - f1`).
+///
+/// 3D analogue of [`cellular_noise_2d`].
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::cellular_noise_3d;
+///
+/// let c = cellular_noise_3d(1.5, 2.3, 0.7, 1.0);
+/// assert!((0.0..=1.0).contains(&c), "cellular in [0,1]: {c}");
+///
+/// let a = cellular_noise_3d(0.7, -1.2, 0.5, 0.8);
+/// let b = cellular_noise_3d(0.7, -1.2, 0.5, 0.8);
+/// assert_eq!(a, b); // deterministic
+/// ```
+#[must_use]
+pub fn cellular_noise_3d(x: f32, y: f32, z: f32, jitter: f32) -> f32 {
+    let (f1, f2, _) = voronoi_noise_3d(x, y, z, jitter);
+    (f2 - f1).clamp(0.0, 1.0)
 }
 
 #[cfg(test)]
@@ -1788,5 +1872,70 @@ mod tests {
         // They can be equal by coincidence, but the values should both be valid
         assert!((0.0..=1.0).contains(&v1));
         assert!((0.0..=1.0).contains(&v4));
+    }
+
+    // ── fbm_value_3d ─────────────────────────────────────────────────────
+    #[test]
+    fn fbm_value_3d_in_range() {
+        let v = fbm_value_3d(1.23, 4.56, 7.89, 4, 2.0, 0.5);
+        assert!((-1.0..=1.0).contains(&v), "fbm_value_3d out of [-1,1]: {v}");
+    }
+
+    #[test]
+    fn fbm_value_3d_deterministic() {
+        let a = fbm_value_3d(0.1, 0.2, 0.3, 4, 2.0, 0.5);
+        let b = fbm_value_3d(0.1, 0.2, 0.3, 4, 2.0, 0.5);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn fbm_value_3d_single_octave_matches_value_noise() {
+        // 1 octave = normalised value_noise_3d centred at 0
+        let v1 = fbm_value_3d(0.5, 0.5, 0.5, 1, 2.0, 0.5);
+        // value_noise_3d is in [0,1]; mapped to [-1,1] and divided by max_amplitude=1
+        let raw = value_noise_3d(0.5, 0.5, 0.5) * 2.0 - 1.0;
+        assert!(
+            (v1 - raw).abs() < 1e-6,
+            "single octave mismatch: {v1} vs {raw}"
+        );
+    }
+
+    // ── cellular_noise_2d ─────────────────────────────────────────────────
+    #[test]
+    fn cellular_noise_2d_in_range() {
+        for (x, y) in [(0.0, 0.0), (1.5, 2.3), (-0.7, 4.1)] {
+            let v = cellular_noise_2d(x, y, 1.0);
+            assert!((0.0..=1.0).contains(&v), "cellular_2d out of [0,1]: {v}");
+        }
+    }
+
+    #[test]
+    fn cellular_noise_2d_deterministic() {
+        let a = cellular_noise_2d(3.7, 1.2, 0.8);
+        let b = cellular_noise_2d(3.7, 1.2, 0.8);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn cellular_noise_2d_zero_jitter_smooth() {
+        // zero jitter → cells are perfectly regular, f1==f2 possible
+        let v = cellular_noise_2d(0.5, 0.5, 0.0);
+        assert!((0.0..=1.0).contains(&v));
+    }
+
+    // ── cellular_noise_3d ─────────────────────────────────────────────────
+    #[test]
+    fn cellular_noise_3d_in_range() {
+        for (x, y, z) in [(0.0, 0.0, 0.0), (1.5, 2.3, 3.7), (-0.7, 4.1, 0.5)] {
+            let v = cellular_noise_3d(x, y, z, 1.0);
+            assert!((0.0..=1.0).contains(&v), "cellular_3d out of [0,1]: {v}");
+        }
+    }
+
+    #[test]
+    fn cellular_noise_3d_deterministic() {
+        let a = cellular_noise_3d(1.1, 2.2, 3.3, 0.9);
+        let b = cellular_noise_3d(1.1, 2.2, 3.3, 0.9);
+        assert_eq!(a, b);
     }
 }

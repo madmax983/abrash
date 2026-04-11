@@ -54,7 +54,6 @@ pub fn fast_atan2(y: f32, x: f32) -> f32 {
     theta
 }
 
-#[allow(clippy::imprecise_flops)]
 pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
     if segments <= 1 {
         return;
@@ -102,7 +101,7 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
                         let dx = x as f32 - cx;
 
                         // Convert to polar coordinates
-                        let r = (dx * dx + dy * dy).sqrt();
+                        let r = dx.mul_add(dx, dy * dy).sqrt();
 
                         // ⚡ Bolt: Fast mathematical approximation for atan2 to reduce overhead
                         let mut theta = fast_atan2(dy, dx);
@@ -142,7 +141,7 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
                     let dx = x as f32 - cx;
 
                     // Convert to polar coordinates
-                    let r = (dx * dx + dy * dy).sqrt();
+                    let r = dx.mul_add(dx, dy * dy).sqrt();
 
                     // ⚡ Bolt: Fast mathematical approximation for atan2 to reduce overhead
                     let mut theta = fast_atan2(dy, dx);

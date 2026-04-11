@@ -106,8 +106,28 @@ impl ZBuffer {
         if sx == 0 && ex == w {
             self.depths[start_idx..end_idx].fill(f32::INFINITY);
         } else {
-            for row in self.depths[start_idx..end_idx].chunks_exact_mut(w) {
-                row[sx..ex].fill(f32::INFINITY);
+            // Hot path optimization: process rows concurrently if large enough
+            // Since rows don't overlap, we can safely use rayon's par_chunks_exact_mut
+            #[cfg(feature = "parallel")]
+            {
+                use rayon::prelude::*;
+                // Only parallelize if the workload is large enough to overcome rayon's overhead
+                let row_count = (end_idx - start_idx) / w;
+                if row_count > 100 {
+                    self.depths[start_idx..end_idx]
+                        .par_chunks_exact_mut(w)
+                        .for_each(|row| row[sx..ex].fill(f32::INFINITY));
+                } else {
+                    for row in self.depths[start_idx..end_idx].chunks_exact_mut(w) {
+                        row[sx..ex].fill(f32::INFINITY);
+                    }
+                }
+            }
+            #[cfg(not(feature = "parallel"))]
+            {
+                for row in self.depths[start_idx..end_idx].chunks_exact_mut(w) {
+                    row[sx..ex].fill(f32::INFINITY);
+                }
             }
         }
     }

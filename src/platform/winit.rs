@@ -175,9 +175,7 @@ fn print_host_error_and_exit(err: HostError) -> ! {
                 .add_attribute(comfy_table::Attribute::Bold)
                 .fg(Color::Red),
         ])
-        .add_row(vec![
-            Cell::new(format!("{err}")).fg(Color::Yellow),
-        ]);
+        .add_row(vec![Cell::new(format!("{err}")).fg(Color::Yellow)]);
 
     eprintln!("\n{table}");
     std::process::exit(1);
@@ -196,14 +194,16 @@ where
         Err(error) => print_host_error_and_exit(HostError::EventLoop(error.to_string())),
     };
     let config = app.config();
-    let window = Arc::new(match WindowBuilder::new()
-        .with_title(config.title)
-        .with_inner_size(winit::dpi::PhysicalSize::new(config.width, config.height))
-        .build(&event_loop)
-    {
-        Ok(w) => w,
-        Err(error) => print_host_error_and_exit(HostError::Window(error.to_string())),
-    });
+    let window = Arc::new(
+        match WindowBuilder::new()
+            .with_title(config.title)
+            .with_inner_size(winit::dpi::PhysicalSize::new(config.width, config.height))
+            .build(&event_loop)
+        {
+            Ok(w) => w,
+            Err(error) => print_host_error_and_exit(HostError::Window(error.to_string())),
+        },
+    );
 
     if let Err(error) = app.init(WindowContext {
         event_loop: &event_loop,
@@ -241,8 +241,7 @@ where
                                 size.width,
                                 size.height,
                             ) {
-                                *error_slot.borrow_mut() =
-                                    Some(HostError::App(error.to_string()));
+                                *error_slot.borrow_mut() = Some(HostError::App(error.to_string()));
                                 event_loop_target.exit();
                             }
                         }

@@ -33,7 +33,9 @@ use crate::math::{Vec2, Vec3};
 /// A 2D integer vector — pixel coordinates, grid offsets, screen-space spans.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct IVec2 {
+    /// The X (horizontal) component, representing column or grid width.
     pub x: i32,
+    /// The Y (vertical) component, representing row or grid height.
     pub y: i32,
 }
 
@@ -297,8 +299,11 @@ impl std::fmt::Display for IVec2 {
 /// A 3D integer vector — voxel coordinates, 3D grid cells, color components.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct IVec3 {
+    /// The X (width/horizontal) Cartesian component in 3D grid space.
     pub x: i32,
+    /// The Y (height/vertical) Cartesian component in 3D grid space.
     pub y: i32,
+    /// The Z (depth) Cartesian component in 3D grid space.
     pub z: i32,
 }
 

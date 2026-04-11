@@ -4,6 +4,7 @@
 
 use crate::mesh::Mesh;
 use crate::rasterizer::TileRenderer;
+use crate::render_api::borrowed_target::BorrowedRenderTarget;
 use crate::render_api::draw_list::{DrawBatch, DrawList};
 use crate::render_api::frame::Frame;
 use crate::render_api::handles::{Handle, MaterialHandle, MeshHandle, ResourcePool, TextureHandle};
@@ -104,9 +105,6 @@ impl CpuRenderer {
     #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
     pub fn extract_draw_list(&self, frame: &Frame) -> Result<DrawList, RenderError> {
         let view_proj = frame.camera.view * frame.camera.projection;
-        let mut draw_list = DrawList::new(frame.camera);
-        draw_list.clear_color = frame.clear_color;
-        draw_list.lights.clone_from(&frame.lights);
 
         // Pre-calculate total required vertices to avoid dynamic reallocations
         let mut total_vertices = 0;
@@ -115,11 +113,23 @@ impl CpuRenderer {
                 .meshes
                 .get(from_mesh_handle(cmd.mesh))
                 .ok_or(RenderError::StaleHandle("mesh"))?;
+
+            // Validate material handles sequentially to eliminate intermediate Result vectors later
+            if self
+                .materials
+                .get(from_material_handle(cmd.material))
+                .is_none()
+            {
+                return Err(RenderError::StaleHandle("material"));
+            }
+
             total_vertices += cpu_mesh.mesh.vertices.len();
         }
 
-        draw_list.batches.reserve(frame.commands.len());
-        draw_list.vertices.reserve(total_vertices);
+        let mut draw_list =
+            DrawList::with_capacity(frame.camera, frame.commands.len(), total_vertices);
+        draw_list.clear_color = frame.clear_color;
+        draw_list.lights.clone_from(&frame.lights);
 
         #[cfg(feature = "parallel")]
         {
@@ -140,43 +150,44 @@ impl CpuRenderer {
             // of the pre-allocated buffer exactly `total_vertices` in length.
             let ptr = draw_list.vertices.as_mut_ptr() as usize; // Cast to usize to make it Send + Sync
 
-            // Map each command to a result to collect into a Result<Vec, Error>
-            let results: Result<Vec<DrawBatch>, RenderError> = frame
-                .commands
-                .par_iter()
-                .zip(&ranges)
-                .map(|(cmd, &(start, end))| {
-                    let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
-                    let material = self
-                        .materials
-                        .get(from_material_handle(cmd.material))
-                        .ok_or(RenderError::StaleHandle("material"))?;
+            // Use par_extend to directly populate batches without an intermediate Vec allocation.
+            draw_list
+                .batches
+                .par_extend(
+                    frame
+                        .commands
+                        .par_iter()
+                        .zip(&ranges)
+                        .map(|(cmd, &(start, end))| {
+                            let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
+                            let material = self
+                                .materials
+                                .get(from_material_handle(cmd.material))
+                                .unwrap();
 
-                    let mvp = cmd.transform * view_proj;
-                    let mesh = &cpu_mesh.mesh;
+                            let mvp = cmd.transform * view_proj;
+                            let mesh = &cpu_mesh.mesh;
 
-                    // SAFETY: `ranges` ensures disjoint segments of the allocated buffer.
-                    // The buffer is pre-allocated with `total_vertices` capacity.
-                    unsafe {
-                        let offset_ptr = (ptr as *mut (crate::math::Vec3, f32)).add(start);
-                        // We cast `offset_ptr` to `*mut std::mem::MaybeUninit` to pass into `transform_points_uninit`.
-                        let slice = std::slice::from_raw_parts_mut(
-                            offset_ptr.cast::<std::mem::MaybeUninit<(crate::math::Vec3, f32)>>(),
-                            mesh.vertices.len(),
-                        );
-                        mvp.transform_points_uninit(&mesh.vertices, slice);
-                    }
+                            // SAFETY: `ranges` ensures disjoint segments of the allocated buffer.
+                            // The buffer is pre-allocated with `total_vertices` capacity.
+                            unsafe {
+                                let offset_ptr = (ptr as *mut (crate::math::Vec3, f32)).add(start);
+                                // We cast `offset_ptr` to `*mut std::mem::MaybeUninit` to pass into `transform_points_uninit`.
+                                let slice = std::slice::from_raw_parts_mut(
+                                    offset_ptr
+                                        .cast::<std::mem::MaybeUninit<(crate::math::Vec3, f32)>>(),
+                                    mesh.vertices.len(),
+                                );
+                                mvp.transform_points_uninit(&mesh.vertices, slice);
+                            }
 
-                    Ok(DrawBatch::new(
-                        start..end,
-                        std::sync::Arc::clone(&cpu_mesh.shared_indices),
-                        material.color,
-                    ))
-                })
-                .collect();
-
-            let batches = results?;
-            draw_list.batches.extend(batches);
+                            DrawBatch::new(
+                                start..end,
+                                std::sync::Arc::clone(&cpu_mesh.shared_indices),
+                                material.color,
+                            )
+                        }),
+                );
 
             // SAFETY: All parallel segments initialized elements exactly up to `total_vertices`.
             unsafe {
@@ -222,12 +233,7 @@ impl CpuRenderer {
         Ok(draw_list)
     }
 
-    /// Execute a pre-built [`DrawList`] into the given render target.
-    ///
-    /// Uses tile-integrated clearing when `draw_list.clear_color` is set,
-    /// eliminating the separate full-frame memset by writing clear color
-    /// per-tile during `end_frame`.
-    pub fn execute_draw_list(&mut self, draw_list: &DrawList, target: &mut RenderTarget) {
+    fn execute_draw_list_owned(&mut self, draw_list: &DrawList, target: &mut RenderTarget) {
         if let Some(color) = draw_list.clear_color {
             target.framebuffer.clear(color);
             target.zbuffer.clear();
@@ -239,12 +245,50 @@ impl CpuRenderer {
         for batch in &draw_list.batches {
             self.tile_renderer.submit_mesh(
                 &batch.indices,
-                &draw_list.vertices[batch.vertex_range.clone()],
+                &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
                 batch.color,
             );
         }
         self.tile_renderer
             .end_frame(&mut target.framebuffer, &mut target.zbuffer);
+    }
+
+    /// Execute a pre-built [`DrawList`] into caller-owned buffers.
+    pub fn execute_draw_list_into(
+        &mut self,
+        draw_list: &DrawList,
+        target: &mut BorrowedRenderTarget<'_>,
+    ) {
+        let width = target.width();
+        let height = target.height();
+        let (pixels, depths) = target.split_mut();
+
+        if let Some(color) = draw_list.clear_color {
+            pixels.fill(color);
+            depths.fill(f32::INFINITY);
+        }
+
+        self.tile_renderer.set_clear_color(None); // Disable integrated clearing since we just did a full clear
+
+        self.tile_renderer.begin_frame();
+        for batch in &draw_list.batches {
+            self.tile_renderer.submit_mesh(
+                &batch.indices,
+                &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
+                batch.color,
+            );
+        }
+        self.tile_renderer
+            .end_frame_into_slices(width, height, pixels, depths);
+    }
+
+    /// Execute a pre-built [`DrawList`] into the given render target.
+    ///
+    /// Uses tile-integrated clearing when `draw_list.clear_color` is set,
+    /// eliminating the separate full-frame memset by writing clear color
+    /// per-tile during `end_frame`.
+    pub fn execute_draw_list(&mut self, draw_list: &DrawList, target: &mut RenderTarget) {
+        self.execute_draw_list_owned(draw_list, target);
     }
 
     /// Upload a mesh and return a handle.
@@ -359,6 +403,22 @@ impl CpuRenderer {
         Ok(to_material_handle(self.materials.insert(material)))
     }
 
+    /// Render a frame into caller-owned buffers.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::StaleHandle`] if any handle in the frame is invalid,
+    /// or [`RenderError::Internal`] for backend-specific failures.
+    pub fn render_frame_into(
+        &mut self,
+        frame: &Frame,
+        target: &mut BorrowedRenderTarget<'_>,
+    ) -> Result<(), RenderError> {
+        let draw_list = self.extract_draw_list(frame)?;
+        self.execute_draw_list_into(&draw_list, target);
+        Ok(())
+    }
+
     /// Render a frame into the render target.
     ///
     /// # Errors
@@ -371,7 +431,7 @@ impl CpuRenderer {
         target: &mut RenderTarget,
     ) -> Result<(), RenderError> {
         let draw_list = self.extract_draw_list(frame)?;
-        self.execute_draw_list(&draw_list, target);
+        self.execute_draw_list_owned(&draw_list, target);
         Ok(())
     }
 
@@ -396,6 +456,7 @@ mod tests {
     use super::*;
     use crate::math::{Mat4, Vec3};
     use crate::mesh::Mesh;
+    use crate::render_api::borrowed_target::BorrowedRenderTarget;
     use crate::render_api::frame::{Frame, FrameCamera};
     use crate::render_api::material::Material;
     use crate::render_api::target::RenderTarget;
@@ -622,6 +683,67 @@ mod tests {
 
         let pool_handle = super::from_texture_handle(handle);
         assert!(renderer.textures.get(pool_handle).is_none());
+    }
+
+    fn setup_renderer_and_frame(size: u32) -> (CpuRenderer, Frame) {
+        let mut renderer = CpuRenderer::new(size, size);
+        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mat_h = renderer
+            .create_material(Material::flat(0xFFAA_BBCC))
+            .unwrap();
+        let mut frame = Frame::new(FrameCamera::new(
+            Mat4::look_at(
+                Vec3::new(0.0, 0.0, 3.0),
+                Vec3::ZERO,
+                Vec3::new(0.0, 1.0, 0.0),
+            ),
+            Mat4::perspective(1.57, 1.0, 0.1, 100.0),
+        ));
+        frame.draw(mesh_h, mat_h, Mat4::identity());
+        (renderer, frame)
+    }
+
+    #[test]
+    fn test_execute_draw_list_into_borrowed_target_matches_owned_target() {
+        let (mut source_renderer, frame) = setup_renderer_and_frame(100);
+        let draw_list = source_renderer.extract_draw_list(&frame).unwrap();
+
+        let mut owned_renderer = CpuRenderer::new(100, 100);
+        let mut owned_target = RenderTarget::new(100, 100).unwrap();
+        owned_renderer.execute_draw_list(&draw_list, &mut owned_target);
+
+        let mut borrowed_renderer = CpuRenderer::new(100, 100);
+        let mut pixels = vec![0xDEAD_BEEF; 100 * 100];
+        let mut depths = vec![123.0; 100 * 100];
+        let mut borrowed =
+            BorrowedRenderTarget::new(100, 100, pixels.as_mut_slice(), depths.as_mut_slice())
+                .unwrap();
+        borrowed_renderer.execute_draw_list_into(&draw_list, &mut borrowed);
+
+        assert_eq!(owned_target.pixels(), borrowed.pixels());
+        assert_eq!(owned_target.depths(), borrowed.depths());
+    }
+
+    #[test]
+    fn test_render_frame_into_borrowed_target_matches_owned_target() {
+        let (mut owned_renderer, owned_frame) = setup_renderer_and_frame(100);
+        let mut owned_target = RenderTarget::new(100, 100).unwrap();
+        owned_renderer
+            .render_frame(&owned_frame, &mut owned_target)
+            .unwrap();
+
+        let (mut borrowed_renderer, borrowed_frame) = setup_renderer_and_frame(100);
+        let mut pixels = vec![0xDEAD_BEEF; 100 * 100];
+        let mut depths = vec![123.0; 100 * 100];
+        let mut borrowed =
+            BorrowedRenderTarget::new(100, 100, pixels.as_mut_slice(), depths.as_mut_slice())
+                .unwrap();
+        borrowed_renderer
+            .render_frame_into(&borrowed_frame, &mut borrowed)
+            .unwrap();
+
+        assert_eq!(owned_target.pixels(), borrowed.pixels());
+        assert_eq!(owned_target.depths(), borrowed.depths());
     }
 
     #[test]

@@ -22,13 +22,13 @@ use abrash_core::fixed16_16::Fixed16_16;
 use abrash_core::framebuffer::Framebuffer;
 use abrash_core::zbuffer::ZBuffer;
 
-use abrash_raycast::bsp::{BspMap, BspSector, BspSeg};
-use abrash_raycast::bsp_clip::{
+use crate::bsp::{BspMap, BspSector, BspSeg};
+use crate::bsp_clip::{
     ColumnClip, angle_to_column, clip_seg_angles, point_to_angle, projection_distance,
     seg_perpendicular_distance, wall_scale_at_column,
 };
-use abrash_raycast::bsp_visplane::VisplaneAllocator;
-use abrash_raycast::types::Vec2Fixed;
+use crate::bsp_visplane::VisplaneAllocator;
+use crate::types::Vec2Fixed;
 
 use super::bsp_lighting::{BspTextures, colormap_index};
 
@@ -208,8 +208,7 @@ fn compute_texture_col(
 
     let dx = seg.v2.x.to_f32() - seg.v1.x.to_f32();
     let dy = seg.v2.y.to_f32() - seg.v1.y.to_f32();
-    #[allow(clippy::imprecise_flops)]
-    let seg_len = (dx * dx + dy * dy).sqrt();
+    let seg_len = dx.mul_add(dx, dy * dy).sqrt();
 
     // Vector from camera to seg v1
     let cx = seg.v1.x.to_f32() - camera_pos.x.to_f32();
@@ -797,8 +796,8 @@ mod tests {
     // render_bsp_view integration tests
     // -----------------------------------------------------------------------
 
+    use crate::bsp::{BspMap, BspSector, BspSeg};
     use abrash_core::bam::{ANG90, ANG180, ANG270};
-    use abrash_raycast::bsp::{BspMap, BspSector, BspSeg};
 
     /// Integration BSP map: a single 512x512 room with 4 solid walls.
     struct IntegrationBspMap {

@@ -1,7 +1,7 @@
 # ADR 005: Engine Product Definition
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 
@@ -24,8 +24,8 @@ pixel buffers. It is NOT a windowing system, game engine, or GPU abstraction lay
 1. **Offscreen Render-to-Buffer**: Caller owns the Framebuffer. Engine renders into it.
    No windowing, no event loop, no platform code. This is the primary embed mode.
 
-2. **Engine-Owned Viewport**: Engine creates a window and manages the event loop.
-   Caller submits frames via the Renderer trait. Used for standalone demos.
+2. **Engine-Owned Viewport**: The root `abrash` host/demo crate creates a window or TUI host
+   and manages the event loop. Used for standalone demos and local experiments.
 
 3. **Benchmark/Headless**: Offscreen mode with no display. Used for criterion benchmarks
    and CI validation. No platform dependencies.
@@ -49,3 +49,4 @@ If an external adapter needs to import anything from `abrash::platform`, the API
 - External consumers depend only on abrash-core (types) and abrash-render (trait + CPU impl)
 - Nova/experimental effects fold into `post_process` module or stay behind `nova` feature flag —
   no separate crate needed
+- `embed-demo` is the reference integration for caller-owned pixel/depth buffers

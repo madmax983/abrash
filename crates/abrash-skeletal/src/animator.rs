@@ -102,15 +102,21 @@ impl SkeletonAnimator {
             .local_transforms
             .clone_from(&self.bind_pose.local_transforms);
 
-        for (i, animator) in self.bone_animators.iter_mut().enumerate() {
+        // ⚡ Bolt: Chaining `.zip()` on the iterators instead of indexing via `[i]`
+        // allows the compiler to mathematically prove safety and elide all inner-loop bounds checks.
+        let iter = self
+            .bone_animators
+            .iter_mut()
+            .zip(self.current_pose.local_transforms.iter_mut());
+        for (animator, transform) in iter {
             if let Some(ref mut tl) = animator.position {
-                self.current_pose.local_transforms[i].position = tl.tick(dt).value;
+                transform.position = tl.tick(dt).value;
             }
             if let Some(ref mut tl) = animator.rotation {
-                self.current_pose.local_transforms[i].rotation = tl.tick(dt).value;
+                transform.rotation = tl.tick(dt).value;
             }
             if let Some(ref mut tl) = animator.scale {
-                self.current_pose.local_transforms[i].scale = tl.tick(dt).value;
+                transform.scale = tl.tick(dt).value;
             }
         }
     }

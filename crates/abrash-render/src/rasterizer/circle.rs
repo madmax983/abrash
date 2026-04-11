@@ -44,7 +44,7 @@ use crate::framebuffer::Framebuffer;
 /// * `radius` - Radius of the circle.
 /// * `color` - 0xAARRGGBB color value.
 pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u32) {
-    if radius <= 0 {
+    if radius <= 0 || radius > 16384 {
         return;
     }
 
@@ -113,14 +113,14 @@ fn draw_circle_points_unchecked(
 
 #[inline(always)]
 fn draw_circle_points(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
-    fb.set_pixel(xc.saturating_add(x), yc.saturating_add(y), color);
-    fb.set_pixel(xc.saturating_sub(x), yc.saturating_add(y), color);
-    fb.set_pixel(xc.saturating_add(x), yc.saturating_sub(y), color);
-    fb.set_pixel(xc.saturating_sub(x), yc.saturating_sub(y), color);
-    fb.set_pixel(xc.saturating_add(y), yc.saturating_add(x), color);
-    fb.set_pixel(xc.saturating_sub(y), yc.saturating_add(x), color);
-    fb.set_pixel(xc.saturating_add(y), yc.saturating_sub(x), color);
-    fb.set_pixel(xc.saturating_sub(y), yc.saturating_sub(x), color);
+    fb.set_pixel(xc + x, yc + y, color);
+    fb.set_pixel(xc - x, yc + y, color);
+    fb.set_pixel(xc + x, yc - y, color);
+    fb.set_pixel(xc - x, yc - y, color);
+    fb.set_pixel(xc + y, yc + x, color);
+    fb.set_pixel(xc - y, yc + x, color);
+    fb.set_pixel(xc + y, yc - x, color);
+    fb.set_pixel(xc - y, yc - x, color);
 }
 
 /// Draw a solid, filled circle using Bresenham's algorithm.
@@ -162,7 +162,7 @@ fn draw_circle_points(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, co
 /// * `radius` - Radius of the circle.
 /// * `color` - 0xAARRGGBB color value.
 pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u32) {
-    if radius <= 0 {
+    if radius <= 0 || radius > 16384 {
         return;
     }
 
@@ -181,73 +181,53 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     }
 
     if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
-        fill_circle_lines_unchecked(fb, xc, yc, x, y, color);
+        draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
+        draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
+        draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
+        // yc - x is identical to yc + x when x = 0
+
         while y >= x {
             x += 1;
+
+            // The rows at yc+x and yc-x are always new scanlines when x increments
+            draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
+            draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc - x, color);
+
             if d > 0 {
+                // If y is changing, the PREVIOUS y has reached its maximum x width.
+                // We draw the scanlines for yc+y and yc-y with the maximum x reached (x-1).
+                draw_horizontal_line_unchecked(fb, xc - (x - 1), xc + (x - 1), yc + y, color);
+                draw_horizontal_line_unchecked(fb, xc - (x - 1), xc + (x - 1), yc - y, color);
                 y -= 1;
                 d = d + 4 * (x - y) + 10;
             } else {
                 d = d + 4 * x + 6;
             }
-            fill_circle_lines_unchecked(fb, xc, yc, x, y, color);
         }
     } else {
         // Safe path: clip against screen bounds
-        fill_circle_lines(fb, xc, yc, x, y, color);
+        draw_horizontal_line(fb, xc - x, xc + x, yc + y, color);
+        draw_horizontal_line(fb, xc - x, xc + x, yc - y, color);
+        draw_horizontal_line(fb, xc - y, xc + y, yc + x, color);
+        // yc - x is identical to yc + x when x = 0
+
         while y >= x {
             x += 1;
+
+            draw_horizontal_line(fb, xc - y, xc + y, yc + x, color);
+            draw_horizontal_line(fb, xc - y, xc + y, yc - x, color);
+
             if d > 0 {
+                let max_x_for_y = x - 1;
+                draw_horizontal_line(fb, xc - max_x_for_y, xc + max_x_for_y, yc + y, color);
+                draw_horizontal_line(fb, xc - max_x_for_y, xc + max_x_for_y, yc - y, color);
                 y -= 1;
                 d = d + 4 * (x - y) + 10;
             } else {
                 d = d + 4 * x + 6;
             }
-            fill_circle_lines(fb, xc, yc, x, y, color);
         }
     }
-}
-
-#[inline(always)]
-fn fill_circle_lines_unchecked(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
-    draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
-    draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
-    draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
-    draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc - x, color);
-}
-
-#[inline(always)]
-fn fill_circle_lines(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
-    // For a filled circle, we draw horizontal lines connecting the left and right points
-    // for each pair of symmetrical y-coordinates.
-    draw_horizontal_line(
-        fb,
-        xc.saturating_sub(x),
-        xc.saturating_add(x),
-        yc.saturating_add(y),
-        color,
-    );
-    draw_horizontal_line(
-        fb,
-        xc.saturating_sub(x),
-        xc.saturating_add(x),
-        yc.saturating_sub(y),
-        color,
-    );
-    draw_horizontal_line(
-        fb,
-        xc.saturating_sub(y),
-        xc.saturating_add(y),
-        yc.saturating_add(x),
-        color,
-    );
-    draw_horizontal_line(
-        fb,
-        xc.saturating_sub(y),
-        xc.saturating_add(y),
-        yc.saturating_sub(x),
-        color,
-    );
 }
 
 #[inline(always)]
@@ -347,5 +327,18 @@ mod tests {
         // i32::MAX overflow test. Should not crash or use unsafe unchecked set.
         draw_circle(&mut fb, i32::MAX - 5, 50, 10, 0xFFFFFFFF);
         fill_circle(&mut fb, i32::MAX - 5, 50, 10, 0xFFFFFFFF);
+    }
+
+    #[test]
+    fn test_circle_radius_too_large() {
+        let mut fb = Framebuffer::new(100, 100).unwrap();
+        // Radius greater than 16384 should exit early without panicking or overflowing
+        draw_circle(&mut fb, 50, 50, 16385, 0xFFFFFFFF);
+        fill_circle(&mut fb, 50, 50, 16385, 0xFFFFFFFF);
+        // Test with massive values
+        draw_circle(&mut fb, 50, 50, i32::MAX / 2 + 2, 0xFFFFFFFF);
+        fill_circle(&mut fb, 50, 50, i32::MAX / 2 + 2, 0xFFFFFFFF);
+        draw_circle(&mut fb, 50, 50, i32::MAX, 0xFFFFFFFF);
+        fill_circle(&mut fb, 50, 50, i32::MAX, 0xFFFFFFFF);
     }
 }

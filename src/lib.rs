@@ -6,10 +6,20 @@
     unsafe_op_in_unsafe_fn,
     unused_mut
 )]
-//! # Abrash - A Software Rasterizer in Rust
+//! # Abrash Workspace Facade
 //!
-//! Abrash is a high-performance software rasterizer built for educational purposes and retro-style rendering.
-//! It implements a complete 3D graphics pipeline from scratch, including:
+//! `abrash` is the top-level facade crate for the Abrash workspace.
+//! The engine surfaces live one layer down:
+//!
+//! * [`abrash_render::render_api`] via [`render_api`]: headless render API for embedded/offscreen use
+//! * `abrash-core` re-export modules like [`math`], [`framebuffer`], and [`zbuffer`]: foundational types/utilities
+//! * [`platform`] (only when a backend feature is enabled): host/demo windowing and presentation glue
+//!
+//! If you want to embed Abrash into another application, prefer depending on
+//! `abrash-render` and `abrash-core` directly. This crate remains useful as the
+//! host/demo/meta surface that re-exports the workspace from one place.
+//!
+//! Abrash implements a complete 3D graphics pipeline from scratch, including:
 //!
 //! *   **Vertex Processing**: Transformations, Clipping, and Projection.
 //! *   **Rasterization**: Scanline-based triangle filling with perspective-correct texture mapping.
@@ -28,7 +38,7 @@
 //!
 //! ## Getting Started
 //!
-//! Here is a minimal working example of a render loop:
+//! Here is a minimal software-raster example using the re-exported core modules:
 //!
 //! ```
 //! use abrash::framebuffer::Framebuffer;
@@ -73,12 +83,18 @@
 //! // Arguments: Framebuffer, ZBuffer, Vertex0, Vertex1, Vertex2, Color (ARGB)
 //! fill_triangle_3d(&mut fb, &mut zb, v0_clip, v1_clip, v2_clip, 0xFFFF0000);
 //!
-//! // 4. Display Framebuffer
-//! // (Platform-specific windowing code goes here)
+//! // 4. Present or export the framebuffer
+//! // (Host-specific windowing code goes here, or use abrash-render/embed-demo for offscreen embedding)
 //! // For verification, check that the center pixel is red:
 //! let center_pixel = fb.get_pixel(400, 300);
 //! assert_eq!(center_pixel, Some(0xFFFF0000));
 //! ```
+//!
+//! ## Crate Surfaces
+//!
+//! * [`render_api`]: stable embed/offscreen API surface
+//! * [`rasterizer`]: algorithm-level software rendering entry points
+//! * [`platform`]: optional host backends, only available with `backend-*` features
 //!
 //! ## Key Modules
 //!
@@ -134,16 +150,21 @@ pub use abrash_anim as anim;
 // Skeletal animation — re-exported from abrash-skeletal.
 pub use abrash_skeletal as skeletal;
 
+#[cfg(any(
+    feature = "backend-winit",
+    feature = "backend-tui",
+    feature = "backend-wasm"
+))]
 pub mod platform;
 
 // Re-export rendering modules from abrash-render.
+pub use abrash_raycast::renderer as raycaster;
 pub use abrash_render::ascii;
 pub use abrash_render::heat_vision;
 pub use abrash_render::particles;
 pub use abrash_render::post_process;
 pub use abrash_render::procedural;
 pub use abrash_render::rasterizer;
-pub use abrash_render::raycaster;
 pub use abrash_render::render_api;
 pub use abrash_render::scene;
 pub use abrash_render::skybox;
