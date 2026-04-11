@@ -739,3 +739,8 @@ required-features = ["nova"]
 name = "jelly_bench"
 harness = false
 required-features = ["nova"]
+
+[[example]]
+name = "doom_fire_demo"
+path = "examples/doom_fire_demo.rs"
+required-features = ["nova"]

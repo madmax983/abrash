@@ -224,3 +224,8 @@
 **Concept:** A retro post-processing effect that simulates falling characters or "digital rain" (akin to the Matrix). It maintains a persistent state of drop heads and speeds, leaving a fading trail by continuously dimming the framebuffer each frame.
 **Fate:** Implemented
 **Lesson:** Storing minimal state (just the Y position of the "head" of each column) and applying a fast, simple RGB dimming pass over the entire framebuffer each frame effortlessly creates a complex-looking trail effect. It avoids the need to explicitly render the entire tail or manage complex string allocations, proving that simple pixel math often trumps complex data structures for visual flair.
+
+## [DOOM Fire Simulation]
+**Concept:** A retro post-processing/simulation effect replicating the classic 37-color DOOM fire algorithm using a 1D state array, a custom PRNG, and an indexed palette.
+**Fate:** Implemented
+**Lesson:** Using a 1D state array mapped to a custom palette efficiently reproduces the classic DOOM fire aesthetic. The effect is simple to compute and scale, making it a fast and visually striking addition to the experimental effects library.
