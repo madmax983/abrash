@@ -431,21 +431,24 @@ fn topological_sort_joints(joints: &[ProvisionalJointData]) -> Vec<usize> {
         }
     }
 
+    // ⚡ Bolt: Kahn's algorithm for topological sorting does not require a FIFO queue.
+    // Using a LIFO stack (via `.push()` and `.pop()` on a `Vec`) is equally valid and
+    // completely eliminates the ring-buffer allocation overhead, improving cache locality.
     // Start with roots (in_degree == 0)
-    let mut queue: std::collections::VecDeque<usize> = std::collections::VecDeque::new();
+    let mut stack: Vec<usize> = Vec::new();
     for (i, &deg) in in_degree.iter().enumerate() {
         if deg == 0 {
-            queue.push_back(i);
+            stack.push(i);
         }
     }
 
     let mut sorted = Vec::with_capacity(n);
-    while let Some(idx) = queue.pop_front() {
+    while let Some(idx) = stack.pop() {
         sorted.push(idx);
         for &child in &children[idx] {
             in_degree[child] -= 1;
             if in_degree[child] == 0 {
-                queue.push_back(child);
+                stack.push(child);
             }
         }
     }
