@@ -43,6 +43,9 @@ use crate::framebuffer::Framebuffer;
 /// * `xc`, `yc` - Center coordinates of the circle.
 /// * `radius` - Radius of the circle.
 /// * `color` - 0xAARRGGBB color value.
+///
+/// # Panics
+/// Panics if computing Bresenham's decision variable overflows `i32`.
 pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u32) {
     if radius <= 0 || radius > 16384 {
         return;
@@ -50,7 +53,15 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
     let mut x = 0;
     let mut y = radius;
-    let mut d = 3 - 2 * radius;
+    let mut d = 2_i32.checked_mul(radius).map_or_else(
+        || panic!("Circle drawing integer overflow"),
+        |val| {
+            3_i32.checked_sub(val).map_or_else(
+                || panic!("Circle drawing integer overflow"),
+                |d_val| d_val,
+            )
+        },
+    );
 
     // Fast path: fully on screen
     let min_x = i64::from(xc) - i64::from(radius);
@@ -161,6 +172,9 @@ fn draw_circle_points(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, co
 /// * `xc`, `yc` - Center coordinates of the circle.
 /// * `radius` - Radius of the circle.
 /// * `color` - 0xAARRGGBB color value.
+///
+/// # Panics
+/// Panics if computing Bresenham's decision variable overflows `i32`.
 pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u32) {
     if radius <= 0 || radius > 16384 {
         return;
@@ -168,7 +182,15 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
     let mut x = 0;
     let mut y = radius;
-    let mut d = 3 - 2 * radius;
+    let mut d = 2_i32.checked_mul(radius).map_or_else(
+        || panic!("Circle drawing integer overflow"),
+        |val| {
+            3_i32.checked_sub(val).map_or_else(
+                || panic!("Circle drawing integer overflow"),
+                |d_val| d_val,
+            )
+        },
+    );
 
     // Fast path: fully on screen
     let min_x = i64::from(xc) - i64::from(radius);
