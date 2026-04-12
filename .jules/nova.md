@@ -224,3 +224,8 @@
 **Concept:** A retro post-processing effect that simulates falling characters or "digital rain" (akin to the Matrix). It maintains a persistent state of drop heads and speeds, leaving a fading trail by continuously dimming the framebuffer each frame.
 **Fate:** Implemented
 **Lesson:** Storing minimal state (just the Y position of the "head" of each column) and applying a fast, simple RGB dimming pass over the entire framebuffer each frame effortlessly creates a complex-looking trail effect. It avoids the need to explicitly render the entire tail or manage complex string allocations, proving that simple pixel math often trumps complex data structures for visual flair.
+
+## [Color Splash]
+**Concept:** A selective color post-processing effect that converts the image to grayscale while preserving a specific target color (and colors within a certain tolerance).
+**Fate:** Implemented
+**Lesson:** Using simple Euclidean distance in RGB space to calculate "chrominance" similarity is very fast. Calculating distance squared avoids expensive square root operations in the inner loop, and adding a feathering range allows for smooth transitions between the preserved color and grayscale.
