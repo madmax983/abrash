@@ -353,7 +353,12 @@ impl GpuRenderer {
 
         let mut rgba = Vec::with_capacity(texture.pixels.len() * 4);
         for &argb in &texture.pixels {
-            let bytes = [((argb >> 16) & 0xFF) as u8, ((argb >> 8) & 0xFF) as u8, (argb & 0xFF) as u8, ((argb >> 24) & 0xFF) as u8];
+            let bytes = [
+                ((argb >> 16) & 0xFF) as u8,
+                ((argb >> 8) & 0xFF) as u8,
+                (argb & 0xFF) as u8,
+                ((argb >> 24) & 0xFF) as u8,
+            ];
             rgba.extend_from_slice(&bytes);
         }
 
@@ -1142,9 +1147,10 @@ impl GpuRenderer {
             return;
         };
 
-        // Build TLAS from all draw instances
+        // Build TLAS from all draw instances.
+        // Pre-allocate the exact required capacity to avoid dynamic per-frame heap allocations.
         let mut instances: Vec<(&crate::accel_structure::MeshBlas, &abrash_core::math::Mat4)> =
-            Vec::new();
+            Vec::with_capacity(prepared_draws.len());
 
         for draw in prepared_draws {
             if let Some(Some(blas)) = self.mesh_blas.get(draw.mesh_index) {

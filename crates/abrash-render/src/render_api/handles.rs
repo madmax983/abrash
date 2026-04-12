@@ -164,6 +164,17 @@ impl<T> ResourcePool<T> {
         }
     }
 
+    /// Create a new empty resource pool with a pre-allocated capacity.
+    /// This eliminates multiple dynamic heap allocations when populating
+    /// the pool initially, providing a measurable boot/load speedup.
+    #[must_use]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            entries: Vec::with_capacity(capacity),
+            free_list: Vec::new(),
+        }
+    }
+
     /// Insert a resource and return its handle.
     pub fn insert(&mut self, value: T) -> Handle<T> {
         if let Some(index) = self.free_list.pop() {
