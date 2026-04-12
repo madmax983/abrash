@@ -370,7 +370,7 @@ use rayon::iter::IndexedParallelIterator;
 
 #[doc(hidden)]
 pub struct PreparedGouraudTrianglesList {
-    tris: [MaybeUninit<PreparedGouraudTriangle>; 8],
+    pub tris: [MaybeUninit<PreparedGouraudTriangle>; 8],
     count: usize,
 }
 
@@ -428,7 +428,7 @@ impl Iterator for PreparedGouraudTrianglesIter {
 }
 
 pub struct PreparedTrianglesList {
-    tris: [MaybeUninit<PreparedTriangle>; 8],
+    pub tris: [MaybeUninit<PreparedTriangle>; 8],
     count: usize,
 }
 
@@ -528,7 +528,7 @@ impl Iterator for PreparedTrianglesIter {
 }
 
 pub struct PreparedTexturedTrianglesList {
-    tris: [MaybeUninit<PreparedTexturedTriangle>; 8],
+    pub tris: [MaybeUninit<PreparedTexturedTriangle>; 8],
     count: usize,
 }
 

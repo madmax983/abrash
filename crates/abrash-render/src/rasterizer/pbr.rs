@@ -388,7 +388,7 @@ pub fn fill_triangle_pbr(
         ao,
     };
 
-    for i in 0..clipped.count {
+    for i in 0..clipped.count() {
         let base = i * 3;
         let v0 = clipped[base];
         let v1 = clipped[base + 1];
