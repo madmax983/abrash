@@ -50,7 +50,7 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
     let mut x = 0;
     let mut y = radius;
-    let mut d = 3 - 2 * radius;
+    let mut d = 3_i32.saturating_sub(2_i32.saturating_mul(radius));
 
     // Fast path: fully on screen
     let min_x = i64::from(xc) - i64::from(radius);
@@ -68,9 +68,11 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
             x += 1;
             if d > 0 {
                 y -= 1;
-                d = d + 4 * (x - y) + 10;
+                d = d
+                    .saturating_add(4_i32.saturating_mul(x.saturating_sub(y)))
+                    .saturating_add(10);
             } else {
-                d = d + 4 * x + 6;
+                d = d.saturating_add(4_i32.saturating_mul(x)).saturating_add(6);
             }
             draw_circle_points_unchecked(fb, xc, yc, x, y, color);
         }
@@ -81,9 +83,11 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
             x += 1;
             if d > 0 {
                 y -= 1;
-                d = d + 4 * (x - y) + 10;
+                d = d
+                    .saturating_add(4_i32.saturating_mul(x.saturating_sub(y)))
+                    .saturating_add(10);
             } else {
-                d = d + 4 * x + 6;
+                d = d.saturating_add(4_i32.saturating_mul(x)).saturating_add(6);
             }
             draw_circle_points(fb, xc, yc, x, y, color);
         }
@@ -168,7 +172,7 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
     let mut x = 0;
     let mut y = radius;
-    let mut d = 3 - 2 * radius;
+    let mut d = 3_i32.saturating_sub(2_i32.saturating_mul(radius));
 
     // Fast path: fully on screen
     let min_x = i64::from(xc) - i64::from(radius);
@@ -191,9 +195,11 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
             if d > 0 {
                 y -= 1;
-                d = d + 4 * (x - y) + 10;
+                d = d
+                    .saturating_add(4_i32.saturating_mul(x.saturating_sub(y)))
+                    .saturating_add(10);
             } else {
-                d = d + 4 * x + 6;
+                d = d.saturating_add(4_i32.saturating_mul(x)).saturating_add(6);
             }
 
             if y != last_y {
@@ -218,9 +224,11 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
             if d > 0 {
                 y -= 1;
-                d = d + 4 * (x - y) + 10;
+                d = d
+                    .saturating_add(4_i32.saturating_mul(x.saturating_sub(y)))
+                    .saturating_add(10);
             } else {
-                d = d + 4 * x + 6;
+                d = d.saturating_add(4_i32.saturating_mul(x)).saturating_add(6);
             }
 
             if y != last_y {
