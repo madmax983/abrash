@@ -85,11 +85,11 @@ impl ZBuffer {
             y2_i64 as i32
         };
 
-        let start_x = x1.clamp(0, self.width as i32) as u32;
-        let start_y = y1.clamp(0, self.height as i32) as u32;
+        let start_x = x1.max(0).min(self.width as i32) as u32;
+        let start_y = y1.max(0).min(self.height as i32) as u32;
 
-        let end_x = x2.clamp(0, self.width as i32) as u32;
-        let end_y = y2.clamp(0, self.height as i32) as u32;
+        let end_x = x2.max(0).min(self.width as i32) as u32;
+        let end_y = y2.max(0).min(self.height as i32) as u32;
 
         if start_x >= end_x || start_y >= end_y {
             return;
