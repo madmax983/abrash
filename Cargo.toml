@@ -739,3 +739,8 @@ required-features = ["nova"]
 name = "jelly_bench"
 harness = false
 required-features = ["nova"]
+
+[[example]]
+name = "selective_color_demo"
+path = "examples/selective_color_demo.rs"
+required-features = ["nova"]

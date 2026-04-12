@@ -224,3 +224,8 @@
 **Concept:** A retro post-processing effect that simulates falling characters or "digital rain" (akin to the Matrix). It maintains a persistent state of drop heads and speeds, leaving a fading trail by continuously dimming the framebuffer each frame.
 **Fate:** Implemented
 **Lesson:** Storing minimal state (just the Y position of the "head" of each column) and applying a fast, simple RGB dimming pass over the entire framebuffer each frame effortlessly creates a complex-looking trail effect. It avoids the need to explicitly render the entire tail or manage complex string allocations, proving that simple pixel math often trumps complex data structures for visual flair.
+
+## [Selective Color Filter]
+**Concept:** A post-processing effect that converts the image to grayscale, except for pixels that match a specific target hue. Useful for emphasizing certain objects or colors (e.g., Sin City style).
+**Fate:** Implemented
+**Lesson:** Using the HSV color space makes it trivial to calculate angular differences in hue to isolate specific color ranges, allowing for a highly stylistic selective color effect without complex masking. Operating in-place using Rayon provides excellent performance over the framebuffer.
