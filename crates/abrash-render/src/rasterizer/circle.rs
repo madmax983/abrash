@@ -113,14 +113,14 @@ fn draw_circle_points_unchecked(
 
 #[inline(always)]
 fn draw_circle_points(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
-    fb.set_pixel(xc + x, yc + y, color);
-    fb.set_pixel(xc - x, yc + y, color);
-    fb.set_pixel(xc + x, yc - y, color);
-    fb.set_pixel(xc - x, yc - y, color);
-    fb.set_pixel(xc + y, yc + x, color);
-    fb.set_pixel(xc - y, yc + x, color);
-    fb.set_pixel(xc + y, yc - x, color);
-    fb.set_pixel(xc - y, yc - x, color);
+    fb.set_pixel(xc.saturating_add(x), yc.saturating_add(y), color);
+    fb.set_pixel(xc.saturating_sub(x), yc.saturating_add(y), color);
+    fb.set_pixel(xc.saturating_add(x), yc.saturating_sub(y), color);
+    fb.set_pixel(xc.saturating_sub(x), yc.saturating_sub(y), color);
+    fb.set_pixel(xc.saturating_add(y), yc.saturating_add(x), color);
+    fb.set_pixel(xc.saturating_sub(y), yc.saturating_add(x), color);
+    fb.set_pixel(xc.saturating_add(y), yc.saturating_sub(x), color);
+    fb.set_pixel(xc.saturating_sub(y), yc.saturating_sub(x), color);
 }
 
 /// Draw a solid, filled circle using Bresenham's algorithm.
@@ -211,9 +211,9 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     } else {
         // Safe path: clip against screen bounds
         while y >= x {
-            draw_horizontal_line(fb, xc - y, xc + y, yc + x, color);
+            draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_add(x), color);
             if x > 0 {
-                draw_horizontal_line(fb, xc - y, xc + y, yc - x, color);
+                draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_sub(x), color);
             }
 
             if d > 0 {
@@ -225,9 +225,9 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
             if y != last_y {
                 if last_y > x {
-                    draw_horizontal_line(fb, xc - x, xc + x, yc + last_y, color);
+                    draw_horizontal_line(fb, xc.saturating_sub(x), xc.saturating_add(x), yc.saturating_add(last_y), color);
                     if last_y > 0 {
-                        draw_horizontal_line(fb, xc - x, xc + x, yc - last_y, color);
+                        draw_horizontal_line(fb, xc.saturating_sub(x), xc.saturating_add(x), yc.saturating_sub(last_y), color);
                     }
                 }
                 last_y = y;
