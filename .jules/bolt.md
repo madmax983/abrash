@@ -279,3 +279,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Replace consecutive Vec::push calls with extend_from_slice]**
 **Learning:** In hot pixel conversion loops (e.g., converting 0xAARRGGBB to RGBA bytes for wgpu), calling `.push()` sequentially for each channel incurs bounds/capacity checking overhead per byte and inhibits compiler optimizations.
 **Action:** Replaced four consecutive `.push()` calls with a stack-allocated byte array `let bytes = [r, g, b, a];` followed by `.extend_from_slice(&bytes)`. This eliminates bounds checks and allows the compiler (LLVM) to vectorize or unroll the memory copy. Implemented in `abrash-gpu-render` (`blitter.rs`, `renderer.rs`, `environment.rs`).
+**[Iterating over GPU readback buffer view directly]**
+**Learning:** When reading back mapped GPU memory (e.g., `wgpu::BufferView`), calling `.to_vec()` creates a dynamic heap allocation and a full memory copy of the buffer. For a 1080p frame, this is an unnecessary ~8MB allocation per frame.
+**Action:** Iterate directly over the mapped buffer view slice instead of calling `.to_vec()`. Ensure that `drop(data)` is called only after finishing the iteration, but before calling `.unmap()` on the buffer to satisfy wgpu lifetime requirements.
