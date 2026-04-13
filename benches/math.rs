@@ -1,5 +1,5 @@
 use abrash::color::Color;
-use abrash::curve::{CatmullRom, CubicBezier, bezier_cubic};
+use abrash::curve::{CatmullRom, CubicBezier};
 use abrash::easing::{
     bounce_out, cubic_in_out, elastic_out, expo_in_out, quint_in_out, sine_in_out,
 };
@@ -7,6 +7,7 @@ use abrash::geometry::AABB;
 use abrash::gradient::Gradient;
 use abrash::irect::IRect;
 use abrash::ivec::{IVec2, IVec3};
+use abrash::math::bezier_cubic;
 use abrash::math::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4, fast_atan2, lerp, smoothstep};
 use abrash::noise::{fbm_2d, gradient_noise_2d, value_noise_2d};
 use abrash::plane::Frustum;
