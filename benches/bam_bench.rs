@@ -1,5 +1,4 @@
 use abrash_core::bam::{ANG45, Bam};
-use abrash_core::math::fast_sin_cos;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bam_table_lookup(c: &mut Criterion) {
