@@ -121,7 +121,12 @@ impl DrawList {
     /// ⚡ Bolt: Create an empty draw list, pre-allocating the underlying vectors.
     /// This drastically reduces heap reallocations per frame when drawing many objects.
     #[must_use]
-    pub fn with_capacity(camera: FrameCamera, num_commands: usize, num_vertices: usize, num_lights: usize) -> Self {
+    pub fn with_capacity(
+        camera: FrameCamera,
+        num_commands: usize,
+        num_vertices: usize,
+        num_lights: usize,
+    ) -> Self {
         Self {
             camera,
             lights: Vec::with_capacity(num_lights),

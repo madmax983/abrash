@@ -229,3 +229,8 @@
 **Concept:** A retro fractal visualization post-processing or generative feature mapping the complex plane to pixel colors based on iteration depth in the Mandelbrot set.
 **Fate:** Implemented
 **Lesson:** Using `rayon` parallel closures avoids massive calculation delays for deep iterations on large framebuffers. By abstracting the core complex loop from the display projection, the fractal generation becomes simple, scalable, and independent of specific rendering constraints. A custom color palette improves aesthetics tremendously.
+
+## [Physarum Simulation]
+**Concept:** A generative post-processing or standalone feature simulating a Physarum (Slime Mold) network using thousands of agents that deposit chemical trails, sense the environment, and steer towards optimal paths, creating organic glowing patterns.
+**Fate:** Implemented
+**Lesson:** Using a direct translation of the standard Physarum algorithm with a 3x3 diffusion/decay blur works beautifully for real-time visualization. To prevent `rayon` borrowing conflicts when iterating agents and sensing the environment, storing indices or reading from the state directly (without holding mutable references) is required. The simulation gives an incredibly fluid, organic neon effect.

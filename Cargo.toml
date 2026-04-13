@@ -749,3 +749,8 @@ required-features = ["nova"]
 name = "mandelbrot_bench"
 harness = false
 required-features = ["nova"]
+
+[[example]]
+name = "physarum_demo"
+path = "examples/physarum_demo.rs"
+required-features = ["nova"]
