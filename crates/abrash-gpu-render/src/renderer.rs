@@ -1148,6 +1148,9 @@ impl GpuRenderer {
         };
 
         // Build TLAS from all draw instances
+        // Pre-allocating the instances vector with `prepared_draws.len()`
+        // eliminates dynamic heap reallocations during the hot path of
+        // per-frame Ray Tracing shadow pass generation, improving throughput.
         let mut instances: Vec<(&crate::accel_structure::MeshBlas, &abrash_core::math::Mat4)> =
             Vec::with_capacity(prepared_draws.len());
 
