@@ -443,6 +443,7 @@ fn run_tui_dashboard() -> Result<(), Box<dyn Error>> {
         let mut error_table = ComfyTable::new();
         error_table
             .load_preset(ComfyPresets::UTF8_FULL)
+            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
             .set_header(vec![
                 ComfyCell::new("❌ Application Error")
                     .add_attribute(comfy_table::Attribute::Bold)
@@ -462,6 +463,7 @@ fn print_demo_list() {
     let mut table = ComfyTable::new();
     table
         .load_preset(ComfyPresets::UTF8_BORDERS_ONLY)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             ComfyCell::new("Icon")
                 .add_attribute(comfy_table::Attribute::Bold)
@@ -762,6 +764,7 @@ fn print_launch_header(name: &str) {
     let mut table = ComfyTable::new();
     table
         .load_preset(ComfyPresets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             ComfyCell::new("🚀 Launching Demo")
                 .add_attribute(comfy_table::Attribute::Bold)
@@ -777,6 +780,7 @@ fn print_launch_success() {
     let mut success_table = ComfyTable::new();
     success_table
         .load_preset(ComfyPresets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             ComfyCell::new("✅ Demo Exited Successfully")
                 .add_attribute(comfy_table::Attribute::Bold)
@@ -791,6 +795,7 @@ fn print_launch_error(status: std::process::ExitStatus) {
     let mut error_table = ComfyTable::new();
     error_table
         .load_preset(ComfyPresets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             ComfyCell::new("❌ Demo Crashed")
                 .add_attribute(comfy_table::Attribute::Bold)

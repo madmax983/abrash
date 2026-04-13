@@ -38,6 +38,7 @@ fn main() {
             let mut error_table = Table::new();
             error_table
                 .load_preset(presets::UTF8_FULL)
+                .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
                 .set_header(vec![
                     Cell::new("❌ Mesh Error")
                         .add_attribute(comfy_table::Attribute::Bold)
@@ -52,6 +53,7 @@ fn main() {
     let mut mesh_table = Table::new();
     mesh_table
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Property").fg(Color::Cyan),
             Cell::new("Value").fg(Color::Cyan),
@@ -83,6 +85,7 @@ fn main() {
             let mut error_table = Table::new();
             error_table
                 .load_preset(presets::UTF8_FULL)
+                .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
                 .set_header(vec![
                     Cell::new("❌ Mesh Error")
                         .add_attribute(comfy_table::Attribute::Bold)
@@ -97,6 +100,7 @@ fn main() {
     let mut gpu_table = Table::new();
     gpu_table
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Buffer").fg(Color::Cyan),
             Cell::new("Count").fg(Color::Cyan),
@@ -133,6 +137,7 @@ fn main() {
         let mut error_table = Table::new();
         error_table
             .load_preset(presets::UTF8_FULL)
+            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
             .set_header(vec![
                 Cell::new("❌ GPU Error")
                     .add_attribute(comfy_table::Attribute::Bold)
