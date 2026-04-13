@@ -321,6 +321,34 @@ Keyboard: Interactive",
         instructions: "Mouse: None\nKeyboard: None",
         example_name: "melt_demo",
     },
+    Demo {
+        name: "Digital Rain",
+        category: DemoCategory::Simulation,
+        description: "Post-processing falling characters (Matrix style) effect",
+        instructions: "Mouse: None\nKeyboard: None",
+        example_name: "digital_rain_demo",
+    },
+    Demo {
+        name: "Frosted Glass",
+        category: DemoCategory::Simulation,
+        description: "Post-processing textured privacy glass effect",
+        instructions: "Mouse: None\nKeyboard: None",
+        example_name: "frosted_glass_demo",
+    },
+    Demo {
+        name: "Steganography",
+        category: DemoCategory::Simulation,
+        description: "Encodes and decodes a hidden message in a Plasma framebuffer",
+        instructions: "Mouse: None\nKeyboard: Close window to exit",
+        example_name: "steganography_demo",
+    },
+    Demo {
+        name: "Reaction-Diffusion",
+        category: DemoCategory::Simulation,
+        description: "Simulates Gray-Scott Turing patterns over time",
+        instructions: "Mouse: Click to add drops\nKeyboard: Space to clear, C to reset",
+        example_name: "reaction_diffusion_demo",
+    },
 ];
 
 fn is_gpu_render_example(example_name: &str) -> bool {
@@ -350,6 +378,10 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "halftone_demo"
         || example_name == "arboretum_cli"
         || example_name == "melt_demo"
+        || example_name == "digital_rain_demo"
+        || example_name == "frosted_glass_demo"
+        || example_name == "steganography_demo"
+        || example_name == "reaction_diffusion_demo"
 }
 
 fn build_demo_command_args(example_name: &str, use_tui_backend: bool) -> Vec<String> {

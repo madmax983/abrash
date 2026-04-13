@@ -241,7 +241,7 @@ impl Scene {
                 }
             }
 
-            let mut draw_list = DrawList::with_capacity(camera, visible_count, total_vertices);
+            let mut draw_list = DrawList::with_capacity(camera, visible_count, total_vertices, 0);
 
             for (i, obj) in self.objects.iter().enumerate() {
                 if !cull_results[i] {
