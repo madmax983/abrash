@@ -82,7 +82,7 @@ pub fn create_explosion(
 
                     // Calculate direction from center
                     // Add some small randomness to avoid perfectly uniform lines
-                    let dir = (pos - center).normalize();
+                    let dir = (pos - center).fast_normalize();
 
                     // Random offset to velocity
                     let rand_vec = Vec3::new(
@@ -91,7 +91,7 @@ pub fn create_explosion(
                         rng.next_f32_signed(),
                     ) * config.randomness;
 
-                    let velocity = (dir + rand_vec).normalize() * config.speed;
+                    let velocity = (dir + rand_vec).fast_normalize() * config.speed;
 
                     // Add particle manually
                     // We bypass the emitter logic since this is a one-shot burst.

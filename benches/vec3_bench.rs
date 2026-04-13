@@ -12,6 +12,10 @@ fn bench_vec3_ops(c: &mut Criterion) {
     });
 
     c.bench_function("vec3_normalize", |b| b.iter(|| black_box(v1).normalize()));
+
+    c.bench_function("vec3_fast_normalize", |b| {
+        b.iter(|| black_box(v1).fast_normalize());
+    });
 }
 
 criterion_group!(benches, bench_vec3_ops);

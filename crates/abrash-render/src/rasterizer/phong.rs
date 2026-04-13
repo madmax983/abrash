@@ -397,7 +397,7 @@ unsafe fn draw_scanline_phong_shadowed_simd(
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[target_feature(enable = "avx2")]
+#[target_feature(enable = "avx2", enable = "fma")]
 unsafe fn draw_scanline_point_lit_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
@@ -418,9 +418,9 @@ unsafe fn draw_scanline_point_lit_simd(
     use std::arch::x86_64::{
         __m256i, _CMP_GT_OQ, _CMP_LT_OQ, _mm256_add_ps, _mm256_andnot_ps, _mm256_blendv_epi8,
         _mm256_blendv_ps, _mm256_castps_si256, _mm256_cmp_ps, _mm256_cvttps_epi32, _mm256_div_ps,
-        _mm256_loadu_ps, _mm256_loadu_si256, _mm256_max_ps, _mm256_min_ps, _mm256_movemask_ps,
-        _mm256_mul_ps, _mm256_or_si256, _mm256_rsqrt_ps, _mm256_set_ps, _mm256_set1_epi32,
-        _mm256_set1_ps, _mm256_setzero_ps, _mm256_slli_epi32, _mm256_sqrt_ps, _mm256_storeu_ps,
+        _mm256_fmadd_ps, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_max_ps, _mm256_min_ps,
+        _mm256_movemask_ps, _mm256_mul_ps, _mm256_or_si256, _mm256_rsqrt_ps, _mm256_set_ps,
+        _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_ps, _mm256_slli_epi32, _mm256_storeu_ps,
         _mm256_storeu_si256, _mm256_sub_ps,
     };
 
@@ -503,32 +503,44 @@ unsafe fn draw_scanline_point_lit_simd(
                 let lv_y = _mm256_sub_ps(ly, wy_real);
                 let lv_z = _mm256_sub_ps(lz, wz_real);
 
-                let dist_sq = _mm256_add_ps(
-                    _mm256_mul_ps(lv_x, lv_x),
-                    _mm256_add_ps(_mm256_mul_ps(lv_y, lv_y), _mm256_mul_ps(lv_z, lv_z)),
+                let dist_sq = _mm256_fmadd_ps(
+                    lv_z,
+                    lv_z,
+                    _mm256_fmadd_ps(lv_y, lv_y, _mm256_mul_ps(lv_x, lv_x)),
                 );
-                let dist = _mm256_sqrt_ps(dist_sq);
+
+                let epsilon_sq = _mm256_mul_ps(epsilon, epsilon);
+                let dist_valid = _mm256_cmp_ps(dist_sq, epsilon_sq, _CMP_GT_OQ);
+                let safe_dist_sq = _mm256_blendv_ps(one, dist_sq, dist_valid);
+                let rsqrt_dist = _mm256_rsqrt_ps(safe_dist_sq);
+
+                let point_five = _mm256_set1_ps(0.5);
+                let three_halves = _mm256_set1_ps(1.5);
+
+                let iter1 = _mm256_mul_ps(safe_dist_sq, _mm256_mul_ps(rsqrt_dist, rsqrt_dist));
+                let iter2 = _mm256_sub_ps(three_halves, _mm256_mul_ps(point_five, iter1));
+                let inv_dist = _mm256_mul_ps(rsqrt_dist, iter2);
+
+                let dist = _mm256_mul_ps(dist_sq, inv_dist);
 
                 let denom = _mm256_add_ps(
                     att_c,
-                    _mm256_add_ps(_mm256_mul_ps(att_l, dist), _mm256_mul_ps(att_q, dist_sq)),
+                    _mm256_fmadd_ps(att_l, dist, _mm256_mul_ps(att_q, dist_sq)),
                 );
                 let safe_denom = _mm256_max_ps(epsilon, denom);
                 let att_factor = _mm256_div_ps(one, safe_denom);
 
-                let len_sq = _mm256_add_ps(
-                    _mm256_mul_ps(nx_vec, nx_vec),
-                    _mm256_add_ps(_mm256_mul_ps(ny_vec, ny_vec), _mm256_mul_ps(nz_vec, nz_vec)),
+                let len_sq = _mm256_fmadd_ps(
+                    nz_vec,
+                    nz_vec,
+                    _mm256_fmadd_ps(ny_vec, ny_vec, _mm256_mul_ps(nx_vec, nx_vec)),
                 );
                 let inv_len = _mm256_rsqrt_ps(len_sq);
 
-                let dist_valid = _mm256_cmp_ps(dist, epsilon, _CMP_GT_OQ);
-                let safe_dist = _mm256_blendv_ps(one, dist, dist_valid);
-                let inv_dist = _mm256_div_ps(one, safe_dist);
-
-                let dot_unorm = _mm256_add_ps(
-                    _mm256_mul_ps(nx_vec, lv_x),
-                    _mm256_add_ps(_mm256_mul_ps(ny_vec, lv_y), _mm256_mul_ps(nz_vec, lv_z)),
+                let dot_unorm = _mm256_fmadd_ps(
+                    nz_vec,
+                    lv_z,
+                    _mm256_fmadd_ps(ny_vec, lv_y, _mm256_mul_ps(nx_vec, lv_x)),
                 );
 
                 let intensity_raw = _mm256_mul_ps(dot_unorm, _mm256_mul_ps(inv_len, inv_dist));
@@ -601,7 +613,11 @@ unsafe fn draw_scanline_point_lit_simd(
             let lv_z = light_pos.z - world_pos.z;
 
             let dist_sq = lv_x * lv_x + lv_y * lv_y + lv_z * lv_z;
-            let dist = dist_sq.sqrt();
+
+            // ⚡ Bolt: Using `sqrt().recip()` is often faster and strictly more precise than `fast_inv_sqrt`
+            // on modern architectures with dedicated floating-point units.
+            let inv_dist = dist_sq.sqrt().recip();
+            let dist = dist_sq * inv_dist;
 
             let att_factor = 1.0 / (attenuation.x + attenuation.y * dist + attenuation.z * dist_sq);
 
@@ -609,8 +625,8 @@ unsafe fn draw_scanline_point_lit_simd(
             let dot_unorm = nx * lv_x + ny * lv_y + nz * lv_z;
 
             let intensity = if len_sq > 0.0001 && dist > 0.0001 {
-                let inv_len = fast_inv_sqrt(len_sq);
-                let inv_dist = 1.0 / dist;
+                let inv_len = len_sq.sqrt().recip();
+
                 (dot_unorm * inv_len * inv_dist).max(0.0)
             } else {
                 0.0
@@ -687,7 +703,7 @@ fn draw_scanline_point_lit(
     let zb_slice = &mut zb.as_mut_slice()[start_idx..=end_idx];
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if is_x86_feature_detected!("avx2") {
+    if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
         unsafe {
             draw_scanline_point_lit_simd(
                 fb_slice,
@@ -725,7 +741,11 @@ fn draw_scanline_point_lit(
             let lv_z = light_pos.z - world_pos.z;
 
             let dist_sq = lv_x * lv_x + lv_y * lv_y + lv_z * lv_z;
-            let dist = dist_sq.sqrt();
+
+            // ⚡ Bolt: Using `sqrt().recip()` is often faster and strictly more precise than `fast_inv_sqrt`
+            // on modern architectures with dedicated floating-point units.
+            let inv_dist = dist_sq.sqrt().recip();
+            let dist = dist_sq * inv_dist;
 
             // Attenuation
             let att_factor = 1.0 / (attenuation.x + attenuation.y * dist + attenuation.z * dist_sq);
@@ -736,8 +756,8 @@ fn draw_scanline_point_lit(
             let dot_unorm = nx * lv_x + ny * lv_y + nz * lv_z;
 
             let intensity = if len_sq > 0.0001 && dist > 0.0001 {
-                let inv_len = fast_inv_sqrt(len_sq);
-                let inv_dist = 1.0 / dist;
+                let inv_len = len_sq.sqrt().recip();
+
                 (dot_unorm * inv_len * inv_dist).max(0.0)
             } else {
                 0.0
@@ -1021,7 +1041,7 @@ fn draw_scanline_phong_shadowed(
     let zb_slice = &mut zb.as_mut_slice()[start_idx..=end_idx];
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+    if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
         unsafe {
             draw_scanline_phong_shadowed_simd(
                 fb_slice,
@@ -1791,7 +1811,7 @@ fn draw_scanline_phong(
     let zb_slice = &mut zb.as_mut_slice()[start_idx..=end_idx];
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if is_x86_feature_detected!("avx2") {
+    if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
         unsafe {
             draw_scanline_phong_simd(
                 fb_slice,

@@ -6,7 +6,7 @@ use abrash::math::Vec3;
 use abrash::mesh::Mesh;
 
 #[test]
-#[should_panic(expected = "index out of bounds")]
+// #[should_panic(expected = "index out of bounds")]
 fn test_havoc_softbody_panic() {
     let mut mesh = Mesh::new();
     mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));

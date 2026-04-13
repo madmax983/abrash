@@ -237,6 +237,6 @@ impl WindowApp for NormalMappingDemoApp {
 
 fn main() -> Result<(), AppError> {
     print_banner();
-    run_windowed(NormalMappingDemoApp::new()?)?;
+    run_windowed(NormalMappingDemoApp::new().unwrap());
     Ok(())
 }

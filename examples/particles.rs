@@ -259,6 +259,6 @@ impl WindowApp for ParticleDemoApp {
 fn main() -> Result<(), AppError> {
     let args = Args::parse();
     print_banner(&args);
-    run_windowed(ParticleDemoApp::new(&args)?)?;
+    run_windowed(ParticleDemoApp::new(&args).unwrap());
     Ok(())
 }

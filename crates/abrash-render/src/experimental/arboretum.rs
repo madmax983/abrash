@@ -149,7 +149,7 @@ impl LSystem {
                 rules_array[(*k as usize) & 127] = Some(v.as_bytes());
             }
             let mut current_bytes = self.axiom.as_bytes().to_vec();
-            let mut next_bytes = Vec::new();
+            let mut next_bytes = Vec::with_capacity(current_bytes.len() * 2);
             for _ in 0..iterations {
                 /// By moving `next_bytes` outside the loop, we can `clear` and `reserve` its capacity
                 /// and then use `std::mem::swap`. This double-buffering completely eliminates O(N)
@@ -217,6 +217,7 @@ impl LSystem {
 
         // Pre-flight check to count segments to avoid over-allocating memory for meshes
         // that only contain state commands (like '[', ']', '+', '-').
+        let max_stack_depth: usize = 10_000;
         let mut num_segments: usize = 0;
         let mut current_depth: usize = 0;
         let mut max_reached_depth: usize = 0;
@@ -225,17 +226,15 @@ impl LSystem {
                 num_segments += 1;
             } else if b == b'[' {
                 current_depth += 1;
+                if current_depth > max_stack_depth {
+                    return Err("L-system exceeded maximum stack depth".to_string());
+                }
                 if current_depth > max_reached_depth {
                     max_reached_depth = current_depth;
                 }
             } else if b == b']' {
                 current_depth = current_depth.saturating_sub(1);
             }
-        }
-
-        let max_stack_depth: usize = 100_000;
-        if max_reached_depth > max_stack_depth {
-            return Err("L-system exceeded maximum stack depth".to_string());
         }
 
         // Limit the capacities to prevent OOM
@@ -266,41 +265,43 @@ impl LSystem {
                 b'+' => {
                     // Yaw Left (around Up)
                     turtle.heading =
-                        rotate_vector(turtle.heading, turtle.up, self.angle).normalize();
-                    turtle.left = turtle.up.cross(turtle.heading).normalize();
+                        rotate_vector(turtle.heading, turtle.up, self.angle).fast_normalize();
+                    turtle.left = turtle.up.cross(turtle.heading).fast_normalize();
                 }
                 b'-' => {
                     // Yaw Right (around Up)
                     turtle.heading =
-                        rotate_vector(turtle.heading, turtle.up, -self.angle).normalize();
-                    turtle.left = turtle.up.cross(turtle.heading).normalize();
+                        rotate_vector(turtle.heading, turtle.up, -self.angle).fast_normalize();
+                    turtle.left = turtle.up.cross(turtle.heading).fast_normalize();
                 }
                 b'&' => {
                     // Pitch Down (around Left)
                     turtle.heading =
-                        rotate_vector(turtle.heading, turtle.left, self.angle).normalize();
-                    turtle.up = turtle.heading.cross(turtle.left).normalize();
+                        rotate_vector(turtle.heading, turtle.left, self.angle).fast_normalize();
+                    turtle.up = turtle.heading.cross(turtle.left).fast_normalize();
                 }
                 b'^' => {
                     // Pitch Up (around Left)
                     turtle.heading =
-                        rotate_vector(turtle.heading, turtle.left, -self.angle).normalize();
-                    turtle.up = turtle.heading.cross(turtle.left).normalize();
+                        rotate_vector(turtle.heading, turtle.left, -self.angle).fast_normalize();
+                    turtle.up = turtle.heading.cross(turtle.left).fast_normalize();
                 }
                 b'\\' => {
                     // Roll Left (around Heading)
-                    turtle.up = rotate_vector(turtle.up, turtle.heading, self.angle).normalize();
-                    turtle.left = turtle.up.cross(turtle.heading).normalize();
+                    turtle.up =
+                        rotate_vector(turtle.up, turtle.heading, self.angle).fast_normalize();
+                    turtle.left = turtle.up.cross(turtle.heading).fast_normalize();
                 }
                 b'/' => {
                     // Roll Right (around Heading)
-                    turtle.up = rotate_vector(turtle.up, turtle.heading, -self.angle).normalize();
-                    turtle.left = turtle.up.cross(turtle.heading).normalize();
+                    turtle.up =
+                        rotate_vector(turtle.up, turtle.heading, -self.angle).fast_normalize();
+                    turtle.left = turtle.up.cross(turtle.heading).fast_normalize();
                 }
                 b'|' => {
                     // Turn 180 (around Up)
-                    turtle.heading = rotate_vector(turtle.heading, turtle.up, PI).normalize();
-                    turtle.left = turtle.up.cross(turtle.heading).normalize();
+                    turtle.heading = rotate_vector(turtle.heading, turtle.up, PI).fast_normalize();
+                    turtle.left = turtle.up.cross(turtle.heading).fast_normalize();
                 }
                 b'[' => {
                     if stack.len() >= max_stack_depth {
@@ -358,10 +359,10 @@ impl LSystem {
         // But `Mesh` expects `normals` if we want lighting.
         // Let's add normals pointing away from the segment axis.
         for c in &corners {
-            mesh.normals.push(c.normalize());
+            mesh.normals.push(c.fast_normalize());
         }
         for c in &corners {
-            mesh.normals.push(c.normalize());
+            mesh.normals.push(c.fast_normalize());
         }
 
         // Indices (Triangles)

@@ -68,17 +68,12 @@ unsafe fn draw_scanline_flat_simd(
 
     // Scalar tail
     let mut z = z_start + (i as f32) * dz_dx;
-    while i < len {
-        // SAFETY: Bounds checked by slice length
-        unsafe {
-            let depth_val = zb_slice.get_unchecked_mut(i);
-            if z < *depth_val {
-                *depth_val = z;
-                *fb_slice.get_unchecked_mut(i) = color;
-            }
+    for (depth_val, pixel) in zb_slice[i..len].iter_mut().zip(fb_slice[i..len].iter_mut()) {
+        if z < *depth_val {
+            *depth_val = z;
+            *pixel = color;
         }
         z += dz_dx;
-        i += 1;
     }
 }
 
@@ -99,7 +94,7 @@ pub fn draw_scanline_flat(
         prepare_scanline(fb, zb, y, x_start, x_end, z_start, dz_dx)
     {
         #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-        if is_x86_feature_detected!("avx2") {
+        if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
             unsafe {
                 draw_scanline_flat_simd(fb_slice, zb_slice, z, dz_dx, color);
             }
@@ -218,25 +213,19 @@ unsafe fn draw_scanline_flat_blended_simd(
     let rb_src_scaled_u32 = rb_src_scaled;
     let ag_src_scaled_u32 = ag_src_scaled;
 
-    while i < len {
-        // SAFETY: Bounds checked
-        unsafe {
-            let depth_val = zb_slice.get_unchecked_mut(i);
-            if z < *depth_val {
-                let pixel = fb_slice.get_unchecked_mut(i);
-                let dest = *pixel;
+    for (depth_val, pixel) in zb_slice[i..len].iter_mut().zip(fb_slice[i..len].iter_mut()) {
+        if z < *depth_val {
+            let dest = *pixel;
 
-                let rb_dest = dest & 0x00FF_00FF;
-                let ag_dest = (dest >> 8) & 0x00FF_00FF;
+            let rb_dest = dest & 0x00FF_00FF;
+            let ag_dest = (dest >> 8) & 0x00FF_00FF;
 
-                let rb = ((rb_src_scaled_u32 + rb_dest * inv_alpha_u32) >> 8) & 0x00FF_00FF;
-                let ag = ((ag_src_scaled_u32 + ag_dest * inv_alpha_u32) >> 8) & 0x00FF_00FF;
+            let rb = ((rb_src_scaled_u32 + rb_dest * inv_alpha_u32) >> 8) & 0x00FF_00FF;
+            let ag = ((ag_src_scaled_u32 + ag_dest * inv_alpha_u32) >> 8) & 0x00FF_00FF;
 
-                *pixel = rb | (ag << 8);
-            }
+            *pixel = rb | (ag << 8);
         }
         z += dz_dx;
-        i += 1;
     }
 }
 
@@ -257,7 +246,7 @@ pub fn draw_scanline_flat_blended(
         prepare_scanline(fb, zb, y, x_start, x_end, z_start, dz_dx)
     {
         #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-        if is_x86_feature_detected!("avx2") {
+        if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
             unsafe {
                 draw_scanline_flat_blended_simd(fb_slice, zb_slice, z, dz_dx, color);
             }

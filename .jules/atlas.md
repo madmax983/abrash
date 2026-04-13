@@ -60,3 +60,40 @@
 1.  **Extract:** Created `SsaoConfig` and `DepthOfFieldConfig` structs to encapsulate these parameters.
 2.  **Refactor:** Updated function signatures to take a reference to the respective config struct. Updated all callers (examples, tests, doc comments) to instantiate and pass the new structs.
 3.  **Result:** Lowered argument count, cohesive configurations for these post-processing effects, easier to extend.
+
+## [Removing Windows-Sys OS Coupling]
+**Tangle:** The project had a `backend-win32` platform feature utilizing unsafe FFI via `windows-sys` for direct Win32/GDI execution. Concurrently, it had a `backend-winit` feature providing safe, cross-platform functionality via `winit` and `softbuffer`. Several examples (`swirl_demo`, `vignette_demo`, `tilt_shift_demo`, `edge_glow_demo`) explicitly relied on the unsafe `Win32Window` abstraction. This duplicated windowing logic, bound those examples strictly to Windows environments, and caused workspace failures on Unix/Linux systems when developers ran workspace tests.
+**Blueprint:**
+1.  **Cut Obsolete Abstraction:** Deleted `src/platform/win32.rs` entirely, dropping the custom Win32 fallback implementation.
+2.  **Prune Dependency Graph:** Removed `windows-sys` and the `backend-win32` feature flag from `Cargo.toml`.
+3.  **Modernize Call Sites:** Migrated the aforementioned examples to rely directly on `winit`'s standard event-driven approach by mapping their procedural update loops to `WindowApp` implementations.
+**[Optional RT Pass Instantiation]
+**Tangle:** The `RtShadowPass` and `RtReflectionPass` WGPU shader module creations were blindly failing the test suite on runner environments that lacked the `wgpu_ray_query` extension feature. A test failure propagated because we did not guard the pass instantiation at runtime. Additionally, the WGPU objects were held in fields marked as `pub(crate)`, emitting dead code warnings.
+**Blueprint:** Encapsulated WGPU objects into private underscore-prefixed fields (e.g. `_pipeline`). Changed `rt_shadow_pass` within `GpuRenderer` to an `Option<RtShadowPass>` and conditionally instantiated it only if `device.features().contains(wgpu::Features::EXPERIMENTAL_RAY_QUERY)` returns true at runtime, preventing panics.**
+
+## [Filter Parameterization Fix for Chromatic Aberration]
+**Tangle:** The `apply_chromatic_aberration` function suffered from the "Argument Jungle" structural smell, accepting a loose primitive parameter (`offset`). This created a fragmented API alongside the other configured post-processing filters, making future extensions difficult.
+
+**Blueprint:**
+1.  **Introduce Configs:** Created `ChromaticAberrationConfig` struct in `crates/abrash-render/src/post_process/filters.rs`.
+2.  **Refactor Signatures:** Modified `apply_chromatic_aberration` to accept a reference to this new configuration struct.
+3.  **Update Callers:** Updated doc tests, unit tests, integration tests, and benchmarks to instantiate the required configuration struct.
+
+**Stability:** Improved high cohesion by standardizing the effect parameterization with the rest of the post-processing module. Lowered coupling between the caller and the specific internal parameters of the post-processing effect, making the public API cleaner and more extensible.
+
+## [Decoupling Raycaster from Render Crate]
+**Tangle:** The `abrash-render` crate depended on the `abrash-raycast` crate solely to host the raycasting rendering implementation modules (`bsp.rs`, `bsp_lighting.rs`, `hybrid.rs`). This artificially coupled a specialized rendering logic to the core software rasterization pipeline of `abrash-render`.
+**Blueprint:**
+1.  **Relocate:** Moved the raycaster implementation modules from `crates/abrash-render/src/raycaster` to `crates/abrash-raycast/src/renderer`.
+2.  **Prune Dependency:** Removed `abrash-raycast` dependency from `abrash-render`'s `Cargo.toml`.
+3.  **Facade:** Updated the root workspace facade (`src/lib.rs`) to re-export the relocated module via `pub use abrash_raycast::renderer as raycaster;`, preserving the public API while severing the structural dependency.
+
+## [Argument Jungle Fix for Texture Rasterization]
+**Tangle:** The `post_process` and `texture` rendering functions were suffering from the "Argument Jungle" anti-pattern. Functions like `draw_span_textured_gouraud_simd` and its scalar variants took upwards of 15 primitive arguments (`z_start`, `u_fix_start`, `du_fix`, `dr_dx`, etc.), leading to cognitive overload, brittle function signatures, and disorganized data flows.
+
+**Blueprint:**
+1.  **Extract Structs:** Created `TexSpanState` and `TexSpanStep` to bundle standard perspective texture span parameters. Created `GouraudSpanState` and `GouraudSpanStep` to bundle textured Gouraud shading span parameters.
+2.  **Refactor Signatures:** Modified all `draw_span_*` scalar and SIMD functions in `crates/abrash-render/src/rasterizer/texture.rs` to accept these new configuration structs instead of loose arguments.
+3.  **Update Callers:** Updated `draw_scanline_textured_perspective`, `draw_scanline_textured_gouraud`, and tile rasterizer logic to construct and pass the new state and step structs.
+
+**Stability:** Improved clarity and lowered argument count below the cognitive limit. High cohesion is achieved by grouping related interpolation state variables together, making the low-level rendering API significantly cleaner and easier to maintain.

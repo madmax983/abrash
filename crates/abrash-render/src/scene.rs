@@ -103,7 +103,7 @@ impl SceneObject {
     #[must_use]
     pub fn new(mesh: Arc<Mesh>, transform: Mat4, color: u32) -> Self {
         let local_aabb = AABB::from_points(&mesh.vertices);
-        let shared_indices = std::sync::Arc::from(mesh.indices.clone().into_boxed_slice());
+        let shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
         Self {
             mesh,
             transform,
@@ -209,11 +209,6 @@ impl Scene {
     pub fn extract(&self) -> DrawList {
         let view_proj = self.camera.view * self.camera.proj;
         let camera = FrameCamera::new(self.camera.view, self.camera.proj);
-        let mut draw_list = DrawList::new(camera);
-
-        // Pre-allocate assuming roughly half the objects might be visible on average,
-        // or up to all objects to avoid reallocation
-        draw_list.batches.reserve(self.objects.len());
 
         RENDER_CONTEXT.with(|ctx_cell| {
             let mut ctx_guard = ctx_cell.borrow_mut();
@@ -236,6 +231,18 @@ impl Scene {
                 .frustum
                 .cull_aabbs_prealloc(world_aabbs, cull_results);
 
+            // Pre-calculate visible objects and total required vertices to avoid dynamic reallocations
+            let mut total_vertices = 0;
+            let mut visible_count = 0;
+            for (i, obj) in self.objects.iter().enumerate() {
+                if cull_results[i] {
+                    total_vertices += obj.mesh.vertices.len();
+                    visible_count += 1;
+                }
+            }
+
+            let mut draw_list = DrawList::with_capacity(camera, visible_count, total_vertices);
+
             for (i, obj) in self.objects.iter().enumerate() {
                 if !cull_results[i] {
                     continue;
@@ -244,8 +251,11 @@ impl Scene {
                 let mvp = obj.transform * view_proj;
                 let mesh = &obj.mesh;
 
-                let mut vertices = Vec::with_capacity(mesh.vertices.len());
-                let uninit_slice = vertices.spare_capacity_mut();
+                let start_idx = draw_list.vertices.len();
+                let end_idx = start_idx + mesh.vertices.len();
+
+                // Extract uninitialized slice from the reserved capacity
+                let uninit_slice = draw_list.vertices.spare_capacity_mut();
                 let uninit_slice = &mut uninit_slice[..mesh.vertices.len()];
 
                 #[cfg(feature = "parallel")]
@@ -254,20 +264,20 @@ impl Scene {
                 #[cfg(not(feature = "parallel"))]
                 mvp.transform_points_uninit(&mesh.vertices, uninit_slice);
 
-                // SAFETY: We have initialized `len` elements via `transform_points_uninit`.
+                // SAFETY: We have initialized `mesh.vertices.len()` elements via `transform_points_uninit*`.
                 unsafe {
-                    vertices.set_len(mesh.vertices.len());
+                    draw_list.vertices.set_len(end_idx);
                 }
 
                 draw_list.push(DrawBatch::new(
-                    vertices,
+                    start_idx..end_idx,
                     std::sync::Arc::clone(&obj.shared_indices),
                     obj.color,
                 ));
             }
-        });
 
-        draw_list
+            draw_list
+        })
     }
 
     /// Render the scene using the provided renderer.
@@ -285,7 +295,11 @@ impl Scene {
 
         renderer.begin_frame();
         for batch in &draw_list.batches {
-            renderer.submit_mesh(&batch.indices, &batch.vertices, batch.color);
+            renderer.submit_mesh(
+                &batch.indices,
+                &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
+                batch.color,
+            );
         }
         renderer.end_frame(fb, zb);
     }
@@ -420,7 +434,10 @@ mod tests {
         assert_eq!(dl.batches.len(), 1);
         assert_eq!(dl.batches[0].color, 0xFFFF_0000);
         assert_eq!(dl.batches[0].indices.len(), mesh.indices.len());
-        assert_eq!(dl.batches[0].vertices.len(), mesh.vertices.len());
+        assert_eq!(
+            dl.vertices[dl.batches[0].vertex_range.start..dl.batches[0].vertex_range.end].len(),
+            mesh.vertices.len()
+        );
     }
 
     #[test]

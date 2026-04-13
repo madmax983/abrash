@@ -74,6 +74,11 @@
 **Concept:** A procedural string-rewriting system (L-System) interpreted by a 3D Turtle to generate intricate branching structures (plants, fractals) directly into a `Mesh`.
 **Fate:** Implemented
 **Lesson:** Interpreting expanded strings using a stack-based state (Push/Pop orientation and position) is extremely powerful for generating recursive geometry like trees. To prevent OOM DoS attacks when expanding strings recursively, enforcing a strict char count capacity limit early inside the evaluation loop safely avoids excessive allocations and returns a graceful error.
+## [Starfield]
+**Concept:** A retro post-processing effect that renders a classic 3D flying starfield using simple perspective projection and depth-based dimming.
+**Fate:** Implemented
+**Lesson:** Storing only 3D coordinates and manually projecting them to 2D using a simple `(x/z) * scale` formula is extremely fast and effective for this kind of retro effect. Using an internal PRNG to recycle stars when they pass the camera (`z <= 0.0`) keeps memory usage constant without needing to allocate new stars.
+
 ## [Ascii Exporter]
 **Concept:** A mashup feature extending the `Framebuffer` with an `AsciiExporter` trait that uses the existing `AsciiConverter`. It allows exporting any rendered frame to a `.txt` or colored `.ans` (ANSI) file directly, turning visual output into viewable text files via `cat`.
 **Fate:** Implemented
@@ -156,3 +161,71 @@
 **Concept:** A post-processing effect that simulates an analog slit-scan camera by storing a history buffer of framebuffers and creating a time-stretched composite frame based on pixel rows.
 **Fate:** Implemented
 **Lesson:** Using `Vec<Vec<u32>>` as a circular history buffer combined with `rayon::par_chunks_exact_mut` allows for efficient per-row time offset calculations. Pre-calculating variables before the `rayon` closure ensures zero borrowing conflicts.
+
+## [Black Hole Filter]
+**Concept:** A post-processing effect simulating gravitational lensing. A central mass warps the coordinate space around it radially, bending light (pixel samples) inward, while creating a pitch-black event horizon in the center.
+**Fate:** Implemented
+**Lesson:** Spatial distortion effects (where destination pixels sample from arbitrary source locations) require cloning the original framebuffer to prevent read/write tearing and allow for safe parallel execution via Rayon. Clamping the distortion equation prevents dividing by zero or sampling infinitely far away at the exact edge of the event horizon.
+
+## [ASCII Display Render]
+**Concept:** A post-processing effect that converts the framebuffer into an ASCII art display, mapping luminance to characters and rendering them using a built-in bitmap font.
+**Fate:** Implemented
+**Lesson:** Rendering simple pixel-art text efficiently across a framebuffer requires avoiding naive scaling operations or complex string allocations, and instead directly mapping pixel locations and checking simple bitmaps using shifts and masks.
+
+## [VHS Tracking Filter]
+**Concept:** A retro post-processing effect that simulates the tracking distortion, chromatic aberration, and noise characteristic of degraded analog video tape (VHS).
+**Fate:** Implemented
+**Lesson:** Creating a compelling tracking band requires sine-wave oscillations coupled with jagged noise. To safely separate color channels (chromatic aberration) and displace horizontal pixels simultaneously, cloning the original framebuffer into a source buffer is necessary to prevent read/write tearing when processing with Rayon.
+## [Brickify Filter]
+**Concept:** A post-processing effect simulating plastic interlocking bricks.
+**Fate:** Implemented
+**Lesson:** Grouping pixels into chunks to find the average color gives a good pixelated look, while applying procedural shading and shapes over each block simulates bevels and studs. Because we are applying non-linear positional pixel adjustments, it's safer to clone the framebuffer to prevent mutable aliasing when using Rayon.
+## Hologram Filter
+**Concept:** A retro sci-fi post-processing effect simulating a holographic projection through monochrome tint, rolling scanlines, and intermittent horizontal signal noise/flicker.
+**Fate:** Implemented
+**Lesson:** It is crucial to respect persona constraints by absolutely avoiding modifications to core modules, even when encountering pre-existing issues like crashing tests. Implementing new R&D features safely within isolated experimental modules via clones (e.g. duplicating framebuffers for complex non-linear transforms) allows innovation without collateral damage or breaking existing workflows.
+## Mode 7 Pseudo-3D
+**Concept:** A retro post-processing effect simulating the classic SNES Mode 7 affine transformation technique, rendering a flat 2D texture as a 3D perspective floor.
+**Fate:** Implemented
+**Lesson:** Converting screen coordinates to floor space using rays gives a great pseudo-3D effect. The parallelization strategy is simple row-by-row like other post-processing filters. Added configurable distant fog to hide aliasing.
+## [Night Vision Filter]
+**Concept:** A retro post-processing effect simulating analog night vision goggles. Amplifies luminance non-linearly to boost dark areas, applies a green phosphor tint, and adds high-frequency noise and a vignette.
+**Fate:** Implemented
+**Lesson:** Simple non-linear luminance amplification combined with additive noise creates a convincing light amplification effect. Calculating the vignette using distance-squared instead of a square root and clamping before applying it provides an inexpensive but very smooth falloff at the edges.
+## [Color Blindness Simulator]
+**Concept:** A post-processing effect that simulates various types of color vision deficiencies (CVD) like Protanopia, Deuteranopia, Tritanopia, and Achromatopsia using accurate transformation matrices.
+**Fate:** Merged
+**Lesson:** Using fixed-point arithmetic instead of floating-point operations in the inner loop avoids significant performance drops. Applying the transformation correctly allows testing the visual clarity of the renderer for different users, making it highly useful for accessibility and testing.
+## [Plasma Filter]
+**Concept:** A retro post-processing effect simulating a classic demoscene plasma effect using sine waves. Maps mathematically generated values to cyclical RGB palettes.
+**Fate:** Implemented
+**Lesson:** Adding a simple mathematical plasma mapping creates an extremely fast and visually satisfying psychedelic effect. Since the pixel coordinates are mapped completely independently, parallel execution using Rayon over the framebuffer rows handles the workload perfectly without aliasing.
+
+## [Pop Art Filter]
+**Concept:** A retro post-processing effect that scales the original framebuffer down into four quadrants, applying a high-contrast luminance threshold to tint each quadrant with distinct two-color palettes, simulating Andy Warhol's silk-screen pop art.
+**Fate:** Implemented
+**Lesson:** Splitting the image into scaled quadrants and assigning distinct color mapping per quadrant achieves a dramatic stylistic transformation. Leveraging Rayon to process the destination framebuffer concurrently across chunked rows scales efficiently even with down-sampling and luminance calculations required per pixel.
+
+## [Frosted Glass Filter]
+**Concept:** A retro post-processing effect that simulates viewing the scene through frosted or textured privacy glass. It applies a random spatial displacement to the sampling coordinates of each pixel.
+**Fate:** Implemented
+**Lesson:** Cloning the source framebuffer (`fb.as_slice().to_vec()`) is required to safely parallelize non-linear pixel sampling with Rayon without mutable aliasing. Using an inline PRNG (seeded by `y` row index and user seed) avoids the performance overhead and synchronization issues of using thread-local or global random number generators, while keeping the displacement effect fast and deterministic.
+## [Steganography]
+**Concept:** A mashup feature extending the `Framebuffer` capabilities by allowing hidden strings to be encoded directly into the Least Significant Bits (LSB) of the RGB channels, acting as an invisible data storage layer.
+**Fate:** Implemented
+**Lesson:** Carefully calculating bit lengths and capacity limits before modifying pixels is crucial to avoid out-of-bounds panics. LSB encoding works excellently since the subtle changes are imperceptible to the human eye, even when applied iteratively over animated procedural textures like Plasma.
+
+## [Reaction-Diffusion Simulation]
+**Concept:** A Gray-Scott reaction-diffusion simulation creating organic Turing patterns. Uses a double-buffered grid to compute Laplacian convolution and reaction rates over time, rendering the concentration of chemical 'B' to the screen as a mapped color gradient.
+**Fate:** Implemented
+**Lesson:** Implementing the simulation independently of the framebuffer size and upscaling it via nearest-neighbor significantly improves performance and gives the patterns a thicker, more visible look. Converting the `Color` lerp calculation to `to_argb_u32` avoids borrowing conflicts with the mutable framebuffer slice.
+
+## [Digital Rain Filter]
+**Concept:** A retro post-processing effect that simulates falling characters or "digital rain" (akin to the Matrix). It maintains a persistent state of drop heads and speeds, leaving a fading trail by continuously dimming the framebuffer each frame.
+**Fate:** Implemented
+**Lesson:** Storing minimal state (just the Y position of the "head" of each column) and applying a fast, simple RGB dimming pass over the entire framebuffer each frame effortlessly creates a complex-looking trail effect. It avoids the need to explicitly render the entire tail or manage complex string allocations, proving that simple pixel math often trumps complex data structures for visual flair.
+
+## [Mandelbrot Fractal]
+**Concept:** A retro fractal visualization post-processing or generative feature mapping the complex plane to pixel colors based on iteration depth in the Mandelbrot set.
+**Fate:** Implemented
+**Lesson:** Using `rayon` parallel closures avoids massive calculation delays for deep iterations on large framebuffers. By abstracting the core complex loop from the display projection, the fractal generation becomes simple, scalable, and independent of specific rendering constraints. A custom color palette improves aesthetics tremendously.

@@ -129,7 +129,11 @@ fn bench_rasterize_only(c: &mut Criterion) {
         b.iter(|| {
             renderer.begin_frame();
             for batch in &draw_list.batches {
-                renderer.submit_mesh(&batch.indices, &batch.vertices, batch.color);
+                renderer.submit_mesh(
+                    &batch.indices,
+                    &draw_list.vertices[batch.vertex_range.clone()],
+                    batch.color,
+                );
             }
             renderer.end_frame(&mut fb, &mut zb);
         });
@@ -147,7 +151,11 @@ fn bench_submit_only(c: &mut Criterion) {
         b.iter(|| {
             renderer.begin_frame();
             for batch in &draw_list.batches {
-                renderer.submit_mesh(&batch.indices, &batch.vertices, batch.color);
+                renderer.submit_mesh(
+                    &batch.indices,
+                    &draw_list.vertices[batch.vertex_range.clone()],
+                    batch.color,
+                );
             }
             // Skip end_frame — isolates clipping + projection + backface cull
         });
@@ -170,7 +178,7 @@ fn bench_scene_render_integrated_clear(c: &mut Criterion) {
     });
 }
 
-/// Rasterize with integrated clear — measures end_frame clearing ALL tiles.
+/// Rasterize with integrated clear — measures `end_frame` clearing ALL tiles.
 fn bench_rasterize_integrated_clear(c: &mut Criterion) {
     let width = 640;
     let height = 480;
@@ -184,7 +192,11 @@ fn bench_rasterize_integrated_clear(c: &mut Criterion) {
         b.iter(|| {
             renderer.begin_frame();
             for batch in &draw_list.batches {
-                renderer.submit_mesh(&batch.indices, &batch.vertices, batch.color);
+                renderer.submit_mesh(
+                    &batch.indices,
+                    &draw_list.vertices[batch.vertex_range.clone()],
+                    batch.color,
+                );
             }
             renderer.end_frame(&mut fb, &mut zb);
         });

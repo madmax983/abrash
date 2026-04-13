@@ -116,7 +116,7 @@ pub struct GpuRenderer {
     tone_map_pass: crate::postprocess::ToneMapPass,
     // RT (feature-gated)
     #[cfg(feature = "ray-tracing")]
-    rt_shadow_pass: crate::raytracing::RtShadowPass,
+    rt_shadow_pass: Option<crate::raytracing::RtShadowPass>,
     #[cfg(feature = "ray-tracing")]
     rt_enabled: bool,
     #[cfg(feature = "ray-tracing")]
@@ -127,6 +127,30 @@ pub struct GpuRenderer {
 }
 
 impl GpuRenderer {
+    fn create_texture_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Texture Bind Group Layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+        })
+    }
+
     /// Construct a renderer from an already-created GPU device.
     #[must_use]
     pub fn from_gpu(gpu: GpuDevice, color_format: wgpu::TextureFormat) -> Self {
@@ -134,34 +158,9 @@ impl GpuRenderer {
         let min_align = u64::from(device.limits().min_uniform_buffer_offset_alignment).max(1);
         let hdr_format = wgpu::TextureFormat::Rgba16Float;
 
-        // Shadow map
         let shadow_map = crate::shadow::ShadowMap::new(device);
-
-        // G-Buffer geometry pipelines
         let gbuffer_pipeline = GBufferGeometryPipeline::new(device);
-
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Texture Bind Group Layout"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-            });
+        let texture_bind_group_layout = Self::create_texture_bind_group_layout(device);
 
         let gbuffer_textured_pipeline = GBufferTexturedPipeline::new(
             device,
@@ -170,11 +169,9 @@ impl GpuRenderer {
             &texture_bind_group_layout,
         );
 
-        // Deferred lighting pass (outputs to HDR)
         let deferred_pass =
             DeferredLightingPass::new(device, hdr_format, &shadow_map.sample_bind_group_layout);
 
-        // Per-frame buffers
         let frame_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Frame Uniforms"),
             contents: &[0u8; std::mem::size_of::<FrameUniforms>()],
@@ -186,7 +183,6 @@ impl GpuRenderer {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        // Per-draw uniforms
         let draw_uniform_stride = align_to(std::mem::size_of::<DrawUniforms>() as u64, min_align);
         let draw_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Draw Uniform Buffer"),
@@ -211,28 +207,25 @@ impl GpuRenderer {
             ..Default::default()
         });
 
-        // Tone mapping (HDR → LDR)
         let tone_map_pass = crate::postprocess::ToneMapPass::new(device, color_format);
-
-        // TAA + composition
         let taa_pass = crate::taa::TaaPass::new(device);
         let composition_pass = crate::composition::CompositionPass::new(device);
-
-        // Skybox
         let skybox_pass = crate::environment::SkyboxPass::new(device, hdr_format);
 
-        // Default IBL (black environment — replaced when set_environment is called)
         let default_ibl = crate::ibl::IblTextures::default_black(device);
         let default_ibl_bg =
             deferred_pass.create_ibl_bind_group(device, &default_ibl, &default_sampler);
 
-        // RT (feature-gated)
-        #[cfg(feature = "ray-tracing")]
-        let rt_shadow_pass = crate::raytracing::RtShadowPass::new(device);
         #[cfg(feature = "ray-tracing")]
         let rt_enabled = device
             .features()
             .contains(wgpu::Features::EXPERIMENTAL_RAY_QUERY);
+        #[cfg(feature = "ray-tracing")]
+        let rt_shadow_pass = if rt_enabled {
+            Some(crate::raytracing::RtShadowPass::new(device))
+        } else {
+            None
+        };
 
         Self {
             gpu,
@@ -360,10 +353,13 @@ impl GpuRenderer {
 
         let mut rgba = Vec::with_capacity(texture.pixels.len() * 4);
         for &argb in &texture.pixels {
-            rgba.push(((argb >> 16) & 0xFF) as u8);
-            rgba.push(((argb >> 8) & 0xFF) as u8);
-            rgba.push((argb & 0xFF) as u8);
-            rgba.push(((argb >> 24) & 0xFF) as u8);
+            let bytes = [
+                ((argb >> 16) & 0xFF) as u8,
+                ((argb >> 8) & 0xFF) as u8,
+                (argb & 0xFF) as u8,
+                ((argb >> 24) & 0xFF) as u8,
+            ];
+            rgba.extend_from_slice(&bytes);
         }
 
         let device = self.gpu.device();
@@ -441,10 +437,7 @@ impl GpuRenderer {
                 shininess,
                 specular_strength,
             } => (color, shininess, specular_strength, 0.0, 0.5, None),
-            ShadingMode::Textured { texture } => {
-                (color, 32.0, 0.3, 0.0, 0.5, Some(texture.index()))
-            }
-            ShadingMode::TexturedGouraud { texture } => {
+            ShadingMode::Textured { texture } | ShadingMode::TexturedGouraud { texture } => {
                 (color, 32.0, 0.3, 0.0, 0.5, Some(texture.index()))
             }
             ShadingMode::Pbr {
@@ -524,7 +517,7 @@ impl GpuRenderer {
     ///
     /// When enabled, the projection matrix is jittered per-frame and the result
     /// is temporally resolved via neighborhood-clamped history blending.
-    pub fn set_taa_enabled(&mut self, enabled: bool) {
+    pub const fn set_taa_enabled(&mut self, enabled: bool) {
         self.taa_enabled = enabled;
     }
 
@@ -533,7 +526,7 @@ impl GpuRenderer {
     /// When set to anything other than `DebugMode::None`, the composition pass
     /// replaces the final output with a visualization of the selected G-Buffer
     /// channel or intermediate render target.
-    pub fn set_debug_mode(&mut self, mode: crate::composition::DebugMode) {
+    pub const fn set_debug_mode(&mut self, mode: crate::composition::DebugMode) {
         self.composition_pass.set_debug_mode(mode);
     }
 
@@ -579,7 +572,7 @@ impl GpuRenderer {
 
         // Pass 2.5: RT shadows (replaces shadow map when RT available)
         #[cfg(feature = "ray-tracing")]
-        self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws)?;
+        self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws);
 
         // Pass 3: Deferred lighting → HDR
         self.ensure_hdr_target(w, h);
@@ -723,7 +716,7 @@ impl GpuRenderer {
 
         // Pass 2.5: RT shadows (when RT available)
         #[cfg(feature = "ray-tracing")]
-        self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws)?;
+        self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws);
 
         // Pass 3: Deferred lighting → HDR
         self.ensure_hdr_target(w, h);
@@ -798,20 +791,20 @@ impl GpuRenderer {
     }
 
     fn ensure_gbuffer(&mut self, width: u32, height: u32) {
-        let needs = match &self.gbuffer {
-            Some(g) => g.width != width || g.height != height,
-            None => true,
-        };
+        let needs = self
+            .gbuffer
+            .as_ref()
+            .is_none_or(|g| g.width != width || g.height != height);
         if needs {
             self.gbuffer = Some(GBuffer::new(self.gpu.device(), width, height));
         }
     }
 
     fn ensure_hdr_target(&mut self, width: u32, height: u32) {
-        let needs = match &self.hdr_target {
-            Some(t) => t.width != width || t.height != height,
-            None => true,
-        };
+        let needs = self
+            .hdr_target
+            .as_ref()
+            .is_none_or(|t| t.width != width || t.height != height);
         if needs {
             self.hdr_target = Some(crate::postprocess::HdrTarget::new(
                 self.gpu.device(),
@@ -952,7 +945,7 @@ impl GpuRenderer {
 
         let dir_light = frame.lights.iter().find_map(|l| match l {
             Light::Directional(d) => Some(d),
-            _ => None,
+            Light::Point(_) => None,
         });
 
         let Some(dir_light) = dir_light else {
@@ -1139,24 +1132,24 @@ impl GpuRenderer {
         encoder: &mut wgpu::CommandEncoder,
         frame: &Frame,
         prepared_draws: &[PreparedDraw],
-    ) -> Result<(), String> {
+    ) {
         if !self.rt_enabled {
-            return Ok(());
+            return;
         }
 
         // Find directional light for shadow rays
         let dir_light = frame.lights.iter().find_map(|l| match l {
             Light::Directional(d) => Some(d),
-            _ => None,
+            Light::Point(_) => None,
         });
 
         let Some(dir_light) = dir_light else {
-            return Ok(());
+            return;
         };
 
         // Build TLAS from all draw instances
         let mut instances: Vec<(&crate::accel_structure::MeshBlas, &abrash_core::math::Mat4)> =
-            Vec::new();
+            Vec::with_capacity(prepared_draws.len());
 
         for draw in prepared_draws {
             if let Some(Some(blas)) = self.mesh_blas.get(draw.mesh_index) {
@@ -1165,7 +1158,7 @@ impl GpuRenderer {
         }
 
         if instances.is_empty() {
-            return Ok(());
+            return;
         }
 
         let tlas = crate::accel_structure::SceneTlas::build(
@@ -1176,24 +1169,23 @@ impl GpuRenderer {
 
         // Ensure RT shadow output texture
         let gbuffer = self.gbuffer.as_ref().unwrap();
-        self.rt_shadow_pass
-            .ensure_output(self.gpu.device(), gbuffer.width, gbuffer.height);
+        if let Some(pass) = &mut self.rt_shadow_pass {
+            pass.ensure_output(self.gpu.device(), gbuffer.width, gbuffer.height);
 
-        // Encode the RT shadow compute pass
-        self.rt_shadow_pass.encode(
-            self.gpu.device(),
-            self.gpu.queue(),
-            encoder,
-            &gbuffer.position_view,
-            &tlas,
-            [
-                dir_light.direction.x,
-                dir_light.direction.y,
-                dir_light.direction.z,
-            ],
-        );
-
-        Ok(())
+            // Encode the RT shadow compute pass
+            pass.encode(
+                self.gpu.device(),
+                self.gpu.queue(),
+                encoder,
+                &gbuffer.position_view,
+                &tlas,
+                [
+                    dir_light.direction.x,
+                    dir_light.direction.y,
+                    dir_light.direction.z,
+                ],
+            );
+        }
     }
 
     fn encode_deferred_lighting(&self, encoder: &mut wgpu::CommandEncoder) {
@@ -1262,9 +1254,9 @@ impl GpuRenderer {
         if !self.taa_enabled {
             // No TAA — return a view of the HDR target
             let hdr = self.hdr_target.as_ref().unwrap();
-            return hdr
-                ._texture
-                .create_view(&wgpu::TextureViewDescriptor::default());
+            #[allow(clippy::used_underscore_binding)]
+            let tex = &hdr._texture;
+            return tex.create_view(&wgpu::TextureViewDescriptor::default());
         }
 
         self.taa_pass.ensure_textures(self.gpu.device(), w, h);
@@ -1273,7 +1265,7 @@ impl GpuRenderer {
         let (jx, jy) = self.taa_pass.current_jitter();
         let params = crate::taa::TaaParams {
             prev_view_proj: self.prev_view_proj,
-            jitter: [jx, jy],
+            jitter: <[f32; 2]>::from((jx, jy)),
             feedback: 0.9,
             _pad: 0.0,
         };

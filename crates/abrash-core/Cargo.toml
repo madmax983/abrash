@@ -14,6 +14,14 @@ rayon = { version = "1.10", optional = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = "1"
 
+[dev-dependencies]
+proptest = "1.0"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "blitter"
+harness = false
+
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
@@ -27,3 +35,4 @@ inline_always = "allow"
 too_many_lines = "allow"
 struct_field_names = "allow"
 suboptimal_flops = "allow"
+tuple_array_conversions = "allow"

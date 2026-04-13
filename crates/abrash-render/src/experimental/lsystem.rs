@@ -56,15 +56,66 @@ impl LSystem {
 
     /// Expand the L-System string for the given number of iterations.
     ///
+    /// ⚡ Bolt: By deferring the allocation of `current` until after the ASCII fast-path and 0-iteration checks,
+    /// we eliminate an unnecessary heap allocation of `self.axiom.clone()` per function call.
+    ///
     /// # Errors
     /// Returns an error if the expansion string exceeds `max_capacity`.
     pub fn expand(&self, iterations: usize) -> Result<String, &'static str> {
-        let mut current = self.axiom.clone();
-
         if iterations == 0 {
-            return Ok(current);
+            return Ok(self.axiom.clone());
         }
 
+        let mut is_pure_ascii = self.axiom.is_ascii();
+        if is_pure_ascii {
+            for v in self.rules.values() {
+                if !v.is_ascii() {
+                    is_pure_ascii = false;
+                    break;
+                }
+            }
+            if is_pure_ascii {
+                for k in self.rules.keys() {
+                    if !k.is_ascii() {
+                        is_pure_ascii = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if is_pure_ascii {
+            let mut rules_array: [Option<&[u8]>; 128] = [None; 128];
+            for (k, v) in &self.rules {
+                rules_array[(*k as usize) & 127] = Some(v.as_bytes());
+            }
+
+            let mut current_bytes = self.axiom.as_bytes().to_vec();
+            let mut next_bytes = Vec::with_capacity(current_bytes.len() * 2);
+
+            for _ in 0..iterations {
+                next_bytes.clear();
+                next_bytes.reserve(current_bytes.len() * 2);
+                for &b in &current_bytes {
+                    if let Some(replacement) = rules_array[(b as usize) & 127] {
+                        next_bytes.extend_from_slice(replacement);
+                    } else {
+                        next_bytes.push(b);
+                    }
+                    if next_bytes.len() > self.max_capacity {
+                        return Err("L-System expansion exceeded maximum capacity limit");
+                    }
+                }
+                std::mem::swap(&mut current_bytes, &mut next_bytes);
+            }
+
+            // Safe because we already verified all rules and the axiom are pure ASCII.
+            // Bolt Performance Optimization:
+            // Reconstruct string from raw bytes directly avoiding unicode character parsing overhead
+            return String::from_utf8(current_bytes).map_err(|_| "L-System utf8 decoding error");
+        }
+
+        let mut current = self.axiom.clone();
         let mut next_string = String::with_capacity(current.len() * 2);
 
         // Bolt Performance Optimization:
@@ -87,19 +138,19 @@ impl LSystem {
             // heap reallocations as the string expands exponentially.
             next_string.reserve(current.len() * 2);
 
-            for b in current.bytes() {
-                let idx = b as usize;
-                if idx < 128 {
-                    if let Some(replacement) = rules_array[idx] {
+            for c in current.chars() {
+                let u = c as u32;
+                if u < 128 {
+                    if let Some(replacement) = rules_array[u as usize] {
                         next_string.push_str(replacement);
                     } else {
-                        next_string.push(b as char);
+                        next_string.push(c);
                     }
-                } else if let Some(replacement) = self.rules.get(&(b as char)) {
+                } else if let Some(replacement) = self.rules.get(&c) {
                     // Fallback for non-ASCII
                     next_string.push_str(replacement);
                 } else {
-                    next_string.push(b as char);
+                    next_string.push(c);
                 }
 
                 // OOM Prevention check
@@ -150,7 +201,8 @@ impl Turtle {
             segment_length: 1.0,
             segment_radius: 0.1,
             turn_angle: std::f32::consts::PI / 6.0, // 30 degrees
-            stack: Vec::new(),
+            // ⚡ Bolt: Pre-allocate stack to avoid dynamic heap reallocations during branch-heavy traversals.
+            stack: Vec::with_capacity(32),
         }
     }
 
@@ -241,24 +293,24 @@ impl Turtle {
         let (sin_a, cos_a) = angle.sin_cos();
         let new_dir = self.direction * cos_a + self.right * sin_a;
         let new_right = self.right * cos_a - self.direction * sin_a;
-        self.direction = new_dir.normalize();
-        self.right = new_right.normalize();
+        self.direction = new_dir.fast_normalize();
+        self.right = new_right.fast_normalize();
     }
 
     fn pitch(&mut self, angle: f32) {
         let (sin_a, cos_a) = angle.sin_cos();
         let new_dir = self.direction * cos_a + self.up * sin_a;
         let new_up = self.up * cos_a - self.direction * sin_a;
-        self.direction = new_dir.normalize();
-        self.up = new_up.normalize();
+        self.direction = new_dir.fast_normalize();
+        self.up = new_up.fast_normalize();
     }
 
     fn roll(&mut self, angle: f32) {
         let (sin_a, cos_a) = angle.sin_cos();
         let new_right = self.right * cos_a + self.up * sin_a;
         let new_up = self.up * cos_a - self.right * sin_a;
-        self.right = new_right.normalize();
-        self.up = new_up.normalize();
+        self.right = new_right.fast_normalize();
+        self.up = new_up.fast_normalize();
     }
 
     /// Adds a basic 3D rectangular prism (or diamond) segment representing a branch
@@ -330,6 +382,23 @@ impl Default for Turtle {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_lsystem_expansion_non_ascii() {
+        // Test fallback to non-ASCII character path
+        let mut lsys = LSystem::new("A");
+        lsys.add_rule('A', "A💡");
+        lsys.add_rule('💡', "A");
+
+        let iter_0 = lsys.expand(0).unwrap();
+        assert_eq!(iter_0, "A");
+
+        let iter_1 = lsys.expand(1).unwrap();
+        assert_eq!(iter_1, "A💡");
+
+        let iter_2 = lsys.expand(2).unwrap();
+        assert_eq!(iter_2, "A💡A");
+    }
 
     #[test]
     fn test_lsystem_expansion() {

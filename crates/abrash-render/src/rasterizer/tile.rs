@@ -298,22 +298,39 @@ pub struct PreparedGouraudTriangle {
 /// Optimized to fit in exactly 128 bytes (2 cache lines).
 #[derive(Clone, Copy)]
 pub struct PreparedTexturedTriangle {
+    /// Top vertex (lowest Y).
     pub p0: ScreenPoint,
+    /// Middle vertex.
     pub p1: ScreenPoint,
+    /// Bottom vertex (highest Y).
     pub p2: ScreenPoint,
+    /// Texture U coordinate for p0.
     pub u0: f32,
+    /// Texture U coordinate for p1.
     pub u1: f32,
+    /// Texture U coordinate for p2.
     pub u2: f32,
+    /// Texture V coordinate for p0.
     pub v0: f32,
+    /// Texture V coordinate for p1.
     pub v1: f32,
+    /// Texture V coordinate for p2.
     pub v2: f32,
+    /// Gradients for interpolating depth and texture coordinates.
     pub gradients: PerspectiveTextureGradients,
+    /// Indicates whether the longest edge connects p0 and p2 on the left side of the triangle.
     pub long_edge_is_left: bool,
+    /// Minimum X bound of the triangle's bounding box.
     pub aabb_min_x: i32,
+    /// Minimum Y bound of the triangle's bounding box.
     pub aabb_min_y: i32,
+    /// Maximum X bound of the triangle's bounding box.
     pub aabb_max_x: i32,
+    /// Maximum Y bound of the triangle's bounding box.
     pub aabb_max_y: i32,
+    /// Minimum depth across triangle.
     pub min_depth: f32,
+    /// Maximum depth across triangle.
     pub max_depth: f32,
 }
 
@@ -351,6 +368,7 @@ use std::mem::MaybeUninit;
 #[cfg(feature = "parallel")]
 use rayon::iter::IndexedParallelIterator;
 
+#[doc(hidden)]
 pub struct PreparedGouraudTrianglesList {
     pub tris: [MaybeUninit<PreparedGouraudTriangle>; 8],
     pub count: usize,
@@ -1099,7 +1117,7 @@ fn rasterize_scanline_textured(
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-                if is_x86_feature_detected!("avx2") {
+                if pixels_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
                         draw_span_nearest_simd(
                             pixels_slice,
@@ -1147,7 +1165,7 @@ fn rasterize_scanline_textured(
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-                if is_x86_feature_detected!("avx2") {
+                if pixels_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
                         draw_span_bilinear_simd(
                             pixels_slice,
@@ -1208,7 +1226,7 @@ fn rasterize_scanline_textured(
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-                if is_x86_feature_detected!("avx2") {
+                if pixels_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
                         draw_span_trilinear_simd(
                             pixels_slice,
@@ -1401,7 +1419,8 @@ fn rasterize_scanline_simd(
                     // Store depths and colors directly using Aligned Stores.
                     _mm256_store_ps(zb_ptr, depths_vec);
 
-                    let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
+                    #[allow(clippy::cast_ptr_alignment)]
+                    let pixels_ptr = pixels.as_mut_ptr().add(i).cast::<__m256i>();
                     _mm256_store_si256(pixels_ptr, color_vec);
                 } else {
                     // Partial write path
@@ -1411,9 +1430,10 @@ fn rasterize_scanline_simd(
                     _mm256_store_ps(zb_ptr, blended_depths);
 
                     // 2. Update pixels
-                    let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
+                    #[allow(clippy::cast_ptr_alignment)]
+                    let pixels_ptr = pixels.as_mut_ptr().add(i).cast::<__m256i>();
                     // Read old pixels (aligned load)
-                    let old_pixels = _mm256_loadu_si256(pixels_ptr as *const __m256i);
+                    let old_pixels = _mm256_loadu_si256(pixels_ptr.cast_const());
 
                     let old_pixels_ps = _mm256_castsi256_ps(old_pixels);
                     let color_vec_ps = _mm256_castsi256_ps(color_vec);
@@ -1441,8 +1461,11 @@ fn rasterize_scanline_simd(
         // We need z at `i` (current).
         // Since we didn't update scalar `z` inside SIMD loop, we do it now.
         // The SIMD loop ran (i - pre_simd_count) / 8 iterations.
-        let simd_pixels = i - pre_simd_count;
-        let _z_ignored = z + (simd_pixels as f32) * dz_dx;
+        // We calculate z directly instead of accumulating
+        #[allow(unused_assignments)]
+        {
+            z += 0.0;
+        } // Keep compiler quiet about z assignment before this loop
     }
 
     // Handle remaining pixels with scalar fallback
@@ -1564,9 +1587,11 @@ impl TileRenderer {
             width,
             height,
             tile_bins: TileBins::new(tile_count),
-            prepared: Vec::new(),
-            prepared_gouraud: Vec::new(),
-            prepared_textured: Vec::new(),
+            // ⚡ Bolt: Pre-allocate triangle buffers since TileRenderer targets <= 100 triangles per frame.
+            // This eliminates multiple dynamic heap reallocations during frame submission.
+            prepared: Vec::with_capacity(128),
+            prepared_gouraud: Vec::with_capacity(128),
+            prepared_textured: Vec::with_capacity(128),
             hiz_buffer: None,
             use_two_level_binning: false,
             half_width: width as f32 * 0.5,
@@ -1661,22 +1686,26 @@ impl TileRenderer {
             // Process triangles in parallel and collect prepared results
             // Bolt: Use `par_extend` combined with `flat_map_iter` to reuse the existing capacity
             // of `self.prepared` and eliminate intermediate Vec heap allocations entirely.
-            self.prepared
-                .par_extend(indices.par_iter().flat_map_iter(|&[i0, i1, i2]| {
-                    // Safety: We trust the indices are within bounds of the vertices slice.
-                    // The caller must ensure this or it will panic inside the thread.
-                    let v0 = vertices[i0];
-                    let v1 = vertices[i1];
-                    let v2 = vertices[i2];
+            self.prepared.par_extend(
+                indices
+                    .par_iter()
+                    .filter(|&&[i0, i1, i2]| {
+                        i0 < vertices.len() && i1 < vertices.len() && i2 < vertices.len()
+                    })
+                    .flat_map_iter(|&[i0, i1, i2]| {
+                        let v0 = vertices[i0];
+                        let v1 = vertices[i1];
+                        let v2 = vertices[i2];
 
-                    let ctx = ScreenSpaceContext {
-                        width,
-                        height,
-                        half_width,
-                        half_height,
-                    };
-                    Self::prepare_triangle_static(v0, v1, v2, color, &ctx)
-                }));
+                        let ctx = ScreenSpaceContext {
+                            width,
+                            height,
+                            half_width,
+                            half_height,
+                        };
+                        Self::prepare_triangle_static(v0, v1, v2, color, &ctx)
+                    }),
+            );
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -1692,6 +1721,9 @@ impl TileRenderer {
                 self.submit_mesh_unclipped(indices, vertices, color);
             } else {
                 for &[i0, i1, i2] in indices {
+                    if i0 >= vertices.len() || i1 >= vertices.len() || i2 >= vertices.len() {
+                        continue;
+                    }
                     let v0 = vertices[i0];
                     let v1 = vertices[i1];
                     let v2 = vertices[i2];
@@ -1738,6 +1770,9 @@ impl TileRenderer {
 
             // Phase 2: Per-triangle setup (backface, sort, dz_dx, AABB)
             for &[i0, i1, i2] in indices {
+                if i0 >= projected.len() || i1 >= projected.len() || i2 >= projected.len() {
+                    continue;
+                }
                 let p0_orig = projected[i0];
                 let p1_orig = projected[i1];
                 let p2_orig = projected[i2];
@@ -1817,48 +1852,38 @@ impl TileRenderer {
     ///
     /// Panics if framebuffer or zbuffer dimensions do not match the renderer configuration.
     pub fn end_frame(&mut self, fb: &mut Framebuffer, zb: &mut ZBuffer) {
-        assert_eq!(
+        self.end_frame_into_slices(
             fb.width(),
-            self.width,
-            "Framebuffer width must match TileRenderer width"
-        );
-        assert_eq!(
             fb.height(),
-            self.height,
-            "Framebuffer height must match TileRenderer height"
+            fb.as_mut_slice(),
+            zb.as_mut_slice(),
         );
-        assert_eq!(
-            zb.width(),
-            self.width,
-            "ZBuffer width must match TileRenderer width"
-        );
-        assert_eq!(
-            zb.height(),
-            self.height,
-            "ZBuffer height must match TileRenderer height"
-        );
+    }
+
+    /// Finish the frame into caller-owned slices.
+    pub fn end_frame_into_slices(
+        &mut self,
+        width: u32,
+        height: u32,
+        pixels: &mut [u32],
+        depths: &mut [f32],
+    ) {
+        self.validate_target_slices(width, height, pixels, depths);
 
         // Build Hi-Z pyramid from previous frame (temporal coherence)
         if let Some(ref mut hiz) = self.hiz_buffer {
             if !hiz.is_valid() {
-                hiz.build_pyramid(zb);
+                hiz.build_pyramid_from_depths(width, height, depths);
             }
         }
 
-        // Currently, TileRenderer handles either flat or textured batches per frame (via tile_bins index reuse).
-        // If 'prepared' is non-empty, we assume flat rendering mode.
         if !self.prepared.is_empty() {
-            // Phase 2: Bin with optional Hi-Z-assisted software two-level culling.
             self.bin_triangles_cpu();
-
-            // Sort triangles front-to-back for early-Z optimization
             self.sort_bins_flat();
 
-            // Phase 3+4: Render and merge each tile
             #[cfg(not(feature = "parallel"))]
             {
                 let cc = self.clear_color.unwrap_or(0xFF00_0000);
-                // Sequential rendering
                 for ty in 0..self.tiles_y {
                     for tx in 0..self.tiles_x {
                         if let Some((clear_y_min, clear_y_max)) = render_single_tile(
@@ -1873,13 +1898,9 @@ impl TileRenderer {
                             &mut self.tile_depths,
                             cc,
                         ) {
-                            // When integrated clear is active, merge the full tile
-                            // (all rows cleared to clear_color, not just triangle-touched rows)
                             let (y_min, y_max) = if self.clear_color.is_some() {
                                 let tile_y0 = ty * TILE_SIZE;
-                                // Full-tile clear: fill untouched rows
                                 let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                                // Clear rows above triangle region
                                 let tri_row_start = ((clear_y_min - tile_y0 as i32).max(0) as u32
                                     * TILE_SIZE)
                                     as usize;
@@ -1887,7 +1908,6 @@ impl TileRenderer {
                                     self.tile_pixels[..tri_row_start].fill(cc);
                                     self.tile_depths[..tri_row_start].fill(f32::INFINITY);
                                 }
-                                // Clear rows below triangle region
                                 let tri_row_end = (((clear_y_max - tile_y0 as i32).max(0) as u32
                                     + 1)
                                     * TILE_SIZE)
@@ -1911,16 +1931,25 @@ impl TileRenderer {
                                 y_min,
                                 y_max,
                             };
-                            Self::merge_tile_direct(
+                            Self::merge_tile_direct_into_slices(
                                 &self.tile_pixels,
                                 &self.tile_depths,
-                                fb,
-                                zb,
+                                self.width,
+                                self.height,
+                                pixels,
+                                depths,
                                 &bounds,
                             );
                         } else if self.clear_color.is_some() {
-                            // Empty tile: write clear color directly to fb/zb
-                            Self::merge_empty_tile(fb, zb, tx, ty, self.width, self.height, cc);
+                            Self::merge_empty_tile_into_slices(
+                                pixels,
+                                depths,
+                                tx,
+                                ty,
+                                self.width,
+                                self.height,
+                                cc,
+                            );
                         }
                     }
                 }
@@ -1928,16 +1957,14 @@ impl TileRenderer {
 
             #[cfg(feature = "parallel")]
             {
-                // Parallel rendering using Rayon
                 use rayon::prelude::*;
 
                 let cc = self.clear_color.unwrap_or(0xFF00_0000);
                 let has_integrated_clear = self.clear_color.is_some();
 
-                // SAFETY: Each tile writes to a non-overlapping region of the framebuffer/zbuffer.
                 unsafe {
-                    let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr(), fb.as_slice().len());
-                    let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr(), zb.as_slice().len());
+                    let fb_ptr = SendPtr(pixels.as_mut_ptr(), pixels.len());
+                    let zb_ptr = SendPtr(depths.as_mut_ptr(), depths.len());
                     let width = self.width;
                     let height = self.height;
                     let tiles_x = self.tiles_x;
@@ -1949,7 +1976,6 @@ impl TileRenderer {
                         .for_each(|(tx, ty)| {
                             let bin_idx = (ty * tiles_x + tx) as usize;
 
-                            // Empty tile: write clear color directly (no tile buffer needed)
                             if tile_bins.heads[bin_idx] == u32::MAX {
                                 if has_integrated_clear {
                                     let tile_x0 = tx * TILE_SIZE;
@@ -1962,10 +1988,7 @@ impl TileRenderer {
                                             row as usize * width as usize + tile_x0 as usize;
                                         for col in 0..tile_cols {
                                             fb_ptr.write(fb_start + col, cc);
-                                            zb_ptr.write(
-                                                fb_start + col,
-                                                f32::INFINITY,
-                                            );
+                                            zb_ptr.write(fb_start + col, f32::INFINITY);
                                         }
                                     }
                                 }
@@ -1999,13 +2022,11 @@ impl TileRenderer {
                                     tile_depths,
                                     cc,
                                 ) {
-                                    // Merge tile into framebuffer/zbuffer
                                     let tile_x0 = tx * TILE_SIZE;
                                     let tile_y0 = ty * TILE_SIZE;
                                     let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
                                     let tile_cols = (tile_x_end - tile_x0) as usize;
 
-                                    // When integrated clear is active, merge the full tile
                                     let row_begin = if has_integrated_clear {
                                         tile_y0
                                     } else {
@@ -2043,7 +2064,6 @@ impl TileRenderer {
             }
         }
 
-        // Invalidate Hi-Z for next frame
         if let Some(ref mut hiz) = self.hiz_buffer {
             hiz.invalidate();
         }
@@ -2102,38 +2122,24 @@ impl TileRenderer {
         zb: &mut ZBuffer,
         triangles: &[ClipTriangle],
     ) {
-        assert_eq!(
+        self.render_batch_into_slices(
             fb.width(),
-            self.width,
-            "Framebuffer width must match TileRenderer width"
-        );
-        assert_eq!(
             fb.height(),
-            self.height,
-            "Framebuffer height must match TileRenderer height"
+            fb.as_mut_slice(),
+            zb.as_mut_slice(),
+            triangles,
         );
-        assert_eq!(
-            zb.width(),
-            self.width,
-            "ZBuffer width must match TileRenderer width"
-        );
-        assert_eq!(
-            zb.height(),
-            self.height,
-            "ZBuffer height must match TileRenderer height"
-        );
-        let expected_len = (self.width as usize)
-            .checked_mul(self.height as usize)
-            .expect("TileRenderer dimensions overflow");
-        assert!(
-            fb.as_slice().len() >= expected_len,
-            "Framebuffer slice too small"
-        );
-        assert!(
-            zb.as_slice().len() >= expected_len,
-            "ZBuffer slice too small"
-        );
+    }
 
+    pub fn render_batch_into_slices(
+        &mut self,
+        width: u32,
+        height: u32,
+        pixels: &mut [u32],
+        depths: &mut [f32],
+        triangles: &[ClipTriangle],
+    ) {
+        self.validate_target_slices(width, height, pixels, depths);
         self.begin_frame();
 
         #[cfg(feature = "parallel")]
@@ -2144,7 +2150,6 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            // Bolt: Use `par_extend` to eliminate intermediate Vec heap allocations.
             self.prepared
                 .par_extend(triangles.par_iter().flat_map_iter(|&(v0, v1, v2, color)| {
                     let ctx = ScreenSpaceContext {
@@ -2164,7 +2169,7 @@ impl TileRenderer {
             }
         }
 
-        self.end_frame(fb, zb);
+        self.end_frame_into_slices(width, height, pixels, depths);
     }
 
     /// Render a batch of textured clip-space triangles.
@@ -2179,42 +2184,30 @@ impl TileRenderer {
         triangles: &[TexturedClipTriangle],
         texture: &Texture,
     ) {
-        assert_eq!(
+        self.render_batch_textured_into_slices(
             fb.width(),
-            self.width,
-            "Framebuffer width must match TileRenderer width"
-        );
-        assert_eq!(
             fb.height(),
-            self.height,
-            "Framebuffer height must match TileRenderer height"
+            fb.as_mut_slice(),
+            zb.as_mut_slice(),
+            triangles,
+            texture,
         );
-        assert_eq!(
-            zb.width(),
-            self.width,
-            "ZBuffer width must match TileRenderer width"
-        );
-        assert_eq!(
-            zb.height(),
-            self.height,
-            "ZBuffer height must match TileRenderer height"
-        );
-        let expected_len = (self.width as usize)
-            .checked_mul(self.height as usize)
-            .expect("TileRenderer dimensions overflow");
-        assert!(
-            fb.as_slice().len() >= expected_len,
-            "Framebuffer slice too small"
-        );
-        assert!(
-            zb.as_slice().len() >= expected_len,
-            "ZBuffer slice too small"
-        );
+    }
+
+    pub fn render_batch_textured_into_slices(
+        &mut self,
+        width: u32,
+        height: u32,
+        pixels: &mut [u32],
+        depths: &mut [f32],
+        triangles: &[TexturedClipTriangle],
+        texture: &Texture,
+    ) {
+        self.validate_target_slices(width, height, pixels, depths);
 
         self.prepared_textured.clear();
         self.tile_bins.clear();
 
-        // Phase 1: Prepare
         let tex_w = texture.width as f32;
         let tex_h = texture.height as f32;
 
@@ -2226,7 +2219,6 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            // Bolt: Use `par_extend` to eliminate intermediate Vec heap allocations.
             self.prepared_textured
                 .par_extend(
                     triangles
@@ -2257,24 +2249,18 @@ impl TileRenderer {
             }
         }
 
-        // Build Hi-Z pyramid from previous frame (temporal coherence)
         if let Some(ref mut hiz) = self.hiz_buffer {
             if !hiz.is_valid() {
-                hiz.build_pyramid(zb);
+                hiz.build_pyramid_from_depths(width, height, depths);
             }
         }
 
-        // Phase 2: Bin (CPU only for now)
         self.bin_triangles_textured_cpu();
-
-        // Sort triangles front-to-back for early-Z optimization
         self.sort_bins_textured();
 
-        // Phase 3+4: Render and merge each tile
         #[cfg(not(feature = "parallel"))]
         {
             let cc = self.clear_color.unwrap_or(0xFF00_0000);
-            // Sequential rendering
             for ty in 0..self.tiles_y {
                 for tx in 0..self.tiles_x {
                     if let Some((clear_y_min, clear_y_max)) = render_single_tile_textured(
@@ -2320,15 +2306,25 @@ impl TileRenderer {
                             y_min,
                             y_max,
                         };
-                        Self::merge_tile_direct(
+                        Self::merge_tile_direct_into_slices(
                             &self.tile_pixels,
                             &self.tile_depths,
-                            fb,
-                            zb,
+                            self.width,
+                            self.height,
+                            pixels,
+                            depths,
                             &bounds,
                         );
                     } else if self.clear_color.is_some() {
-                        Self::merge_empty_tile(fb, zb, tx, ty, self.width, self.height, cc);
+                        Self::merge_empty_tile_into_slices(
+                            pixels,
+                            depths,
+                            tx,
+                            ty,
+                            self.width,
+                            self.height,
+                            cc,
+                        );
                     }
                 }
             }
@@ -2336,15 +2332,14 @@ impl TileRenderer {
 
         #[cfg(feature = "parallel")]
         {
-            // Parallel rendering using Rayon
             use rayon::prelude::*;
 
             let cc = self.clear_color.unwrap_or(0xFF00_0000);
             let has_integrated_clear = self.clear_color.is_some();
 
             unsafe {
-                let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr(), fb.as_slice().len());
-                let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr(), zb.as_slice().len());
+                let fb_ptr = SendPtr(pixels.as_mut_ptr(), pixels.len());
+                let zb_ptr = SendPtr(depths.as_mut_ptr(), depths.len());
                 let width = self.width;
                 let height = self.height;
                 let tiles_x = self.tiles_x;
@@ -2438,7 +2433,6 @@ impl TileRenderer {
             }
         }
 
-        // Invalidate Hi-Z for next frame
         if let Some(ref mut hiz) = self.hiz_buffer {
             hiz.invalidate();
         }
@@ -2880,7 +2874,10 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        let mut indices = Vec::with_capacity(64);
+        // Bolt Performance Optimization:
+        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
+        // This eliminates frequent dynamic heap allocations on the hot sorting path.
+        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
@@ -3400,7 +3397,10 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        let mut indices = Vec::with_capacity(64);
+        // Bolt Performance Optimization:
+        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
+        // This eliminates frequent dynamic heap allocations on the hot sorting path.
+        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
@@ -3447,7 +3447,10 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        let mut indices = Vec::with_capacity(64);
+        // Bolt Performance Optimization:
+        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
+        // This eliminates frequent dynamic heap allocations on the hot sorting path.
+        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
@@ -3543,6 +3546,76 @@ impl TileRenderer {
             let fb_start = row as usize * fb_width + tile_x0 as usize;
             fb_slice[fb_start..fb_start + tile_cols].fill(clear_color);
             zb_slice[fb_start..fb_start + tile_cols].fill(f32::INFINITY);
+        }
+    }
+
+    fn validate_target_slices(&self, width: u32, height: u32, pixels: &[u32], depths: &[f32]) {
+        assert_eq!(
+            width, self.width,
+            "Framebuffer width must match TileRenderer width"
+        );
+        assert_eq!(
+            height, self.height,
+            "Framebuffer height must match TileRenderer height"
+        );
+        let expected_len = (self.width as usize)
+            .checked_mul(self.height as usize)
+            .expect("TileRenderer dimensions overflow");
+        assert!(pixels.len() >= expected_len, "Framebuffer slice too small");
+        assert!(depths.len() >= expected_len, "ZBuffer slice too small");
+    }
+
+    fn merge_tile_direct_into_slices(
+        tile_pixels: &[u32],
+        tile_depths: &[f32],
+        width: u32,
+        height: u32,
+        pixels: &mut [u32],
+        depths: &mut [f32],
+        bounds: &TileMergeBounds,
+    ) {
+        let tile_x0 = bounds.tx * TILE_SIZE;
+        let tile_y0 = bounds.ty * TILE_SIZE;
+        let tile_x_end = (tile_x0 + TILE_SIZE).min(bounds.width);
+        let tile_cols = (tile_x_end - tile_x0) as usize;
+        let fb_width = width as usize;
+
+        let row_begin = bounds.y_min.max(tile_y0 as i32) as u32;
+        let row_end = (bounds.y_max as u32 + 1)
+            .min(tile_y0 + TILE_SIZE)
+            .min(height);
+
+        for row in row_begin..row_end {
+            let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
+            let fb_start = row as usize * fb_width + tile_x0 as usize;
+
+            pixels[fb_start..fb_start + tile_cols]
+                .copy_from_slice(&tile_pixels[tile_row_offset..tile_row_offset + tile_cols]);
+            depths[fb_start..fb_start + tile_cols]
+                .copy_from_slice(&tile_depths[tile_row_offset..tile_row_offset + tile_cols]);
+        }
+    }
+
+    fn merge_empty_tile_into_slices(
+        pixels: &mut [u32],
+        depths: &mut [f32],
+        tx: u32,
+        ty: u32,
+        width: u32,
+        height: u32,
+        clear_color: u32,
+    ) {
+        let tile_x0 = tx * TILE_SIZE;
+        let tile_y0 = ty * TILE_SIZE;
+        let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+        let tile_y_end = (tile_y0 + TILE_SIZE).min(height);
+        let tile_cols = (tile_x_end - tile_x0) as usize;
+        let fb_width = width as usize;
+
+        for row in tile_y0..tile_y_end {
+            let fb_start = row as usize * fb_width + tile_x0 as usize;
+            pixels[fb_start..fb_start + tile_cols].fill(clear_color);
+            depths[fb_start..fb_start + tile_cols].fill(f32::INFINITY);
         }
     }
 }
@@ -3809,7 +3882,7 @@ fn process_tile_scanline_gouraud(
 
             #[cfg(all(feature = "simd", target_arch = "x86_64"))]
             {
-                if pixels.len() >= 8 && is_x86_feature_detected!("avx2") {
+                if pixels.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
                         draw_scanline_gouraud_simd_fast(
                             pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx,
@@ -3841,13 +3914,25 @@ fn draw_scanline_gouraud_i32_tile(
     let dg = dc_dx.1;
     let db = dc_dx.2;
 
-    for (pixel, depth_val) in pixels.iter_mut().zip(depths.iter_mut()) {
-        if z < *depth_val {
-            *depth_val = z;
-            let rv = (r >> 16).clamp(0, 255) as u32;
-            let gv = (g >> 16).clamp(0, 255) as u32;
-            let bv = (b >> 16).clamp(0, 255) as u32;
-            *pixel = 0xFF00_0000 | (rv << 16) | (gv << 8) | bv;
+    let len = pixels.len();
+    assert!(
+        depths.len() >= len,
+        "Depth buffer must be at least as large as the pixels slice"
+    );
+    let mut fb_ptr = pixels.as_mut_ptr();
+    let mut zb_ptr = depths.as_mut_ptr();
+
+    for _ in 0..len {
+        unsafe {
+            if z < *zb_ptr {
+                *zb_ptr = z;
+                let rv = (r >> 16).clamp(0, 255) as u32;
+                let gv = (g >> 16).clamp(0, 255) as u32;
+                let bv = (b >> 16).clamp(0, 255) as u32;
+                *fb_ptr = 0xFF00_0000 | (rv << 16) | (gv << 8) | bv;
+            }
+            fb_ptr = fb_ptr.add(1);
+            zb_ptr = zb_ptr.add(1);
         }
         z += dz_dx;
         r = r.wrapping_add(dr);
@@ -3859,8 +3944,9 @@ fn draw_scanline_gouraud_i32_tile(
 mod tests {
     use super::*;
     use crate::framebuffer::Framebuffer;
-    use crate::math::Vec3;
+    use crate::math::{Vec2, Vec3};
     use crate::rasterizer::fill_triangle_3d;
+    use crate::texture::Texture;
     use crate::zbuffer::ZBuffer;
 
     // --- Step 1: Infrastructure + prepare ---
@@ -4526,6 +4612,120 @@ mod tests {
         }
     }
 
+    fn test_triangle() -> ((Vec3, f32), (Vec3, f32), (Vec3, f32), u32) {
+        (
+            (Vec3::new(0.0, 0.5, 5.0), 5.0),
+            (Vec3::new(-0.5, -0.5, 5.0), 5.0),
+            (Vec3::new(0.5, -0.5, 5.0), 5.0),
+            0xFFFF_0000,
+        )
+    }
+
+    fn test_textured_triangle() -> TexturedClipTriangle {
+        (
+            (Vec3::new(0.0, 0.5, 5.0), 5.0),
+            Vec2::new(0.5, 0.0),
+            (Vec3::new(-0.5, -0.5, 5.0), 5.0),
+            Vec2::new(0.0, 1.0),
+            (Vec3::new(0.5, -0.5, 5.0), 5.0),
+            Vec2::new(1.0, 1.0),
+        )
+    }
+
+    fn test_texture() -> Texture {
+        let mut texture = Texture::new(2, 2).expect("valid test texture");
+        texture.pixels[0] = 0xFFFF_0000;
+        texture.pixels[1] = 0xFF00_FF00;
+        texture.pixels[2] = 0xFF00_00FF;
+        texture.pixels[3] = 0xFFFF_FFFF;
+        texture
+    }
+
+    fn blank_buffers(width: u32, height: u32) -> (Vec<u32>, Vec<f32>) {
+        let len = (width as usize) * (height as usize);
+        (vec![0xFF00_0000; len], vec![f32::INFINITY; len])
+    }
+
+    #[test]
+    fn test_end_frame_into_slices_matches_end_frame() {
+        let width = 100;
+        let height = 100;
+        let (v0, v1, v2, color) = test_triangle();
+
+        let mut ref_renderer = TileRenderer::new(width, height);
+        ref_renderer.begin_frame();
+        ref_renderer.prepare_triangle(v0, v1, v2, color);
+        let mut fb_ref = Framebuffer::new(width, height).unwrap();
+        let mut zb_ref = ZBuffer::new(width, height).unwrap();
+        ref_renderer.end_frame(&mut fb_ref, &mut zb_ref);
+
+        let mut slice_renderer = TileRenderer::new(width, height);
+        slice_renderer.begin_frame();
+        slice_renderer.prepare_triangle(v0, v1, v2, color);
+        let (mut pixels, mut depths) = blank_buffers(width, height);
+        slice_renderer.end_frame_into_slices(
+            width,
+            height,
+            pixels.as_mut_slice(),
+            depths.as_mut_slice(),
+        );
+
+        assert_eq!(fb_ref.as_slice(), pixels.as_slice());
+        assert_eq!(zb_ref.as_slice(), depths.as_slice());
+    }
+
+    #[test]
+    fn test_render_batch_into_slices_matches_render_batch() {
+        let width = 100;
+        let height = 100;
+        let triangle = test_triangle();
+
+        let mut ref_renderer = TileRenderer::new(width, height);
+        let mut fb_ref = Framebuffer::new(width, height).unwrap();
+        let mut zb_ref = ZBuffer::new(width, height).unwrap();
+        ref_renderer.render_batch(&mut fb_ref, &mut zb_ref, &[triangle]);
+
+        let mut slice_renderer = TileRenderer::new(width, height);
+        let (mut pixels, mut depths) = blank_buffers(width, height);
+        slice_renderer.render_batch_into_slices(
+            width,
+            height,
+            pixels.as_mut_slice(),
+            depths.as_mut_slice(),
+            &[triangle],
+        );
+
+        assert_eq!(fb_ref.as_slice(), pixels.as_slice());
+        assert_eq!(zb_ref.as_slice(), depths.as_slice());
+    }
+
+    #[test]
+    fn test_render_batch_textured_into_slices_matches_render_batch_textured() {
+        let width = 100;
+        let height = 100;
+        let triangle = test_textured_triangle();
+        let texture = test_texture();
+
+        let mut ref_renderer = TileRenderer::new(width, height);
+        let mut fb_ref = Framebuffer::new(width, height).unwrap();
+        let mut zb_ref = ZBuffer::new(width, height).unwrap();
+        ref_renderer.render_batch_textured(&mut fb_ref, &mut zb_ref, &[triangle], &texture);
+
+        let mut slice_renderer = TileRenderer::new(width, height);
+        let (mut pixels, mut depths) = blank_buffers(width, height);
+        slice_renderer.render_batch_textured_into_slices(
+            width,
+            height,
+            pixels.as_mut_slice(),
+            depths.as_mut_slice(),
+            &[triangle],
+            &texture,
+        );
+
+        assert_eq!(fb_ref.as_slice(), pixels.as_slice());
+        assert_eq!(zb_ref.as_slice(), depths.as_slice());
+    }
+
     // --- Auto-selection heuristic tests ---
 
     #[test]
@@ -4707,8 +4907,7 @@ mod tests {
             .count();
         assert!(
             pixels_changed > 100,
-            "Expected at least 100 pixels rendered, got {}",
-            pixels_changed
+            "Expected at least 100 pixels rendered, got {pixels_changed}"
         );
     }
 }

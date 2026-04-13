@@ -15,6 +15,7 @@ use std::f32::consts::PI;
 use std::fs;
 use std::path::PathBuf;
 
+use crossterm::style::Stylize;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -212,7 +213,7 @@ mod winit_demo {
         normals: Vec<Vec3>,
         source_name: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        run_windowed(ObjViewerApp::new(mesh, normals, source_name)?)?;
+        run_windowed(ObjViewerApp::new(mesh, normals, source_name).unwrap());
         Ok(())
     }
 
@@ -332,7 +333,8 @@ mod winit_demo {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    println!("\n🎨 Abrash OBJ Viewer");
+    println!("\n{}", "🎨 Abrash OBJ Viewer".bold().cyan());
+    println!("{}", "=====================".dark_grey());
 
     let (mesh_source, source_name) = args.input.map_or_else(
         || (SPACESHIP_OBJ.to_string(), "Built-in Spaceship".to_string()),
@@ -387,6 +389,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Cell::new(m.indices.len().to_string()),
                 ]);
 
+            println!("\n{}", "📦 Asset Information".bold());
             println!("{table}");
             m
         }
@@ -418,7 +421,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ])
         .add_row(vec![Cell::new("Keyboard"), Cell::new("Auto-rotating")]);
 
-    println!("\n🎮 Controls");
+    println!("\n{}", "🎮 Controls".bold());
     println!("{controls}\n");
 
     // Compute normals for flat shading logic
@@ -497,6 +500,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 let block = Block::default()
                     .borders(Borders::ALL)
+                    .border_type(ratatui::widgets::BorderType::Rounded)
                     .title(format!(" Abrash OBJ Viewer: {source_name} "))
                     .title_style(Style::default().fg(TuiColor::Cyan));
 

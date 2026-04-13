@@ -106,7 +106,7 @@ pub struct TemporalParams {
     pub prev_view_proj: [f32; 16],
     /// Blend factor (0.05 = 95% history, 1.0 = no history).
     pub alpha: f32,
-    pub _pad: [f32; 3],
+    pub(crate) _pad: [f32; 3],
 }
 
 /// Temporal accumulation pass for SVGF denoising.
@@ -129,15 +129,8 @@ pub struct TemporalAccumulationPass {
 }
 
 impl TemporalAccumulationPass {
-    /// Create the temporal accumulation pass.
-    #[must_use]
-    pub fn new(device: &wgpu::Device) -> Self {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Temporal Accumulation Compute"),
-            source: wgpu::ShaderSource::Wgsl(TEMPORAL_ACCUMULATION_SHADER.into()),
-        });
-
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+    fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Temporal Accumulation Layout"),
             entries: &[
                 // 0: current noisy input
@@ -210,7 +203,18 @@ impl TemporalAccumulationPass {
                     count: None,
                 },
             ],
+        })
+    }
+
+    /// Create the temporal accumulation pass.
+    #[must_use]
+    pub fn new(device: &wgpu::Device) -> Self {
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Temporal Accumulation Compute"),
+            source: wgpu::ShaderSource::Wgsl(TEMPORAL_ACCUMULATION_SHADER.into()),
         });
+
+        let bind_group_layout = Self::create_bind_group_layout(device);
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Temporal Accumulation Pipeline Layout"),
@@ -288,7 +292,7 @@ impl TemporalAccumulationPass {
     }
 
     /// Swap output → history for the next frame.
-    pub fn swap_history(&mut self) {
+    pub const fn swap_history(&mut self) {
         std::mem::swap(&mut self.history_texture, &mut self.output_texture);
         std::mem::swap(&mut self.history_view, &mut self.output_view);
     }
