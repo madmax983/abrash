@@ -224,3 +224,8 @@
 **Concept:** A retro post-processing effect that simulates falling characters or "digital rain" (akin to the Matrix). It maintains a persistent state of drop heads and speeds, leaving a fading trail by continuously dimming the framebuffer each frame.
 **Fate:** Implemented
 **Lesson:** Storing minimal state (just the Y position of the "head" of each column) and applying a fast, simple RGB dimming pass over the entire framebuffer each frame effortlessly creates a complex-looking trail effect. It avoids the need to explicitly render the entire tail or manage complex string allocations, proving that simple pixel math often trumps complex data structures for visual flair.
+
+## [Mandelbrot Fractal]
+**Concept:** A retro fractal visualization post-processing or generative feature mapping the complex plane to pixel colors based on iteration depth in the Mandelbrot set.
+**Fate:** Implemented
+**Lesson:** Using `rayon` parallel closures avoids massive calculation delays for deep iterations on large framebuffers. By abstracting the core complex loop from the display projection, the fractal generation becomes simple, scalable, and independent of specific rendering constraints. A custom color palette improves aesthetics tremendously.
