@@ -293,6 +293,7 @@ fn show_error_and_exit(msg: &str) -> ! {
     let mut error_table = Table::new();
     error_table
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("❌ Error")
                 .add_attribute(comfy_table::Attribute::Bold)
@@ -312,6 +313,7 @@ fn main() -> Result<(), HostError> {
         let mut usage_table = Table::new();
         usage_table
             .load_preset(presets::UTF8_FULL)
+                .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
             .set_header(vec![
                 Cell::new("ℹ️  Usage").fg(Color::Cyan),
                 Cell::new("Description").fg(Color::Cyan),
@@ -332,6 +334,7 @@ fn main() -> Result<(), HostError> {
     let mut loading_table = Table::new();
     loading_table
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![Cell::new("⏳ Loading").fg(Color::Cyan)])
         .add_row(vec![Cell::new(path.display().to_string()).fg(Color::White)]);
     println!("\n{loading_table}");
@@ -341,6 +344,7 @@ fn main() -> Result<(), HostError> {
     let mut info_table = Table::new();
     info_table
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Property").fg(Color::Cyan),
             Cell::new("Value").fg(Color::Cyan),
@@ -380,6 +384,7 @@ fn main() -> Result<(), HostError> {
     let mut controls = Table::new();
     controls
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Input").fg(Color::Cyan),
             Cell::new("Action").fg(Color::Cyan),
