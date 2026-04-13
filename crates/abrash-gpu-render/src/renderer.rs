@@ -1149,7 +1149,7 @@ impl GpuRenderer {
 
         // Build TLAS from all draw instances
         let mut instances: Vec<(&crate::accel_structure::MeshBlas, &abrash_core::math::Mat4)> =
-            Vec::new();
+            Vec::with_capacity(prepared_draws.len());
 
         for draw in prepared_draws {
             if let Some(Some(blas)) = self.mesh_blas.get(draw.mesh_index) {
