@@ -279,3 +279,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Replace consecutive Vec::push calls with extend_from_slice]**
 **Learning:** In hot pixel conversion loops (e.g., converting 0xAARRGGBB to RGBA bytes for wgpu), calling `.push()` sequentially for each channel incurs bounds/capacity checking overhead per byte and inhibits compiler optimizations.
 **Action:** Replaced four consecutive `.push()` calls with a stack-allocated byte array `let bytes = [r, g, b, a];` followed by `.extend_from_slice(&bytes)`. This eliminates bounds checks and allows the compiler (LLVM) to vectorize or unroll the memory copy. Implemented in `abrash-gpu-render` (`blitter.rs`, `renderer.rs`, `environment.rs`).
+**[Pre-allocate DrawList lights vector]**
+**Learning:** Initializing the `lights` field of `DrawList` with `Vec::new()` causes a dynamic heap allocation during the subsequent `draw_list.lights.clone_from(&frame.lights)` call if the frame has lights.
+**Action:** Modified `DrawList::with_capacity` to take a `num_lights` argument and initialize the `lights` vector with `Vec::with_capacity(num_lights)`, ensuring zero dynamic heap allocations during extraction.
