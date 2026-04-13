@@ -88,9 +88,10 @@ impl CpuRenderer {
         tile_renderer.enable_hiz();
         Self {
             tile_renderer,
-            meshes: ResourcePool::new(),
-            textures: ResourcePool::new(),
-            materials: ResourcePool::new(),
+            // ⚡ Bolt: Pre-allocate standard scene capacities to prevent initial heap resizing
+            meshes: ResourcePool::with_capacity(128),
+            textures: ResourcePool::with_capacity(64),
+            materials: ResourcePool::with_capacity(128),
         }
     }
 
