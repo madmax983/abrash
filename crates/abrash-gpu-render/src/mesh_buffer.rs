@@ -261,4 +261,29 @@ mod tests {
             assert!((v.normal[1] - 1.0).abs() < f32::EPSILON);
         }
     }
+
+    #[test]
+    fn test_prepare_lit_mesh_empty_vertices() {
+        let mesh = Mesh {
+            vertices: vec![],
+            normals: vec![],
+            tangents: vec![],
+            indices: vec![],
+            uvs: vec![],
+        };
+        assert!(prepare_lit_mesh_data(&mesh).is_err());
+    }
+
+    #[test]
+    fn test_prepare_lit_mesh_empty_indices() {
+        use abrash_core::math::Vec3;
+        let mesh = Mesh {
+            vertices: vec![Vec3::new(0.0, 0.0, 0.0)],
+            normals: vec![],
+            tangents: vec![],
+            indices: vec![],
+            uvs: vec![],
+        };
+        assert!(prepare_lit_mesh_data(&mesh).is_err());
+    }
 }

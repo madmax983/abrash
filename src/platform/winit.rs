@@ -170,6 +170,7 @@ fn print_host_error_and_exit(err: HostError) -> ! {
     let mut table = Table::new();
     table
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("❌ Window Application Error")
                 .add_attribute(comfy_table::Attribute::Bold)

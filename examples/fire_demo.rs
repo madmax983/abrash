@@ -1,30 +1,29 @@
-use abrash::experimental::wobble::{WobbleConfig, apply_wobble};
+use abrash::experimental::fire::apply_fire;
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
+use abrash_core::utils::XorShift32;
 
-#[cfg(feature = "nova")]
-use comfy_table::{Cell, Color, Table, presets};
-#[cfg(feature = "nova")]
+use comfy_table::{presets, Cell, Color, Table};
 use crossterm::style::Stylize;
 
 #[cfg(feature = "nova")]
 fn print_banner() {
-    println!("\n{}", "🌟 Wobble Filter Demo".bold().cyan());
+    println!("\n{}", "🌟 Fire Effect Demo".bold().cyan());
     println!("{}", "=====================".dark_grey());
 
     let mut table = Table::new();
     table
         .load_preset(presets::UTF8_FULL)
-        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Property").fg(Color::Cyan),
             Cell::new("Value").fg(Color::Cyan),
         ])
         .add_row(vec![
             Cell::new("Description"),
-            Cell::new("Applies a localized sine-wave wobble distortion").fg(Color::Green),
+            Cell::new("Classic demoscene fire effect using cellular automata.")
+                .fg(Color::Green),
         ]);
 
     println!("\n{}", "⚙️  Info".bold());
@@ -34,12 +33,10 @@ fn print_banner() {
     let mut controls = Table::new();
     controls
         .load_preset(presets::UTF8_FULL)
-        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Input").fg(Color::Cyan),
             Cell::new("Action").fg(Color::Cyan),
         ])
-        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
         .add_row(vec![
             Cell::new("Keyboard"),
             Cell::new("Close window to exit"),
@@ -49,43 +46,23 @@ fn print_banner() {
 
 const WIDTH: u32 = 640;
 const HEIGHT: u32 = 480;
-const TITLE: &str = "Nova: Wobble Filter Demo";
+const TITLE: &str = "🌟 Nova: Fire Effect Demo";
 
-struct WobbleDemoApp {
+struct FireDemoApp {
     presenter: Option<SoftwarePresenter>,
     framebuffer: Framebuffer,
-    background_fb: Framebuffer,
-    config: WobbleConfig,
-    time: f32,
+    cooling_map: Vec<u8>,
+    rng: XorShift32,
 }
 
-impl WobbleDemoApp {
+impl FireDemoApp {
     fn new() -> Result<Self, HostError> {
-        let mut background_fb =
-            Framebuffer::new(WIDTH, HEIGHT).map_err(|error| HostError::App(error.to_string()))?;
-
-        for y in 0..HEIGHT {
-            for x in 0..WIDTH {
-                let color = if (x / 32 + y / 32) % 2 == 0 {
-                    0xFF_22_22_22
-                } else {
-                    0xFF_DD_DD_DD
-                };
-                background_fb.set_pixel(x as i32, y as i32, color);
-            }
-        }
-
         Ok(Self {
             presenter: None,
             framebuffer: Framebuffer::new(WIDTH, HEIGHT)
                 .map_err(|error| HostError::App(error.to_string()))?,
-            background_fb,
-            config: WobbleConfig {
-                amplitude: 20.0,
-                frequency: 4.0,
-                time: 0.0,
-            },
-            time: 0.0,
+            cooling_map: vec![0; (WIDTH * HEIGHT) as usize],
+            rng: XorShift32::new(1337),
         })
     }
 
@@ -100,7 +77,7 @@ impl WobbleDemoApp {
     }
 }
 
-impl WindowApp for WobbleDemoApp {
+impl WindowApp for FireDemoApp {
     type Error = HostError;
 
     fn config(&self) -> WindowHostConfig {
@@ -117,17 +94,46 @@ impl WindowApp for WobbleDemoApp {
         Ok(())
     }
 
-    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        self.time += ctx.dt_seconds.max(0.0);
-        self.config.time = self.time;
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        let width = WIDTH as usize;
+        let height = HEIGHT as usize;
+
+        // Update cooling map with some noise
+        for y in 0..height {
+            for x in 0..width {
+                let r = self.rng.next_u32() % 2;
+                self.cooling_map[y * width + x] = r as u8;
+            }
+        }
+
+        // Feed the fire at the bottom
+        let fb_slice = self.framebuffer.as_mut_slice();
+        for x in 0..width {
+            let r = self.rng.next_u32() % 256;
+            let val = if r < 128 { 0xFF } else { 0x00 };
+            fb_slice[(height - 1) * width + x] = (val << 16) | (val << 8) | val;
+        }
+
         Ok(())
     }
 
     fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        self.framebuffer
-            .as_mut_slice()
-            .copy_from_slice(self.background_fb.as_slice());
-        apply_wobble(&mut self.framebuffer, &self.config);
+        apply_fire(&mut self.framebuffer, &self.cooling_map);
+
+        // Apply a fire palette (convert grayscale heat to fire colors)
+        let pixels = self.framebuffer.as_mut_slice();
+        for p in pixels.iter_mut() {
+            let heat = (*p >> 16) & 0xFF;
+            let (r, g, b) = if heat > 160 {
+                (255, 255, heat) // White/Yellow
+            } else if heat > 80 {
+                (255, heat * 2, 0) // Orange/Red
+            } else {
+                (heat * 3, 0, 0) // Dark Red
+            };
+            *p = (r << 16) | (g << 8) | b;
+        }
+
         self.present()
     }
 }
@@ -136,5 +142,5 @@ fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(WobbleDemoApp::new().unwrap())
+    run_windowed(FireDemoApp::new().unwrap())
 }
