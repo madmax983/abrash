@@ -321,6 +321,13 @@ Keyboard: Interactive",
         instructions: "Mouse: None\nKeyboard: None",
         example_name: "melt_demo",
     },
+    Demo {
+        name: "Fractal Explorer",
+        category: DemoCategory::Simulation,
+        description: "Mandelbrot set generator.",
+        instructions: "Mouse: None\nKeyboard: ESC to exit",
+        example_name: "fractal_demo",
+    },
 ];
 
 fn is_gpu_render_example(example_name: &str) -> bool {
@@ -336,6 +343,7 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "god_rays_demo"
         || example_name == "jelly_demo"
         || example_name == "anaglyph_demo"
+        || example_name == "fractal_demo"
         || example_name == "chromatic_aberration_demo"
         || example_name == "voronoi_demo"
         || example_name == "vignette_demo"

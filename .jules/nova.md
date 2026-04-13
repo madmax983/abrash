@@ -224,3 +224,8 @@
 **Concept:** A retro post-processing effect that simulates falling characters or "digital rain" (akin to the Matrix). It maintains a persistent state of drop heads and speeds, leaving a fading trail by continuously dimming the framebuffer each frame.
 **Fate:** Implemented
 **Lesson:** Storing minimal state (just the Y position of the "head" of each column) and applying a fast, simple RGB dimming pass over the entire framebuffer each frame effortlessly creates a complex-looking trail effect. It avoids the need to explicitly render the entire tail or manage complex string allocations, proving that simple pixel math often trumps complex data structures for visual flair.
+
+## Fractal Explorer
+**Concept:** A mathematical generator that renders the Mandelbrot set dynamically with parallelized computational loads and depth-based coloring. It translates pixel coordinates to complex coordinate space, testing divergence via iteration.
+**Fate:** Implemented
+**Lesson:** Iteration caps and precision control are crucial. Zooming deeper into the Mandelbrot requires significantly more iterations to resolve edge detail, but too many iterations on diverging pixels destroys performance. Leveraging Rayon to concurrently process pixels handles the dense iteration loops very efficiently compared to single-threaded logic.
