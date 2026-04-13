@@ -277,6 +277,22 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 
 **[Optimize apply_frosted_glass per-frame allocation]**
 **Learning:** Re-learned and solidified the power of `thread_local!` buffers for intermediate processing steps like full-screen image effects. Calling `.to_vec()` on a slice inside a per-frame or highly parallel operation creates massive garbage and allocator pressure.
+**Action:** Replace  with  whenever the exponent is a known integer, particularly in hot rendering paths like specular reflection calculations.
+
+**[Performance Optimization: f32::powi vs f32::powf for Integer Exponents]**
+**Learning:** Using `f32::powf()` with a whole number (e.g., `x.powf(32.0)`) is significantly slower than using `f32::powi(32)` because `powf` invokes complex C-math library routines designed to handle fractional powers and negative bases. `powi` reduces the operation to a fast chain of multiplications.
+**Action:** Replace `x.powf(n.0)` with `x.powi(n)` whenever the exponent is a known integer, particularly in hot rendering paths like specular reflection calculations.
+
+**[Performance Optimization: f32::powi vs f32::powf for Integer Exponents]**
+**Learning:** Using `f32::powf()` with a whole number (e.g., `x.powf(32.0)`) is significantly slower than using `f32::powi(32)` because `powf` invokes complex C-math library routines designed to handle fractional powers and negative bases. `powi` reduces the operation to a fast chain of multiplications.
+**Action:** Replace `x.powf(n.0)` with `x.powi(n)` whenever the exponent is a known integer, particularly in hot rendering paths like specular reflection calculations.
+
+**[Performance Optimization: f32::powi vs f32::powf for Integer Exponents]**
+**Learning:** Using `f32::powf()` with a whole number (e.g., `x.powf(32.0)`) is significantly slower than using `f32::powi(32)` because `powf` invokes complex C-math library routines designed to handle fractional powers and negative bases. `powi` reduces the operation to a fast chain of multiplications.
+**Action:** Replace `x.powf(n.0)` with `x.powi(n)` whenever the exponent is a known integer, particularly in hot rendering paths like specular reflection calculations.
+**[Performance Optimization: f32::powi vs f32::powf for Integer Exponents]**
+**Learning:** Using `f32::powf()` with a whole number (e.g., `x.powf(32.0)`) is significantly slower than using `f32::powi(32)` because `powf` invokes complex C-math library routines designed to handle fractional powers and negative bases. `powi` reduces the operation to a fast chain of multiplications.
+**Action:** Replace `x.powf(n.0)` with `x.powi(n)` whenever the exponent is a known integer, particularly in hot rendering paths like specular reflection calculations.
 **Action:** When a post-processing effect requires reading from a source frame while modifying the destination (to avoid read/write tearing), cache the source clone using `thread_local! { static SOURCE_PIXELS: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) }; }` and reuse the allocated capacity via `.clear()` and `.extend_from_slice()`.
 **[Replace consecutive Vec::push calls with extend_from_slice]**
 **Learning:** In hot pixel conversion loops (e.g., converting 0xAARRGGBB to RGBA bytes for wgpu), calling `.push()` sequentially for each channel incurs bounds/capacity checking overhead per byte and inhibits compiler optimizations.
