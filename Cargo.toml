@@ -739,3 +739,7 @@ required-features = ["nova"]
 name = "jelly_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "havoc_circle_bench"
+harness = false
