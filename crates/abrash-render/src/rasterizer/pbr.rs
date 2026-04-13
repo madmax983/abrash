@@ -530,7 +530,10 @@ fn draw_scanline_pbr(
     constants: &PbrConstants,
 ) {
     #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-    if (x_end - x_start + 1) >= 32 && is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+    if (x_end - x_start + 1) >= 32
+        && is_x86_feature_detected!("avx2")
+        && is_x86_feature_detected!("fma")
+    {
         unsafe {
             draw_scanline_pbr_simd(fb, zb, y, x_start, x_end, start, gradients, constants);
         }
@@ -1140,7 +1143,10 @@ mod tests {
 
         // Run SIMD (if available)
         #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-        if (x_end - x_start + 1) >= 32 && is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+        if (x_end - x_start + 1) >= 32
+            && is_x86_feature_detected!("avx2")
+            && is_x86_feature_detected!("fma")
+        {
             unsafe {
                 draw_scanline_pbr_simd(
                     &mut fb_simd,

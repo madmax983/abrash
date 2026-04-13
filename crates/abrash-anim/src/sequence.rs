@@ -64,7 +64,9 @@ impl<T: Animatable> Evaluable<T> for Sequence<T> {
             }
         }
 
-        self.segments.last().unwrap().evaluate(1.0)
+        unreachable!(
+            "The loop always returns because the last segment condition `i == self.segments.len() - 1` is always met"
+        )
     }
 
     fn natural_duration(&self) -> f32 {
@@ -145,5 +147,25 @@ mod tests {
         ))]);
         let s = Evaluable::evaluate(&seq, 0.5);
         assert!((s.value - 5.0).abs() < EPSILON);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "The loop always returns because the last segment condition `i == self.segments.len() - 1` is always met"
+    )]
+    fn sequence_evaluate_unreachable_guard() {
+        let mut seq = Sequence::new(vec![Box::new(Keyframe::new(
+            0.0_f32,
+            10.0,
+            Easing::Linear,
+            1.0,
+        ))]);
+
+        // Manually break the internal invariant: clear the boundaries list
+        // so the exhaustive for-loop finishes without returning.
+        seq.boundaries.clear();
+
+        // This should trigger the `unreachable!()` guard.
+        let _ = Evaluable::evaluate(&seq, 0.5);
     }
 }
