@@ -279,3 +279,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Replace consecutive Vec::push calls with extend_from_slice]**
 **Learning:** In hot pixel conversion loops (e.g., converting 0xAARRGGBB to RGBA bytes for wgpu), calling `.push()` sequentially for each channel incurs bounds/capacity checking overhead per byte and inhibits compiler optimizations.
 **Action:** Replaced four consecutive `.push()` calls with a stack-allocated byte array `let bytes = [r, g, b, a];` followed by `.extend_from_slice(&bytes)`. This eliminates bounds checks and allows the compiler (LLVM) to vectorize or unroll the memory copy. Implemented in `abrash-gpu-render` (`blitter.rs`, `renderer.rs`, `environment.rs`).
+⚡ Bolt: Optimized specular calculation with f32::powi
+**Learning:** Using `f32::powf(32.0)` with a whole number exponent is slower than `f32::powi(32)` due to the underlying complex C-math routines used for `powf`. Replace it in hot rendering paths for measurable performance improvements.
+**Action:** Replaced `reflect_dir.dot(view_dir).max(0.0).powf(32.0)` with `.powi(32)` in `crates/abrash-render/src/experimental/raytracer.rs` specular reflection logic.
