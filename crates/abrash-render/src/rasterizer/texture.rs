@@ -32,8 +32,7 @@
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{
-    ScreenPoint, Vec2, Vec3, Vec4, fast_inv_sqrt, project_quad_to_screen,
-    project_triangle_to_screen,
+    ScreenPoint, Vec2, Vec3, Vec4, project_quad_to_screen, project_triangle_to_screen,
 };
 use crate::texture::{FilterMode, Texture, blend_four_way, blend_swar};
 use crate::zbuffer::ZBuffer;
@@ -2716,7 +2715,7 @@ unsafe fn draw_scanline_normal_mapped_simd(
 
                 let len_sq = lx * lx + ly * ly + lz * lz;
                 let intensity = if len_sq > 0.000_1 {
-                    let inv_len = fast_inv_sqrt(len_sq);
+                    let inv_len = len_sq.sqrt().recip();
                     (nm_r * lx + nm_g * ly + nm_b * lz) * inv_len
                 } else {
                     0.0
@@ -3159,7 +3158,7 @@ fn draw_scanline_normal_mapped(
             // Light Vector in Tangent Space
             let len_sq = lx * lx + ly * ly + lz * lz;
             let intensity = if len_sq > 0.000_1 {
-                let inv_len = fast_inv_sqrt(len_sq);
+                let inv_len = len_sq.sqrt().recip();
                 // Dot product: normal . light
                 (nm_r * lx + nm_g * ly + nm_b * lz) * inv_len
             } else {
