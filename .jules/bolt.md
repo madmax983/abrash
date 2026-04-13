@@ -279,3 +279,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Replace consecutive Vec::push calls with extend_from_slice]**
 **Learning:** In hot pixel conversion loops (e.g., converting 0xAARRGGBB to RGBA bytes for wgpu), calling `.push()` sequentially for each channel incurs bounds/capacity checking overhead per byte and inhibits compiler optimizations.
 **Action:** Replaced four consecutive `.push()` calls with a stack-allocated byte array `let bytes = [r, g, b, a];` followed by `.extend_from_slice(&bytes)`. This eliminates bounds checks and allows the compiler (LLVM) to vectorize or unroll the memory copy. Implemented in `abrash-gpu-render` (`blitter.rs`, `renderer.rs`, `environment.rs`).
+**[Inlined per-pixel logic in radial blur]
+**Learning:** In hot per-pixel rendering loops (like radial blur), avoiding closures and inlining the logic removes allocation/invocation overhead and improves register utilization, yielding measurable performance gains.
+**Action:** Removed the `process_pixel` closure in `apply_radial_blur` and inlined its body directly into the `cfg(feature = "parallel")` and `cfg(not(feature = "parallel"))` loops.
