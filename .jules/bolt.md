@@ -1,8 +1,10 @@
-**[Reusing Vecs to Elide per-frame allocations]**
-**Learning:** `Vec::collect()` inside a per-frame render loop (like `flush_to_view` in `GpuBlitter`) results in a dynamic heap allocation every time it's called. This can be elided by keeping a pre-allocated vector inside the parent structure.
-**Action:** Add a `Vec<T>` to the main structure (e.g. `GpuBlitter { instances: Vec<SpriteInstance> }`), and in the hot path use `self.instances.clear(); self.instances.extend(...)` instead of `.collect::<Vec<_>>()`. This prevents the recurring heap allocation overhead while maintaining memory safety.
-# Bolt's Journal
+**[Eliminate false `clone()` zero-cost abstraction]
+**Learning:** Calling `.clone().into_bytes()` on a `String` is not a zero-cost abstraction. It performs a deep copy and creates a new heap allocation, offering no performance benefit over `.as_bytes().to_vec()`.
+**Action:** Do not attempt to use `.clone().into_bytes()` as an optimization over `.to_vec()`. To truly eliminate allocations, either reuse a pre-allocated vector or avoid cloning the underlying string entirely.
 
+**[Pre-allocate all vectors in `with_capacity`]
+**Learning:** When implementing `with_capacity` constructors for structs with multiple vector fields (e.g., `DrawList`), leaving some fields initialized with `Vec::new()` introduces hidden heap allocations when they are later populated.
+**Action:** Always provide explicit capacity parameters for all relevant vector fields in a `with_capacity` constructor.
 **[Performance Optimization: Unchecked Rasterizer Access]**
 **Learning:** Removing bounds checks (`test_and_set` -> `test_and_set_unchecked`) in the single-pixel/empty-span path of the rasterizer yielded a ~20% performance improvement for small triangles. This path is hit frequently for sub-pixel or thin geometry.
 **Action:** Look for other "checked by logic" hot paths where `unsafe` unchecked access can be justified by loop invariants.
@@ -285,3 +287,10 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Eliding Nested Bounds Checks in Vision Mode]**
 **Learning:** By switching from nested `x`/`y` loops with direct array indexing (`pixels[idx]`) to using `.chunks_exact_mut()` and `.iter_mut()`, we can guarantee that all array accesses are safe and bounds checks are fully elided in hot processing loops. Additionally, precalculating inverted divisions (`1.0 / max`) and squaring values outside inner loops avoids redundant computational overhead.
 **Action:** Refactored `apply_night_vision` in `crates/abrash-render/src/experimental/vision.rs` to use chunked iterators instead of computed indices, hoisted `dy * dy` out of the inner loop, and replaced division with multiplication by a precalculated reciprocal.
+
+**Pre-allocate ResourcePool vectors**
+**Learning:** Pre-allocating `ResourcePool` entry vectors eliminates multiple heap reallocations when registering initial scene assets, providing a small but measurable boot/level-load speedup.
+**Action:** Always provide and utilize a `with_capacity` constructor for generic resource or object pools whose sizing requirements are loosely predictable at instantiation.
+**[Optimized `clear_rect` boundary clamping]**
+**Learning:** In tight inner loops or coordinate bounds calculations (e.g., `clear_rect`), replacing standard library `Ord::clamp(min, max)` with chained `.max(min).min(max)` can improve throughput by eliding the hidden `assert!(min <= max)` panic branch present in `clamp`.
+**Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.
