@@ -279,3 +279,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Replace consecutive Vec::push calls with extend_from_slice]**
 **Learning:** In hot pixel conversion loops (e.g., converting 0xAARRGGBB to RGBA bytes for wgpu), calling `.push()` sequentially for each channel incurs bounds/capacity checking overhead per byte and inhibits compiler optimizations.
 **Action:** Replaced four consecutive `.push()` calls with a stack-allocated byte array `let bytes = [r, g, b, a];` followed by `.extend_from_slice(&bytes)`. This eliminates bounds checks and allows the compiler (LLVM) to vectorize or unroll the memory copy. Implemented in `abrash-gpu-render` (`blitter.rs`, `renderer.rs`, `environment.rs`).
+**2026-04-12 - [Circle Rasterization Overdraw Optimization]
+**Learning:** In symmetric drawing algorithms (like Bresenham's circle), plotting 8-way symmetric points unconditionally will overdraw identical pixels when coordinates are on axes or diagonals (e.g., `x == 0` or `x == y`).
+**Action:** Adding a simple conditional check (e.g., `if x != 0`) before writing to the framebuffer prevents redundant writes and measurably improves rasterization performance.

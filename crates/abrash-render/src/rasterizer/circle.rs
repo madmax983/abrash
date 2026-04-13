@@ -50,7 +50,7 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
     let mut x = 0;
     let mut y = radius;
-    let mut d = 3 - 2 * radius;
+    let mut d = 3_i64 - 2_i64 * i64::from(radius);
 
     // Fast path: fully on screen
     let min_x = i64::from(xc) - i64::from(radius);
@@ -68,9 +68,9 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
             x += 1;
             if d > 0 {
                 y -= 1;
-                d = d + 4 * (x - y) + 10;
+                d = d + 4_i64 * i64::from(x - y) + 10_i64;
             } else {
-                d = d + 4 * x + 6;
+                d = d + 4_i64 * i64::from(x) + 6_i64;
             }
             draw_circle_points_unchecked(fb, xc, yc, x, y, color);
         }
@@ -81,9 +81,9 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
             x += 1;
             if d > 0 {
                 y -= 1;
-                d = d + 4 * (x - y) + 10;
+                d = d + 4_i64 * i64::from(x - y) + 10_i64;
             } else {
-                d = d + 4 * x + 6;
+                d = d + 4_i64 * i64::from(x) + 6_i64;
             }
             draw_circle_points(fb, xc, yc, x, y, color);
         }
@@ -101,26 +101,46 @@ fn draw_circle_points_unchecked(
 ) {
     unsafe {
         fb.set_pixel_unchecked((xc + x) as usize, (yc + y) as usize, color);
-        fb.set_pixel_unchecked((xc - x) as usize, (yc + y) as usize, color);
-        fb.set_pixel_unchecked((xc + x) as usize, (yc - y) as usize, color);
-        fb.set_pixel_unchecked((xc - x) as usize, (yc - y) as usize, color);
-        fb.set_pixel_unchecked((xc + y) as usize, (yc + x) as usize, color);
-        fb.set_pixel_unchecked((xc - y) as usize, (yc + x) as usize, color);
-        fb.set_pixel_unchecked((xc + y) as usize, (yc - x) as usize, color);
-        fb.set_pixel_unchecked((xc - y) as usize, (yc - x) as usize, color);
+        if x != 0 {
+            fb.set_pixel_unchecked((xc - x) as usize, (yc + y) as usize, color);
+            fb.set_pixel_unchecked((xc - x) as usize, (yc - y) as usize, color);
+        }
+        if y != 0 {
+            fb.set_pixel_unchecked((xc + x) as usize, (yc - y) as usize, color);
+        }
+        if x != y {
+            fb.set_pixel_unchecked((xc + y) as usize, (yc + x) as usize, color);
+            fb.set_pixel_unchecked((xc - y) as usize, (yc + x) as usize, color);
+            if x != 0 {
+                fb.set_pixel_unchecked((xc - y) as usize, (yc - x) as usize, color);
+            }
+            if y != 0 {
+                fb.set_pixel_unchecked((xc + y) as usize, (yc - x) as usize, color);
+            }
+        }
     }
 }
 
 #[inline(always)]
 fn draw_circle_points(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
     fb.set_pixel(xc + x, yc + y, color);
-    fb.set_pixel(xc - x, yc + y, color);
-    fb.set_pixel(xc + x, yc - y, color);
-    fb.set_pixel(xc - x, yc - y, color);
-    fb.set_pixel(xc + y, yc + x, color);
-    fb.set_pixel(xc - y, yc + x, color);
-    fb.set_pixel(xc + y, yc - x, color);
-    fb.set_pixel(xc - y, yc - x, color);
+    if x != 0 {
+        fb.set_pixel(xc - x, yc + y, color);
+        fb.set_pixel(xc - x, yc - y, color);
+    }
+    if y != 0 {
+        fb.set_pixel(xc + x, yc - y, color);
+    }
+    if x != y {
+        fb.set_pixel(xc + y, yc + x, color);
+        fb.set_pixel(xc - y, yc + x, color);
+        if x != 0 {
+            fb.set_pixel(xc - y, yc - x, color);
+        }
+        if y != 0 {
+            fb.set_pixel(xc + y, yc - x, color);
+        }
+    }
 }
 
 /// Draw a solid, filled circle using Bresenham's algorithm.
@@ -168,7 +188,7 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
     let mut x = 0;
     let mut y = radius;
-    let mut d = 3 - 2 * radius;
+    let mut d = 3_i64 - 2_i64 * i64::from(radius);
 
     // Fast path: fully on screen
     let min_x = i64::from(xc) - i64::from(radius);
@@ -191,9 +211,9 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
             if d > 0 {
                 y -= 1;
-                d = d + 4 * (x - y) + 10;
+                d = d + 4_i64 * i64::from(x - y) + 10_i64;
             } else {
-                d = d + 4 * x + 6;
+                d = d + 4_i64 * i64::from(x) + 6_i64;
             }
 
             if y != last_y {
@@ -218,9 +238,9 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
             if d > 0 {
                 y -= 1;
-                d = d + 4 * (x - y) + 10;
+                d = d + 4_i64 * i64::from(x - y) + 10_i64;
             } else {
-                d = d + 4 * x + 6;
+                d = d + 4_i64 * i64::from(x) + 6_i64;
             }
 
             if y != last_y {
