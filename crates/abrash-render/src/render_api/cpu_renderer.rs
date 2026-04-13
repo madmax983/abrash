@@ -88,9 +88,9 @@ impl CpuRenderer {
         tile_renderer.enable_hiz();
         Self {
             tile_renderer,
-            meshes: ResourcePool::new(),
-            textures: ResourcePool::new(),
-            materials: ResourcePool::new(),
+            meshes: ResourcePool::with_capacity(128),
+            textures: ResourcePool::with_capacity(128),
+            materials: ResourcePool::with_capacity(128),
         }
     }
 

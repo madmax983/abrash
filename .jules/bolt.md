@@ -279,3 +279,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Replace consecutive Vec::push calls with extend_from_slice]**
 **Learning:** In hot pixel conversion loops (e.g., converting 0xAARRGGBB to RGBA bytes for wgpu), calling `.push()` sequentially for each channel incurs bounds/capacity checking overhead per byte and inhibits compiler optimizations.
 **Action:** Replaced four consecutive `.push()` calls with a stack-allocated byte array `let bytes = [r, g, b, a];` followed by `.extend_from_slice(&bytes)`. This eliminates bounds checks and allows the compiler (LLVM) to vectorize or unroll the memory copy. Implemented in `abrash-gpu-render` (`blitter.rs`, `renderer.rs`, `environment.rs`).
+**CpuRenderer ResourcePool Pre-allocation**
+**Learning:** Initializing generic data structures like `ResourcePool` with `Vec::new()` requires repeated dynamic heap allocations when populating the first set of items (e.g. assets loaded at start).
+**Action:** Always provide and use a `with_capacity` constructor for generic structures storing collections (like `ResourcePool`) where the initial expected sizing is known or can be estimated, to avoid unnecessary runtime reallocations.

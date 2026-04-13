@@ -164,6 +164,16 @@ impl<T> ResourcePool<T> {
         }
     }
 
+    /// ⚡ Bolt: Create an empty pool, pre-allocating the underlying vectors.
+    /// This drastically reduces heap reallocations when registering many assets.
+    #[must_use]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            entries: Vec::with_capacity(capacity),
+            free_list: Vec::new(),
+        }
+    }
+
     /// Insert a resource and return its handle.
     pub fn insert(&mut self, value: T) -> Handle<T> {
         if let Some(index) = self.free_list.pop() {
