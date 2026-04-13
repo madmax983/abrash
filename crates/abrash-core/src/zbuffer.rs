@@ -85,11 +85,11 @@ impl ZBuffer {
             y2_i64 as i32
         };
 
-        let start_x = x1.clamp(0, self.width as i32) as u32;
-        let start_y = y1.clamp(0, self.height as i32) as u32;
+        let start_x = x1.max(0).min(self.width as i32) as u32;
+        let start_y = y1.max(0).min(self.height as i32) as u32;
 
-        let end_x = x2.clamp(0, self.width as i32) as u32;
-        let end_y = y2.clamp(0, self.height as i32) as u32;
+        let end_x = x2.max(0).min(self.width as i32) as u32;
+        let end_y = y2.max(0).min(self.height as i32) as u32;
 
         if start_x >= end_x || start_y >= end_y {
             return;
@@ -100,13 +100,36 @@ impl ZBuffer {
         let ex = end_x as usize;
 
         // Use chunks_exact_mut to safely slice the array per row, avoiding inner-loop bounds checks
-        self.depths
-            .chunks_exact_mut(w)
-            .take(end_y as usize)
-            .skip(start_y as usize)
-            .for_each(|row| {
-                row[sx..ex].fill(f32::INFINITY);
-            });
+        let start_idx = (start_y as usize) * w;
+        let end_idx = (end_y as usize) * w;
+
+        if sx == 0 && ex == w {
+            self.depths[start_idx..end_idx].fill(f32::INFINITY);
+        } else {
+            // Hot path optimization: process rows concurrently if large enough
+            // Since rows don't overlap, we can safely use rayon's par_chunks_exact_mut
+            #[cfg(feature = "parallel")]
+            {
+                use rayon::prelude::*;
+                // Only parallelize if the workload is large enough to overcome rayon's overhead
+                let row_count = (end_idx - start_idx) / w;
+                if row_count > 100 {
+                    self.depths[start_idx..end_idx]
+                        .par_chunks_exact_mut(w)
+                        .for_each(|row| row[sx..ex].fill(f32::INFINITY));
+                } else {
+                    for row in self.depths[start_idx..end_idx].chunks_exact_mut(w) {
+                        row[sx..ex].fill(f32::INFINITY);
+                    }
+                }
+            }
+            #[cfg(not(feature = "parallel"))]
+            {
+                for row in self.depths[start_idx..end_idx].chunks_exact_mut(w) {
+                    row[sx..ex].fill(f32::INFINITY);
+                }
+            }
+        }
     }
 
     /// Test and set depth at pixel. Returns true if pixel should be drawn.
@@ -177,12 +200,17 @@ impl ZBuffer {
         }
     }
 
-    /// Returns the width of the depth buffer in pixels.
+    /// The width of the depth buffer in pixels.
+    ///
+    /// Useful for calculating normalized device coordinates (NDC) from screen space.
     #[must_use]
     pub const fn width(&self) -> u32 {
         self.width
     }
-    /// Returns the height of the depth buffer in pixels.
+
+    /// The height of the depth buffer in pixels.
+    ///
+    /// Useful for calculating normalized device coordinates (NDC) from screen space.
     #[must_use]
     pub const fn height(&self) -> u32 {
         self.height
@@ -336,5 +364,29 @@ mod tests {
 
         assert_eq!(zb.get_depth(0, 0), Some(0.1));
         assert_eq!(zb.get_depth(1, 0), Some(0.2));
+    }
+
+    #[test]
+    fn test_clear_rect_full_width() {
+        let mut zb = ZBuffer::new(10, 10).unwrap();
+        for y in 0..10 {
+            for x in 0..10 {
+                zb.test_and_set(x, y, 1.0);
+            }
+        }
+
+        // Clear full width but only a few rows
+        zb.clear_rect(0, 2, 10, 3);
+
+        for y in 0..10 {
+            for x in 0..10 {
+                let depth = zb.get_depth(x, y).unwrap();
+                if y >= 2 && y < 5 {
+                    assert!(depth.is_infinite());
+                } else {
+                    assert_eq!(depth, 1.0);
+                }
+            }
+        }
     }
 }

@@ -54,7 +54,6 @@ pub fn fast_atan2(y: f32, x: f32) -> f32 {
     theta
 }
 
-#[allow(clippy::imprecise_flops)]
 pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
     if segments <= 1 {
         return;
@@ -102,7 +101,7 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
                         let dx = x as f32 - cx;
 
                         // Convert to polar coordinates
-                        let r = (dx * dx + dy * dy).sqrt();
+                        let r = dx.mul_add(dx, dy * dy).sqrt();
 
                         // ⚡ Bolt: Fast mathematical approximation for atan2 to reduce overhead
                         let mut theta = fast_atan2(dy, dx);
@@ -135,15 +134,14 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
 
         #[cfg(not(feature = "parallel"))]
         {
-            for y in 0..height {
-                let row_start = y * width;
+            for (y, row) in dest_pixels.chunks_exact_mut(width).enumerate().take(height) {
                 let dy = y as f32 - cy;
 
-                for x in 0..width {
+                for (x, pixel) in row.iter_mut().enumerate() {
                     let dx = x as f32 - cx;
 
                     // Convert to polar coordinates
-                    let r = (dx * dx + dy * dy).sqrt();
+                    let r = dx.mul_add(dx, dy * dy).sqrt();
 
                     // ⚡ Bolt: Fast mathematical approximation for atan2 to reduce overhead
                     let mut theta = fast_atan2(dy, dx);
@@ -168,7 +166,7 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
                     let clamped_x = sample_x.clamp(0, width as i32 - 1) as usize;
                     let clamped_y = sample_y.clamp(0, height as i32 - 1) as usize;
 
-                    dest_pixels[row_start + x] = src_fb[clamped_y * width + clamped_x];
+                    *pixel = src_fb[clamped_y * width + clamped_x];
                 }
             }
         }
@@ -212,7 +210,7 @@ mod tests {
             ), // Bottom-Left
         ];
 
-        for (y, x, expected) in points.iter() {
+        for (y, x, expected) in &points {
             let mut std_atan2 = (*y as f32).atan2(*x as f32);
             if std_atan2 < 0.0 {
                 std_atan2 += std::f32::consts::TAU;
@@ -222,11 +220,7 @@ mod tests {
             // Allow for a max error of about 4 degrees (0.07 rads) for the approximation
             assert!(
                 (fast - expected).abs() < 0.08,
-                "fast_atan2({}, {}) = {} vs expected std {}",
-                y,
-                x,
-                fast,
-                expected
+                "fast_atan2({y}, {x}) = {fast} vs expected std {expected}"
             );
         }
     }

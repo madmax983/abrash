@@ -212,14 +212,25 @@ impl<T> ResourcePool<T> {
         let entry = self.entries.get_mut(handle.index as usize)?;
         match entry {
             PoolEntry::Occupied { generation, .. } if *generation == handle.generation => {
-                let new_gen = *generation + 1;
-                let old = std::mem::replace(
-                    entry,
-                    PoolEntry::Vacant {
-                        generation: new_gen,
-                    },
-                );
-                self.free_list.push(handle.index);
+                let old = if *generation == Generation::MAX {
+                    std::mem::replace(
+                        entry,
+                        PoolEntry::Vacant {
+                            generation: Generation::MAX,
+                        },
+                    )
+                } else {
+                    let new_gen = *generation + 1;
+                    let old_entry = std::mem::replace(
+                        entry,
+                        PoolEntry::Vacant {
+                            generation: new_gen,
+                        },
+                    );
+                    self.free_list.push(handle.index);
+                    old_entry
+                };
+
                 match old {
                     PoolEntry::Occupied { value, .. } => Some(value),
                     PoolEntry::Vacant { .. } => unreachable!(),
@@ -302,6 +313,41 @@ mod tests {
     }
 
     #[test]
+    fn test_pool_get_invalid_generation() {
+        let mut pool: ResourcePool<i32> = ResourcePool::new();
+        let h = pool.insert(42);
+
+        // Access occupied slot but with wrong generation
+        let invalid_h = Handle::new(h.index, h.generation + 1);
+
+        assert_eq!(pool.get(invalid_h), None);
+    }
+
+    #[test]
+    fn test_pool_get_mut_invalid_generation() {
+        let mut pool: ResourcePool<i32> = ResourcePool::new();
+        let h = pool.insert(42);
+
+        // Access occupied slot but with wrong generation
+        let invalid_h = Handle::new(h.index, h.generation + 1);
+
+        assert_eq!(pool.get_mut(invalid_h), None);
+    }
+
+    #[test]
+    fn test_pool_remove_invalid_generation() {
+        let mut pool: ResourcePool<i32> = ResourcePool::new();
+        let h = pool.insert(42);
+
+        // Access occupied slot but with wrong generation
+        let invalid_h = Handle::new(h.index, h.generation + 1);
+
+        assert_eq!(pool.remove(invalid_h), None);
+        // Ensure the valid handle still works and the value was not removed
+        assert_eq!(pool.get(h), Some(&42));
+    }
+
+    #[test]
     #[should_panic(expected = "free list pointed to occupied slot")]
     fn test_pool_free_list_occupied_slot_panic() {
         let mut pool: ResourcePool<i32> = ResourcePool::new();
@@ -326,44 +372,40 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "👹 Havoc: Generation Overflow allows Use-After-Free"]
     fn test_pool_generation_overflow_use_after_free() {
         let mut pool: ResourcePool<String> = ResourcePool::new();
 
         // 1. Insert a string and hold onto the handle
         let handle_to_exploit = pool.insert("Sensitive Data".to_string());
 
-        // 2. Remove the string (memory is now technically free from the user's perspective)
-        let _ = pool.remove(handle_to_exploit);
-
-        // 3. Overflow the generation counter for this specific slot manually.
-        // We simulate a long running server that cycles through `u32::MAX` creations/deletions
-        // on the same slot. We do this directly to avoid waiting 4 hours in the test.
+        // 2. We simulate a long running server that has cycled through `u32::MAX` creations/deletions
+        // on the same slot. We do this by maxing out the generation of the handle and the entry.
         if let Some(entry) = pool.entries.get_mut(handle_to_exploit.index as usize) {
-            *entry = PoolEntry::Vacant {
-                // By wrapping exactly around to the original generation
-                generation: handle_to_exploit.generation,
+            *entry = PoolEntry::Occupied {
+                value: "Sensitive Data".to_string(),
+                generation: Generation::MAX,
             };
         }
+        let handle_to_exploit = Handle::new(handle_to_exploit.index, Generation::MAX);
+
+        // 3. Remove the string. Because its generation is MAX, the pool should mark it Vacant(MAX)
+        // AND NOT add it back to the free list.
+        let _ = pool.remove(handle_to_exploit);
 
         // 4. Insert a completely different piece of data.
-        // It will reuse the same slot because of the free list.
-        // Because we overflowed the generation exactly back to where it was,
-        // the old handle_to_exploit is now VALID again and points to the new data!
+        // Because the slot with MAX generation was not added to the free list,
+        // this will NOT reuse the same slot. It should allocate a new slot.
         let _new_handle = pool.insert("Attacker Controlled Data".to_string());
 
-        // 5. Exploit! Use the old handle to read or modify the new data.
+        // 5. Exploit should fail. Use the old handle to read the new data.
         let exploited_value = pool.get(handle_to_exploit);
         assert_eq!(
-            exploited_value,
-            Some(&"Attacker Controlled Data".to_string()),
-            "👹 Havoc: Generation overflow allowed use-after-free!"
+            exploited_value, None,
+            "Slot should not have been reused after generation overflowed"
         );
     }
 
     #[test]
-    #[should_panic(expected = "attempt to add with overflow")]
-    #[ignore = "👹 Havoc: Generation Overflow causes Denial of Service"]
     fn test_pool_generation_overflow_panic() {
         let mut pool: ResourcePool<i32> = ResourcePool::new();
         let mut handle = pool.insert(42);
@@ -372,12 +414,15 @@ mod tests {
         if let Some(entry) = pool.entries.get_mut(handle.index as usize) {
             *entry = PoolEntry::Occupied {
                 value: 42,
-                generation: u32::MAX,
+                generation: Generation::MAX,
             };
         }
-        handle.generation = u32::MAX;
+        handle.generation = Generation::MAX;
 
-        // This triggers `let new_gen = *generation + 1;` which panics in debug mode.
+        // This should not panic. It should gracefully leave it vacant with MAX generation.
         pool.remove(handle);
+
+        // Ensure it's not in the free list
+        assert!(pool.free_list.is_empty());
     }
 }

@@ -43,7 +43,7 @@ mod winit_demo {
     const HEIGHT: u32 = 300;
 
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
-        run_windowed(RaytracerApp::new()?)?;
+        run_windowed(RaytracerApp::new().unwrap());
         Ok(())
     }
 

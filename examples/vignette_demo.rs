@@ -1,3 +1,4 @@
+#![cfg(feature = "backend-winit")]
 //! Demonstration of the Nova Vignette filter.
 
 use abrash::framebuffer::Framebuffer;
@@ -142,7 +143,7 @@ impl WindowApp for VignetteApp {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     print_banner();
-    run_windowed(VignetteApp::new()?)
+    run_windowed(VignetteApp::new().unwrap())
 }

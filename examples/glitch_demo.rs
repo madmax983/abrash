@@ -8,9 +8,51 @@ use abrash::platform::{
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::zbuffer::ZBuffer;
 
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
+
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const TITLE: &str = "🌟 Nova: Glitch / Datamosh Demo";
+
+fn print_banner() {
+    println!("\n{}", "🌟 Glitch Effect Demo".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Post-processing digital corruption and RGB separation").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Behavior"),
+            Cell::new("Intensity pulses dynamically over time").fg(Color::Yellow),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Auto-rotating object"),
+        ]);
+    println!("{controls}\n");
+}
 
 struct GlitchDemo {
     presenter: Option<SoftwarePresenter>,
@@ -189,8 +231,7 @@ impl WindowApp for GlitchDemo {
     }
 }
 
-fn main() -> Result<(), HostError> {
-    println!("🌟 Glitch Effect Demo");
-    println!("The glitch intensity will pulse dynamically over time.");
-    run_windowed(GlitchDemo::new()?)
+fn main() {
+    print_banner();
+    run_windowed(GlitchDemo::new().unwrap())
 }

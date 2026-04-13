@@ -55,7 +55,9 @@ impl Framebuffer {
         })
     }
 
-    /// Returns the width of the framebuffer in pixels.
+    /// The width of the framebuffer in pixels.
+    ///
+    /// Essential when computing row bounds during scanline rendering or projecting NDC back to screen space.
     ///
     /// # Examples
     ///
@@ -70,7 +72,9 @@ impl Framebuffer {
         self.width
     }
 
-    /// Returns the height of the framebuffer in pixels.
+    /// The height of the framebuffer in pixels.
+    ///
+    /// Essential when computing row bounds during scanline rendering or projecting NDC back to screen space.
     ///
     /// # Examples
     ///
@@ -290,10 +294,10 @@ impl Framebuffer {
             y2_i64 as i32
         };
 
-        let start_x = x1.clamp(0, self.width as i32) as u32;
-        let start_y = y1.clamp(0, self.height as i32) as u32;
-        let end_x = x2.clamp(0, self.width as i32) as u32;
-        let end_y = y2.clamp(0, self.height as i32) as u32;
+        let start_x = x1.max(0).min(self.width as i32) as u32;
+        let start_y = y1.max(0).min(self.height as i32) as u32;
+        let end_x = x2.max(0).min(self.width as i32) as u32;
+        let end_y = y2.max(0).min(self.height as i32) as u32;
 
         if start_x >= end_x || start_y >= end_y {
             return;
@@ -305,13 +309,20 @@ impl Framebuffer {
         let ey = end_y as usize;
         let w = self.width as usize;
 
-        self.pixels
-            .chunks_exact_mut(w)
-            .take(ey)
-            .skip(sy)
-            .for_each(|row| {
+        let start_idx = sy * w;
+        let end_idx = ey * w;
+
+        if sx == 0 && ex == w {
+            // Fast path for full-width clears (avoids chunking overhead)
+            self.pixels[start_idx..end_idx].fill(color);
+        } else {
+            // Bolt Performance Optimization:
+            // Calculate exact 1D slice indices first, applying .chunks_exact_mut(width)
+            // directly to &mut buffer[start_idx..end_idx] entirely elides inner-loop bounds checking.
+            for row in self.pixels[start_idx..end_idx].chunks_exact_mut(w) {
                 row[sx..ex].fill(color);
-            });
+            }
+        }
     }
 }
 
@@ -468,6 +479,25 @@ mod tests {
             assert_eq!(fb.get_pixel_unchecked(5, 5), 0xAABBCCDD);
         }
     }
+
+    #[test]
+    fn test_clear_rect_full_width() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+
+        // Clear full width but only a few rows
+        fb.clear_rect(0, 2, 10, 3, 0xFFFFFFFF);
+
+        for y in 0..10 {
+            for x in 0..10 {
+                let expected = if y >= 2 && y < 5 {
+                    0xFFFFFFFF
+                } else {
+                    0xFF00_0000
+                };
+                assert_eq!(fb.get_pixel(x, y), Some(expected), "Mismatch at {x}, {y}");
+            }
+        }
+    }
 }
 
 use std::fs::File;
@@ -503,13 +533,14 @@ impl Framebuffer {
             .take(self.height() as usize)
         {
             row_buffer.clear();
-            row_buffer.extend(row.iter().flat_map(|&pixel| {
-                [
+            for &pixel in row {
+                let bytes = [
                     ((pixel >> 16) & 0xFF) as u8,
                     ((pixel >> 8) & 0xFF) as u8,
                     (pixel & 0xFF) as u8,
-                ]
-            }));
+                ];
+                row_buffer.extend_from_slice(&bytes);
+            }
             writer.write_all(&row_buffer)?;
         }
 
@@ -557,13 +588,14 @@ impl Framebuffer {
             .take(self.height() as usize)
         {
             row_buffer.clear();
-            row_buffer.extend(row.iter().flat_map(|&pixel| {
-                [
+            for &pixel in row {
+                let bytes = [
                     (pixel & 0xFF) as u8,
                     ((pixel >> 8) & 0xFF) as u8,
                     ((pixel >> 16) & 0xFF) as u8,
-                ]
-            }));
+                ];
+                row_buffer.extend_from_slice(&bytes);
+            }
             writer.write_all(&row_buffer)?;
         }
 

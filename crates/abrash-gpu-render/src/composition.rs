@@ -17,7 +17,7 @@ pub enum DebugMode {
     None = 0,
     /// Visualize G-Buffer world positions (RGB = XYZ).
     GBufferPosition = 1,
-    /// Visualize G-Buffer normals (RGB = XYZ mapped to [0,1]).
+    /// Visualize G-Buffer normals (RGB = XYZ mapped to \[0,1\]).
     GBufferNormal = 2,
     /// Visualize G-Buffer albedo (raw base color).
     GBufferAlbedo = 3,
@@ -115,7 +115,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CompositionParams {
     pub debug_mode: u32,
-    pub pad: [u32; 3],
+    pub(crate) _pad: [u32; 3],
 }
 
 /// Final composition pass with debug visualization support.
@@ -231,7 +231,7 @@ impl CompositionPass {
             label: Some("Composition Params"),
             contents: bytemuck::bytes_of(&CompositionParams {
                 debug_mode: 0,
-                pad: [0; 3],
+                _pad: [0; 3],
             }),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });

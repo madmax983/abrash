@@ -123,16 +123,16 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
 
             for x in 0..width {
                 // Extract column
-                for y in 0..height {
-                    col_buffer[y] = pixels[y * width + x];
+                for (y, col_pixel) in col_buffer.iter_mut().enumerate().take(height) {
+                    *col_pixel = pixels[y * width + x];
                 }
 
                 // Sort segments in column
                 sort_segments(&mut col_buffer, lum_threshold, config.reverse);
 
                 // Put column back
-                for y in 0..height {
-                    pixels[y * width + x] = col_buffer[y];
+                for (y, col_pixel) in col_buffer.iter().enumerate().take(height) {
+                    pixels[y * width + x] = *col_pixel;
                 }
             }
         } else {

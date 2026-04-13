@@ -147,7 +147,7 @@ impl WindowApp for SwirlApp {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     print_banner();
-    run_windowed(SwirlApp::new()?)
+    run_windowed(SwirlApp::new().unwrap())
 }

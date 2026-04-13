@@ -10,9 +10,7 @@ use abrash_core::animatable::Animatable;
 use crate::clock::{AnimationClock, ClockEvent, PlaybackMode};
 use crate::easing::Easing;
 use crate::evaluable::{Evaluable, Sample};
-use crate::hold::Hold;
 use crate::keyframe::Keyframe;
-use crate::sequence::Sequence;
 
 enum TimelineState<T: Animatable> {
     Playing,
@@ -58,14 +56,6 @@ impl<T: Animatable + Send + Sync + 'static> Timeline<T> {
         )
     }
 
-    /// Start building a multi-segment sequence.
-    #[must_use]
-    pub fn sequence() -> SequenceBuilder<T> {
-        SequenceBuilder {
-            segments: Vec::new(),
-        }
-    }
-
     /// Override the easing curve.
     ///
     /// Replaces the root evaluable with a new `Keyframe` that tweens
@@ -108,30 +98,31 @@ impl<T: Animatable + Send + Sync + 'static> Timeline<T> {
     ///
     /// Once completed, subsequent ticks return the final sample unchanged.
     pub fn tick(&mut self, delta_secs: f32) -> Sample<T> {
-        let sample = match &self.state {
-            TimelineState::Playing => {
-                let event = self.clock.tick(delta_secs, self.duration);
+        if let TimelineState::Completed { final_sample } = &self.state {
+            return final_sample.clone();
+        }
 
-                match event {
-                    ClockEvent::Normal => {
+        let sample = {
+            let event = self.clock.tick(delta_secs, self.duration);
+
+            match event {
+                ClockEvent::Normal => {
+                    let phase = self.clock.effective_phase(&self.playback);
+                    self.root.evaluate(phase)
+                }
+                ClockEvent::CycleBoundary { .. } => {
+                    if self.clock.is_finished(&self.playback) {
+                        let final_sample = self.root.evaluate(1.0);
+                        self.state = TimelineState::Completed {
+                            final_sample: final_sample.clone(),
+                        };
+                        final_sample
+                    } else {
                         let phase = self.clock.effective_phase(&self.playback);
                         self.root.evaluate(phase)
                     }
-                    ClockEvent::CycleBoundary { .. } => {
-                        if self.clock.is_finished(&self.playback) {
-                            let final_sample = self.root.evaluate(1.0);
-                            self.state = TimelineState::Completed {
-                                final_sample: final_sample.clone(),
-                            };
-                            final_sample
-                        } else {
-                            let phase = self.clock.effective_phase(&self.playback);
-                            self.root.evaluate(phase)
-                        }
-                    }
                 }
             }
-            TimelineState::Completed { final_sample } => final_sample.clone(),
         };
 
         self.last_sample = sample.clone();
@@ -167,90 +158,6 @@ impl<T: Animatable + Send + Sync + 'static> Timeline<T> {
     #[must_use]
     pub const fn playback_mode(&self) -> &PlaybackMode {
         &self.playback
-    }
-}
-
-// --- Builders ---
-
-/// Builder for constructing a multi-segment `Timeline` via chained calls.
-pub struct SequenceBuilder<T: Animatable> {
-    segments: Vec<Box<dyn Evaluable<T>>>,
-}
-
-impl<T: Animatable + Send + Sync + 'static> SequenceBuilder<T> {
-    /// Add a tween segment (returns a `TweenSegmentBuilder` for easing configuration).
-    #[must_use]
-    pub const fn then_tween(self, from: T, to: T, duration: Duration) -> TweenSegmentBuilder<T> {
-        TweenSegmentBuilder {
-            builder: self,
-            from,
-            to,
-            duration: duration.as_secs_f32(),
-            easing: Easing::Linear,
-        }
-    }
-
-    /// Add a hold segment (constant value for a duration).
-    #[must_use]
-    pub fn then_hold(mut self, value: T, duration: Duration) -> Self {
-        self.segments
-            .push(Box::new(Hold::new(value, duration.as_secs_f32())));
-        self
-    }
-
-    /// Finalize the sequence into a `Timeline`.
-    #[must_use]
-    pub fn build(self) -> Timeline<T> {
-        let seq = Sequence::new(self.segments);
-        Timeline::from_evaluable(Box::new(seq), PlaybackMode::Once)
-    }
-}
-
-/// Builder for configuring a tween segment's easing before adding it to the sequence.
-pub struct TweenSegmentBuilder<T: Animatable> {
-    builder: SequenceBuilder<T>,
-    from: T,
-    to: T,
-    duration: f32,
-    easing: Easing,
-}
-
-impl<T: Animatable + Send + Sync + 'static> TweenSegmentBuilder<T> {
-    /// Set the easing curve for this tween segment.
-    #[must_use]
-    pub const fn easing(mut self, easing: Easing) -> Self {
-        self.easing = easing;
-        self
-    }
-
-    /// Chain another tween segment after this one.
-    #[must_use]
-    pub fn then_tween(self, from: T, to: T, duration: Duration) -> Self {
-        let builder = self.finalize();
-        builder.then_tween(from, to, duration)
-    }
-
-    /// Chain a hold segment after this tween.
-    #[must_use]
-    pub fn then_hold(self, value: T, duration: Duration) -> SequenceBuilder<T> {
-        let builder = self.finalize();
-        builder.then_hold(value, duration)
-    }
-
-    /// Finalize the sequence into a `Timeline`.
-    #[must_use]
-    pub fn build(self) -> Timeline<T> {
-        self.finalize().build()
-    }
-
-    fn finalize(mut self) -> SequenceBuilder<T> {
-        self.builder.segments.push(Box::new(Keyframe::new(
-            self.from,
-            self.to,
-            self.easing,
-            self.duration,
-        )));
-        self.builder
     }
 }
 
@@ -367,11 +274,15 @@ mod tests {
 
     #[test]
     fn sequence_builder() {
-        let tl = Timeline::<f32>::sequence()
-            .then_tween(0.0, 10.0, Duration::from_secs(1))
-            .easing(Easing::Linear)
-            .then_hold(10.0, Duration::from_millis(500))
-            .build();
+        use crate::hold::Hold;
+        use crate::keyframe::Keyframe;
+        use crate::sequence::Sequence;
+
+        let seq = Sequence::new(vec![
+            Box::new(Keyframe::new(0.0, 10.0, Easing::Linear, 1.0)),
+            Box::new(Hold::new(10.0, 0.5)),
+        ]);
+        let tl = Timeline::<f32>::from_evaluable(Box::new(seq), PlaybackMode::Once);
 
         assert!((tl.duration() - 1.5).abs() < EPSILON);
     }

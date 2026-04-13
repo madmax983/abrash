@@ -88,8 +88,6 @@ pub fn apply_ascii_display(fb: &mut Framebuffer, config: &AsciiDisplayConfig) {
     let cw = config.cell_width;
     let ch = config.cell_height;
 
-    // We need to read original pixels, so we clone the buffer
-    let original_pixels = fb.as_slice().to_vec();
     let pixels = fb.as_mut_slice();
 
     let cols = width / cw;
@@ -114,9 +112,11 @@ pub fn apply_ascii_display(fb: &mut Framebuffer, config: &AsciiDisplayConfig) {
             for dy in 0..ch {
                 for dx in 0..cw {
                     let px = start_x + dx;
-                    let py = cy * ch + dy;
-                    let idx = py * width + px;
-                    let color = original_pixels[idx];
+                    let dest_idx = dy * width + px;
+
+                    // We can read the original color directly from row_pixels
+                    // before we overwrite it later in step 2.
+                    let color = row_pixels[dest_idx];
 
                     sum_r += (color >> 16) & 0xFF;
                     sum_g += (color >> 8) & 0xFF;

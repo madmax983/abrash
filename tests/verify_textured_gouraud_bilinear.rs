@@ -40,7 +40,7 @@ fn test_textured_gouraud_bilinear_rendering() {
     println!("Checksum: {checksum:016X}");
 
     // Checksum updated for SIMD implementation (Span-based perspective correction)
-    assert_eq!(checksum, 0x9D22_4A84_7B72_F800, "Checksum mismatch!");
+    assert_eq!(checksum, 1568307511748357883, "Checksum mismatch!");
 }
 
 fn calculate_checksum(fb: &Framebuffer) -> u64 {

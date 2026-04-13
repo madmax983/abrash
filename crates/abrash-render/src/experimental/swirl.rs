@@ -50,59 +50,70 @@ pub fn apply_swirl(fb: &mut Framebuffer, config: &SwirlConfig) {
 
     // Clone the source framebuffer to safely sample non-linear pixel displacements
     // without aliasing issues (as learned from the Water Ripple and Kaleidoscope filters).
-    let source_pixels = fb.as_slice().to_vec();
+    thread_local! {
+        static SOURCE_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
 
-    // To satisfy Havoc/Forge panics and par_chunks_exact_mut bounds rules:
-    assert_eq!(fb.as_slice().len(), width * height);
+    SOURCE_PIXELS.with(|buf| {
+        let mut source_pixels_vec = buf.borrow_mut();
+        source_pixels_vec.clear();
+        source_pixels_vec.extend_from_slice(fb.as_slice());
 
-    let dest_pixels = fb.as_mut_slice();
+        // Extract a primitive slice to prevent capturing the `!Send` `RefMut` in the Rayon closure
+        let source_pixels = source_pixels_vec.as_slice();
 
-    let cx = config.center_x * width as f32;
-    let cy = config.center_y * height as f32;
-    let radius2 = config.radius * config.radius;
-    let inv_radius = 1.0 / config.radius;
+        // To satisfy Havoc/Forge panics and par_chunks_exact_mut bounds rules:
+        assert_eq!(fb.as_slice().len(), width * height);
 
-    #[cfg(feature = "parallel")]
-    let row_iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
-    #[cfg(not(feature = "parallel"))]
-    let row_iter = dest_pixels.chunks_exact_mut(width).enumerate();
+        let dest_pixels = fb.as_mut_slice();
 
-    row_iter.for_each(|(y, row)| {
-        let dy = y as f32 - cy;
-        let dy2 = dy * dy;
+        let cx = config.center_x * width as f32;
+        let cy = config.center_y * height as f32;
+        let radius2 = config.radius * config.radius;
+        let inv_radius = 1.0 / config.radius;
 
-        for (x, pixel) in row.iter_mut().enumerate() {
-            let dx = x as f32 - cx;
-            let distance2 = dx * dx + dy2;
+        #[cfg(feature = "parallel")]
+        let row_iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
+        #[cfg(not(feature = "parallel"))]
+        let row_iter = dest_pixels.chunks_exact_mut(width).enumerate();
 
-            if distance2 < radius2 {
-                let distance = distance2.sqrt();
-                // Calculate the twist amount: max at center, 0 at radius
-                // Use a linear falloff of the angle
-                let percent = (config.radius - distance) * inv_radius;
-                let theta = percent * percent * config.angle;
+        row_iter.for_each(|(y, row)| {
+            let dy = y as f32 - cy;
+            let dy2 = dy * dy;
 
-                // Using standard sine and cosine
-                let (sin_theta, cos_theta) = theta.sin_cos();
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let dx = x as f32 - cx;
+                let distance2 = dx * dx + dy2;
 
-                // Rotate the coordinate around the center
-                let source_x = cx + (dx * cos_theta - dy * sin_theta);
-                let source_y = cy + (dx * sin_theta + dy * cos_theta);
+                if distance2 < radius2 {
+                    let distance = distance2.sqrt();
+                    // Calculate the twist amount: max at center, 0 at radius
+                    // Use a linear falloff of the angle
+                    let percent = (config.radius - distance) * inv_radius;
+                    let theta = percent * percent * config.angle;
 
-                // Fast float-to-int casts instead of round()
-                let sx = source_x as i32;
-                let sy = source_y as i32;
+                    // Using standard sine and cosine
+                    let (sin_theta, cos_theta) = theta.sin_cos();
 
-                if sx >= 0 && sx < width as i32 && sy >= 0 && sy < height as i32 {
-                    *pixel = source_pixels[(sy as usize) * width + (sx as usize)];
+                    // Rotate the coordinate around the center
+                    let source_x = cx + (dx * cos_theta - dy * sin_theta);
+                    let source_y = cy + (dx * sin_theta + dy * cos_theta);
+
+                    // Fast float-to-int casts instead of round()
+                    let sx = source_x as i32;
+                    let sy = source_y as i32;
+
+                    if sx >= 0 && sx < width as i32 && sy >= 0 && sy < height as i32 {
+                        *pixel = source_pixels[(sy as usize) * width + (sx as usize)];
+                    } else {
+                        *pixel = 0xFF_00_00_00; // Black out of bounds
+                    }
                 } else {
-                    *pixel = 0xFF_00_00_00; // Black out of bounds
+                    // Outside the radius, pixel is unchanged
+                    *pixel = source_pixels[y * width + x];
                 }
-            } else {
-                // Outside the radius, pixel is unchanged
-                *pixel = source_pixels[y * width + x];
             }
-        }
+        });
     });
 }
 

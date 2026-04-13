@@ -25,6 +25,7 @@ dependencies = [
  "abrash-anim",
  "abrash-core",
  "abrash-gpu-render",
+ "abrash-raycast",
  "abrash-render",
  "abrash-skeletal",
  "bevy",
@@ -55,6 +56,8 @@ dependencies = [
 name = "abrash-core"
 version = "0.1.0"
 dependencies = [
+ "criterion",
+ "proptest",
  "rayon",
  "web-time 1.1.0",
 ]
@@ -66,9 +69,19 @@ dependencies = [
  "abrash-core",
  "abrash-render",
  "bytemuck",
+ "criterion",
  "pollster",
  "wgpu",
  "winit 0.29.15",
+]
+
+[[package]]
+name = "abrash-raycast"
+version = "0.1.0"
+dependencies = [
+ "abrash-core",
+ "proptest",
+ "rayon",
 ]
 
 [[package]]
@@ -76,8 +89,10 @@ name = "abrash-render"
 version = "0.1.0"
 dependencies = [
  "abrash-core",
+ "proptest",
  "ratatui",
  "rayon",
+ "smallvec",
 ]
 
 [[package]]

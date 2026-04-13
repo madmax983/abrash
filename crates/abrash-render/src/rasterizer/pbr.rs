@@ -530,7 +530,10 @@ fn draw_scanline_pbr(
     constants: &PbrConstants,
 ) {
     #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+    if (x_end - x_start + 1) >= 32
+        && is_x86_feature_detected!("avx2")
+        && is_x86_feature_detected!("fma")
+    {
         unsafe {
             draw_scanline_pbr_simd(fb, zb, y, x_start, x_end, start, gradients, constants);
         }
@@ -751,7 +754,7 @@ unsafe fn draw_scanline_pbr_simd(
                 let ndf_denom_term = _mm256_fmadd_ps(n_dot_h2, a2_minus_1_vec, one);
                 let ndf_denom =
                     _mm256_mul_ps(pi_vec, _mm256_mul_ps(ndf_denom_term, ndf_denom_term));
-                let ndf_denom = _mm256_max_ps(ndf_denom, _mm256_set1_ps(0.0000001));
+                let ndf_denom = _mm256_max_ps(ndf_denom, _mm256_set1_ps(0.000_000_1));
                 let ndf = _mm256_div_ps(a2_vec, ndf_denom);
 
                 // Geometry Smith
@@ -761,11 +764,11 @@ unsafe fn draw_scanline_pbr_simd(
                 let ggx_denom_l = _mm256_fmadd_ps(n_dot_l, one_minus_k_vec, k_vec);
                 let ggx2 = _mm256_div_ps(
                     n_dot_v,
-                    _mm256_max_ps(ggx_denom_v, _mm256_set1_ps(0.0000001)),
+                    _mm256_max_ps(ggx_denom_v, _mm256_set1_ps(0.000_000_1)),
                 );
                 let ggx1 = _mm256_div_ps(
                     n_dot_l,
-                    _mm256_max_ps(ggx_denom_l, _mm256_set1_ps(0.0000001)),
+                    _mm256_max_ps(ggx_denom_l, _mm256_set1_ps(0.000_000_1)),
                 );
                 let g = _mm256_mul_ps(ggx1, ggx2);
 
@@ -860,7 +863,7 @@ unsafe fn draw_scanline_pbr_simd(
 
                 // Pack
                 // Alpha is FF
-                let alpha = _mm256_set1_epi32(0xFF000000u32 as i32);
+                let alpha = _mm256_set1_epi32(0xFF00_0000_u32 as i32);
                 // (r << 16) | (g << 8) | b
                 let r_shift = _mm256_slli_epi32(r_i, 16);
                 let g_shift = _mm256_slli_epi32(g_i, 8);
@@ -871,14 +874,16 @@ unsafe fn draw_scanline_pbr_simd(
                 // We need to write depths and colors where z < depth
                 _mm256_storeu_ps(depths_ptr, _mm256_blendv_ps(current_depths, z_vec, mask));
 
-                let old_pixels = _mm256_loadu_si256(pixels_ptr as *const __m256i);
+                #[allow(clippy::cast_ptr_alignment)]
+                let old_pixels = _mm256_loadu_si256(pixels_ptr.cast::<__m256i>());
                 let final_pixels_ps = _mm256_blendv_ps(
                     _mm256_castsi256_ps(old_pixels),
                     _mm256_castsi256_ps(final_colors),
                     mask,
                 );
+                #[allow(clippy::cast_ptr_alignment)]
                 _mm256_storeu_si256(
-                    pixels_ptr as *mut __m256i,
+                    pixels_ptr.cast::<__m256i>(),
                     _mm256_castps_si256(final_pixels_ps),
                 );
             }
@@ -921,7 +926,7 @@ unsafe fn draw_scanline_pbr_simd(
                 zb,
                 y,
                 xs,
-                x_end,
+                xe,
                 PbrSpanStart {
                     z: z_s,
                     nx: nx_s,
@@ -1038,11 +1043,17 @@ fn draw_scanline_pbr_scalar(
 
             // Tone mapping (Reinhard)
             // mapped = color / (color + 1.0)
-            let denom = color + Vec3::ONE;
-            let mapped = Vec3::new(color.x / denom.x, color.y / denom.y, color.z / denom.z);
+            // Avoid creating intermediate Vec3s
+            let cx = color.x;
+            let cy = color.y;
+            let cz = color.z;
+            let mx = cx / (cx + 1.0);
+            let my = cy / (cy + 1.0);
+            let mz = cz / (cz + 1.0);
+
             // Gamma correction (Approximation Gamma 2.0 using sqrt)
             // fast_inv_sqrt is for 1/sqrt. sqrt is fast.
-            let corrected = Vec3::new(mapped.x.sqrt(), mapped.y.sqrt(), mapped.z.sqrt());
+            let corrected = Vec3::new(mx.sqrt(), my.sqrt(), mz.sqrt());
 
             *pixel = color_to_u32_scaled(corrected * 255.0);
         }
@@ -1132,7 +1143,10 @@ mod tests {
 
         // Run SIMD (if available)
         #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-        if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+        if (x_end - x_start + 1) >= 32
+            && is_x86_feature_detected!("avx2")
+            && is_x86_feature_detected!("fma")
+        {
             unsafe {
                 draw_scanline_pbr_simd(
                     &mut fb_simd,

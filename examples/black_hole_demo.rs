@@ -4,6 +4,53 @@ use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
 
+#[cfg(feature = "nova")]
+use comfy_table::{Cell, Color, Table, presets};
+#[cfg(feature = "nova")]
+use crossterm::style::Stylize;
+
+#[cfg(feature = "nova")]
+fn print_banner() {
+    println!(
+        "\n{}",
+        "🌟 Black Hole Gravitational Lensing Filter Demo"
+            .bold()
+            .cyan()
+    );
+    println!("{}", "=====================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Demonstrates gravitational lensing effect simulating a black hole")
+                .fg(Color::Green),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Close window to exit"),
+        ]);
+    println!("{controls}\n");
+}
+
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const TITLE: &str = "Nova: Black Hole Gravitational Lensing Filter Demo";
@@ -128,10 +175,11 @@ impl WindowApp for BlackHoleDemoApp {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     #[cfg(feature = "nova")]
     {
-        run_windowed(BlackHoleDemoApp::new()?)
+        print_banner();
+        run_windowed(BlackHoleDemoApp::new().unwrap())
     }
     #[cfg(not(feature = "nova"))]
     {

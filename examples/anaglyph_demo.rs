@@ -229,6 +229,6 @@ impl WindowApp for AnaglyphDemoApp {
 
 fn main() -> Result<(), AppError> {
     print_banner();
-    run_windowed(AnaglyphDemoApp::new()?)?;
+    run_windowed(AnaglyphDemoApp::new().unwrap());
     Ok(())
 }

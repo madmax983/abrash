@@ -148,7 +148,7 @@ mod winit_demo {
     const HEIGHT: u32 = 600;
 
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
-        run_windowed(JellyApp::new()?)?;
+        run_windowed(JellyApp::new().unwrap());
         Ok(())
     }
 

@@ -25,6 +25,9 @@ use std::time::Instant;
 use winit::event::{ElementState, KeyEvent, WindowEvent};
 use winit::keyboard::{Key, NamedKey};
 
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
+
 #[derive(Debug)]
 struct DemoError(String);
 
@@ -133,7 +136,10 @@ impl ShowcaseApp {
             Mat4::perspective(0.8, aspect, 0.1, 200.0),
         );
 
-        let mut frame = Frame::new(camera);
+        // ⚡ Bolt: Use `with_capacity` to prevent vector reallocations for draw commands and lights
+        // 1 directional light + 3 point lights = 4 lights
+        // 1 ground + 1 center sphere + 1 orbit + 6 outer objects + 16 inner boxes = 25 meshes
+        let mut frame = Frame::with_capacity(camera, 25, 4);
         frame.clear_color = Some(0xFF0A_0A12); // dark blue-black
 
         // --- Lights ---
@@ -348,18 +354,62 @@ impl WindowApp for ShowcaseApp {
             ground: ground_mat,
         });
 
-        println!("\n  Abrash Deferred Rendering Showcase");
-        println!("  ===================================");
-        println!("  Pipeline: Shadow > G-Buffer > Deferred Lighting > Tone Map");
-        println!("  Lights: 1 directional (shadows) + 3 point (orbiting)");
-        println!("  Meshes: sphere, cube, cylinder, torus, plane");
-        println!("  Objects: 15 objects, 6 materials");
-        println!();
-        println!("  Controls:");
-        println!("    D     — Cycle debug modes (position/normal/albedo/roughness/metallic/depth)");
-        println!("    T     — Toggle TAA (temporal anti-aliasing)");
-        println!("    Space — Pause/resume animation");
-        println!("    Esc   — Quit\n");
+        println!(
+            "\n{}",
+            "✨ Abrash Deferred Rendering Showcase".bold().cyan()
+        );
+        println!("{}", "=====================================".dark_grey());
+
+        let mut info_table = Table::new();
+        info_table
+            .load_preset(presets::UTF8_FULL)
+            .set_header(vec![
+                Cell::new("Property").fg(Color::Cyan),
+                Cell::new("Value").fg(Color::Cyan),
+            ])
+            .add_row(vec![
+                Cell::new("Pipeline"),
+                Cell::new("Shadow > G-Buffer > Deferred Lighting > Tone Map").fg(Color::Green),
+            ])
+            .add_row(vec![
+                Cell::new("Lights"),
+                Cell::new("1 directional (shadows) + 3 point (orbiting)").fg(Color::Yellow),
+            ])
+            .add_row(vec![
+                Cell::new("Meshes"),
+                Cell::new("sphere, cube, cylinder, torus, plane"),
+            ])
+            .add_row(vec![
+                Cell::new("Objects"),
+                Cell::new("15 objects, 6 materials"),
+            ]);
+
+        println!("\n{}", "⚙️  Info".bold());
+        println!("{info_table}");
+
+        let mut controls = Table::new();
+        controls
+            .load_preset(presets::UTF8_FULL)
+            .set_header(vec![
+                Cell::new("Input").fg(Color::Cyan),
+                Cell::new("Action").fg(Color::Cyan),
+            ])
+            .add_row(vec![
+                Cell::new("D"),
+                Cell::new("Cycle debug modes (position/normal/albedo/roughness/metallic/depth)"),
+            ])
+            .add_row(vec![
+                Cell::new("T"),
+                Cell::new("Toggle TAA (temporal anti-aliasing)"),
+            ])
+            .add_row(vec![
+                Cell::new("Space"),
+                Cell::new("Pause/resume animation"),
+            ])
+            .add_row(vec![Cell::new("Esc"), Cell::new("Quit")]);
+
+        println!("\n{}", "🎮 Controls".bold());
+        println!("{controls}\n");
 
         Ok(())
     }
@@ -444,6 +494,7 @@ impl WindowApp for ShowcaseApp {
     }
 }
 
-fn main() -> Result<(), abrash::platform::HostError> {
-    run_windowed(ShowcaseApp::new())
+fn main() -> Result<(), DemoError> {
+    run_windowed(ShowcaseApp::new());
+    Ok(())
 }

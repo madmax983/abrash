@@ -62,7 +62,7 @@ impl Skeleton {
         self.joints.len()
     }
 
-    /// Compute world-space transforms for every joint via forward kinematics.
+    /// Updates world-space transforms for every joint into the provided `globals` buffer, avoiding reallocation.
     ///
     /// Uses the row-vector convention: `global[i] = local[i].to_mat4() * global[parent]`.
     /// Root joints (no parent) use their local transform directly.
@@ -70,8 +70,7 @@ impl Skeleton {
     /// # Panics
     ///
     /// Panics if `pose.local_transforms.len() != self.joints.len()`.
-    #[must_use]
-    pub fn compute_global_transforms(&self, pose: &Pose) -> Vec<Mat4> {
+    pub fn update_global_transforms(&self, pose: &Pose, globals: &mut Vec<Mat4>) {
         let n = self.joints.len();
         assert_eq!(
             pose.local_transforms.len(),
@@ -80,7 +79,7 @@ impl Skeleton {
             pose.local_transforms.len()
         );
 
-        let mut globals = Vec::with_capacity(n);
+        globals.clear();
         for (i, joint) in self.joints.iter().enumerate() {
             let local_mat = pose.local_transforms[i].to_mat4();
             let global = joint.parent.map_or(local_mat, |parent_id| {
@@ -89,10 +88,25 @@ impl Skeleton {
             });
             globals.push(global);
         }
+    }
+
+    /// Compute world-space transforms for every joint via forward kinematics.
+    ///
+    /// Note: This dynamically allocates a `Vec<Mat4>`. If evaluating poses
+    /// per-frame, consider using `update_global_transforms` with a pre-allocated
+    /// buffer to eliminate dynamic heap allocations.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `pose.local_transforms.len() != self.joints.len()`.
+    #[must_use]
+    pub fn compute_global_transforms(&self, pose: &Pose) -> Vec<Mat4> {
+        let mut globals = Vec::with_capacity(self.joints.len());
+        self.update_global_transforms(pose, &mut globals);
         globals
     }
 
-    /// Compute skin matrices from global transforms.
+    /// Updates skin matrices from global transforms into the provided `out` buffer, avoiding reallocation.
     ///
     /// Each skin matrix = `inverse_bind[i] * global[i]` (row-vector convention).
     /// This transforms vertices from bind space through bone-local space to world space.
@@ -100,8 +114,7 @@ impl Skeleton {
     /// # Panics
     ///
     /// Panics if `global_transforms.len() != self.joints.len()`.
-    #[must_use]
-    pub fn compute_skin_matrices(&self, global_transforms: &[Mat4]) -> SkinMatrices {
+    pub fn update_skin_matrices(&self, global_transforms: &[Mat4], out: &mut SkinMatrices) {
         let n = self.joints.len();
         assert_eq!(
             global_transforms.len(),
@@ -110,14 +123,31 @@ impl Skeleton {
             global_transforms.len()
         );
 
-        let matrices = self
-            .joints
-            .iter()
-            .zip(global_transforms)
-            .map(|(joint, global)| joint.inverse_bind_matrix * *global)
-            .collect();
+        out.matrices.clear();
+        out.matrices.extend(
+            self.joints
+                .iter()
+                .zip(global_transforms)
+                .map(|(joint, global)| joint.inverse_bind_matrix * *global),
+        );
+    }
 
-        SkinMatrices { matrices }
+    /// Compute skin matrices from global transforms.
+    ///
+    /// Note: This dynamically allocates a `Vec<Mat4>`. If evaluating poses
+    /// per-frame, consider using `update_skin_matrices` with a pre-allocated
+    /// buffer to eliminate dynamic heap allocations.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `global_transforms.len() != self.joints.len()`.
+    #[must_use]
+    pub fn compute_skin_matrices(&self, global_transforms: &[Mat4]) -> SkinMatrices {
+        let mut out = SkinMatrices {
+            matrices: Vec::with_capacity(self.joints.len()),
+        };
+        self.update_skin_matrices(global_transforms, &mut out);
+        out
     }
 }
 

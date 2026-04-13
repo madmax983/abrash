@@ -64,7 +64,7 @@ pub struct DrawCommand {
 
 /// A complete frame to be rendered.
 ///
-/// The `Frame` is the unit of work submitted to [`crate::render_api::Renderer::render_frame`].
+/// The `Frame` is the unit of work submitted to [`crate::render_api::cpu_renderer::CpuRenderer::render_frame`].
 /// It is backend-agnostic — both CPU and GPU renderers consume the same `Frame`.
 pub struct Frame {
     /// Camera for this frame.
@@ -86,6 +86,18 @@ impl Frame {
             camera,
             lights: Vec::new(),
             commands: Vec::new(),
+            clear_color: Some(0xFF00_0000),
+        }
+    }
+
+    /// ⚡ Bolt: Create an empty frame, pre-allocating the underlying vectors.
+    /// This drastically reduces heap reallocations per frame when drawing many objects.
+    #[must_use]
+    pub fn with_capacity(camera: FrameCamera, num_commands: usize, num_lights: usize) -> Self {
+        Self {
+            camera,
+            lights: Vec::with_capacity(num_lights),
+            commands: Vec::with_capacity(num_commands),
             clear_color: Some(0xFF00_0000),
         }
     }

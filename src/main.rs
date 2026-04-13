@@ -321,6 +321,34 @@ Keyboard: Interactive",
         instructions: "Mouse: None\nKeyboard: None",
         example_name: "melt_demo",
     },
+    Demo {
+        name: "Digital Rain",
+        category: DemoCategory::Simulation,
+        description: "Post-processing falling characters (Matrix style) effect",
+        instructions: "Mouse: None\nKeyboard: None",
+        example_name: "digital_rain_demo",
+    },
+    Demo {
+        name: "Frosted Glass",
+        category: DemoCategory::Simulation,
+        description: "Post-processing textured privacy glass effect",
+        instructions: "Mouse: None\nKeyboard: None",
+        example_name: "frosted_glass_demo",
+    },
+    Demo {
+        name: "Steganography",
+        category: DemoCategory::Simulation,
+        description: "Encodes and decodes a hidden message in a Plasma framebuffer",
+        instructions: "Mouse: None\nKeyboard: Close window to exit",
+        example_name: "steganography_demo",
+    },
+    Demo {
+        name: "Reaction-Diffusion",
+        category: DemoCategory::Simulation,
+        description: "Simulates Gray-Scott Turing patterns over time",
+        instructions: "Mouse: Click to add drops\nKeyboard: Space to clear, C to reset",
+        example_name: "reaction_diffusion_demo",
+    },
 ];
 
 fn is_gpu_render_example(example_name: &str) -> bool {
@@ -350,6 +378,10 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "halftone_demo"
         || example_name == "arboretum_cli"
         || example_name == "melt_demo"
+        || example_name == "digital_rain_demo"
+        || example_name == "frosted_glass_demo"
+        || example_name == "steganography_demo"
+        || example_name == "reaction_diffusion_demo"
 }
 
 fn build_demo_command_args(example_name: &str, use_tui_backend: bool) -> Vec<String> {
@@ -367,7 +399,8 @@ fn build_demo_command_args(example_name: &str, use_tui_backend: bool) -> Vec<Str
         return args;
     }
 
-    let mut features = Vec::new();
+    // ⚡ Bolt: Pre-allocate capacity for up to 2 features to avoid dynamic heap reallocations during push.
+    let mut features = Vec::with_capacity(2);
     if use_tui_backend {
         args.push("--no-default-features".to_string());
         features.push("backend-tui");
@@ -545,177 +578,219 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
     let mut app = App::new();
 
     loop {
-        terminal.draw(|f| {
-            // Main vertical layout
-            let main_chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .margin(1)
-                .constraints(
-                    [
-                        Constraint::Length(3), // Title
-                        Constraint::Min(0),    // Content
-                        Constraint::Length(3), // Help
-                    ]
-                    .as_ref(),
-                )
-                .split(f.area());
+        terminal.draw(|f| render_ui(f, &mut app))?;
 
-            // Title
-            let title = Paragraph::new("✨ ABRASH ENGINE DASHBOARD ✨")
-                .style(
-                    Style::default()
-                        .fg(Color::Magenta)
-                        .add_modifier(Modifier::BOLD),
-                )
-                .block(Block::default().borders(Borders::ALL))
-                .alignment(ratatui::layout::Alignment::Center);
-            f.render_widget(title, main_chunks[0]);
-
-            // Content Split (List vs Details)
-            let content_chunks = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints(
-                    [
-                        Constraint::Percentage(30), // List
-                        Constraint::Percentage(70), // Details
-                    ]
-                    .as_ref(),
-                )
-                .split(main_chunks[1]);
-
-            // Demo List
-            let items: Vec<ListItem> = DEMOS
-                .iter()
-                .map(|demo| {
-                    ListItem::new(Span::styled(
-                        format!("{} {}", demo.category.icon(), demo.name),
-                        Style::default().fg(Color::White),
-                    ))
-                })
-                .collect();
-
-            let items_list = List::new(items)
-                .block(Block::default().borders(Borders::ALL).title(" Demos "))
-                .highlight_style(
-                    Style::default()
-                        .fg(Color::Black)
-                        .bg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
-                )
-                .highlight_symbol(">> ");
-
-            f.render_stateful_widget(items_list, content_chunks[0], &mut app.state);
-
-            // Details Pane
-            if let Some(i) = app.state.selected() {
-                let demo = &DEMOS[i];
-
-                let rows = vec![
-                    Row::new(vec![
-                        Span::styled(
-                            "Description",
-                            Style::default()
-                                .fg(Color::Cyan)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                        Span::raw(demo.description),
-                    ])
-                    .height(2),
-                    Row::new(vec![
-                        Span::styled(
-                            "Category",
-                            Style::default()
-                                .fg(Color::Cyan)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                        Span::raw(format!("{} {:?}", demo.category.icon(), demo.category)),
-                    ]),
-                    Row::new(vec![
-                        Span::styled(
-                            "Instructions",
-                            Style::default()
-                                .fg(Color::Cyan)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                        Span::raw(demo.instructions),
-                    ])
-                    .height(4), // Give instructions some space
-                    Row::new(vec![
-                        Span::styled(
-                            "Command",
-                            Style::default()
-                                .fg(Color::Cyan)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                        Span::styled(
-                            demo_command(demo.example_name, true),
-                            Style::default().fg(Color::DarkGray),
-                        ),
-                    ]),
-                ];
-
-                let table = Table::new(
-                    rows,
-                    [Constraint::Length(15), Constraint::Min(0)], // Columns width
-                )
-                .block(Block::default().borders(Borders::ALL).title(" Details "))
-                .column_spacing(1);
-
-                f.render_widget(table, content_chunks[1]);
-            } else {
-                let placeholder = Paragraph::new("Select a demo to view details")
-                    .block(Block::default().borders(Borders::ALL))
-                    .style(Style::default().fg(Color::DarkGray))
-                    .alignment(ratatui::layout::Alignment::Center);
-                f.render_widget(placeholder, content_chunks[1]);
-            }
-
-            // Help Bar
-            let help = Paragraph::new(" ↑/↓: Select | Enter: Launch | Q: Quit ")
-                .style(Style::default().fg(Color::Black).bg(Color::White))
-                .alignment(ratatui::layout::Alignment::Center)
-                .block(Block::default().borders(Borders::NONE)); // Flat look for status bar
-            f.render_widget(help, main_chunks[2]);
-        })?;
-
+        #[allow(clippy::collapsible_if)]
         if let Event::Key(key) = event::read()? {
-            match key.code {
-                KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
-                KeyCode::Down => app.next(),
-                KeyCode::Up => app.previous(),
-                KeyCode::Enter => {
-                    if let Some(i) = app.state.selected() {
-                        let demo = &DEMOS[i];
-
-                        // Temporarily restore terminal
-                        disable_raw_mode()?;
-                        execute!(
-                            terminal.backend_mut(),
-                            LeaveAlternateScreen,
-                            DisableMouseCapture
-                        )?;
-                        terminal.show_cursor()?;
-
-                        let _ = run_demo(demo.example_name, true);
-
-                        // Re-enable TUI
-                        enable_raw_mode()?;
-                        execute!(
-                            terminal.backend_mut(),
-                            EnterAlternateScreen,
-                            EnableMouseCapture
-                        )?;
-                        terminal.hide_cursor()?;
-                        terminal.clear()?;
-                    }
-                }
-                _ => {}
+            if handle_input(key, &mut app, terminal)? {
+                return Ok(());
             }
         }
     }
 }
 
-fn run_demo(name: &str, use_tui_backend: bool) -> Result<(), Box<dyn Error>> {
+fn render_ui(f: &mut ratatui::Frame, app: &mut App) {
+    // Main vertical layout
+    let main_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(1)
+        .constraints(
+            [
+                Constraint::Length(3), // Title
+                Constraint::Min(0),    // Content
+                Constraint::Length(3), // Help
+            ]
+            .as_ref(),
+        )
+        .split(f.area());
+
+    render_title(f, main_chunks[0]);
+
+    // Content Split (List vs Details)
+    let content_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(
+            [
+                Constraint::Percentage(30), // List
+                Constraint::Percentage(70), // Details
+            ]
+            .as_ref(),
+        )
+        .split(main_chunks[1]);
+
+    render_demo_list(f, content_chunks[0], app);
+    render_details_pane(f, content_chunks[1], app);
+    render_help_bar(f, main_chunks[2]);
+}
+
+fn handle_input(
+    key: event::KeyEvent,
+    app: &mut App,
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+) -> io::Result<bool> {
+    match key.code {
+        KeyCode::Char('q') | KeyCode::Esc => return Ok(true),
+        KeyCode::Down => app.next(),
+        KeyCode::Up => app.previous(),
+        KeyCode::Enter => {
+            if let Some(i) = app.state.selected() {
+                let demo = &DEMOS[i];
+
+                // Temporarily restore terminal
+                disable_raw_mode()?;
+                execute!(
+                    terminal.backend_mut(),
+                    LeaveAlternateScreen,
+                    DisableMouseCapture
+                )?;
+                terminal.show_cursor()?;
+
+                let _ = run_demo(demo.example_name, true);
+
+                // Re-enable TUI
+                enable_raw_mode()?;
+                execute!(
+                    terminal.backend_mut(),
+                    EnterAlternateScreen,
+                    EnableMouseCapture
+                )?;
+                terminal.hide_cursor()?;
+                terminal.clear()?;
+            }
+        }
+        _ => {}
+    }
+    Ok(false)
+}
+
+fn render_title(f: &mut ratatui::Frame, area: ratatui::layout::Rect) {
+    let title = Paragraph::new("✨ ABRASH ENGINE DASHBOARD ✨")
+        .style(
+            Style::default()
+                .fg(Color::Magenta)
+                .add_modifier(Modifier::BOLD),
+        )
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(ratatui::widgets::BorderType::Rounded),
+        )
+        .alignment(ratatui::layout::Alignment::Center);
+    f.render_widget(title, area);
+}
+
+fn render_demo_list(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &mut App) {
+    let items: Vec<ListItem> = DEMOS
+        .iter()
+        .map(|demo| {
+            ListItem::new(Span::styled(
+                format!("{} {}", demo.category.icon(), demo.name),
+                Style::default().fg(Color::White),
+            ))
+        })
+        .collect();
+
+    let items_list = List::new(items)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(ratatui::widgets::BorderType::Rounded)
+                .title(" Demos "),
+        )
+        .highlight_style(
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
+        .highlight_symbol(">> ");
+
+    f.render_stateful_widget(items_list, area, &mut app.state);
+}
+
+fn render_details_pane(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
+    if let Some(i) = app.state.selected() {
+        let demo = &DEMOS[i];
+
+        let rows = vec![
+            Row::new(vec![
+                Span::styled(
+                    "Description",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::raw(demo.description),
+            ])
+            .height(2),
+            Row::new(vec![
+                Span::styled(
+                    "Category",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::raw(format!("{} {:?}", demo.category.icon(), demo.category)),
+            ]),
+            Row::new(vec![
+                Span::styled(
+                    "Instructions",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::raw(demo.instructions),
+            ])
+            .height(4), // Give instructions some space
+            Row::new(vec![
+                Span::styled(
+                    "Command",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    demo_command(demo.example_name, true),
+                    Style::default().fg(Color::DarkGray),
+                ),
+            ]),
+        ];
+
+        let table = Table::new(
+            rows,
+            [Constraint::Length(15), Constraint::Min(0)], // Columns width
+        )
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(ratatui::widgets::BorderType::Rounded)
+                .title(" Details "),
+        )
+        .column_spacing(1);
+
+        f.render_widget(table, area);
+    } else {
+        let placeholder = Paragraph::new("Select a demo to view details")
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(ratatui::widgets::BorderType::Rounded),
+            )
+            .style(Style::default().fg(Color::DarkGray))
+            .alignment(ratatui::layout::Alignment::Center);
+        f.render_widget(placeholder, area);
+    }
+}
+
+fn render_help_bar(f: &mut ratatui::Frame, area: ratatui::layout::Rect) {
+    let help = Paragraph::new(" ↑/↓: Select | Enter: Launch | Q: Quit ")
+        .style(Style::default().fg(Color::Black).bg(Color::White))
+        .alignment(ratatui::layout::Alignment::Center)
+        .block(Block::default().borders(Borders::NONE)); // Flat look for status bar
+    f.render_widget(help, area);
+}
+
+fn print_launch_header(name: &str) {
     let mut table = ComfyTable::new();
     table
         .load_preset(ComfyPresets::UTF8_FULL)
@@ -728,6 +803,44 @@ fn run_demo(name: &str, use_tui_backend: bool) -> Result<(), Box<dyn Error>> {
             "Preparing to launch '{name}'..."
         ))]);
     println!("\n{table}");
+}
+
+fn print_launch_success() {
+    let mut success_table = ComfyTable::new();
+    success_table
+        .load_preset(ComfyPresets::UTF8_FULL)
+        .set_header(vec![
+            ComfyCell::new("✅ Demo Exited Successfully")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(ComfyColor::Green),
+        ]);
+    println!("\n{success_table}");
+    println!("\n{}", "Press Enter to return to dashboard...".grey());
+    let _ = std::io::stdin().read_line(&mut String::new());
+}
+
+fn print_launch_error(status: std::process::ExitStatus) {
+    let mut error_table = ComfyTable::new();
+    error_table
+        .load_preset(ComfyPresets::UTF8_FULL)
+        .set_header(vec![
+            ComfyCell::new("❌ Demo Crashed")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(ComfyColor::Red),
+        ])
+        .add_row(vec![
+            ComfyCell::new(format!("Exit Status: {status}")).fg(ComfyColor::Yellow),
+        ]);
+
+    println!("\n{error_table}");
+
+    // Give user a chance to read the error
+    println!("\n{}", "Press Enter to return to dashboard...".grey());
+    let _ = std::io::stdin().read_line(&mut String::new());
+}
+
+fn run_demo(name: &str, use_tui_backend: bool) -> Result<(), Box<dyn Error>> {
+    print_launch_header(name);
 
     let args = build_demo_command_args(name, use_tui_backend);
     let mut cmd = Command::new(&args[0]);
@@ -740,42 +853,9 @@ fn run_demo(name: &str, use_tui_backend: bool) -> Result<(), Box<dyn Error>> {
     let status = child.wait()?;
 
     if status.success() {
-        let mut success_table = ComfyTable::new();
-        success_table
-            .load_preset(ComfyPresets::UTF8_FULL)
-            .set_header(vec![
-                ComfyCell::new("✅ Demo Exited Successfully")
-                    .add_attribute(comfy_table::Attribute::Bold)
-                    .fg(ComfyColor::Green),
-            ]);
-        println!(
-            "
-{success_table}"
-        );
-        println!(
-            "
-{}",
-            "Press Enter to return to dashboard...".grey()
-        );
-        let _ = std::io::stdin().read_line(&mut String::new());
+        print_launch_success();
     } else {
-        let mut error_table = ComfyTable::new();
-        error_table
-            .load_preset(ComfyPresets::UTF8_FULL)
-            .set_header(vec![
-                ComfyCell::new("❌ Demo Crashed")
-                    .add_attribute(comfy_table::Attribute::Bold)
-                    .fg(ComfyColor::Red),
-            ])
-            .add_row(vec![
-                ComfyCell::new(format!("Exit Status: {status}")).fg(ComfyColor::Yellow),
-            ]);
-
-        println!("\n{error_table}");
-
-        // Give user a chance to read the error
-        println!("\n{}", "Press Enter to return to dashboard...".grey());
-        let _ = std::io::stdin().read_line(&mut String::new());
+        print_launch_error(status);
     }
 
     Ok(())
