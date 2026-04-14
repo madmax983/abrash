@@ -101,6 +101,9 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 }
 
 #[inline(always)]
+/// ⚡ Bolt: Plot the 8-way symmetric circle points without overdraw.
+/// Conditionally checking `x != 0`, `y != 0`, and `x != y` prevents redundant
+/// memory writes to the framebuffer when coordinates fall exactly on axes or diagonals.
 fn draw_circle_points_unchecked(
     fb: &mut Framebuffer,
     xc: i32,
@@ -111,26 +114,57 @@ fn draw_circle_points_unchecked(
 ) {
     unsafe {
         fb.set_pixel_unchecked((xc + x) as usize, (yc + y) as usize, color);
-        fb.set_pixel_unchecked((xc - x) as usize, (yc + y) as usize, color);
-        fb.set_pixel_unchecked((xc + x) as usize, (yc - y) as usize, color);
-        fb.set_pixel_unchecked((xc - x) as usize, (yc - y) as usize, color);
-        fb.set_pixel_unchecked((xc + y) as usize, (yc + x) as usize, color);
-        fb.set_pixel_unchecked((xc - y) as usize, (yc + x) as usize, color);
-        fb.set_pixel_unchecked((xc + y) as usize, (yc - x) as usize, color);
-        fb.set_pixel_unchecked((xc - y) as usize, (yc - x) as usize, color);
+        if x != 0 {
+            fb.set_pixel_unchecked((xc - x) as usize, (yc + y) as usize, color);
+        }
+        if y != 0 {
+            fb.set_pixel_unchecked((xc + x) as usize, (yc - y) as usize, color);
+            if x != 0 {
+                fb.set_pixel_unchecked((xc - x) as usize, (yc - y) as usize, color);
+            }
+        }
+        if x != y {
+            fb.set_pixel_unchecked((xc + y) as usize, (yc + x) as usize, color);
+            if y != 0 {
+                fb.set_pixel_unchecked((xc - y) as usize, (yc + x) as usize, color);
+            }
+            if x != 0 {
+                fb.set_pixel_unchecked((xc + y) as usize, (yc - x) as usize, color);
+                if y != 0 {
+                    fb.set_pixel_unchecked((xc - y) as usize, (yc - x) as usize, color);
+                }
+            }
+        }
     }
 }
 
+/// ⚡ Bolt: Plot the 8-way symmetric circle points without overdraw.
+/// Conditionally checking `x != 0`, `y != 0`, and `x != y` prevents redundant
+/// memory writes to the framebuffer when coordinates fall exactly on axes or diagonals.
 #[inline(always)]
 fn draw_circle_points(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
     fb.set_pixel(xc + x, yc + y, color);
-    fb.set_pixel(xc - x, yc + y, color);
-    fb.set_pixel(xc + x, yc - y, color);
-    fb.set_pixel(xc - x, yc - y, color);
-    fb.set_pixel(xc + y, yc + x, color);
-    fb.set_pixel(xc - y, yc + x, color);
-    fb.set_pixel(xc + y, yc - x, color);
-    fb.set_pixel(xc - y, yc - x, color);
+    if x != 0 {
+        fb.set_pixel(xc - x, yc + y, color);
+    }
+    if y != 0 {
+        fb.set_pixel(xc + x, yc - y, color);
+        if x != 0 {
+            fb.set_pixel(xc - x, yc - y, color);
+        }
+    }
+    if x != y {
+        fb.set_pixel(xc + y, yc + x, color);
+        if y != 0 {
+            fb.set_pixel(xc - y, yc + x, color);
+        }
+        if x != 0 {
+            fb.set_pixel(xc + y, yc - x, color);
+            if y != 0 {
+                fb.set_pixel(xc - y, yc - x, color);
+            }
+        }
+    }
 }
 
 /// Draw a solid, filled circle using Bresenham's algorithm.

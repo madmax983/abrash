@@ -331,3 +331,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Learning:** When reading back mapped GPU memory (e.g., `wgpu::BufferView`), avoid calling `.to_vec()` to convert it to a standard vector before iteration. Iterating directly over the mapped slice eliminates massive per-frame O(N) heap allocations and memory copies (e.g., ~8MB for 1080p framebuffers).
 **Action:** Replaced `let rgba = data.to_vec();` with direct slice reference `let rgba = &data;` in `blitter.rs` readback iteration.
 **Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.
+**[Eliminate Redundant Writes in Symmetric Algorithms]**
+**Learning:** In symmetric drawing algorithms (like Bresenham's circle), plotting 8-way symmetric points unconditionally will overdraw identical pixels when coordinates are on axes or diagonals (e.g., `x == 0` or `x == y`).
+**Action:** Adding simple conditional checks (`if x != 0`, `if y != 0`, `if x != y`) before writing to the framebuffer prevents redundant memory writes and measurably improves rasterization performance by minimizing redundant state changes.
