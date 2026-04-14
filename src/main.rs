@@ -188,6 +188,13 @@ Keyboard: Auto-rotating",
         example_name: "jelly_demo",
     },
     Demo {
+        name: "Color Splash",
+        category: DemoCategory::Utility,
+        description: "Selective color post-processing filter",
+        instructions: "Mouse: None\nKeyboard: Auto-rotating",
+        example_name: "color_splash_demo",
+    },
+    Demo {
         name: "Anaglyph 3D",
         category: DemoCategory::Simulation,
         description: "Post-processing anaglyph 3D effect",
@@ -363,6 +370,7 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "directional_blur_demo"
         || example_name == "god_rays_demo"
         || example_name == "jelly_demo"
+        || example_name == "color_splash_demo"
         || example_name == "anaglyph_demo"
         || example_name == "chromatic_aberration_demo"
         || example_name == "voronoi_demo"

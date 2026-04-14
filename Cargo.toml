@@ -753,6 +753,11 @@ name = "jelly_bench"
 harness = false
 required-features = ["nova"]
 
+[[bench]]
+name = "color_splash_bench"
+harness = false
+required-features = ["nova"]
+
 [[example]]
 name = "mandelbrot_demo"
 path = "examples/mandelbrot_demo.rs"
@@ -761,6 +766,11 @@ required-features = ["nova"]
 [[bench]]
 name = "mandelbrot_bench"
 harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "color_splash_demo"
+path = "examples/color_splash_demo.rs"
 required-features = ["nova"]
 
 [[example]]
