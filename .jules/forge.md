@@ -1,6 +1,3 @@
-**Refactoring God Functions in TUI Apps**
-**Learning:** Monolithic UI drawing functions in `ratatui` (like a 150-line `run_app` layout block) are common "God functions." They can be seamlessly extracted into smaller, focused helper functions (e.g., `render_title`, `render_demo_list`) by passing `&mut ratatui::Frame` and the specific layout chunk (`ratatui::layout::Rect`). This dramatically flattens the pyramid of doom without triggering borrow checker conflicts or changing runtime behavior.
-**Action:** When working on UI code with deep nesting and multiple layout blocks, proactively extract each visual component into its own function taking `f: &mut Frame` and `area: Rect`.
-## [Fixing Clippy Errors in Struct Initialization]
-**Learning:** When addressing `clippy::pub_underscore_fields` warnings on struct padding fields (`pub(crate) _pad`), directly renaming the field to remove the underscore (e.g. `pad`) can introduce `rustc` `dead_code` warnings because padding fields are intentionally unused by the application logic.
-**Action:** Instead of renaming the field and breaking the build due to `dead_code` linting (under `-D warnings`), keep the `_pad` naming convention to signal it's unused and explicitly add `#[allow(clippy::pub_underscore_fields)]` to the struct definition.
+**[WGPU Pipeline Extraction]**
+**Learning:** In wgpu-based rendering code, embedding verbose `wgpu::BindGroupLayoutDescriptor` and `wgpu::RenderPipelineDescriptor` definitions directly inside `new()` constructors creates massive 'God Functions' with deep nesting.
+**Action:** Extract these configurations into private, descriptively named helper functions (e.g., `create_gbuffer_pipeline`) to dramatically flatten the code and improve readability. When extracting `wgpu::RenderPipeline` creation logic, the `vertex_layouts` slice argument must explicitly declare lifetimes (e.g., `&[wgpu::VertexBufferLayout<'_>]`) to correctly satisfy the borrow checker.

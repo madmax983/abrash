@@ -4,7 +4,9 @@
 //! Uses a double-buffered grid and 3x3 Laplacian convolutions.
 
 use abrash::framebuffer::Framebuffer;
-use abrash::platform::{run_windowed, HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig};
+use abrash::platform::{
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+};
 use abrash_core::utils::XorShift32;
 
 use abrash::experimental::reaction_diffusion::ReactionDiffusion;

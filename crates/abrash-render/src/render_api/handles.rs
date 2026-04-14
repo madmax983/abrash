@@ -164,15 +164,28 @@ impl<T> ResourcePool<T> {
         }
     }
 
-    /// ⚡ Bolt: Create an empty pool, pre-allocating the underlying vectors.
-    /// This drastically reduces heap reallocations when registering many assets.
+    /// ⚡ Bolt: Create a new resource pool with a pre-allocated capacity.
+    /// This eliminates heap reallocations when registering initial scene assets.
+    ///
+    /// ```
+    /// use abrash_render::render_api::ResourcePool;
+    /// let pool: ResourcePool<String> = ResourcePool::with_capacity(10);
+    /// assert_eq!(pool.capacity(), 10);
+    /// ```
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             entries: Vec::with_capacity(capacity),
-            free_list: Vec::new(),
+            free_list: Vec::with_capacity(capacity),
         }
     }
+
+    /// Returns the total capacity of the pool without reallocating.
+    #[must_use]
+    pub fn capacity(&self) -> usize {
+        self.entries.capacity()
+    }
+
 
     /// Insert a resource and return its handle.
     pub fn insert(&mut self, value: T) -> Handle<T> {

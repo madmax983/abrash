@@ -271,9 +271,9 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
             *depth_val = z;
 
             // Clamped path
-            let r = r_i.clamp(0, 0x00FF_0000);
-            let g = g_i.clamp(0, 0x00FF_0000);
-            let b = b_i.clamp(0, 0x00FF_0000);
+            let r = r_i.max(0).min(0x00FF_0000);
+            let g = g_i.max(0).min(0x00FF_0000);
+            let b = b_i.max(0).min(0x00FF_0000);
 
             *pixel = 0xFF00_0000
                 | ((r as u32) & 0x00FF_0000)
@@ -470,9 +470,9 @@ pub fn draw_scanline_gouraud_i32(
                 unsafe {
                     if z < *zb_ptr {
                         *zb_ptr = z;
-                        let r = r_i.clamp(0, 0x00FF_0000);
-                        let g = g_i.clamp(0, 0x00FF_0000);
-                        let b = b_i.clamp(0, 0x00FF_0000);
+                        let r = r_i.max(0).min(0x00FF_0000);
+                        let g = g_i.max(0).min(0x00FF_0000);
+                        let b = b_i.max(0).min(0x00FF_0000);
 
                         *fb_ptr = 0xFF00_0000
                             | ((r as u32) & 0x00FF_0000)
