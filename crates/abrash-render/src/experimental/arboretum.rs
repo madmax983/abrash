@@ -118,8 +118,6 @@ impl LSystem {
             return Ok(self.axiom.clone());
         }
 
-        let mut current = self.axiom.clone();
-
         // Security / DoS protection limit: an L-system can grow exponentially and cause OOM.
         let limit: usize = 100_000_000; // Cap at 100MB
 
@@ -174,6 +172,10 @@ impl LSystem {
         }
 
         // Fallback for unicode
+        // ⚡ Bolt: Defer `axiom.clone()` until after the ASCII fast-path check
+        // to completely eliminate an unnecessary `String` heap allocation on the hot path.
+        let mut current = self.axiom.clone();
+
         let mut rules_array: [Option<&str>; 128] = [None; 128];
         for (k, v) in &self.rules {
             if (*k as usize) < 128 {

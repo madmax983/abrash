@@ -97,6 +97,7 @@ mod app {
             let mut error_table = comfy_table::Table::new();
             error_table
                 .load_preset(comfy_table::presets::UTF8_FULL)
+                .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
                 .set_header(vec![
                     comfy_table::Cell::new("❌ TUI Error")
                         .add_attribute(comfy_table::Attribute::Bold)
@@ -336,6 +337,7 @@ fn main() {
             let mut error_table = comfy_table::Table::new();
             error_table
                 .load_preset(comfy_table::presets::UTF8_FULL)
+                .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
                 .set_header(vec![
                     comfy_table::Cell::new("❌ Application Error")
                         .add_attribute(comfy_table::Attribute::Bold)
@@ -354,6 +356,7 @@ fn main() {
         let mut error_table = comfy_table::Table::new();
         error_table
             .load_preset(comfy_table::presets::UTF8_FULL)
+            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
             .set_header(vec![
                 comfy_table::Cell::new("⚠️  Missing Feature: Nova")
                     .add_attribute(comfy_table::Attribute::Bold)

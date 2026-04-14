@@ -184,6 +184,10 @@ path = "examples/ascii_display_demo.rs"
 required-features = ["nova"]
 
 [[bench]]
+name = "gamma_bench"
+harness = false
+
+[[bench]]
 name = "rasterization"
 harness = false
 
@@ -749,3 +753,7 @@ required-features = ["nova"]
 name = "mandelbrot_bench"
 harness = false
 required-features = ["nova"]
+
+[[example]]
+name = "gamma_demo"
+path = "examples/gamma_demo.rs"

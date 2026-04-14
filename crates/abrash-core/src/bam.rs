@@ -176,14 +176,13 @@ impl Bam {
         (sin, cos)
     }
 
-    /// Sin/cos via the polynomial approximation in [`crate::math::fast_sin_cos`].
     ///
     /// Slightly less precise than the table but avoids cache pressure.
     /// Good for effects, particles, and non-critical paths.
     #[inline]
     #[must_use]
     pub fn sin_cos_f32(self) -> (f32, f32) {
-        crate::math::fast_sin_cos(self.to_radians())
+        self.to_radians().sin_cos()
     }
 
     /// Convert to radians (`f32`).

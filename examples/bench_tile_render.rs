@@ -38,6 +38,7 @@ fn print_banner(width: u32, height: u32, triangle_count: usize) {
     let mut table = Table::new();
     table
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Parameter").fg(Color::Cyan),
             Cell::new("Value").fg(Color::Cyan),
@@ -96,6 +97,7 @@ fn main() {
     let mut results = Table::new();
     results
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Metric").fg(Color::Cyan),
             Cell::new("Result").fg(Color::Cyan),
