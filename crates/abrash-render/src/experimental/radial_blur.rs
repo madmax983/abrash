@@ -19,8 +19,6 @@ thread_local! {
 /// * `cy` - The Y coordinate of the blur center.
 /// * `strength` - The intensity of the blur. 0.0 means no blur.
 /// * `samples` - The number of samples to take along the blur vector. 0 or 1 means no blur.
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 pub fn apply_radial_blur(
     fb: &mut Framebuffer,
     cx: usize,
@@ -143,10 +141,9 @@ pub fn apply_radial_blur(
 
         #[cfg(not(feature = "parallel"))]
         {
-            for y in 0..height {
-                let row_start = y * width;
-                for x in 0..width {
-                    dest_pixels[row_start + x] = process_pixel(x, y);
+            for (y, row) in dest_pixels.chunks_exact_mut(width).enumerate().take(height) {
+                for (x, pixel) in row.iter_mut().enumerate() {
+                    *pixel = process_pixel(x, y);
                 }
             }
         }

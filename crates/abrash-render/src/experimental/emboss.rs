@@ -99,23 +99,46 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
                 let b = next_w[1];
                 let br = next_w[2];
 
-                let (tl_r, tl_g, tl_b) = extract(tl);
-                let (t_r, t_g, t_b) = extract(t);
-                let (l_r, l_g, l_b) = extract(l);
-                let (c_r, c_g, c_b) = extract(c);
-                let (r_r, r_g, r_b) = extract(r);
-                let (b_r, b_g, b_b) = extract(b);
-                let (br_r, br_g, br_b) = extract(br);
+                // ⚡ Bolt Performance Optimization:
+                // SIMD Within A Register (SWAR)
+                // Process Red and Blue channels simultaneously.
+                // 0x00FF00FF leaves 16 bits of headroom per channel. Max sum is 4*255=1020, which easily fits.
+                let tl_rb = tl & 0x00FF_00FF;
+                let tl_g = tl & 0x0000_FF00;
 
-                // Apply weights using saturating unsigned integer operations
-                let pos_r = c_r + r_r + b_r + br_r;
-                let neg_r = tl_r + t_r + l_r;
+                let t_rb = t & 0x00FF_00FF;
+                let t_g = t & 0x0000_FF00;
+
+                let l_rb = l & 0x00FF_00FF;
+                let l_g = l & 0x0000_FF00;
+
+                let c_rb = c & 0x00FF_00FF;
+                let c_g = c & 0x0000_FF00;
+
+                let r_rb = r & 0x00FF_00FF;
+                let r_g = r & 0x0000_FF00;
+
+                let b_rb = b & 0x00FF_00FF;
+                let b_g = b & 0x0000_FF00;
+
+                let br_rb = br & 0x00FF_00FF;
+                let br_g = br & 0x0000_FF00;
+
+                // Apply weights using SWAR arithmetic
+                let pos_rb = c_rb + r_rb + b_rb + br_rb;
+                let neg_rb = tl_rb + t_rb + l_rb;
 
                 let pos_g = c_g + r_g + b_g + br_g;
                 let neg_g = tl_g + t_g + l_g;
 
-                let pos_b = c_b + r_b + b_b + br_b;
-                let neg_b = tl_b + t_b + l_b;
+                // We must unpack before saturating_sub to avoid channel overflow/underflow interactions
+                let pos_r = (pos_rb >> 16) & 0xFFFF;
+                let pos_b = pos_rb & 0xFFFF;
+                let neg_r = (neg_rb >> 16) & 0xFFFF;
+                let neg_b = neg_rb & 0xFFFF;
+
+                let pos_g = (pos_g >> 8) & 0xFFFF;
+                let neg_g = (neg_g >> 8) & 0xFFFF;
 
                 // Add bias (128) and clamp using unsigned math
                 let out_r = (pos_r + 128).saturating_sub(neg_r).min(255);

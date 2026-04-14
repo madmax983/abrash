@@ -25,6 +25,9 @@ use std::time::Instant;
 use winit::event::{ElementState, KeyEvent, WindowEvent};
 use winit::keyboard::{Key, NamedKey};
 
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
+
 #[derive(Debug)]
 struct DemoError(String);
 
@@ -133,15 +136,18 @@ impl ShowcaseApp {
             Mat4::perspective(0.8, aspect, 0.1, 200.0),
         );
 
-        let mut frame = Frame::new(camera);
-        frame.clear_color = Some(0xFF0A0A12); // dark blue-black
+        // ⚡ Bolt: Use `with_capacity` to prevent vector reallocations for draw commands and lights
+        // 1 directional light + 3 point lights = 4 lights
+        // 1 ground + 1 center sphere + 1 orbit + 6 outer objects + 16 inner boxes = 25 meshes
+        let mut frame = Frame::with_capacity(camera, 25, 4);
+        frame.clear_color = Some(0xFF0A_0A12); // dark blue-black
 
         // --- Lights ---
 
         // Warm directional sun (casts shadows)
         frame.add_light(Light::Directional(DirectionalLight {
             direction: Vec3::new(0.4, -0.8, -0.3),
-            color: 0xFFF5E6C8, // warm white
+            color: 0xFFF5_E6C8, // warm white
             intensity: 1.2,
         }));
 
@@ -149,7 +155,7 @@ impl ShowcaseApp {
         let red_angle = elapsed * 1.5;
         frame.add_light(Light::Point(PointLight {
             position: Vec3::new(red_angle.cos() * 4.0, 2.5, red_angle.sin() * 4.0),
-            color: 0xFFFF3333,
+            color: 0xFFFF_3333,
             intensity: 3.0,
             radius: 8.0,
         }));
@@ -158,7 +164,7 @@ impl ShowcaseApp {
         let blue_angle = elapsed * 1.5 + std::f32::consts::PI;
         frame.add_light(Light::Point(PointLight {
             position: Vec3::new(blue_angle.cos() * 3.5, 1.5, blue_angle.sin() * 3.5),
-            color: 0xFF3366FF,
+            color: 0xFF33_66FF,
             intensity: 2.5,
             radius: 7.0,
         }));
@@ -166,7 +172,7 @@ impl ShowcaseApp {
         // Green point light (static, above)
         frame.add_light(Light::Point(PointLight {
             position: Vec3::new(0.0, 5.0, 0.0),
-            color: 0xFF33FF66,
+            color: 0xFF33_FF66,
             intensity: 1.5,
             radius: 12.0,
         }));
@@ -278,7 +284,7 @@ impl WindowApp for ShowcaseApp {
                 shininess: 256.0,
                 specular_strength: 0.95,
             },
-            color: 0xFFCCCCCC,
+            color: 0xFFCC_CCCC,
             receive_light: true,
         });
 
@@ -288,7 +294,7 @@ impl WindowApp for ShowcaseApp {
                 shininess: 128.0,
                 specular_strength: 0.8,
             },
-            color: 0xFFD4AF37,
+            color: 0xFFD4_AF37,
             receive_light: true,
         });
 
@@ -298,7 +304,7 @@ impl WindowApp for ShowcaseApp {
                 shininess: 32.0,
                 specular_strength: 0.4,
             },
-            color: 0xFFCC2222,
+            color: 0xFFCC_2222,
             receive_light: true,
         });
 
@@ -308,7 +314,7 @@ impl WindowApp for ShowcaseApp {
                 shininess: 8.0,
                 specular_strength: 0.1,
             },
-            color: 0xFF2244AA,
+            color: 0xFF22_44AA,
             receive_light: true,
         });
 
@@ -318,7 +324,7 @@ impl WindowApp for ShowcaseApp {
                 shininess: 64.0,
                 specular_strength: 0.5,
             },
-            color: 0xFFE8E0D8,
+            color: 0xFFE8_E0D8,
             receive_light: true,
         });
 
@@ -328,7 +334,7 @@ impl WindowApp for ShowcaseApp {
                 shininess: 4.0,
                 specular_strength: 0.05,
             },
-            color: 0xFF222222,
+            color: 0xFF22_2222,
             receive_light: true,
         });
 
@@ -348,18 +354,64 @@ impl WindowApp for ShowcaseApp {
             ground: ground_mat,
         });
 
-        println!("\n  Abrash Deferred Rendering Showcase");
-        println!("  ===================================");
-        println!("  Pipeline: Shadow > G-Buffer > Deferred Lighting > Tone Map");
-        println!("  Lights: 1 directional (shadows) + 3 point (orbiting)");
-        println!("  Meshes: sphere, cube, cylinder, torus, plane");
-        println!("  Objects: 15 objects, 6 materials");
-        println!();
-        println!("  Controls:");
-        println!("    D     — Cycle debug modes (position/normal/albedo/roughness/metallic/depth)");
-        println!("    T     — Toggle TAA (temporal anti-aliasing)");
-        println!("    Space — Pause/resume animation");
-        println!("    Esc   — Quit\n");
+        println!(
+            "\n{}",
+            "✨ Abrash Deferred Rendering Showcase".bold().cyan()
+        );
+        println!("{}", "=====================================".dark_grey());
+
+        let mut info_table = Table::new();
+        info_table
+            .load_preset(presets::UTF8_FULL)
+            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+            .set_header(vec![
+                Cell::new("Property").fg(Color::Cyan),
+                Cell::new("Value").fg(Color::Cyan),
+            ])
+            .add_row(vec![
+                Cell::new("Pipeline"),
+                Cell::new("Shadow > G-Buffer > Deferred Lighting > Tone Map").fg(Color::Green),
+            ])
+            .add_row(vec![
+                Cell::new("Lights"),
+                Cell::new("1 directional (shadows) + 3 point (orbiting)").fg(Color::Yellow),
+            ])
+            .add_row(vec![
+                Cell::new("Meshes"),
+                Cell::new("sphere, cube, cylinder, torus, plane"),
+            ])
+            .add_row(vec![
+                Cell::new("Objects"),
+                Cell::new("15 objects, 6 materials"),
+            ]);
+
+        println!("\n{}", "⚙️  Info".bold());
+        println!("{info_table}");
+
+        let mut controls = Table::new();
+        controls
+            .load_preset(presets::UTF8_FULL)
+            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+            .set_header(vec![
+                Cell::new("Input").fg(Color::Cyan),
+                Cell::new("Action").fg(Color::Cyan),
+            ])
+            .add_row(vec![
+                Cell::new("D"),
+                Cell::new("Cycle debug modes (position/normal/albedo/roughness/metallic/depth)"),
+            ])
+            .add_row(vec![
+                Cell::new("T"),
+                Cell::new("Toggle TAA (temporal anti-aliasing)"),
+            ])
+            .add_row(vec![
+                Cell::new("Space"),
+                Cell::new("Pause/resume animation"),
+            ])
+            .add_row(vec![Cell::new("Esc"), Cell::new("Quit")]);
+
+        println!("\n{}", "🎮 Controls".bold());
+        println!("{controls}\n");
 
         Ok(())
     }
@@ -444,6 +496,7 @@ impl WindowApp for ShowcaseApp {
     }
 }
 
-fn main() -> Result<(), abrash::platform::HostError> {
-    run_windowed(ShowcaseApp::new())
+fn main() -> Result<(), DemoError> {
+    run_windowed(ShowcaseApp::new());
+    Ok(())
 }

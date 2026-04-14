@@ -65,10 +65,16 @@ fn box_blur_f32_horizontal_scalar(
 
     // If width is too small, fallback to checked loop
     if width <= 2 * radius + 1 {
+        // Bolt Optimization: Replaced `.par_chunks_mut(width)` with `.par_chunks_exact_mut(width)` to eliminate
+        // remainder chunk handling and bounds checking, eliminating bounds check overhead
+        // when iterating row-by-row over a 1D slice representing a 2D grid.
         #[cfg(feature = "parallel")]
-        let iter = dest.par_chunks_mut(width).enumerate();
+        let iter = dest.par_chunks_exact_mut(width).enumerate();
+        // Bolt Optimization: Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+        // remainder chunk handling and bounds checking, eliminating bounds check overhead
+        // when iterating row-by-row over a 1D slice representing a 2D grid.
         #[cfg(not(feature = "parallel"))]
-        let iter = dest.chunks_mut(width).enumerate();
+        let iter = dest.chunks_exact_mut(width).enumerate();
 
         iter.for_each(|(y, dest_row)| {
             let row_start = y * width;
@@ -94,10 +100,16 @@ fn box_blur_f32_horizontal_scalar(
         return;
     }
 
+    // Bolt Optimization: Replaced `.par_chunks_mut(width)` with `.par_chunks_exact_mut(width)` to eliminate
+    // remainder chunk handling and bounds checking, eliminating bounds check overhead
+    // when iterating row-by-row over a 1D slice representing a 2D grid.
     #[cfg(feature = "parallel")]
-    let iter = dest.par_chunks_mut(width).enumerate();
+    let iter = dest.par_chunks_exact_mut(width).enumerate();
+    // Bolt Optimization: Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+    // remainder chunk handling and bounds checking, eliminating bounds check overhead
+    // when iterating row-by-row over a 1D slice representing a 2D grid.
     #[cfg(not(feature = "parallel"))]
-    let iter = dest.chunks_mut(width).enumerate();
+    let iter = dest.chunks_exact_mut(width).enumerate();
 
     iter.for_each(|(y, dest_row)| {
         let row_start = y * width;
@@ -318,10 +330,10 @@ pub fn box_blur_horizontal(
     {
         // Suppress unused variable warning for height if parallel is active
         let _ = height;
-        // Bolt Optimization: Replaced `.par_chunks_mut(width)` with `.par_chunks_mut(width)` to eliminate
-        // remainder chunk handling and bounds checking, providing a measurable performance improvement
+        // Bolt Optimization: Replaced `.par_chunks_mut(width)` with `.par_chunks_exact_mut(width)` to eliminate
+        // remainder chunk handling and bounds checking, eliminating bounds check overhead
         // when iterating row-by-row over a 1D slice representing a 2D grid.
-        dest.par_chunks_mut(width)
+        dest.par_chunks_exact_mut(width)
             .enumerate()
             .for_each(|(y, dst_row)| {
                 let row_offset = y * width;
@@ -375,28 +387,73 @@ fn process_row_horizontal(
         b_acc += p & 0xFF;
     }
 
-    for (x, dst_pixel) in dst_row.iter_mut().enumerate() {
-        // Write current blurred pixel
-        // Use u64 for multiplication to avoid overflow
+    // Head: 0..=radius (outgoing clamped to 0)
+    for (x, dst_pixel) in dst_row.iter_mut().take(radius + 1).enumerate() {
         let r_avg = ((u64::from(r_acc) * scale + bias) >> 24) as u32;
         let g_avg = ((u64::from(g_acc) * scale + bias) >> 24) as u32;
         let b_avg = ((u64::from(b_acc) * scale + bias) >> 24) as u32;
         *dst_pixel = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
 
-        // Shift window
-        // Remove outgoing pixel (x - radius)
-        let outgoing_idx = (x as isize - radius as isize).max(0) as usize;
-        let p_out = src_row[outgoing_idx];
+        let p_out = src_row[0];
         r_acc -= (p_out >> 16) & 0xFF;
         g_acc -= (p_out >> 8) & 0xFF;
         b_acc -= p_out & 0xFF;
 
-        // Add incoming pixel (x + radius + 1)
-        let incoming_idx = (x + radius + 1).min(width - 1);
-        let p_in = src_row[incoming_idx];
+        let p_in = src_row[(x + radius + 1).min(width - 1)];
         r_acc += (p_in >> 16) & 0xFF;
         g_acc += (p_in >> 8) & 0xFF;
         b_acc += p_in & 0xFF;
+    }
+
+    // Body: Unclamped loop
+    let body_end = width.saturating_sub(radius + 1);
+    if body_end > radius + 1 {
+        // `incoming_iter` iterates from `2 * radius + 2` to `width`
+        let incoming_iter = src_row.iter().skip(2 * radius + 2);
+        // `outgoing_iter` iterates from `1`
+        let outgoing_iter = src_row.iter().skip(1);
+        let dst_iter = dst_row
+            .iter_mut()
+            .skip(radius + 1)
+            .take(body_end - (radius + 1));
+
+        for ((dst_pixel, &p_out), &p_in) in dst_iter.zip(outgoing_iter).zip(incoming_iter) {
+            let r_avg = ((u64::from(r_acc) * scale + bias) >> 24) as u32;
+            let g_avg = ((u64::from(g_acc) * scale + bias) >> 24) as u32;
+            let b_avg = ((u64::from(b_acc) * scale + bias) >> 24) as u32;
+            *dst_pixel = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
+
+            r_acc -= (p_out >> 16) & 0xFF;
+            g_acc -= (p_out >> 8) & 0xFF;
+            b_acc -= p_out & 0xFF;
+
+            r_acc += (p_in >> 16) & 0xFF;
+            g_acc += (p_in >> 8) & 0xFF;
+            b_acc += p_in & 0xFF;
+        }
+    }
+
+    // Tail: body_end..width (incoming clamped to width - 1)
+    let tail_start = (radius + 1).max(body_end);
+    let p_in = src_row[width - 1];
+    let in_r = (p_in >> 16) & 0xFF;
+    let in_g = (p_in >> 8) & 0xFF;
+    let in_b = p_in & 0xFF;
+
+    for (x, dst_pixel) in dst_row.iter_mut().enumerate().skip(tail_start) {
+        let r_avg = ((u64::from(r_acc) * scale + bias) >> 24) as u32;
+        let g_avg = ((u64::from(g_acc) * scale + bias) >> 24) as u32;
+        let b_avg = ((u64::from(b_acc) * scale + bias) >> 24) as u32;
+        *dst_pixel = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
+
+        let p_out = src_row[x - radius];
+        r_acc -= (p_out >> 16) & 0xFF;
+        g_acc -= (p_out >> 8) & 0xFF;
+        b_acc -= p_out & 0xFF;
+
+        r_acc += in_r;
+        g_acc += in_g;
+        b_acc += in_b;
     }
 }
 
@@ -518,11 +575,16 @@ fn box_blur_vertical_scalar(
         let dst_row_start = y * width;
         let dst_row = &mut dest[dst_row_start..dst_row_start + width];
 
-        for (x, dst_pixel) in dst_row.iter_mut().enumerate() {
-            let r = (r_acc[x] as f32 * scale) as u32;
-            let g = (g_acc[x] as f32 * scale) as u32;
-            let b = (b_acc[x] as f32 * scale) as u32;
-            *dst_pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+        for (((dst_pixel, &r), &g), &b) in dst_row
+            .iter_mut()
+            .zip(r_acc.iter())
+            .zip(g_acc.iter())
+            .zip(b_acc.iter())
+        {
+            let r_val = (r as f32 * scale) as u32;
+            let g_val = (g as f32 * scale) as u32;
+            let b_val = (b as f32 * scale) as u32;
+            *dst_pixel = 0xFF00_0000 | (r_val << 16) | (g_val << 8) | b_val;
         }
 
         // Update accumulators for next row
@@ -534,13 +596,16 @@ fn box_blur_vertical_scalar(
         let in_y = (y + radius + 1).min(height - 1);
         let in_row = &src[in_y * width..(in_y + 1) * width];
 
-        for x in 0..width {
-            let p_out = out_row[x];
-            let p_in = in_row[x];
-
-            r_acc[x] = r_acc[x] + ((p_in >> 16) & 0xFF) as i32 - ((p_out >> 16) & 0xFF) as i32;
-            g_acc[x] = g_acc[x] + ((p_in >> 8) & 0xFF) as i32 - ((p_out >> 8) & 0xFF) as i32;
-            b_acc[x] = b_acc[x] + (p_in & 0xFF) as i32 - (p_out & 0xFF) as i32;
+        for ((((r, g), b), &p_out), &p_in) in r_acc
+            .iter_mut()
+            .zip(g_acc.iter_mut())
+            .zip(b_acc.iter_mut())
+            .zip(out_row.iter())
+            .zip(in_row.iter())
+        {
+            *r = *r + ((p_in >> 16) & 0xFF) as i32 - ((p_out >> 16) & 0xFF) as i32;
+            *g = *g + ((p_in >> 8) & 0xFF) as i32 - ((p_out >> 8) & 0xFF) as i32;
+            *b = *b + (p_in & 0xFF) as i32 - (p_out & 0xFF) as i32;
         }
     }
 }

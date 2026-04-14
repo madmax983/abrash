@@ -71,6 +71,7 @@ impl WindowApp for GpuMvpCubeApp {
         let mut table = Table::new();
         table
             .load_preset(presets::UTF8_FULL)
+            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
             .set_header(vec![
                 Cell::new("Property").fg(Color::Cyan),
                 Cell::new("Value").fg(Color::Cyan),
@@ -90,6 +91,7 @@ impl WindowApp for GpuMvpCubeApp {
         let mut controls = Table::new();
         controls
             .load_preset(presets::UTF8_FULL)
+            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
             .set_header(vec![
                 Cell::new("Input").fg(Color::Cyan),
                 Cell::new("Action").fg(Color::Cyan),
@@ -157,7 +159,8 @@ impl WindowApp for GpuMvpCubeApp {
             Mat4::perspective(1.0, aspect, 0.1, 100.0),
         );
 
-        let mut frame = Frame::new(camera);
+        // ⚡ Bolt: Use `with_capacity` to prevent vector reallocations for draw commands
+        let mut frame = Frame::with_capacity(camera, 1, 0);
         frame.draw(mesh, material, Mat4::rotation_y(angle));
 
         renderer
@@ -166,6 +169,7 @@ impl WindowApp for GpuMvpCubeApp {
     }
 }
 
-fn main() -> Result<(), abrash::platform::HostError> {
-    run_windowed(GpuMvpCubeApp::new())
+fn main() -> Result<(), DemoError> {
+    run_windowed(GpuMvpCubeApp::new());
+    Ok(())
 }

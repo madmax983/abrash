@@ -301,7 +301,13 @@ unsafe fn apply_ssao_avx2(
     half_width: f32,
     half_height: f32,
 ) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{
+        _CMP_GE_OQ, _CMP_GT_OQ, _CMP_LT_OQ, _mm256_add_epi32, _mm256_add_ps, _mm256_and_ps,
+        _mm256_and_si256, _mm256_andnot_ps, _mm256_castsi256_ps, _mm256_cmp_ps, _mm256_cmpgt_epi32,
+        _mm256_cvttps_epi32, _mm256_fmadd_ps, _mm256_loadu_ps, _mm256_mask_i32gather_ps,
+        _mm256_movemask_ps, _mm256_mul_ps, _mm256_mullo_epi32, _mm256_rcp_ps, _mm256_set_ps,
+        _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_ps, _mm256_storeu_ps, _mm256_sub_ps,
+    };
 
     unsafe {
         let p00 = _mm256_set1_ps(proj_m[0]);
@@ -565,7 +571,7 @@ fn generate_kernel() -> [Vec3; KERNEL_SIZE] {
         let r2 = rand_f32(&mut seed) * 2.0 - 1.0; // y: -1..1
         let r3 = rand_f32(&mut seed); // z: 0..1 (hemisphere)
 
-        let mut sample = Vec3::new(r1, r2, r3).normalize();
+        let mut sample = Vec3::new(r1, r2, r3).fast_normalize();
 
         // Scale samples to distribute them within the hemisphere
         let scale = i as f32 / KERNEL_SIZE as f32;
@@ -586,7 +592,7 @@ fn generate_noise() -> [Vec3; NOISE_SIZE * NOISE_SIZE] {
     for v in &mut noise {
         let x = rand_f32(&mut seed) * 2.0 - 1.0;
         let y = rand_f32(&mut seed) * 2.0 - 1.0;
-        *v = Vec3::new(x, y, 0.0).normalize();
+        *v = Vec3::new(x, y, 0.0).fast_normalize();
     }
 
     noise
@@ -721,12 +727,11 @@ mod tests {
             }
         }
 
-        println!("Max difference between scalar and SIMD SSAO: {}", max_diff);
+        println!("Max difference between scalar and SIMD SSAO: {max_diff}");
         // Allow some difference due to floating point precision and rcp approximation
         assert!(
             max_diff <= 1.0,
-            "SSAO output mismatch too large: {}",
-            max_diff
+            "SSAO output mismatch too large: {max_diff}",
         );
     }
 }

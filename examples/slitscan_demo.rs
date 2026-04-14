@@ -1,3 +1,4 @@
+#![cfg(feature = "backend-winit")]
 use abrash::experimental::slitscan::SlitScanFilter;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
@@ -70,6 +71,7 @@ fn print_banner() {
     let mut table = Table::new();
     table
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Property").fg(Color::Cyan),
             Cell::new("Value").fg(Color::Cyan),
@@ -224,6 +226,6 @@ impl WindowApp for SlitScanDemoApp {
 
 fn main() -> Result<(), AppError> {
     print_banner();
-    run_windowed(SlitScanDemoApp::new()?)?;
+    run_windowed(SlitScanDemoApp::new().unwrap());
     Ok(())
 }

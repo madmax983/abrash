@@ -186,7 +186,8 @@ pub fn load_gltf(path: &Path) -> Result<GltfScene, GltfError> {
 
 /// Extract all meshes (with optional skin data) from the document.
 fn extract_meshes(document: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<SkinnedMesh> {
-    let mut result = Vec::new();
+    // ⚡ Bolt: Pre-allocate capacity using exact iterator bounds to eliminate dynamic heap reallocations
+    let mut result = Vec::with_capacity(document.meshes().map(|m| m.primitives().count()).sum());
 
     for mesh in document.meshes() {
         for primitive in mesh.primitives() {
@@ -224,10 +225,15 @@ fn extract_meshes(document: &gltf::Document, buffers: &[gltf::buffer::Data]) -> 
             let indices: Vec<[usize; 3]> = reader
                 .read_indices()
                 .map(|iter| {
-                    let flat: Vec<usize> = iter.into_u32().map(|i| i as usize).collect();
-                    flat.chunks_exact(3)
-                        .map(|tri| [tri[0], tri[1], tri[2]])
-                        .collect()
+                    let iter_u32 = iter.into_u32();
+                    let mut indices = Vec::with_capacity(iter_u32.len() / 3);
+                    let mut iter_usize = iter_u32.map(|i| i as usize);
+                    while let (Some(a), Some(b), Some(c)) =
+                        (iter_usize.next(), iter_usize.next(), iter_usize.next())
+                    {
+                        indices.push([a, b, c]);
+                    }
+                    indices
                 })
                 .unwrap_or_default();
 
@@ -294,7 +300,7 @@ fn extract_skeleton(
     }
 
     // Build node_index → provisional joint index map
-    let mut node_idx_to_provisional: HashMap<usize, usize> = HashMap::new();
+    let mut node_idx_to_provisional: HashMap<usize, usize> = HashMap::with_capacity(joint_count);
     for (i, node) in joint_nodes.iter().enumerate() {
         node_idx_to_provisional.insert(node.index(), i);
     }
@@ -345,7 +351,7 @@ fn extract_skeleton(
     let sorted_order = topological_sort_joints(&provisional);
 
     // Build old_provisional_index → new_sorted_index mapping
-    let mut old_to_new: HashMap<usize, usize> = HashMap::new();
+    let mut old_to_new: HashMap<usize, usize> = HashMap::with_capacity(sorted_order.len());
     for (new_idx, &old_idx) in sorted_order.iter().enumerate() {
         old_to_new.insert(old_idx, new_idx);
     }
@@ -384,7 +390,7 @@ fn build_parent_map(
     joint_nodes: &[gltf::Node<'_>],
     joint_set: &HashMap<usize, usize>,
 ) -> HashMap<usize, usize> {
-    let mut child_to_parent: HashMap<usize, usize> = HashMap::new();
+    let mut child_to_parent: HashMap<usize, usize> = HashMap::with_capacity(joint_nodes.len());
 
     for node in joint_nodes {
         for child in node.children() {
@@ -400,19 +406,19 @@ fn build_parent_map(
 /// Topological sort of provisional joints using Kahn's algorithm.
 ///
 /// Guarantees that every joint's parent appears before the joint itself.
-fn topological_sort_joints(joints: &[impl HasParent]) -> Vec<usize> {
+fn topological_sort_joints(joints: &[ProvisionalJointData]) -> Vec<usize> {
     let n = joints.len();
 
     // Count in-degree for each joint (0 or 1 since each has at most one parent)
     let mut in_degree = vec![0_usize; n];
     for j in joints {
-        if j.parent_index().is_some() {
+        if j.parent_provisional.is_some() {
             // The child itself has in-degree 1
         }
     }
     // Actually: in_degree of a joint = 1 if it has a parent, 0 if root.
     for (i, j) in joints.iter().enumerate() {
-        if j.parent_index().is_some() {
+        if j.parent_provisional.is_some() {
             in_degree[i] = 1;
         }
     }
@@ -420,26 +426,26 @@ fn topological_sort_joints(joints: &[impl HasParent]) -> Vec<usize> {
     // Build children lists
     let mut children: Vec<Vec<usize>> = vec![Vec::new(); n];
     for (i, j) in joints.iter().enumerate() {
-        if let Some(parent) = j.parent_index() {
+        if let Some(parent) = j.parent_provisional {
             children[parent].push(i);
         }
     }
 
     // Start with roots (in_degree == 0)
-    let mut queue: std::collections::VecDeque<usize> = std::collections::VecDeque::new();
+    let mut queue: Vec<usize> = Vec::with_capacity(n);
     for (i, &deg) in in_degree.iter().enumerate() {
         if deg == 0 {
-            queue.push_back(i);
+            queue.push(i);
         }
     }
 
     let mut sorted = Vec::with_capacity(n);
-    while let Some(idx) = queue.pop_front() {
+    while let Some(idx) = queue.pop() {
         sorted.push(idx);
         for &child in &children[idx] {
             in_degree[child] -= 1;
             if in_degree[child] == 0 {
-                queue.push_back(child);
+                queue.push(child);
             }
         }
     }
@@ -456,14 +462,6 @@ fn topological_sort_joints(joints: &[impl HasParent]) -> Vec<usize> {
     sorted
 }
 
-/// Trait to abstract over provisional joint parent access for topological sort.
-trait HasParent {
-    fn parent_index(&self) -> Option<usize>;
-}
-
-// We can't name the struct from inside `extract_skeleton` outside it, so let's
-// use a simple wrapper. Actually, let's restructure: move ProvisionalJoint out.
-
 /// Internal provisional joint data used during skeleton construction.
 struct ProvisionalJointData {
     node_index: usize,
@@ -471,12 +469,6 @@ struct ProvisionalJointData {
     parent_provisional: Option<usize>,
     inverse_bind_matrix: Mat4,
     bind_transform: Transform,
-}
-
-impl HasParent for ProvisionalJointData {
-    fn parent_index(&self) -> Option<usize> {
-        self.parent_provisional
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -489,10 +481,12 @@ fn extract_clips(
     buffers: &[gltf::buffer::Data],
     node_to_joint: &HashMap<usize, usize>,
 ) -> Vec<AnimationClip> {
-    let mut clips = Vec::new();
+    // ⚡ Bolt: Pre-allocate capacity using exact iterator bounds to eliminate dynamic heap reallocations
+    let mut clips = Vec::with_capacity(document.animations().count());
 
     for animation in document.animations() {
-        let mut channels = Vec::new();
+        // ⚡ Bolt: Pre-allocate capacity using exact iterator bounds to eliminate dynamic heap reallocations
+        let mut channels = Vec::with_capacity(animation.channels().count());
         let mut max_time: f32 = 0.0;
 
         for channel in animation.channels() {

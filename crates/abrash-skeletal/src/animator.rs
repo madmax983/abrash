@@ -30,6 +30,7 @@ pub struct SkeletonAnimator {
     skeleton: Skeleton,
     bone_animators: Vec<BoneAnimator>,
     bind_pose: Pose,
+    current_pose: Pose,
     #[allow(dead_code)]
     playback: PlaybackMode,
 }
@@ -43,6 +44,7 @@ impl SkeletonAnimator {
     pub fn new(skeleton: Skeleton, clip: &AnimationClip, playback: PlaybackMode) -> Self {
         let joint_count = skeleton.joint_count();
         let bind_pose = Pose::from_bind(&skeleton);
+        let current_pose = bind_pose.clone();
 
         // Initialize all bones with no animation
         let mut bone_animators: Vec<BoneAnimator> = (0..joint_count)
@@ -85,29 +87,44 @@ impl SkeletonAnimator {
             skeleton,
             bone_animators,
             bind_pose,
+            current_pose,
             playback,
         }
     }
 
-    /// Advance the animation by `dt` seconds and return the current pose.
+    /// Advance the animation by `dt` seconds. The updated pose can be retrieved via [`current_pose`](Self::current_pose).
     ///
     /// Bones without animation channels keep their bind-pose values.
-    pub fn tick(&mut self, dt: f32) -> Pose {
-        let mut transforms = self.bind_pose.local_transforms.clone();
+    pub fn tick(&mut self, dt: f32) {
+        // ⚡ Bolt: Use `clone_from` to copy bind_pose into current_pose, completely
+        // avoiding O(N) heap allocations per frame by reusing the existing Vec capacity.
+        self.current_pose
+            .local_transforms
+            .clone_from(&self.bind_pose.local_transforms);
 
-        for (i, animator) in self.bone_animators.iter_mut().enumerate() {
+        // ⚡ Bolt: Chaining `.zip()` on the iterators instead of indexing via `[i]`
+        // allows the compiler to mathematically prove safety and elide all inner-loop bounds checks.
+        let iter = self
+            .bone_animators
+            .iter_mut()
+            .zip(self.current_pose.local_transforms.iter_mut());
+        for (animator, transform) in iter {
             if let Some(ref mut tl) = animator.position {
-                transforms[i].position = tl.tick(dt).value;
+                transform.position = tl.tick(dt).value;
             }
             if let Some(ref mut tl) = animator.rotation {
-                transforms[i].rotation = tl.tick(dt).value;
+                transform.rotation = tl.tick(dt).value;
             }
             if let Some(ref mut tl) = animator.scale {
-                transforms[i].scale = tl.tick(dt).value;
+                transform.scale = tl.tick(dt).value;
             }
         }
+    }
 
-        Pose::new(transforms)
+    /// Get a reference to the current animated pose.
+    #[must_use]
+    pub const fn current_pose(&self) -> &Pose {
+        &self.current_pose
     }
 
     /// Get a reference to the skeleton.
@@ -143,14 +160,14 @@ mod tests {
         let step = 0.05;
         let steps = (total / step) as u32;
         let remainder = total - (steps as f32 * step);
-        let mut last = animator.tick(0.0);
+        animator.tick(0.0);
         for _ in 0..steps {
-            last = animator.tick(step);
+            animator.tick(step);
         }
         if remainder > f32::EPSILON {
-            last = animator.tick(remainder);
+            animator.tick(remainder);
         }
-        last
+        animator.current_pose().clone()
     }
 
     fn make_single_bone_skeleton() -> Skeleton {
@@ -308,8 +325,7 @@ mod tests {
         let joint1_rot = pose.local_transforms[1].rotation;
         assert!(
             (joint1_rot.w - 1.0).abs() < EPSILON,
-            "joint1 rotation should be identity, got {:?}",
-            joint1_rot
+            "joint1 rotation should be identity, got {joint1_rot:?}"
         );
 
         let joint1_scale = pose.local_transforms[1].scale;
@@ -317,8 +333,7 @@ mod tests {
             (joint1_scale.x - 1.0).abs() < EPSILON
                 && (joint1_scale.y - 1.0).abs() < EPSILON
                 && (joint1_scale.z - 1.0).abs() < EPSILON,
-            "joint1 scale should be (1,1,1), got {:?}",
-            joint1_scale
+            "joint1 scale should be (1,1,1), got {joint1_scale:?}"
         );
     }
 
@@ -339,10 +354,10 @@ mod tests {
 
         // Should not panic — out-of-range joints are silently skipped
         let mut anim = SkeletonAnimator::new(skeleton, &clip, PlaybackMode::Once);
-        let pose = anim.tick(0.0);
+        anim.tick(0.0);
 
         // The single bone should have identity transform (bind pose)
-        let pos = pose.local_transforms[0].position;
+        let pos = anim.current_pose().local_transforms[0].position;
         assert!((pos.x).abs() < EPSILON);
         assert!((pos.y).abs() < EPSILON);
         assert!((pos.z).abs() < EPSILON);

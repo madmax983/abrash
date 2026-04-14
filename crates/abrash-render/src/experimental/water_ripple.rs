@@ -52,48 +52,60 @@ pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
 
     // Clone the source framebuffer because non-linear displacement causes aliasing
     // when reading and writing to the same buffer concurrently.
-    let src_buffer = fb.as_slice().to_vec();
-    let dest_buffer = fb.as_mut_slice();
+    thread_local! {
+        static SOURCE_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
 
-    #[cfg(feature = "parallel")]
-    let iter = dest_buffer.par_chunks_exact_mut(width as usize).enumerate();
-    #[cfg(not(feature = "parallel"))]
-    let iter = dest_buffer.chunks_exact_mut(width as usize).enumerate();
+    SOURCE_PIXELS.with(|buf| {
+        let mut src_pixels = buf.borrow_mut();
+        src_pixels.clear();
+        src_pixels.extend_from_slice(fb.as_slice());
 
-    iter.for_each(|(y, row)| {
-        let y_f32 = y as f32;
-        let dy = y_f32 - center_y_px;
-        let dy_sq = dy * dy;
+        let src_buffer = src_pixels.as_slice();
+        let dest_buffer = fb.as_mut_slice();
 
-        for (x, pixel) in row.iter_mut().enumerate() {
-            let x_f32 = x as f32;
-            let dx = x_f32 - center_x_px;
-            let distance = (dx * dx + dy_sq).sqrt();
+        #[cfg(feature = "parallel")]
+        let iter = dest_buffer.par_chunks_exact_mut(width as usize).enumerate();
+        #[cfg(not(feature = "parallel"))]
+        let iter = dest_buffer.chunks_exact_mut(width as usize).enumerate();
 
-            if distance < max_radius_px {
-                // Calculate displacement amount using a sine wave based on distance and phase
-                // Dampen the amplitude based on distance to the edge of the radius
-                let damping = 1.0 - (distance / max_radius_px);
-                let amount =
-                    (distance * inv_freq - config.phase).sin() * config.amplitude * damping;
+        iter.for_each(|(y, row)| {
+            let y_f32 = y as f32;
+            let dy = y_f32 - center_y_px;
+            let dy_sq = dy * dy;
+            let max_radius_px_sq = max_radius_px * max_radius_px;
 
-                // Displacement vector (normalized dx, dy)
-                let inv_dist = if distance > 0.0 { 1.0 / distance } else { 0.0 };
-                let dir_x = dx * inv_dist;
-                let dir_y = dy * inv_dist;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let x_f32 = x as f32;
+                let dx = x_f32 - center_x_px;
+                let dist_sq = dx * dx + dy_sq;
 
-                // Calculate source pixel coordinates using fast float-to-int cast
-                let src_x = (x_f32 + dir_x * amount) as i32;
-                let src_y = (y_f32 + dir_y * amount) as i32;
+                if dist_sq < max_radius_px_sq {
+                    let distance = dist_sq.sqrt();
+                    // Calculate displacement amount using a sine wave based on distance and phase
+                    // Dampen the amplitude based on distance to the edge of the radius
+                    let damping = 1.0 - (distance / max_radius_px);
+                    let amount =
+                        (distance * inv_freq - config.phase).sin() * config.amplitude * damping;
 
-                // Clamp to screen boundaries
-                let src_x = src_x.clamp(0, width - 1);
-                let src_y = src_y.clamp(0, height - 1);
+                    // Displacement vector (normalized dx, dy)
+                    let inv_dist = if distance > 0.0 { 1.0 / distance } else { 0.0 };
+                    let dir_x = dx * inv_dist;
+                    let dir_y = dy * inv_dist;
 
-                let src_idx = (src_y * width + src_x) as usize;
-                *pixel = src_buffer[src_idx];
+                    // Calculate source pixel coordinates using fast float-to-int cast
+                    let src_x = (x_f32 + dir_x * amount) as i32;
+                    let src_y = (y_f32 + dir_y * amount) as i32;
+
+                    // Clamp to screen boundaries
+                    let src_x = src_x.clamp(0, width - 1);
+                    let src_y = src_y.clamp(0, height - 1);
+
+                    let src_idx = (src_y * width + src_x) as usize;
+                    *pixel = src_buffer[src_idx];
+                }
             }
-        }
+        });
     });
 }
 

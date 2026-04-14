@@ -148,7 +148,7 @@ mod winit_demo {
     const HEIGHT: u32 = 600;
 
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
-        run_windowed(JellyApp::new()?)?;
+        run_windowed(JellyApp::new().unwrap());
         Ok(())
     }
 
@@ -330,6 +330,7 @@ fn print_banner() {
     let mut table = Table::new();
     table
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Feature").fg(Color::Cyan),
             Cell::new("Description").fg(Color::Cyan),
@@ -354,6 +355,7 @@ fn print_banner() {
     let mut controls = Table::new();
     controls
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Input").fg(Color::Cyan),
             Cell::new("Action").fg(Color::Cyan),
@@ -380,6 +382,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut error_table = Table::new();
         error_table
             .load_preset(presets::UTF8_FULL)
+            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
             .set_header(vec![
                 Cell::new("⚠️  Missing Feature: Nova")
                     .add_attribute(comfy_table::Attribute::Bold)
@@ -411,6 +414,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut error_table = Table::new();
         error_table
             .load_preset(presets::UTF8_FULL)
+            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
             .set_header(vec![
                 Cell::new("⚠️  Missing Feature: Nova")
                     .add_attribute(comfy_table::Attribute::Bold)

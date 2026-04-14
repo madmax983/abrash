@@ -13,6 +13,10 @@ use crate::skin::SkinnedMesh;
 /// # Panics
 ///
 /// Panics if `out_positions` length doesn't match the mesh vertex count.
+///
+/// # Optimization
+///
+/// This function utilizes `.zip()` iterators rather than slice bounds checking.
 pub fn skin_vertices(mesh: &SkinnedMesh, skin_matrices: &SkinMatrices, out_positions: &mut [Vec3]) {
     let vertex_count = mesh.mesh.vertices.len();
     assert_eq!(
@@ -22,11 +26,15 @@ pub fn skin_vertices(mesh: &SkinnedMesh, skin_matrices: &SkinMatrices, out_posit
         out_positions.len()
     );
 
-    for (v, out_pos) in out_positions.iter_mut().enumerate() {
-        let rest_pos = mesh.mesh.vertices[v];
-        let joints = mesh.skin.joint_indices[v];
-        let weights = mesh.skin.weights[v];
+    // OPTIMIZATION: Chaining `.zip()` on the iterators instead of indexing via `[v]`
+    // allows the compiler to mathematically prove safety and elide all inner-loop bounds checks.
+    let iter = out_positions
+        .iter_mut()
+        .zip(&mesh.mesh.vertices)
+        .zip(&mesh.skin.joint_indices)
+        .zip(&mesh.skin.weights);
 
+    for (((out_pos, &rest_pos), joints), weights) in iter {
         let mut skinned = Vec3::ZERO;
         for i in 0..4 {
             let w = weights[i];

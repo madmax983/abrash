@@ -24,6 +24,52 @@ thread_local! {
     static SOBEL_BUFFER: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
 }
 
+/// Applies gamma correction to the framebuffer in-place.
+///
+/// Uses the formula: `output = 255 * (input/255)^(1/gamma)`
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::post_process::filters::apply_gamma_correction;
+///
+/// let mut fb = Framebuffer::new(1, 1).unwrap();
+/// fb.set_pixel(0, 0, 0xFF808080); // Mid-gray (128)
+/// apply_gamma_correction(&mut fb, 2.2);
+/// // With gamma 2.2, mid-gray becomes roughly 186.
+/// let p = fb.get_pixel(0, 0).unwrap();
+/// assert_eq!((p >> 16) & 0xFF, 186);
+/// ```
+pub fn apply_gamma_correction(fb: &mut Framebuffer, gamma: f32) {
+    let pixels = fb.as_mut_slice();
+    let inv_gamma = 1.0 / gamma;
+
+    // Precompute a 256-element Look-Up Table (LUT)
+    let mut lut = [0u32; 256];
+    for (i, entry) in lut.iter_mut().enumerate() {
+        let normalized = (i as f32) / 255.0;
+        let corrected = (255.0 * normalized.powf(inv_gamma)) as u32;
+        *entry = corrected.clamp(0, 255);
+    }
+
+    // Apply LUT to all pixels
+    for pixel in pixels.iter_mut() {
+        let p = *pixel;
+        let a = p & 0xFF00_0000;
+        let r = (p >> 16) & 0xFF;
+        let g = (p >> 8) & 0xFF;
+        let b = p & 0xFF;
+
+        // Use unchecked indexing since we guarantee r, g, b are <= 255
+        let r_out = unsafe { *lut.get_unchecked(r as usize) };
+        let g_out = unsafe { *lut.get_unchecked(g as usize) };
+        let b_out = unsafe { *lut.get_unchecked(b as usize) };
+
+        *pixel = a | (r_out << 16) | (g_out << 8) | b_out;
+    }
+}
+
 /// Applies a grayscale filter to the framebuffer in-place.
 ///
 /// Uses a fixed-point approximation of the luminance formula:
@@ -45,6 +91,39 @@ thread_local! {
 /// let p = fb.get_pixel(0, 0).unwrap();
 /// assert_eq!(p & 0xFF, 76);
 /// ```
+/// Configuration for the scanline jitter effect.
+#[derive(Debug, Clone, Copy)]
+pub struct ScanlineJitterConfig {
+    /// The maximum pixel shift distance.
+    pub intensity: u32,
+}
+
+/// Applies a scanline jitter effect to the framebuffer in-place.
+///
+/// **Bolt Optimization:** We use `chunks_exact_mut` to process two rows at a time,
+/// avoiding the overhead of `step_by` and extracting the subslice directly.
+pub fn apply_scanline_jitter(fb: &mut Framebuffer, config: &ScanlineJitterConfig) {
+    let width = fb.width() as usize;
+    let height = fb.height() as usize;
+    if width == 0 || height == 0 {
+        return;
+    }
+    let shift = config.intensity as usize % width;
+    if shift == 0 {
+        return;
+    }
+
+    let pixels = fb.as_mut_slice();
+    let mut chunks = pixels.chunks_exact_mut(width * 2);
+    for double_row in &mut chunks {
+        double_row[..width].rotate_right(shift);
+    }
+    let remainder = chunks.into_remainder();
+    if remainder.len() >= width {
+        remainder[..width].rotate_right(shift);
+    }
+}
+
 pub fn apply_grayscale(fb: &mut Framebuffer) {
     let pixels = fb.as_mut_slice();
 
@@ -226,6 +305,13 @@ fn apply_sepia_scalar(pixels: &mut [u32]) {
     }
 }
 
+/// Configuration for the chromatic aberration filter.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChromaticAberrationConfig {
+    /// The number of pixels to shift the red and blue channels.
+    pub offset: u32,
+}
+
 /// Applies chromatic aberration by shifting Red and Blue channels.
 ///
 /// *   Red channel is shifted left by `offset`.
@@ -236,19 +322,20 @@ fn apply_sepia_scalar(pixels: &mut [u32]) {
 ///
 /// ```
 /// use abrash_core::framebuffer::Framebuffer;
-/// use abrash_render::post_process::filters::apply_chromatic_aberration;
+/// use abrash_render::post_process::filters::{apply_chromatic_aberration, ChromaticAberrationConfig};
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// fb.set_pixel(50, 50, 0xFFFFFFFF); // White
-/// apply_chromatic_aberration(&mut fb, 5);
+/// apply_chromatic_aberration(&mut fb, &ChromaticAberrationConfig { offset: 5 });
 /// ```
-pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
-    if offset == 0 {
+
+pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberrationConfig) {
+    if config.offset == 0 {
         return;
     }
     let width = fb.width() as usize;
     let height = fb.height() as usize;
-    let offset = offset as usize;
+    let offset = config.offset as usize;
 
     let pixels = fb.as_mut_slice();
 
@@ -472,7 +559,7 @@ pub fn apply_vignette(fb: &mut Framebuffer, config: &VignetteConfig) {
                     height as usize,
                     intensity,
                     roundness,
-                )
+                );
             };
             return;
         }
@@ -574,11 +661,13 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
     let pixels = fb.as_mut_slice();
     let intensity = config.intensity.clamp(0.0, 1.0);
     // Use fixed point arithmetic for blending: factor in [0, 256]
-    let max_noise_shift = (intensity * 256.0) as i32;
+    let max_noise_shift = (intensity * 256.0) as u32;
 
     if max_noise_shift == 0 {
         return;
     }
+
+    let sub_noise = (128 * max_noise_shift) >> 8;
 
     #[cfg(feature = "parallel")]
     {
@@ -608,19 +697,19 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
                     lcg ^= lcg << 5;
 
                     // Random value between 0 and 255
-                    let noise = (lcg & 0xFF) as i32;
+                    let noise = lcg & 0xFF;
 
-                    // Map 0..255 to -128..127, then scale by max_noise_shift, divide by 256
-                    let noise_delta = ((noise - 128) * max_noise_shift) >> 8;
+                    // Scale by max_noise_shift, divide by 256
+                    let add_noise = (noise * max_noise_shift) >> 8;
 
                     let p_val = *p;
                     let rb = p_val & 0x00FF_00FF;
                     let g = p_val & 0x0000_FF00;
 
-                    // ⚡ Bolt: SWAR + `u64` prevents inner-loop float conversions and bounds-checking overhead.
-                    let nr = ((rb >> 16) as i32 + noise_delta).clamp(0, 255) as u32;
-                    let ng = ((g >> 8) as i32 + noise_delta).clamp(0, 255) as u32;
-                    let nb = ((rb & 0xFF) as i32 + noise_delta).clamp(0, 255) as u32;
+                    // ⚡ Bolt: Use unsigned arithmetic and saturating operations to prevent inner-loop float/int casting overhead.
+                    let nr = ((rb >> 16) + add_noise).saturating_sub(sub_noise).min(255);
+                    let ng = ((g >> 8) + add_noise).saturating_sub(sub_noise).min(255);
+                    let nb = ((rb & 0xFF) + add_noise).saturating_sub(sub_noise).min(255);
 
                     *p = (p_val & 0xFF00_0000) | (nr << 16) | (ng << 8) | nb;
                 }
@@ -637,16 +726,16 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
             state ^= state >> 17;
             state ^= state << 5;
 
-            let noise = (state & 0xFF) as i32;
-            let noise_delta = ((noise - 128) * max_noise_shift) >> 8;
+            let noise = state & 0xFF;
+            let add_noise = (noise * max_noise_shift) >> 8;
 
             let p_val = *p;
             let rb = p_val & 0x00FF_00FF;
             let g = p_val & 0x0000_FF00;
 
-            let nr = ((rb >> 16) as i32 + noise_delta).clamp(0, 255) as u32;
-            let ng = ((g >> 8) as i32 + noise_delta).clamp(0, 255) as u32;
-            let nb = ((rb & 0xFF) as i32 + noise_delta).clamp(0, 255) as u32;
+            let nr = ((rb >> 16) + add_noise).saturating_sub(sub_noise).min(255);
+            let ng = ((g >> 8) + add_noise).saturating_sub(sub_noise).min(255);
+            let nb = ((rb & 0xFF) + add_noise).saturating_sub(sub_noise).min(255);
 
             *p = (p_val & 0xFF00_0000) | (nr << 16) | (ng << 8) | nb;
         }
@@ -703,21 +792,21 @@ fn apply_vignette_scalar(
         0.0
     };
 
+    let scale = intensity * inv_max_dist_sq;
+
     // ⚡ Bolt: Eliminate Manual Slice Bounds Checks in 2D Block Iteration
     // Iterate over chunks instead of doing index calculations inside the hot loop.
     for (y, row) in pixels.chunks_exact_mut(width).take(height).enumerate() {
         let dy = y as f32 - center_y;
-        let dy_sq = dy * dy;
+        let dy_sq_scaled = dy * dy * scale;
+        let row_base_factor = 1.0 - dy_sq_scaled;
 
         for (x, p_ref) in row.iter_mut().enumerate() {
             let dx = x as f32 - center_x;
-            let dist_sq = dx * dx + dy_sq;
-
-            // Normalize distance squared: 0.0 at center, 1.0 at corner
-            let normalized_dist_sq = dist_sq * inv_max_dist_sq;
+            let dx_sq_scaled = dx * dx * scale;
 
             // Quadratic falloff
-            let factor = (1.0 - intensity * normalized_dist_sq).clamp(0.0, 1.0);
+            let factor = (row_base_factor - dx_sq_scaled).clamp(0.0, 1.0);
 
             // Fixed point approximation to match SIMD precision (8.8 fixed point)
             let factor_fixed = (factor * 256.0) as u32;
@@ -741,8 +830,20 @@ fn apply_vignette_scalar(
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 mod simd {
-    use super::*;
-    use std::arch::x86_64::*;
+    use super::{CA_BUFFER, apply_color_adjust_scalar, pixel_luminance};
+    use std::arch::x86_64::{
+        _mm_loadu_si128, _mm_srli_si128, _mm256_abs_epi16, _mm256_add_epi16, _mm256_add_epi32,
+        _mm256_add_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_castsi256_si128,
+        _mm256_cvtepu8_epi16, _mm256_cvtepu8_epi32, _mm256_cvttps_epi32, _mm256_extracti128_si256,
+        _mm256_hadd_epi32, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_max_epi32, _mm256_max_ps,
+        _mm256_min_epi32, _mm256_min_ps, _mm256_mul_ps, _mm256_mullo_epi16, _mm256_mullo_epi32,
+        _mm256_or_si256, _mm256_packus_epi16, _mm256_packus_epi32, _mm256_permute4x64_epi64,
+        _mm256_permutevar8x32_epi32, _mm256_set_ps, _mm256_set1_epi16, _mm256_set1_epi32,
+        _mm256_set1_epi64x, _mm256_set1_ps, _mm256_setr_epi8, _mm256_setr_epi32, _mm256_setzero_ps,
+        _mm256_setzero_si256, _mm256_shuffle_epi8, _mm256_slli_epi32, _mm256_srai_epi32,
+        _mm256_srli_epi16, _mm256_srli_epi32, _mm256_storeu_si256, _mm256_sub_epi16,
+        _mm256_sub_epi32, _mm256_sub_ps,
+    };
 
     #[target_feature(enable = "avx2")]
     pub unsafe fn apply_grayscale_avx2(pixels: &mut [u32]) {
@@ -1294,6 +1395,16 @@ mod simd {
         let mut ptr = pixels.as_mut_ptr();
         let end_ptr = unsafe { ptr.add(simd_len) };
 
+        macro_rules! adjust_channel {
+            ($raw:expr) => {{
+                let sub = _mm256_sub_epi32($raw, c128);
+                let mul = _mm256_mullo_epi32(sub, c_contrast);
+                let sra = _mm256_srai_epi32(mul, 8);
+                let add = _mm256_add_epi32(sra, c_brightness);
+                _mm256_max_epi32(zero, _mm256_min_epi32(add, max_val))
+            }};
+        }
+
         while ptr < end_ptr {
             let chunk = unsafe { _mm256_loadu_si256(ptr.cast()) };
             let alphas = _mm256_and_si256(chunk, alpha_mask);
@@ -1302,27 +1413,15 @@ mod simd {
 
             // Channel B
             let b_raw = _mm256_and_si256(chunk, max_val);
-            let b_sub = _mm256_sub_epi32(b_raw, c128);
-            let b_mul = _mm256_mullo_epi32(b_sub, c_contrast);
-            let b_sra = _mm256_srai_epi32(b_mul, 8);
-            let b_add = _mm256_add_epi32(b_sra, c_brightness);
-            let b_clamped = _mm256_max_epi32(zero, _mm256_min_epi32(b_add, max_val));
+            let b_clamped = adjust_channel!(b_raw);
 
             // Channel G
             let g_raw = _mm256_and_si256(_mm256_srli_epi32(chunk, 8), max_val);
-            let g_sub = _mm256_sub_epi32(g_raw, c128);
-            let g_mul = _mm256_mullo_epi32(g_sub, c_contrast);
-            let g_sra = _mm256_srai_epi32(g_mul, 8);
-            let g_add = _mm256_add_epi32(g_sra, c_brightness);
-            let g_clamped = _mm256_max_epi32(zero, _mm256_min_epi32(g_add, max_val));
+            let g_clamped = adjust_channel!(g_raw);
 
             // Channel R
             let r_raw = _mm256_and_si256(_mm256_srli_epi32(chunk, 16), max_val);
-            let r_sub = _mm256_sub_epi32(r_raw, c128);
-            let r_mul = _mm256_mullo_epi32(r_sub, c_contrast);
-            let r_sra = _mm256_srai_epi32(r_mul, 8);
-            let r_add = _mm256_add_epi32(r_sra, c_brightness);
-            let r_clamped = _mm256_max_epi32(zero, _mm256_min_epi32(r_add, max_val));
+            let r_clamped = adjust_channel!(r_raw);
 
             let g_shift = _mm256_slli_epi32(g_clamped, 8);
             let r_shift = _mm256_slli_epi32(r_clamped, 16);
@@ -1361,9 +1460,9 @@ mod simd {
             0.0
         };
 
+        let scale = intensity * inv_max_dist_sq;
+        let scale_vec = _mm256_set1_ps(scale);
         let center_x_vec = _mm256_set1_ps(center_x);
-        let inv_max_vec = _mm256_set1_ps(inv_max_dist_sq);
-        let intensity_vec = _mm256_set1_ps(intensity);
         let one_f = _mm256_set1_ps(1.0);
         let zero_f = _mm256_setzero_ps();
         let scale_256 = _mm256_set1_ps(256.0);
@@ -1380,8 +1479,9 @@ mod simd {
 
         for y in 0..height {
             let dy = y as f32 - center_y;
-            let dy_sq = dy * dy;
-            let dy_sq_vec = _mm256_set1_ps(dy_sq);
+            let dy_sq_scaled = dy * dy * scale;
+            let row_base_factor = 1.0 - dy_sq_scaled;
+            let row_base_factor_vec = _mm256_set1_ps(row_base_factor);
 
             let row_start = y * width;
             let mut ptr = unsafe { pixels.as_mut_ptr().add(row_start) };
@@ -1392,10 +1492,9 @@ mod simd {
                 let x_coords = _mm256_add_ps(x_base, x_offsets);
                 let dx = _mm256_sub_ps(x_coords, center_x_vec);
                 let dx_sq = _mm256_mul_ps(dx, dx);
-                let dist_sq = _mm256_add_ps(dx_sq, dy_sq_vec);
+                let dx_sq_scaled = _mm256_mul_ps(dx_sq, scale_vec);
 
-                let term = _mm256_mul_ps(intensity_vec, _mm256_mul_ps(dist_sq, inv_max_vec));
-                let factor = _mm256_sub_ps(one_f, term);
+                let factor = _mm256_sub_ps(row_base_factor_vec, dx_sq_scaled);
                 let factor_clamped = _mm256_max_ps(zero_f, _mm256_min_ps(one_f, factor));
 
                 // Convert to fixed point 0..256
@@ -1438,9 +1537,8 @@ mod simd {
             // Tail
             while x < width {
                 let dx = x as f32 - center_x;
-                let dist_sq = dx * dx + dy_sq;
-                let normalized_dist_sq = dist_sq * inv_max_dist_sq;
-                let factor = (1.0 - intensity * normalized_dist_sq).clamp(0.0, 1.0);
+                let dx_sq_scaled = dx * dx * scale;
+                let factor = (row_base_factor - dx_sq_scaled).clamp(0.0, 1.0);
 
                 let p = unsafe { *ptr };
                 let a = p & 0xFF00_0000;
@@ -1464,6 +1562,23 @@ mod simd {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_apply_scanline_jitter() {
+        let mut fb = Framebuffer::new(2, 2).unwrap();
+        fb.clear(0xFFFFFFFF);
+        fb.set_pixel(0, 0, 0xFFFF0000); // Set top-left to red
+        let config = ScanlineJitterConfig { intensity: 1 };
+        apply_scanline_jitter(&mut fb, &config);
+
+        // Intensity 1 shifts row 0 right by 1, so the red pixel should move to (1, 0)
+        let p = fb.get_pixel(1, 0).unwrap();
+        assert_eq!(p, 0xFFFF0000);
+
+        // Row 1 should not be shifted
+        let p2 = fb.get_pixel(0, 1).unwrap();
+        assert_eq!(p2, 0xFFFFFFFF);
+    }
 
     #[test]
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
@@ -1749,7 +1864,7 @@ mod tests {
         }
 
         // Apply offset 1
-        apply_chromatic_aberration(&mut fb, 1);
+        apply_chromatic_aberration(&mut fb, &ChromaticAberrationConfig { offset: 1 });
 
         // Pixel 2 (x=2)
         // Original: R=30, G=40, B=50

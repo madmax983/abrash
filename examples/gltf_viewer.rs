@@ -9,18 +9,21 @@ use abrash::math::{Mat4, Vec3};
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
+use abrash::render_api::RenderError;
 use abrash::render_api::cpu_renderer::CpuRenderer;
 use abrash::render_api::frame::{Frame, FrameCamera};
 use abrash::render_api::material::Material;
-use abrash::render_api::renderer::RenderError;
 use abrash::render_api::target::RenderTarget;
-use abrash::render_api::{MaterialHandle, MeshHandle, Renderer};
+use abrash::render_api::{MaterialHandle, MeshHandle};
 use abrash::time::FixedTimestep;
 
 use abrash::skeletal::skinning::skin_vertices;
 use abrash::skeletal::{GltfScene, SkeletonAnimator, SkinnedMesh, load_gltf};
 
 use abrash_anim::clock::PlaybackMode;
+
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
@@ -107,7 +110,9 @@ impl GltfViewerApp {
                     .map_err(|e| HostError::App(e.to_string()))?;
 
                 // Build material from glTF data or fall back to flat gray
-                let mat = if !scene.materials.is_empty() {
+                let mat = if scene.materials.is_empty() {
+                    Material::flat(0xFFA0_A0A0)
+                } else {
                     let gltf_mat = &scene.materials[0];
                     let factor = gltf_mat.base_color_factor;
                     let r = (factor[0] * 255.0) as u32;
@@ -116,8 +121,6 @@ impl GltfViewerApp {
                     let a = (factor[3] * 255.0) as u32;
                     let color = (a << 24) | (r << 16) | (g << 8) | b;
                     Material::flat(color)
-                } else {
-                    Material::flat(0xFFA0_A0A0)
                 };
                 let math = renderer
                     .create_material(mat)
@@ -216,9 +219,12 @@ impl WindowApp for GltfViewerApp {
 
             // Tick animation and skin vertices
             if let (Some(animator), Some(sm)) = (&mut self.animator, &self.skinned_mesh) {
-                let pose = animator.tick(dt);
+                // Tick the animation clock forward.
+                animator.tick(dt);
+                // Retrieve the updated pose and the skeleton immutably at the same time.
+                let pose = animator.current_pose();
                 let skeleton = animator.skeleton();
-                let globals = skeleton.compute_global_transforms(&pose);
+                let globals = skeleton.compute_global_transforms(pose);
                 let skin_mats = skeleton.compute_skin_matrices(&globals);
                 skin_vertices(sm, &skin_mats, &mut self.skinned_positions);
 
@@ -248,7 +254,8 @@ impl WindowApp for GltfViewerApp {
         let view = Mat4::look_at(eye, self.model_center, Vec3::new(0.0, 1.0, 0.0));
 
         let camera = FrameCamera::new(view, projection);
-        let mut frame = Frame::new(camera);
+        // ⚡ Bolt: Use `with_capacity` to pre-allocate vector for draw command and prevent reallocation
+        let mut frame = Frame::with_capacity(camera, 1, 0);
         frame.clear_color = Some(BACKGROUND);
 
         if let (Some(mh), Some(math)) = (self.mesh_handle, self.material_handle) {
@@ -268,6 +275,7 @@ impl WindowApp for GltfViewerApp {
     }
 }
 
+#[allow(clippy::needless_pass_by_value)] // Required for map_err function pointer
 fn render_err_to_host(e: RenderError) -> HostError {
     HostError::App(e.to_string())
 }
@@ -276,36 +284,120 @@ fn render_err_to_host(e: RenderError) -> HostError {
 // Entry point
 // ---------------------------------------------------------------------------
 
+fn print_banner() {
+    println!("\n{}", "🦴 Abrash glTF Viewer".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+}
+
+fn show_error_and_exit(msg: &str) -> ! {
+    let mut error_table = Table::new();
+    error_table
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("❌ Error")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(Color::Red),
+        ])
+        .add_row(vec![Cell::new(msg).fg(Color::Yellow)]);
+    eprintln!("\n{error_table}");
+    std::process::exit(1);
+}
+
 fn main() -> Result<(), HostError> {
+    print_banner();
+
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() < 2 {
-        eprintln!("Usage: gltf_viewer <path/to/model.glb>");
-        eprintln!();
-        eprintln!("Loads a glTF 2.0 file and plays its first animation clip.");
-        eprintln!("The camera orbits the model automatically.");
+        let mut usage_table = Table::new();
+        usage_table
+            .load_preset(presets::UTF8_FULL)
+                .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+            .set_header(vec![
+                Cell::new("ℹ️  Usage").fg(Color::Cyan),
+                Cell::new("Description").fg(Color::Cyan),
+            ])
+            .add_row(vec![
+                Cell::new("gltf_viewer <path/to/model.glb>"),
+                Cell::new("Loads a glTF 2.0 file and plays its first animation clip.\nThe camera orbits the model automatically."),
+            ]);
+        eprintln!("\n{usage_table}");
         std::process::exit(1);
     }
 
     let path = Path::new(&args[1]);
     if !path.exists() {
-        eprintln!("Error: file not found: {}", path.display());
-        std::process::exit(1);
+        show_error_and_exit(&format!("File not found: {}", path.display()));
     }
 
-    println!("Loading: {}", path.display());
+    let mut loading_table = Table::new();
+    loading_table
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![Cell::new("⏳ Loading").fg(Color::Cyan)])
+        .add_row(vec![Cell::new(path.display().to_string()).fg(Color::White)]);
+    println!("\n{loading_table}");
+
     let scene = load_gltf(path).map_err(|e| HostError::App(e.to_string()))?;
-    println!(
-        "Loaded: {} meshes, {} clips, {} textures, {} materials",
-        scene.meshes.len(),
-        scene.clips.len(),
-        scene.textures.len(),
-        scene.materials.len(),
-    );
+
+    let mut info_table = Table::new();
+    info_table
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Meshes"),
+            Cell::new(scene.meshes.len().to_string()),
+        ])
+        .add_row(vec![
+            Cell::new("Animation Clips"),
+            Cell::new(scene.clips.len().to_string()),
+        ])
+        .add_row(vec![
+            Cell::new("Textures"),
+            Cell::new(scene.textures.len().to_string()),
+        ])
+        .add_row(vec![
+            Cell::new("Materials"),
+            Cell::new(scene.materials.len().to_string()),
+        ]);
+
     if let Some(ref skel) = scene.skeleton {
-        println!("Skeleton: {} joints", skel.joint_count());
+        info_table.add_row(vec![
+            Cell::new("Skeleton Joints"),
+            Cell::new(skel.joint_count().to_string()).fg(Color::Green),
+        ]);
+    } else {
+        info_table.add_row(vec![
+            Cell::new("Skeleton"),
+            Cell::new("None").fg(Color::DarkGrey),
+        ]);
     }
 
-    let app = GltfViewerApp::new(scene)?;
-    run_windowed(app)
+    println!("\n{}", "📦 Asset Information".bold());
+    println!("{info_table}");
+
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Auto-orbiting camera"),
+        ]);
+    println!("\n{}", "🎮 Controls".bold());
+    println!("{controls}\n");
+
+    let app = GltfViewerApp::new(scene).unwrap();
+    run_windowed(app);
+    Ok(())
 }

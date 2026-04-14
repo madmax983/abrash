@@ -75,7 +75,6 @@ pub fn apply_vision(fb: &mut Framebuffer, zb: &ZBuffer, config: &VisionConfig) {
     }
 }
 
-#[allow(clippy::imprecise_flops)]
 fn apply_night_vision(fb: &mut Framebuffer, config: &VisionConfig) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
@@ -84,24 +83,26 @@ fn apply_night_vision(fb: &mut Framebuffer, config: &VisionConfig) {
 
     let center_x = width as f32 * 0.5;
     let center_y = height as f32 * 0.5;
-    let max_radius = (center_x * center_x + center_y * center_y).sqrt();
+    let max_radius_sq = center_x.mul_add(center_x, center_y * center_y);
+    let inv_max_radius_sq = 1.0 / max_radius_sq;
 
-    for y in 0..height {
+    for (y, row) in pixels.chunks_exact_mut(width).enumerate() {
         let dy = y as f32 - center_y;
-        for x in 0..width {
+        let dy_sq = dy * dy;
+        for (x, pixel) in row.iter_mut().enumerate() {
             let dx = x as f32 - center_x;
-            let dist = (dx * dx + dy * dy).sqrt();
+            // Bolt Optimization: Avoiding expensive `sqrt()` and `.powi(2)` operations
+            // by using squared distances directly (`dist_sq` and `max_radius_sq`).
+            // This bypasses the computationally expensive square root calculation in a hot pixel loop.
+            let dist_sq = dx.mul_add(dx, dy_sq);
 
             // Vignette: Darken edges
-            let vignette = (1.0 - (dist / max_radius).powi(2)).max(0.0);
-
-            let idx = y * width + x;
-            let pixel = pixels[idx];
+            let vignette = (1.0 - (dist_sq * inv_max_radius_sq)).max(0.0);
 
             // Extract RGB
-            let r = ((pixel >> 16) & 0xFF) as f32;
-            let g = ((pixel >> 8) & 0xFF) as f32;
-            let b = (pixel & 0xFF) as f32;
+            let r = ((*pixel >> 16) & 0xFF) as f32;
+            let g = ((*pixel >> 8) & 0xFF) as f32;
+            let b = (*pixel & 0xFF) as f32;
 
             // Luminance (Standard Rec. 709)
             let lum = r * 0.2126 + g * 0.7152 + b * 0.0722;
@@ -114,7 +115,7 @@ fn apply_night_vision(fb: &mut Framebuffer, config: &VisionConfig) {
             let val_clamped = val.clamp(0.0, 255.0) as u32;
 
             // Result is mostly green, slight blue/red tint for phosphor feel
-            pixels[idx] =
+            *pixel =
                 0xFF00_0000 | ((val_clamped / 5) << 16) | (val_clamped << 8) | (val_clamped / 5);
         }
     }
@@ -256,6 +257,38 @@ mod tests {
 
         assert!(g > r, "Green component should be dominant");
         assert!(g > b, "Green component should be dominant");
+    }
+
+    #[test]
+    fn test_vignette_calculation_accuracy() {
+        let width = 100_f32;
+        let height = 100_f32;
+        let center_x = width * 0.5;
+        let center_y = height * 0.5;
+
+        let max_radius = center_x.hypot(center_y);
+        let max_radius_sq = center_x.mul_add(center_x, center_y * center_y);
+
+        // Pick an arbitrary coordinate
+        let x = 10_f32;
+        let y = 10_f32;
+
+        let dx = x - center_x;
+        let dy = y - center_y;
+
+        // Old implementation
+        let dist = dx.hypot(dy);
+        let expected_vignette = (1.0 - (dist / max_radius).powi(2)).max(0.0);
+
+        // Optimized implementation
+        let dist_sq = dx.mul_add(dx, dy * dy);
+        let inv_max_radius_sq = 1.0 / max_radius_sq;
+        let actual_vignette = (1.0 - (dist_sq * inv_max_radius_sq)).max(0.0);
+
+        assert!(
+            (expected_vignette - actual_vignette).abs() <= f32::EPSILON * 2.0,
+            "Vignette calculations differ: {expected_vignette} != {actual_vignette}"
+        );
     }
 
     #[test]

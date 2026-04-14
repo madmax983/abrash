@@ -156,9 +156,9 @@ pub fn apply_tilt_shift(fb: &mut Framebuffer, config: &TiltShiftConfig) {
 
             // ⚡ Bolt: SWAR (SIMD Within A Register) for per-pixel color blending.
             // Process Red and Blue channels simultaneously to eliminate intermediate shifts.
-            for x in 0..width {
-                let orig_color = dst_row[x];
-                let blur_color = blurred_row[x];
+            for (dst_pixel, blur_color) in dst_row[..width].iter_mut().zip(&blurred_row[..width]) {
+                let orig_color = *dst_pixel;
+                let blur_color = *blur_color;
 
                 let o_rb = orig_color & 0x00FF_00FF;
                 let o_g = orig_color & 0x0000_FF00;
@@ -169,7 +169,7 @@ pub fn apply_tilt_shift(fb: &mut Framebuffer, config: &TiltShiftConfig) {
                 let out_rb = ((o_rb * inv_alpha + b_rb * alpha) >> 8) & 0x00FF_00FF;
                 let out_g = ((o_g * inv_alpha + b_g * alpha) >> 8) & 0x0000_FF00;
 
-                dst_row[x] = (orig_color & 0xFF00_0000) | out_rb | out_g;
+                *dst_pixel = (orig_color & 0xFF00_0000) | out_rb | out_g;
             }
         });
     });

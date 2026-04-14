@@ -3,7 +3,7 @@
 //! Generates three GPU textures from an environment cubemap:
 //! 1. **Irradiance map** — diffuse ambient (cosine-weighted hemisphere average)
 //! 2. **Prefiltered environment map** — specular ambient (GGX-filtered per roughness mip)
-//! 3. **BRDF integration LUT** — split-sum lookup (NdotV × roughness → scale + bias)
+//! 3. **BRDF integration LUT** — split-sum lookup (`NdotV` × roughness → scale + bias)
 
 use wgpu::util::DeviceExt;
 
@@ -258,7 +258,7 @@ pub struct IblTextures {
     pub irradiance_view: wgpu::TextureView,
     /// Prefiltered environment cubemap with roughness mips (specular ambient).
     pub prefiltered_view: wgpu::TextureView,
-    /// BRDF integration LUT (NdotV × roughness → scale + bias).
+    /// BRDF integration LUT (`NdotV` × roughness → scale + bias).
     pub brdf_lut_view: wgpu::TextureView,
 
     // Keep textures alive
@@ -271,6 +271,7 @@ impl IblTextures {
     /// Run IBL precomputation on the GPU from an environment cubemap.
     ///
     /// Generates irradiance map, prefiltered env map (5 mip levels), and BRDF LUT.
+    #[must_use]
     pub fn precompute(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -362,6 +363,7 @@ impl IblTextures {
     ///
     /// Used as a fallback when no environment cubemap has been set.
     /// Creates tiny 1×1 textures with zeros — no compute shaders needed.
+    #[must_use]
     pub fn default_black(device: &wgpu::Device) -> Self {
         let make_cube = |label| {
             let tex = device.create_texture(&wgpu::TextureDescriptor {
@@ -509,6 +511,53 @@ impl IblTextures {
         let _ = device.poll(wgpu::PollType::wait_indefinitely());
     }
 
+    fn create_prefilter_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("IBL Prefilter Layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::Cube,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::StorageTexture {
+                        access: wgpu::StorageTextureAccess::WriteOnly,
+                        format: wgpu::TextureFormat::Rgba16Float,
+                        view_dimension: wgpu::TextureViewDimension::D2Array,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: std::num::NonZeroU64::new(std::mem::size_of::<
+                            PrefilterParams,
+                        >()
+                            as u64),
+                    },
+                    count: None,
+                },
+            ],
+        })
+    }
+
     fn dispatch_prefilter(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -530,6 +579,8 @@ impl IblTextures {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
+        let bgl = Self::create_prefilter_layout(device);
+
         // Dispatch per mip level
         for mip in 0..PREFILTERED_MIP_LEVELS {
             let mip_size = PREFILTERED_SIZE >> mip;
@@ -550,52 +601,6 @@ impl IblTextures {
                 base_mip_level: mip,
                 mip_level_count: Some(1),
                 ..Default::default()
-            });
-
-            let bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("IBL Prefilter Layout"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::Cube,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::StorageTexture {
-                            access: wgpu::StorageTextureAccess::WriteOnly,
-                            format: wgpu::TextureFormat::Rgba16Float,
-                            view_dimension: wgpu::TextureViewDimension::D2Array,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 3,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: std::num::NonZeroU64::new(std::mem::size_of::<
-                                PrefilterParams,
-                            >(
-                            )
-                                as u64),
-                        },
-                        count: None,
-                    },
-                ],
             });
 
             let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {

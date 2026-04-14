@@ -11,10 +11,14 @@ parallel = ["dep:rayon", "abrash-core/parallel"]
 backend-tui = ["dep:ratatui"]
 backend-wasm = ["dep:ratatui"]
 
+[dev-dependencies]
+proptest = "1.0"
+
 [dependencies]
 abrash-core = { path = "../abrash-core" }
 rayon = { version = "1.10", optional = true }
 ratatui = { version = "0.30.0", optional = true }
+smallvec = "1.15.1"
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
