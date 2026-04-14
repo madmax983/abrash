@@ -776,3 +776,10 @@ required-features = ["nova"]
 [[example]]
 name = "gamma_demo"
 path = "examples/gamma_demo.rs"
+
+[[example]]
+name = "radar_demo"
+path = "examples/radar_demo.rs"
+required-features = ["nova"]
+
+imprecise_flops = "allow"

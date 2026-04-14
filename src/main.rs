@@ -71,6 +71,12 @@ struct Demo {
 
 const DEMOS: &[Demo] = &[
     Demo {
+        name: "Radar Sweep Filter",
+        category: DemoCategory::Simulation,
+        description: "Retro radar screen post-processing effect",
+        example_name: "radar_demo",
+    },
+    Demo {
         name: "Lit Cube",
         category: DemoCategory::Cpu3D,
         description: "Flat shaded cube with directional lighting",
@@ -363,7 +369,8 @@ fn is_gpu_render_example(example_name: &str) -> bool {
 }
 
 fn is_nova_example(example_name: &str) -> bool {
-    example_name == "cloth_demo"
+    example_name == "radar_demo"
+        || example_name == "cloth_demo"
         || example_name == "raytracer_demo"
         || example_name == "vision_demo"
         || example_name == "pixel_sort_demo"
