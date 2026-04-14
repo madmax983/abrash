@@ -45,33 +45,74 @@ pub fn apply_fire(fb: &mut Framebuffer, cooling_map: &[u8]) {
         let chunk_iter = dest_pixels[..width * (height - 1)].chunks_exact_mut(width).enumerate();
 
         chunk_iter.for_each(|(y, row)| {
-            for x in 0..width {
-                let left_x = x.saturating_sub(1);
-                let right_x = (x + 1).min(width - 1);
-                let below_y = y + 1;
+            let below_y = y + 1;
+            let below_y_mul_w = below_y * width;
+            let below2_y_mul_w = if below_y + 1 < height {
+                (below_y + 1) * width
+            } else {
+                below_y_mul_w
+            };
 
-                // Read from the row below in the source buffer
-                let p_center = src_pixels[below_y * width + x];
-                let p_left = src_pixels[below_y * width + left_x];
-                let p_right = src_pixels[below_y * width + right_x];
-                let p_below2 = if below_y + 1 < height {
-                    src_pixels[(below_y + 1) * width + x]
-                } else {
-                    p_center
-                };
+            let cooling_row = &cooling_map[y * width..(y + 1) * width];
+            let src_row = &src_pixels[below_y_mul_w..below_y_mul_w + width];
+            let src_row2 = &src_pixels[below2_y_mul_w..below2_y_mul_w + width];
 
+            if width >= 2 {
+                let w_minus_1 = width - 1;
+
+                // First pixel (x = 0)
+                let p_center = src_row[0];
+                let p_left = src_row[0];
+                let p_right = src_row[1];
+                let p_below2 = src_row2[0];
                 let h_center = (p_center >> 16) & 0xFF;
                 let h_left = (p_left >> 16) & 0xFF;
                 let h_right = (p_right >> 16) & 0xFF;
                 let h_below2 = (p_below2 >> 16) & 0xFF;
-
-                // Shift by 2 is equivalent to divide by 4, but significantly faster
                 let avg_heat = (h_center + h_left + h_right + h_below2) >> 2;
-
-                let cooling = cooling_map[y * width + x] as u32;
+                let cooling = cooling_row[0] as u32;
                 let new_heat = avg_heat.saturating_sub(cooling);
+                row[0] = (new_heat << 16) | (new_heat << 8) | new_heat;
 
-                row[x] = (new_heat << 16) | (new_heat << 8) | new_heat; // greyscale for now
+                // Middle pixels
+                for x in 1..w_minus_1 {
+                    let p_center = src_row[x];
+                    let p_left = src_row[x - 1];
+                    let p_right = src_row[x + 1];
+                    let p_below2 = src_row2[x];
+                    let h_center = (p_center >> 16) & 0xFF;
+                    let h_left = (p_left >> 16) & 0xFF;
+                    let h_right = (p_right >> 16) & 0xFF;
+                    let h_below2 = (p_below2 >> 16) & 0xFF;
+                    let avg_heat = (h_center + h_left + h_right + h_below2) >> 2;
+                    let cooling = cooling_row[x] as u32;
+                    let new_heat = avg_heat.saturating_sub(cooling);
+                    row[x] = (new_heat << 16) | (new_heat << 8) | new_heat;
+                }
+
+                // Last pixel (x = w - 1)
+                let p_center = src_row[w_minus_1];
+                let p_left = src_row[w_minus_1 - 1];
+                let p_right = src_row[w_minus_1];
+                let p_below2 = src_row2[w_minus_1];
+                let h_center = (p_center >> 16) & 0xFF;
+                let h_left = (p_left >> 16) & 0xFF;
+                let h_right = (p_right >> 16) & 0xFF;
+                let h_below2 = (p_below2 >> 16) & 0xFF;
+                let avg_heat = (h_center + h_left + h_right + h_below2) >> 2;
+                let cooling = cooling_row[w_minus_1] as u32;
+                let new_heat = avg_heat.saturating_sub(cooling);
+                row[w_minus_1] = (new_heat << 16) | (new_heat << 8) | new_heat;
+            } else {
+                // width == 1
+                let p_center = src_row[0];
+                let p_below2 = src_row2[0];
+                let h_center = (p_center >> 16) & 0xFF;
+                let h_below2 = (p_below2 >> 16) & 0xFF;
+                let avg_heat = (h_center * 3 + h_below2) >> 2;
+                let cooling = cooling_row[0] as u32;
+                let new_heat = avg_heat.saturating_sub(cooling);
+                row[0] = (new_heat << 16) | (new_heat << 8) | new_heat;
             }
         });
     });

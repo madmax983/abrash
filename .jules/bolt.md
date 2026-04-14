@@ -313,3 +313,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Optimized `clear_rect` boundary clamping]**
 **Learning:** In tight inner loops or coordinate bounds calculations (e.g., `clear_rect`), replacing standard library `Ord::clamp(min, max)` with chained `.max(min).min(max)` can improve throughput by eliding the hidden `assert!(min <= max)` panic branch present in `clamp`.
 **Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.
+
+**[Optimize cellular automata algorithms]**
+**Learning:** In 2D grid processing (like cellular automata or blurs), avoid per-pixel bounds checks like `x.saturating_sub(1)` or `x.min(width - 1)` within the hot inner loop.
+**Action:** Explicitly unroll the edge cases (left/right boundaries) and use standard slice operations without bounds checks for the middle pixels to significantly improve performance. Implemented in `apply_fire`.
