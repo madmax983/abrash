@@ -5,7 +5,7 @@ use abrash::platform::{
 };
 use abrash_core::utils::XorShift32;
 
-use comfy_table::{presets, Cell, Color, Table};
+use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
 
 #[cfg(feature = "nova")]
@@ -22,8 +22,7 @@ fn print_banner() {
         ])
         .add_row(vec![
             Cell::new("Description"),
-            Cell::new("Classic demoscene fire effect using cellular automata.")
-                .fg(Color::Green),
+            Cell::new("Classic demoscene fire effect using cellular automata.").fg(Color::Green),
         ]);
 
     println!("\n{}", "⚙️  Info".bold());
