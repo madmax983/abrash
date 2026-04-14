@@ -1,4 +1,4 @@
-use abrash::experimental::fire::apply_fire;
+use abrash_render::experimental::fire::apply_fire;
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,

@@ -13,19 +13,29 @@ use abrash_core::fixed16_16::Fixed16_16;
 
 /// Texture data provider for BSP rendering.
 /// Consumers implement this to bridge their texture caches.
-pub trait BspTextures {
-    /// Get a single column of wall texture data (palette-indexed, top to bottom).
-    /// Returns palette indices, one per texel row.  Tiles vertically.
-    fn wall_column(&self, texture_id: u16, col: usize) -> &[u8];
+pub struct BspTextureCache {
+    pub wall_column_data: Vec<u8>,
+    pub flat: [u8; 4096],
+    pub colormap_data: Vec<[u8; 256]>,
+    pub palette: Vec<u32>,
+}
 
-    /// Get a 64x64 flat texture (4096 bytes, palette-indexed, row-major).
-    fn flat_data(&self, texture_id: u16) -> &[u8; 4096];
+impl BspTextureCache {
+    pub fn wall_column(&self, _texture_id: u16, _col: usize) -> &[u8] {
+        &self.wall_column_data
+    }
 
-    /// Get a 256-byte colormap row.  index 0 = bright, 31 = darkest.
-    fn colormap(&self, index: u8) -> &[u8; 256];
+    pub fn flat_data(&self, _texture_id: u16) -> &[u8; 4096] {
+        &self.flat
+    }
 
-    /// Look up palette entry (palette index -> 0xAARRGGBB).
-    fn palette_argb(&self, palette_idx: u8) -> u32;
+    pub fn colormap(&self, index: u8) -> &[u8; 256] {
+        &self.colormap_data[index as usize]
+    }
+
+    pub fn palette_argb(&self, palette_idx: u8) -> u32 {
+        self.palette[palette_idx as usize]
+    }
 }
 
 // ---------------------------------------------------------------------------

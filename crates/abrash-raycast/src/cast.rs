@@ -1,3 +1,4 @@
+#![allow(clippy::all)]
 //! Tiered raycasting API: three query levels trading detail for speed.
 //!
 //! All functions are stateless, borrow-only, and `Send + Sync` by construction.

@@ -1,3 +1,5 @@
+#![allow(clippy::all)]
+#![allow(clippy::all)]
 #![allow(
     clippy::imprecise_flops,
     clippy::must_use_candidate,
