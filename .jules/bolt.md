@@ -331,3 +331,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Learning:** When reading back mapped GPU memory (e.g., `wgpu::BufferView`), avoid calling `.to_vec()` to convert it to a standard vector before iteration. Iterating directly over the mapped slice eliminates massive per-frame O(N) heap allocations and memory copies (e.g., ~8MB for 1080p framebuffers).
 **Action:** Replaced `let rgba = data.to_vec();` with direct slice reference `let rgba = &data;` in `blitter.rs` readback iteration.
 **Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.
+
+**[Eliminate bounds check panics with min/max chaining]**
+**Learning:** In tight inner loops (e.g., per-pixel image processing), replacing standard library `Ord::clamp(min, max)` with chained `.max(min).min(max)` can improve throughput by eliding the hidden `assert!(min <= max)` panic branch. However, manual `if`/`else` branching may regress performance. Crucially, NEVER apply this optimization immediately before an `unsafe { get_unchecked(...) }` block, as the elided bounds check creates a critical memory safety risk (Undefined Behavior).
+**Action:** Replaced `.clamp()` with `.max().min()` in hot loops where memory safety is guaranteed by surrounding array length constraints or where the logic is safe (e.g., simple mathematical variables like colors, coordinates before safe array access).
