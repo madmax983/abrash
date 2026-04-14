@@ -313,7 +313,7 @@ fn main() -> Result<(), HostError> {
         let mut usage_table = Table::new();
         usage_table
             .load_preset(presets::UTF8_FULL)
-                .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
             .set_header(vec![
                 Cell::new("ℹ️  Usage").fg(Color::Cyan),
                 Cell::new("Description").fg(Color::Cyan),
