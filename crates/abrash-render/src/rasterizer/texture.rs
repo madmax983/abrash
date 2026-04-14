@@ -496,10 +496,10 @@ pub(crate) fn draw_span_bilinear(
                                     }
                                 }
                             } else {
-                                let x0 = x0_raw.clamp(0, w_i32) as usize;
-                                let y0 = y0_raw.clamp(0, h_i32) as usize;
-                                let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
-                                let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
+                                let x0 = x0_raw.max(0).min(w_i32) as usize;
+                                let y0 = y0_raw.max(0).min(h_i32) as usize;
+                                let x1 = (x0_raw + 1).max(0).min(w_i32) as usize;
+                                let y1 = (y0_raw + 1).max(0).min(h_i32) as usize;
 
                                 let row0 = y0 $op $val;
                                 let row1 = y1 $op $val;
@@ -626,10 +626,10 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
                             *texture.pixels.get_unchecked(row1 + x0 + 1),
                         )
                     } else {
-                        let x0 = x0_raw.clamp(0, w_i32) as usize;
-                        let y0 = y0_raw.clamp(0, h_i32) as usize;
-                        let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
-                        let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
+                        let x0 = x0_raw.max(0).min(w_i32) as usize;
+                        let y0 = y0_raw.max(0).min(h_i32) as usize;
+                        let x1 = (x0_raw + 1).max(0).min(w_i32) as usize;
+                        let y1 = (y0_raw + 1).max(0).min(h_i32) as usize;
 
                         let row0 = if texture.width_shift < 32 {
                             y0 << texture.width_shift
@@ -4129,9 +4129,9 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
                 let g_val = g_curr.max(0);
                 let b_val = b_curr.max(0);
 
-                let final_r = ((tex_r * r_val) >> 16).clamp(0, 255) as u32;
-                let final_g = ((tex_g * g_val) >> 16).clamp(0, 255) as u32;
-                let final_b = ((tex_b * b_val) >> 16).clamp(0, 255) as u32;
+                let final_r = ((tex_r * r_val) >> 16).max(0).min(255) as u32;
+                let final_g = ((tex_g * g_val) >> 16).max(0).min(255) as u32;
+                let final_b = ((tex_b * b_val) >> 16).max(0).min(255) as u32;
 
                 let final_color =
                     ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
@@ -4214,9 +4214,9 @@ fn draw_span_textured_gouraud_scalar(
             let g_clamped = g_fix.max(0);
             let b_clamped = b_fix.max(0);
 
-            let final_r = ((tex_r * r_clamped) >> 16).clamp(0, 255) as u32;
-            let final_g = ((tex_g * g_clamped) >> 16).clamp(0, 255) as u32;
-            let final_b = ((tex_b * b_clamped) >> 16).clamp(0, 255) as u32;
+            let final_r = ((tex_r * r_clamped) >> 16).max(0).min(255) as u32;
+            let final_g = ((tex_g * g_clamped) >> 16).max(0).min(255) as u32;
+            let final_b = ((tex_b * b_clamped) >> 16).max(0).min(255) as u32;
 
             let final_color = ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
 
@@ -4471,9 +4471,9 @@ pub fn draw_scanline_textured_gouraud(
                             let g_val = g_curr.max(0);
                             let b_val = b_curr.max(0);
 
-                            let final_r = ((tex_r * r_val) >> 16).clamp(0, 255) as u32;
-                            let final_g = ((tex_g * g_val) >> 16).clamp(0, 255) as u32;
-                            let final_b = ((tex_b * b_val) >> 16).clamp(0, 255) as u32;
+                            let final_r = ((tex_r * r_val) >> 16).max(0).min(255) as u32;
+                            let final_g = ((tex_g * g_val) >> 16).max(0).min(255) as u32;
+                            let final_b = ((tex_b * b_val) >> 16).max(0).min(255) as u32;
 
                             let final_color =
                                 ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
