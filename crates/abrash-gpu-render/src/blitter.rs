@@ -1328,7 +1328,7 @@ mod gpu_tests {
         let gpu = headless_device();
         let mut blitter = GpuBlitter::new(&gpu, 64, 64);
 
-        let mut tex = abrash_core::texture::Texture::new(4, 4).unwrap();
+        let tex = abrash_core::texture::Texture::new(4, 4).unwrap();
         let atlas = blitter.upload_atlas(&tex);
         let src = SrcRect {
             x: 0,

@@ -85,7 +85,7 @@ pub fn apply_melt(fb: &mut Framebuffer, config: &mut MeltConfig) {
         for x in 0..width {
             let x_f = x as f32;
             // Generate a chaotic but deterministic value between 0.0 and 1.0
-            let r = (crate::math::fast_sin(x_f * 12.9898 + x_f * 78.233) * 43758.5453)
+            let r = ((x_f * 12.9898 + x_f * 78.233).sin() * 43758.5453)
                 .fract()
                 .abs();
             // Start columns at slightly different negative offsets so they don't all fall immediately
