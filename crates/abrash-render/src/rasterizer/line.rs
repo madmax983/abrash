@@ -5,8 +5,8 @@
 use crate::clipping::clip_line_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Vec3, project_to_screen_optimized};
-use crate::zbuffer::ZBuffer;
 use crate::rasterizer::core::assert_same_dimensions;
+use crate::zbuffer::ZBuffer;
 
 /// Draw a 3D line with Z-buffering.
 ///
@@ -121,8 +121,8 @@ pub fn fill_triangle_wireframe(
 #[cfg(test)]
 mod tests {
     use crate::framebuffer::Framebuffer;
-    use crate::zbuffer::ZBuffer;
     use crate::rasterizer::line::draw_line_3d;
+    use crate::zbuffer::ZBuffer;
     use abrash_core::math::Vec3;
 
     #[test]

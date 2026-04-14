@@ -727,7 +727,6 @@ required-features = ["nova"]
 name = "frosted_glass_demo"
 path = "examples/frosted_glass_demo.rs"
 required-features = ["nova"]
-imprecise_flops = "allow"
 
 [[example]]
 name = "steganography_demo"
