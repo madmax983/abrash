@@ -35,6 +35,7 @@ pub mod brickify;
 
 pub mod blueprint;
 pub mod cloth;
+pub mod color_splash;
 pub mod color_blindness;
 pub mod crepuscular;
 pub mod crosshatch;
@@ -55,6 +56,7 @@ pub mod jelly;
 pub mod kaleidoscope;
 pub mod kuwahara;
 pub mod lsystem;
+pub mod mandelbrot;
 pub mod melt;
 pub mod mode7;
 pub mod modifiers;

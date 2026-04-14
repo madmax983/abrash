@@ -229,3 +229,13 @@
 **Concept:** A post-processing effect that converts the image to grayscale, except for pixels that match a specific target hue. Useful for emphasizing certain objects or colors (e.g., Sin City style).
 **Fate:** Implemented
 **Lesson:** Using the HSV color space makes it trivial to calculate angular differences in hue to isolate specific color ranges, allowing for a highly stylistic selective color effect without complex masking. Operating in-place using Rayon provides excellent performance over the framebuffer.
+
+## [Color Splash]
+**Concept:** A selective color post-processing effect that converts the image to grayscale while preserving a specific target color (and colors within a certain tolerance).
+**Fate:** Implemented
+**Lesson:** Using simple Euclidean distance in RGB space to calculate "chrominance" similarity is very fast. Calculating distance squared avoids expensive square root operations in the inner loop, and adding a feathering range allows for smooth transitions between the preserved color and grayscale.
+
+## [Mandelbrot Fractal]
+**Concept:** A retro fractal visualization post-processing or generative feature mapping the complex plane to pixel colors based on iteration depth in the Mandelbrot set.
+**Fate:** Implemented
+**Lesson:** Using `rayon` parallel closures avoids massive calculation delays for deep iterations on large framebuffers. By abstracting the core complex loop from the display projection, the fractal generation becomes simple, scalable, and independent of specific rendering constraints. A custom color palette improves aesthetics tremendously.

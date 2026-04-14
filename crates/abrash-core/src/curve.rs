@@ -8,7 +8,6 @@
 //!   computed automatically from neighbours. Convenient for smooth paths.
 //! * **Cubic Hermite** — Explicit endpoint values and tangents, used in animation.
 //!
-//! All types work generically over `f32` or `Vec3` via the [`Lerpable`] trait.
 //!
 //! # Examples
 //!
@@ -37,147 +36,11 @@
 //! assert!((p.x - 1.5).abs() < 0.1);
 //! ```
 
-use crate::math::Vec3;
+use crate::math::{
+    Vec3, bezier_cubic, bezier_cubic_tangent, bezier_quadratic, catmull_rom, hermite,
+};
 
 // ── Lerpable trait ────────────────────────────────────────────────────────────
-
-/// A type that supports linear interpolation — required for generic curve evaluation.
-pub trait Lerpable: Copy {
-    /// Linearly interpolate from `self` to `other` at parameter `t ∈ [0, 1]`.
-    #[must_use]
-    fn lerp(self, other: Self, t: f32) -> Self;
-}
-
-impl Lerpable for f32 {
-    #[inline]
-    fn lerp(self, other: Self, t: f32) -> Self {
-        self + (other - self) * t
-    }
-}
-
-impl Lerpable for Vec3 {
-    #[inline]
-    fn lerp(self, other: Self, t: f32) -> Self {
-        Self::new(
-            self.x + (other.x - self.x) * t,
-            self.y + (other.y - self.y) * t,
-            self.z + (other.z - self.z) * t,
-        )
-    }
-}
-
-// ── Free functions ────────────────────────────────────────────────────────────
-
-/// Evaluate a **quadratic Bezier** curve at `t ∈ [0, 1]`.
-///
-/// `B(t) = (1−t)²·p0 + 2t(1−t)·p1 + t²·p2`
-///
-/// # Examples
-///
-/// ```
-/// use abrash_core::curve::bezier_quadratic;
-///
-/// // Parabola from 0 to 1 peaking at 2.0
-/// let v = bezier_quadratic(0.0f32, 2.0, 0.0, 0.5);
-/// assert!((v - 1.0).abs() < 1e-5);
-/// ```
-#[must_use]
-#[inline]
-pub fn bezier_quadratic<T: Lerpable>(p0: T, p1: T, p2: T, t: f32) -> T {
-    let q0 = p0.lerp(p1, t);
-    let q1 = p1.lerp(p2, t);
-    q0.lerp(q1, t)
-}
-
-/// Evaluate a **cubic Bezier** curve at `t ∈ [0, 1]` using de Casteljau.
-///
-/// `B(t) = (1−t)³·p0 + 3t(1−t)²·p1 + 3t²(1−t)·p2 + t³·p3`
-///
-/// # Examples
-///
-/// ```
-/// use abrash_core::curve::bezier_cubic;
-/// use abrash_core::math::Vec3;
-///
-/// let p = bezier_cubic(
-///     Vec3::new(0.0, 0.0, 0.0),
-///     Vec3::new(0.0, 1.0, 0.0),
-///     Vec3::new(1.0, 1.0, 0.0),
-///     Vec3::new(1.0, 0.0, 0.0),
-///     0.0,
-/// );
-/// assert_eq!(p, Vec3::new(0.0, 0.0, 0.0));
-/// ```
-#[must_use]
-#[inline]
-pub fn bezier_cubic<T: Lerpable>(p0: T, p1: T, p2: T, p3: T, t: f32) -> T {
-    let q0 = p0.lerp(p1, t);
-    let q1 = p1.lerp(p2, t);
-    let q2 = p2.lerp(p3, t);
-    let r0 = q0.lerp(q1, t);
-    let r1 = q1.lerp(q2, t);
-    r0.lerp(r1, t)
-}
-
-/// Derivative of a cubic Bezier at `t` — the tangent direction (not normalized).
-///
-/// `B'(t) = 3[(1−t)²(p1−p0) + 2t(1−t)(p2−p1) + t²(p3−p2)]`
-/// (Specialized for `Vec3`.)
-#[must_use]
-#[inline]
-pub fn bezier_cubic_tangent(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: f32) -> Vec3 {
-    let mt = 1.0 - t;
-    let c0 = 3.0 * mt * mt;
-    let c1 = 6.0 * mt * t;
-    let c2 = 3.0 * t * t;
-    Vec3::new(
-        c0 * (p1.x - p0.x) + c1 * (p2.x - p1.x) + c2 * (p3.x - p2.x),
-        c0 * (p1.y - p0.y) + c1 * (p2.y - p1.y) + c2 * (p3.y - p2.y),
-        c0 * (p1.z - p0.z) + c1 * (p2.z - p1.z) + c2 * (p3.z - p2.z),
-    )
-}
-
-/// Cubic Hermite interpolation between `p0` (at t=0) and `p1` (at t=1)
-/// with endpoint tangents `m0` and `m1`.
-///
-/// `H(t) = h00·p0 + h10·m0 + h01·p1 + h11·m1`  (Hermite basis functions).
-#[must_use]
-pub fn hermite_cubic(p0: Vec3, m0: Vec3, p1: Vec3, m1: Vec3, t: f32) -> Vec3 {
-    let t2 = t * t;
-    let t3 = t2 * t;
-    let h00 = 2.0 * t3 - 3.0 * t2 + 1.0;
-    let h10 = t3 - 2.0 * t2 + t;
-    let h01 = -2.0 * t3 + 3.0 * t2;
-    let h11 = t3 - t2;
-    Vec3::new(
-        h00 * p0.x + h10 * m0.x + h01 * p1.x + h11 * m1.x,
-        h00 * p0.y + h10 * m0.y + h01 * p1.y + h11 * m1.y,
-        h00 * p0.z + h10 * m0.z + h01 * p1.z + h11 * m1.z,
-    )
-}
-
-/// Evaluate one segment of a **Catmull-Rom** spline.
-///
-/// Interpolates between `p1` and `p2` using `p0` and `p3` as neighbouring
-/// control points. Uses the centripetal parameterization (α = 0.5) which avoids
-/// cusps and self-intersections.
-///
-/// `t ∈ [0, 1]` maps `p1 → p2`.
-#[must_use]
-pub fn catmull_rom_segment<T>(p0: T, p1: T, p2: T, p3: T, t: f32) -> T
-where
-    T: Copy + std::ops::Add<T, Output = T> + std::ops::Mul<f32, Output = T>,
-{
-    let t2 = t * t;
-    let t3 = t2 * t;
-    // Catmull-Rom basis: a = -0.5, uniform parameterization
-    let c0 = -0.5 * t3 + t2 - 0.5 * t;
-    let c1 = 1.5 * t3 - 2.5 * t2 + 1.0;
-    let c2 = -1.5 * t3 + 2.0 * t2 + 0.5 * t;
-    let c3 = 0.5 * t3 - 0.5 * t2;
-    p0 * c0 + p1 * c1 + p2 * c2 + p3 * c3
-}
-
 // ── CubicBezier struct ────────────────────────────────────────────────────────
 
 /// A cubic Bezier curve defined by 4 control points.
@@ -409,13 +272,6 @@ mod tests {
         assert!((p1.x - 2.0).abs() < TOL && (p1.y).abs() < TOL);
     }
 
-    #[test]
-    fn bezier_quad_midpoint_f32() {
-        // Symmetric parabola peaks at p1
-        let v = bezier_quadratic(0.0f32, 2.0f32, 0.0f32, 0.5);
-        assert!((v - 1.0).abs() < TOL, "v={v}");
-    }
-
     // ── Bezier cubic ──────────────────────────────────────────────────────────
 
     #[test]
@@ -481,8 +337,8 @@ mod tests {
         let p1 = v(1.0, 1.0, 0.0);
         let m0 = v(1.0, 0.0, 0.0);
         let m1 = v(1.0, 0.0, 0.0);
-        let start = hermite_cubic(p0, m0, p1, m1, 0.0);
-        let end = hermite_cubic(p0, m0, p1, m1, 1.0);
+        let start = hermite(p0, m0, p1, m1, 0.0);
+        let end = hermite(p0, m0, p1, m1, 1.0);
         assert!((start.x - p0.x).abs() < TOL);
         assert!((end.x - p1.x).abs() < TOL && (end.y - p1.y).abs() < TOL);
     }
@@ -518,7 +374,7 @@ mod tests {
     }
 
     #[test]
-    fn catmull_rom_segment_count() {
+    fn catmull_rom_count() {
         let s = CatmullRom::new(vec![v(0.0, 0.0, 0.0), v(1.0, 0.0, 0.0), v(2.0, 0.0, 0.0)]);
         assert_eq!(s.segment_count(), 2);
     }

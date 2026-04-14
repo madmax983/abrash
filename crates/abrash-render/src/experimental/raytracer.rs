@@ -388,7 +388,7 @@ impl RayTracer {
             // Specular (Phong)
             let view_dir = ray.direction * -1.0;
             let reflect_dir = light_dir.reflect(hit.normal).fast_normalize();
-            let spec = reflect_dir.dot(view_dir).max(0.0).powf(32.0);
+            let spec = reflect_dir.dot(view_dir).max(0.0).powi(32);
             let specular = light_color * spec * 0.5;
 
             // Shadow Ray
