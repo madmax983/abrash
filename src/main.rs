@@ -180,6 +180,13 @@ Keyboard: Auto-rotating",
         example_name: "god_rays_demo",
     },
     Demo {
+        name: "Selective Color Demo",
+        category: DemoCategory::Simulation,
+        description: "Converts image to grayscale except for a target hue.",
+        instructions: "Observe the rotating cubes. Only the targeted hue will remain colored.",
+        example_name: "selective_color_demo",
+    },
+    Demo {
         name: "Jelly Physics",
         category: DemoCategory::Simulation,
         description: "Soft-body jelly physics simulation",
