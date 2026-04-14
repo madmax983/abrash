@@ -187,6 +187,16 @@ impl Scene {
         }
     }
 
+    /// ⚡ Bolt: Create a new scene with pre-allocated capacity for objects.
+    /// This eliminates heap reallocations when registering initial scene assets.
+    #[must_use]
+    pub fn with_capacity(camera: Camera, capacity: usize) -> Self {
+        Self {
+            objects: Vec::with_capacity(capacity),
+            camera,
+        }
+    }
+
     /// Add an object to the scene.
     pub fn add_object(&mut self, object: SceneObject) {
         self.objects.push(object);

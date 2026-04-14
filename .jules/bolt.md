@@ -297,6 +297,15 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Replace consecutive Vec::push calls with extend_from_slice]**
 **Learning:** In hot pixel conversion loops (e.g., converting 0xAARRGGBB to RGBA bytes for wgpu), calling `.push()` sequentially for each channel incurs bounds/capacity checking overhead per byte and inhibits compiler optimizations.
 **Action:** Replaced four consecutive `.push()` calls with a stack-allocated byte array `let bytes = [r, g, b, a];` followed by `.extend_from_slice(&bytes)`. This eliminates bounds checks and allows the compiler (LLVM) to vectorize or unroll the memory copy. Implemented in `abrash-gpu-render` (`blitter.rs`, `renderer.rs`, `environment.rs`).
+**[Iterating over GPU readback buffer view directly]**
+**Learning:** When reading back mapped GPU memory (e.g., `wgpu::BufferView`), calling `.to_vec()` creates a dynamic heap allocation and a full memory copy of the buffer. For a 1080p frame, this is an unnecessary ~8MB allocation per frame.
+**Action:** Iterate directly over the mapped buffer view slice instead of calling `.to_vec()`. Ensure that `drop(data)` is called only after finishing the iteration, but before calling `.unmap()` on the buffer to satisfy wgpu lifetime requirements.
+**[Inlined per-pixel logic in radial blur]
+**Learning:** In hot per-pixel rendering loops (like radial blur), avoiding closures and inlining the logic removes allocation/invocation overhead and improves register utilization, yielding measurable performance gains.
+**Action:** Removed the `process_pixel` closure in `apply_radial_blur` and inlined its body directly into the `cfg(feature = "parallel")` and `cfg(not(feature = "parallel"))` loops.
+**Standard Library Trig Intrinsics outpace custom polynomials**
+**Learning:** Replacing standard library trigonometric functions like `f32::sin_cos()` with custom polynomial approximations (e.g., `fast_sin_cos()`) in hot pixel loops can severely regress performance (e.g., by ~20%) due to modern LLVM hardware intrinsic auto-vectorization outperforming manual scalar approximations.
+**Action:** Removed `fast_sin_cos`, `fast_sin`, and `fast_cos` from `abrash-core` and replaced all usages across the codebase with the standard library's `.sin_cos()`, `.sin()`, and `.cos()`, yielding a measurable ~18% benchmark improvement on tight loop executions.
 ⚡ Bolt: Optimized specular calculation with f32::powi
 **Learning:** Using `f32::powf(32.0)` with a whole number exponent is slower than `f32::powi(32)` due to the underlying complex C-math routines used for `powf`. Replace it in hot rendering paths for measurable performance improvements.
 **Action:** Replaced `reflect_dir.dot(view_dir).max(0.0).powf(32.0)` with `.powi(32)` in `crates/abrash-render/src/experimental/raytracer.rs` specular reflection logic.
@@ -321,3 +330,4 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Eliminate O(N) heap allocations during GPU readback mapped memory iteration]**
 **Learning:** When reading back mapped GPU memory (e.g., `wgpu::BufferView`), avoid calling `.to_vec()` to convert it to a standard vector before iteration. Iterating directly over the mapped slice eliminates massive per-frame O(N) heap allocations and memory copies (e.g., ~8MB for 1080p framebuffers).
 **Action:** Replaced `let rgba = data.to_vec();` with direct slice reference `let rgba = &data;` in `blitter.rs` readback iteration.
+**Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.

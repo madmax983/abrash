@@ -41,115 +41,6 @@
 use std::mem::MaybeUninit;
 use std::ops::{Add, Mul, Sub};
 
-/// Approximates the reciprocal square root ($1 / \sqrt{x}$).
-///
-/// This uses the hardware-accelerated AVX/SSE intrinsic if available, which offers
-/// excellent performance (around 4 cycles) at the cost of a small precision error.
-/// If AVX/SSE is not available, it falls back to a standard `sqrt().recip()`, which
-/// is typically faster on modern generic `x86_64` CPUs than the legacy "Quake III bit-hack".
-///
-/// # Examples
-///
-/// ```
-/// use abrash_core::math::fast_inv_sqrt;
-///
-/// let x = 4.0;
-/// let inv_sqrt = fast_inv_sqrt(x); // 1.0 / sqrt(4.0) = 0.5
-///
-/// // Assert with a small tolerance due to approximation
-/// assert!((inv_sqrt - 0.5).abs() < 0.01);
-/// ```
-///
-/// Fast approximation of sine and cosine.
-///
-/// Computes an approximation of `sin(x)` and `cos(x)` (where `x` is in radians)
-/// using a minimax polynomial approximation.
-/// This trades a small amount of precision for performance.
-///
-/// # Examples
-///
-/// ```
-/// use abrash_core::math::fast_sin_cos;
-/// use std::f32::consts::PI;
-///
-/// let (s, c) = fast_sin_cos(PI / 4.0);
-/// assert!((s - 0.7071).abs() < 0.01);
-/// assert!((c - 0.7071).abs() < 0.01);
-/// ```
-#[inline]
-#[must_use]
-pub fn fast_sin_cos(mut x: f32) -> (f32, f32) {
-    use std::f32::consts::PI;
-
-    // Wrap x to [-PI, PI]
-    let inv_twopi = 0.159_154_94; // 1.0 / (2.0 * PI)
-    let y = (x * inv_twopi).round();
-    x -= y * (2.0 * PI);
-
-    // Compute sine using parabolic approximation
-    // sin(x) ≈ 4/PI * x - 4/PI^2 * x * |x|
-    let x_abs = x.abs();
-    let mut sin_x = 1.273_239_54 * x - 0.405_284_73 * x * x_abs;
-
-    // Additional precision step (optional but good for graphics)
-    // sin(x) ≈ 0.225 * (sin_x * |sin_x| - sin_x) + sin_x
-    let sin_x_abs = sin_x.abs();
-    sin_x = 0.225 * (sin_x * sin_x_abs - sin_x) + sin_x;
-
-    // Compute cosine by phase shifting: cos(x) = sin(x + PI/2)
-    let mut x_cos = x + std::f32::consts::FRAC_PI_2;
-    if x_cos > PI {
-        x_cos -= 2.0 * PI;
-    }
-
-    let x_cos_abs = x_cos.abs();
-    let mut cos_x = 1.273_239_54 * x_cos - 0.405_284_73 * x_cos * x_cos_abs;
-    let cos_x_abs = cos_x.abs();
-    cos_x = 0.225 * (cos_x * cos_x_abs - cos_x) + cos_x;
-
-    (sin_x, cos_x)
-}
-
-/// Fast approximation of the sine function.
-///
-/// Computes an approximation of `sin(x)` using the same minimax polynomial
-/// approximation as `fast_sin_cos`.
-///
-/// # Examples
-///
-/// ```
-/// use abrash_core::math::fast_sin;
-/// use std::f32::consts::PI;
-///
-/// let s = fast_sin(PI / 4.0);
-/// assert!((s - 0.7071).abs() < 0.01);
-/// ```
-#[inline]
-#[must_use]
-pub fn fast_sin(x: f32) -> f32 {
-    fast_sin_cos(x).0
-}
-
-/// Fast approximation of the cosine function.
-///
-/// Computes an approximation of `cos(x)` using the same minimax polynomial
-/// approximation as `fast_sin_cos`.
-///
-/// # Examples
-///
-/// ```
-/// use abrash_core::math::fast_cos;
-/// use std::f32::consts::PI;
-///
-/// let c = fast_cos(PI / 4.0);
-/// assert!((c - 0.7071).abs() < 0.01);
-/// ```
-#[inline]
-#[must_use]
-pub fn fast_cos(x: f32) -> f32 {
-    fast_sin_cos(x).1
-}
-
 /// Fast approximation of the inverse square root.
 ///
 /// Computes an approximation of `1.0 / sqrt(x)`. This uses the hardware-accelerated
@@ -1287,11 +1178,11 @@ impl Vec2 {
 
     /// Rotates the vector by `angle` radians.
     ///
-    /// Uses [`fast_sin_cos`] to reduce trig overhead in tight animation/render loops.
+    /// Uses standard library `.sin_cos()`.
     #[must_use]
     #[inline]
     pub fn rotate(self, angle: f32) -> Self {
-        let (s, c) = fast_sin_cos(angle);
+        let (s, c) = angle.sin_cos();
         Self {
             x: self.x * c - self.y * s,
             y: self.x * s + self.y * c,
@@ -6641,25 +6532,6 @@ impl std::ops::Div<f32> for Vec4 {
             y: self.y * inv,
             z: self.z * inv,
             w: self.w * inv,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests_fast_sin {
-    use super::*;
-
-    #[test]
-    fn test_fast_sin_cos() {
-        use std::f32::consts::PI;
-        for i in 0..360 {
-            let rad = (i as f32) * PI / 180.0;
-            let (fs, fc) = fast_sin_cos(rad);
-            let s = rad.sin();
-            let c = rad.cos();
-
-            assert!((fs - s).abs() < 0.005, "sin mismatch at {i}: {fs} vs {s}");
-            assert!((fc - c).abs() < 0.005, "cos mismatch at {i}: {fc} vs {c}");
         }
     }
 }

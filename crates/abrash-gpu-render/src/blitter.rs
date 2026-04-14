@@ -965,6 +965,8 @@ impl GpuBlitter {
         let data = buffer_slice.get_mapped_range();
 
         // Convert RGBA readback → 0xAARRGGBB and write into framebuffer.
+        // ⚡ Bolt: Iterating directly over the mapped buffer view `data` entirely
+        // eliminates the O(N) dynamic heap allocation and memory copy of `.to_vec()`.
         let padded_bpr = aligned_bytes_per_row(self.width) as usize;
         let fb_pixels = fb.as_mut_slice();
         let fb_w = self.width as usize;
@@ -973,13 +975,16 @@ impl GpuBlitter {
             let row_start = row * padded_bpr;
             for col in 0..fb_w {
                 let offset = row_start + col * 4;
-                let red = u32::from(rgba[offset]);
-                let green = u32::from(rgba[offset + 1]);
-                let blue = u32::from(rgba[offset + 2]);
-                let alpha = u32::from(rgba[offset + 3]);
+                let red = u32::from(data[offset]);
+                let green = u32::from(data[offset + 1]);
+                let blue = u32::from(data[offset + 2]);
+                let alpha = u32::from(data[offset + 3]);
                 fb_pixels[row * fb_w + col] = (alpha << 24) | (red << 16) | (green << 8) | blue;
             }
         }
+
+        drop(data);
+        self.readback_buffer.unmap();
     }
 }
 
