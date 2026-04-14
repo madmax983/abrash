@@ -60,14 +60,14 @@ pub fn apply_radial_blur(
         let w_m1 = width as i32 - 1;
         let h_m1 = height as i32 - 1;
 
+        // If samples <= 256, we can accumulate R and B channels in a single u32 register (SWAR)
+        // without the B channel (bits 0-7) overflowing into the R channel (bits 16-23)
+        // because the gap (bits 8-15) can hold exactly 256 accumulations of the max 8-bit value (255).
+        let can_swar = samples <= 256;
+
         #[cfg(feature = "parallel")]
         {
             use rayon::prelude::*;
-
-            // If samples <= 256, we can accumulate R and B channels in a single u32 register (SWAR)
-            // without the B channel (bits 0-7) overflowing into the R channel (bits 16-23)
-            // because the gap (bits 8-15) can hold exactly 256 accumulations of the max 8-bit value (255).
-            let can_swar = samples <= 256;
 
             dest_pixels
                 .par_chunks_exact_mut(width)
@@ -137,11 +137,6 @@ pub fn apply_radial_blur(
 
         #[cfg(not(feature = "parallel"))]
         {
-            // If samples <= 256, we can accumulate R and B channels in a single u32 register (SWAR)
-            // without the B channel (bits 0-7) overflowing into the R channel (bits 16-23)
-            // because the gap (bits 8-15) can hold exactly 256 accumulations of the max 8-bit value (255).
-            let can_swar = samples <= 256;
-
             for y in 0..height {
                 let row_start = y * width;
                 let dy = y as f32 - cy_f32;

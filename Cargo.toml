@@ -639,6 +639,11 @@ path = "examples/black_hole_demo.rs"
 required-features = ["nova"]
 
 [[example]]
+name = "dither_demo"
+path = "examples/dither_demo.rs"
+required-features = ["nova"]
+
+[[example]]
 name = "vhs_demo"
 path = "examples/vhs_demo.rs"
 required-features = ["nova"]
@@ -649,6 +654,11 @@ path = "examples/raycast_demo.rs"
 
 [[bench]]
 name = "black_hole_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "dither_bench"
 harness = false
 required-features = ["nova"]
 
@@ -727,7 +737,6 @@ required-features = ["nova"]
 name = "frosted_glass_demo"
 path = "examples/frosted_glass_demo.rs"
 required-features = ["nova"]
-imprecise_flops = "allow"
 
 [[example]]
 name = "steganography_demo"

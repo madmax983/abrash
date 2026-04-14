@@ -400,10 +400,10 @@ impl Texture {
 
         // Manual neighbor fetch for mips
         let (c00, c10, c01, c11) = {
-            let x0 = x0_raw.clamp(0, w_i32) as usize;
-            let y0 = y0_raw.clamp(0, h_i32) as usize;
-            let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
-            let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
+            let x0 = x0_raw.max(0).min(w_i32) as usize;
+            let y0 = y0_raw.max(0).min(h_i32) as usize;
+            let x1 = (x0_raw + 1).max(0).min(w_i32) as usize;
+            let y1 = (y0_raw + 1).max(0).min(h_i32) as usize;
 
             let width_usize = width as usize;
             let row0 = y0 * width_usize;
@@ -517,10 +517,10 @@ impl Texture {
                 }
             }
         } else {
-            let x0 = x0_raw.clamp(0, w_i32) as usize;
-            let y0 = y0_raw.clamp(0, h_i32) as usize;
-            let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
-            let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
+            let x0 = x0_raw.max(0).min(w_i32) as usize;
+            let y0 = y0_raw.max(0).min(h_i32) as usize;
+            let x1 = (x0_raw + 1).max(0).min(w_i32) as usize;
+            let y1 = (y0_raw + 1).max(0).min(h_i32) as usize;
 
             let row0 = self.row_offset(y0);
             let row1 = self.row_offset(y1);
@@ -551,8 +551,8 @@ impl Texture {
                     .get_unchecked(self.row_offset(y as usize) + (x as usize))
             }
         } else {
-            let x = x.clamp(0, self.width as i32 - 1) as usize;
-            let y = y.clamp(0, self.height as i32 - 1) as usize;
+            let x = x.max(0).min(self.width as i32 - 1) as usize;
+            let y = y.max(0).min(self.height as i32 - 1) as usize;
             unsafe { *self.pixels.get_unchecked(self.row_offset(y) + x) }
         }
     }

@@ -46,3 +46,10 @@ Vim: Finished.
 ## 2026-03-18 - Handle and Generation Architecture
 **Confusion:** Rust users are often confused by "Handles" and why they are used instead of `Rc`/`Arc` or raw pointers, and how they prevent use-after-free.
 **Clarification:** Added module-level documentation to `crates/abrash-render/src/render_api/mod.rs` to explain the Render API's "Three Pillars" (Resources, Frame, Renderer) and added executable doctests to `ResourcePool` and `Handle` in `crates/abrash-render/src/render_api/handles.rs` that explicitly demonstrate how the generational index increments upon removal, safely returning `None` instead of causing memory corruption or panics.
+## 2026-03-18 - Missing Enum Variant and Field Docs
+**Confusion:** Sometimes complex enums like `ShadingMode` or `Light` have undocumented variants or fields, which leaves users guessing what parameters like `reflectivity` or `color` mean.
+**Clarification:** Added explicit docstrings (`///`) to all missing enum variants in `frame.rs` and `ShadingMode` fields in `material.rs` so they render properly in `cargo doc`.
+
+## 2026-03-18 - BorrowedRenderTarget Purpose
+**Confusion:** Users might wonder why `BorrowedRenderTarget` exists alongside `RenderTarget` and how to use it.
+**Clarification:** Added a module-level doc comment explaining it is meant for zero-copy integration with windowing systems (like `softbuffer` or `winit`) where buffers are provided externally, complete with an executable doctest showing safe slice usage.
