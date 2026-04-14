@@ -1,4 +1,4 @@
-use abrash::experimental::dither::{apply_dither, DitherConfig, DitherMode};
+use abrash::experimental::dither::{DitherConfig, DitherMode, apply_dither};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
@@ -242,6 +242,6 @@ impl WindowApp for DitherDemoApp {
 
 fn main() -> Result<(), AppError> {
     print_banner();
-    run_windowed(DitherDemoApp::new()?)?;
+    run_windowed(DitherDemoApp::new()?);
     Ok(())
 }

@@ -268,5 +268,5 @@ impl WindowApp for RaycastDemoApp {
 
 fn main() {
     print_banner();
-    run_windowed(RaycastDemoApp::new().unwrap())
+    run_windowed(RaycastDemoApp::new().unwrap());
 }

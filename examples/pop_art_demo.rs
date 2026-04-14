@@ -139,5 +139,5 @@ impl WindowApp for PopArtApp {
 
 fn main() {
     print_banner();
-    run_windowed(PopArtApp::new().unwrap())
+    run_windowed(PopArtApp::new().unwrap());
 }

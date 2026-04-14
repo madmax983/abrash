@@ -1,9 +1,9 @@
-use abrash::experimental::fire::apply_fire;
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
 use abrash_core::utils::XorShift32;
+use abrash_render::experimental::fire::apply_fire;
 
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
@@ -141,5 +141,5 @@ fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(FireDemoApp::new().unwrap())
+    run_windowed(FireDemoApp::new().unwrap());
 }
