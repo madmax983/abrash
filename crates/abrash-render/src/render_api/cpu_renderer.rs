@@ -127,8 +127,12 @@ impl CpuRenderer {
             total_vertices += cpu_mesh.mesh.vertices.len();
         }
 
-        let mut draw_list =
-            DrawList::with_capacity(frame.camera, frame.commands.len(), total_vertices, frame.lights.len());
+        let mut draw_list = DrawList::with_capacity(
+            frame.camera,
+            frame.commands.len(),
+            total_vertices,
+            frame.lights.len(),
+        );
         draw_list.clear_color = frame.clear_color;
         draw_list.lights.clone_from(&frame.lights);
 
