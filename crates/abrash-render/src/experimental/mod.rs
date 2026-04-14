@@ -56,6 +56,7 @@ pub mod jelly;
 pub mod kaleidoscope;
 pub mod kuwahara;
 pub mod lsystem;
+pub mod mandelbrot;
 pub mod melt;
 pub mod mode7;
 pub mod modifiers;

@@ -371,7 +371,7 @@ use rayon::iter::IndexedParallelIterator;
 #[doc(hidden)]
 pub struct PreparedGouraudTrianglesList {
     pub tris: [MaybeUninit<PreparedGouraudTriangle>; 8],
-    pub count: usize,
+    count: usize,
 }
 
 impl PreparedGouraudTrianglesList {
@@ -388,6 +388,11 @@ impl PreparedGouraudTrianglesList {
             self.tris[self.count].write(tri);
             self.count += 1;
         }
+    }
+
+    #[must_use]
+    pub const fn count(&self) -> usize {
+        self.count
     }
 }
 
@@ -424,7 +429,7 @@ impl Iterator for PreparedGouraudTrianglesIter {
 
 pub struct PreparedTrianglesList {
     pub tris: [MaybeUninit<PreparedTriangle>; 8],
-    pub count: usize,
+    count: usize,
 }
 
 impl PreparedTrianglesList {
@@ -441,6 +446,11 @@ impl PreparedTrianglesList {
             self.tris[self.count].write(tri);
             self.count += 1;
         }
+    }
+
+    #[must_use]
+    pub const fn count(&self) -> usize {
+        self.count
     }
 }
 
@@ -519,7 +529,7 @@ impl Iterator for PreparedTrianglesIter {
 
 pub struct PreparedTexturedTrianglesList {
     pub tris: [MaybeUninit<PreparedTexturedTriangle>; 8],
-    pub count: usize,
+    count: usize,
 }
 
 impl PreparedTexturedTrianglesList {
@@ -536,6 +546,11 @@ impl PreparedTexturedTrianglesList {
             self.tris[self.count].write(tri);
             self.count += 1;
         }
+    }
+
+    #[must_use]
+    pub const fn count(&self) -> usize {
+        self.count
     }
 }
 
@@ -4914,7 +4929,7 @@ mod tests {
 
 #[cfg(all(test, feature = "parallel"))]
 mod warden_tests {
-    use super::SendPtr;
+    use super::{PreparedTrianglesList, SendPtr};
 
     #[test]
     #[should_panic(expected = "Index out of bounds")]

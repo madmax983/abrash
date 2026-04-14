@@ -5,6 +5,7 @@
 use crate::clipping::clip_line_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Vec3, project_to_screen_optimized};
+use crate::rasterizer::core::assert_same_dimensions;
 use crate::zbuffer::ZBuffer;
 
 /// Draw a 3D line with Z-buffering.
@@ -21,6 +22,7 @@ pub fn draw_line_3d(
     v1: (Vec3, f32),
     color: u32,
 ) {
+    assert_same_dimensions(fb, zb);
     // Clip against frustum (returns None if fully culled)
     if let Some((v0_clipped, v1_clipped)) = clip_line_to_frustum(
         v0,
@@ -115,4 +117,23 @@ pub fn fill_triangle_wireframe(
     draw_line_3d(fb, zb, v0, v1, color);
     draw_line_3d(fb, zb, v1, v2, color);
     draw_line_3d(fb, zb, v2, v0, color);
+}
+#[cfg(test)]
+mod tests {
+    use crate::framebuffer::Framebuffer;
+    use crate::rasterizer::line::draw_line_3d;
+    use crate::zbuffer::ZBuffer;
+    use abrash_core::math::Vec3;
+
+    #[test]
+    #[should_panic(expected = "Framebuffer and ZBuffer widths must match")]
+    fn should_panic_when_buffer_dimensions_mismatch() {
+        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut zb = ZBuffer::new(50, 50).unwrap(); // Mismatched size!
+
+        let v0 = (Vec3::new(10.0, 10.0, 1.0), 1.0);
+        let v1 = (Vec3::new(90.0, 90.0, 1.0), 1.0);
+
+        draw_line_3d(&mut fb, &mut zb, v0, v1, 0xFFFFFFFF);
+    }
 }

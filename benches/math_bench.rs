@@ -1,4 +1,4 @@
-use abrash_core::math::{fast_sin, fast_sin_cos};
+
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_sin(c: &mut Criterion) {
@@ -13,13 +13,6 @@ fn bench_sin(c: &mut Criterion) {
         });
     });
 
-    c.bench_function("fast_sin_loop", |b| {
-        b.iter(|| {
-            for &val in &data {
-                black_box(fast_sin(val));
-            }
-        });
-    });
 
     c.bench_function("std_sin_cos_loop", |b| {
         b.iter(|| {
@@ -38,14 +31,6 @@ fn bench_sin(c: &mut Criterion) {
         });
     });
 
-    c.bench_function("fast_sin_cos_loop", |b| {
-        b.iter(|| {
-            for &val in &data {
-                let (s, c) = fast_sin_cos(val);
-                black_box(s + c);
-            }
-        });
-    });
 }
 
 criterion_group!(benches, bench_sin);

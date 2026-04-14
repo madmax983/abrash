@@ -88,9 +88,10 @@ impl CpuRenderer {
         tile_renderer.enable_hiz();
         Self {
             tile_renderer,
-            meshes: ResourcePool::new(),
-            textures: ResourcePool::new(),
-            materials: ResourcePool::new(),
+            // ⚡ Bolt: Pre-allocate standard scene capacities to prevent initial heap resizing
+            meshes: ResourcePool::with_capacity(128),
+            textures: ResourcePool::with_capacity(64),
+            materials: ResourcePool::with_capacity(128),
         }
     }
 
@@ -126,8 +127,12 @@ impl CpuRenderer {
             total_vertices += cpu_mesh.mesh.vertices.len();
         }
 
-        let mut draw_list =
-            DrawList::with_capacity(frame.camera, frame.commands.len(), total_vertices);
+        let mut draw_list = DrawList::with_capacity(
+            frame.camera,
+            frame.commands.len(),
+            total_vertices,
+            frame.lights.len(),
+        );
         draw_list.clear_color = frame.clear_color;
         draw_list.lights.clone_from(&frame.lights);
 

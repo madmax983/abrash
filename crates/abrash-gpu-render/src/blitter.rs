@@ -516,7 +516,12 @@ impl GpuBlitter {
         let pixels = texture.pixels();
         let mut rgba = Vec::with_capacity((width * height * 4) as usize);
         for &px in pixels {
-            let bytes = [((px >> 16) & 0xFF) as u8, ((px >> 8) & 0xFF) as u8, (px & 0xFF) as u8, ((px >> 24) & 0xFF) as u8];
+            let bytes = [
+                ((px >> 16) & 0xFF) as u8,
+                ((px >> 8) & 0xFF) as u8,
+                (px & 0xFF) as u8,
+                ((px >> 24) & 0xFF) as u8,
+            ];
             rgba.extend_from_slice(&bytes);
         }
 
@@ -864,7 +869,12 @@ impl GpuBlitter {
         // Convert 0xAARRGGBB → RGBA bytes for wgpu.
         let mut rgba = Vec::with_capacity((w * h * 4) as usize);
         for &px in fb_pixels {
-            let bytes = [((px >> 16) & 0xFF) as u8, ((px >> 8) & 0xFF) as u8, (px & 0xFF) as u8, ((px >> 24) & 0xFF) as u8];
+            let bytes = [
+                ((px >> 16) & 0xFF) as u8,
+                ((px >> 8) & 0xFF) as u8,
+                (px & 0xFF) as u8,
+                ((px >> 24) & 0xFF) as u8,
+            ];
             rgba.extend_from_slice(&bytes);
         }
 
@@ -953,11 +963,10 @@ impl GpuBlitter {
         receiver.recv().unwrap().unwrap();
 
         let data = buffer_slice.get_mapped_range();
-        let rgba = data.to_vec();
-        drop(data);
-        self.readback_buffer.unmap();
 
         // Convert RGBA readback → 0xAARRGGBB and write into framebuffer.
+        // ⚡ Bolt: Iterating directly over the mapped buffer view `data` entirely
+        // eliminates the O(N) dynamic heap allocation and memory copy of `.to_vec()`.
         let padded_bpr = aligned_bytes_per_row(self.width) as usize;
         let fb_pixels = fb.as_mut_slice();
         let fb_w = self.width as usize;
@@ -966,13 +975,16 @@ impl GpuBlitter {
             let row_start = row * padded_bpr;
             for col in 0..fb_w {
                 let offset = row_start + col * 4;
-                let red = u32::from(rgba[offset]);
-                let green = u32::from(rgba[offset + 1]);
-                let blue = u32::from(rgba[offset + 2]);
-                let alpha = u32::from(rgba[offset + 3]);
+                let red = u32::from(data[offset]);
+                let green = u32::from(data[offset + 1]);
+                let blue = u32::from(data[offset + 2]);
+                let alpha = u32::from(data[offset + 3]);
                 fb_pixels[row * fb_w + col] = (alpha << 24) | (red << 16) | (green << 8) | blue;
             }
         }
+
+        drop(data);
+        self.readback_buffer.unmap();
     }
 }
 
@@ -1316,7 +1328,7 @@ mod gpu_tests {
         let gpu = headless_device();
         let mut blitter = GpuBlitter::new(&gpu, 64, 64);
 
-        let mut tex = abrash_core::texture::Texture::new(4, 4).unwrap();
+        let tex = abrash_core::texture::Texture::new(4, 4).unwrap();
         let atlas = blitter.upload_atlas(&tex);
         let src = SrcRect {
             x: 0,
