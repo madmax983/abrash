@@ -21,3 +21,6 @@
 **[Testing Isosurface Polygonization Configurations]
 **Learning:** When testing complex geometric lookup tables like `tri_table` in Marching Tetrahedra algorithms, it's easy to miss edge cases. A table-driven unit test that iterates through all possible vertex sign permutations (e.g., 16 cases for 4 vertices) and asserts the expected number of generated triangles ensures full branch coverage of the extraction logic.
 **Action:** Use table-driven unit tests to iterate through all possible vertex sign permutations (e.g., 16 cases for 4 vertices) and assert the expected number of generated triangles to ensure full branch coverage of the extraction logic.
+**[Steganography Integer Overflow Prevention]**
+**Learning:** When calculating buffer sizes or bit counts from arbitrary or untrusted lengths (e.g., from an image or framebuffer), standard arithmetic operators (`+`, `*`) can easily overflow `usize` boundaries and cause panics. For example, `(4 + len) * 8` can panic if `len` is close to `usize::MAX`.
+**Action:** Always use safe arithmetic like `checked_add` and `checked_mul` when dealing with lengths or sizes derived from untrusted inputs, and bubble up safe `Option` or `Result` types instead of crashing.
