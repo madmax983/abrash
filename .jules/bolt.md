@@ -297,6 +297,11 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Replace consecutive Vec::push calls with extend_from_slice]**
 **Learning:** In hot pixel conversion loops (e.g., converting 0xAARRGGBB to RGBA bytes for wgpu), calling `.push()` sequentially for each channel incurs bounds/capacity checking overhead per byte and inhibits compiler optimizations.
 **Action:** Replaced four consecutive `.push()` calls with a stack-allocated byte array `let bytes = [r, g, b, a];` followed by `.extend_from_slice(&bytes)`. This eliminates bounds checks and allows the compiler (LLVM) to vectorize or unroll the memory copy. Implemented in `abrash-gpu-render` (`blitter.rs`, `renderer.rs`, `environment.rs`).
+<<<<<<< bolt-inline-radial-blur-143401320521592032
+**[Inlined per-pixel logic in radial blur]
+**Learning:** In hot per-pixel rendering loops (like radial blur), avoiding closures and inlining the logic removes allocation/invocation overhead and improves register utilization, yielding measurable performance gains.
+**Action:** Removed the `process_pixel` closure in `apply_radial_blur` and inlined its body directly into the `cfg(feature = "parallel")` and `cfg(not(feature = "parallel"))` loops.
+=======
 **Standard Library Trig Intrinsics outpace custom polynomials**
 **Learning:** Replacing standard library trigonometric functions like `f32::sin_cos()` with custom polynomial approximations (e.g., `fast_sin_cos()`) in hot pixel loops can severely regress performance (e.g., by ~20%) due to modern LLVM hardware intrinsic auto-vectorization outperforming manual scalar approximations.
 **Action:** Removed `fast_sin_cos`, `fast_sin`, and `fast_cos` from `abrash-core` and replaced all usages across the codebase with the standard library's `.sin_cos()`, `.sin()`, and `.cos()`, yielding a measurable ~18% benchmark improvement on tight loop executions.
@@ -316,3 +321,4 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Optimized `clear_rect` boundary clamping]**
 **Learning:** In tight inner loops or coordinate bounds calculations (e.g., `clear_rect`), replacing standard library `Ord::clamp(min, max)` with chained `.max(min).min(max)` can improve throughput by eliding the hidden `assert!(min <= max)` panic branch present in `clamp`.
 **Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.
+>>>>>>> trunk
