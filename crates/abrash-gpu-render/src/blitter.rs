@@ -963,9 +963,6 @@ impl GpuBlitter {
         receiver.recv().unwrap().unwrap();
 
         let data = buffer_slice.get_mapped_range();
-        let rgba = data.to_vec();
-        drop(data);
-        self.readback_buffer.unmap();
 
         // Convert RGBA readback → 0xAARRGGBB and write into framebuffer.
         let padded_bpr = aligned_bytes_per_row(self.width) as usize;

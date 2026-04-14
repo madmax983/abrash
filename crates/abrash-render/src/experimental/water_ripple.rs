@@ -98,8 +98,8 @@ pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
                     let src_y = (y_f32 + dir_y * amount) as i32;
 
                     // Clamp to screen boundaries
-                    let src_x = src_x.clamp(0, width - 1);
-                    let src_y = src_y.clamp(0, height - 1);
+                    let src_x = src_x.max(0).min(width - 1);
+                    let src_y = src_y.max(0).min(height - 1);
 
                     let src_idx = (src_y * width + src_x) as usize;
                     *pixel = src_buffer[src_idx];

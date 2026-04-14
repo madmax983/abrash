@@ -419,7 +419,7 @@ pub fn inverse_lerp(a: f32, b: f32, value: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn remap_clamped(x: f32, from_min: f32, from_max: f32, to_min: f32, to_max: f32) -> f32 {
-    let t = ((x - from_min) / (from_max - from_min)).clamp(0.0, 1.0);
+    let t = ((x - from_min) / (from_max - from_min)).max(0.0).min(1.0);
     to_min + t * (to_max - to_min)
 }
 
