@@ -349,6 +349,13 @@ Keyboard: Interactive",
         instructions: "Mouse: Click to add drops\nKeyboard: Space to clear, C to reset",
         example_name: "reaction_diffusion_demo",
     },
+    Demo {
+        name: "Tunnel Effect",
+        category: DemoCategory::Simulation,
+        description: "Post-processing pseudo-3D tunnel effect",
+        instructions: "Mouse: None\nKeyboard: None",
+        example_name: "tunnel_demo",
+    },
 ];
 
 fn is_gpu_render_example(example_name: &str) -> bool {
@@ -382,6 +389,7 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "frosted_glass_demo"
         || example_name == "steganography_demo"
         || example_name == "reaction_diffusion_demo"
+        || example_name == "tunnel_demo"
 }
 
 fn build_demo_command_args(example_name: &str, use_tui_backend: bool) -> Vec<String> {

@@ -229,3 +229,8 @@
 **Concept:** A retro fractal visualization post-processing or generative feature mapping the complex plane to pixel colors based on iteration depth in the Mandelbrot set.
 **Fate:** Implemented
 **Lesson:** Using `rayon` parallel closures avoids massive calculation delays for deep iterations on large framebuffers. By abstracting the core complex loop from the display projection, the fractal generation becomes simple, scalable, and independent of specific rendering constraints. A custom color palette improves aesthetics tremendously.
+
+## [Tunnel Effect]
+**Concept:** A retro pseudo-3D post-processing effect that transforms Cartesian coordinates into polar coordinates (angle and distance) to map a procedural XOR texture onto a moving cylinder, creating the illusion of flying down an infinite tunnel.
+**Fate:** Implemented
+**Lesson:** Converting `x,y` into angle and radius provides an incredibly simple way to map 2D coordinates into a 3D tunnel shape. Applying distance-based fog fading to pitch black helps hide any aliasing artifacts near the vanishing point while improving the depth illusion.
