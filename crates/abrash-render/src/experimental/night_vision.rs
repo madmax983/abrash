@@ -87,7 +87,7 @@ pub fn apply_night_vision(fb: &mut Framebuffer, config: &NightVisionConfig) {
             // A curve < 1.0 boosts lower values more than higher values.
             // Note: x^0.75 is a close and fast approximation to x^0.65
             let sqrt_lum = lum.sqrt();
-            let amplified = (sqrt_lum * sqrt_lum.sqrt() * config.amplification).clamp(0.0, 1.0);
+            let amplified = (sqrt_lum * sqrt_lum.sqrt() * config.amplification).max(0.0).min(1.0);
 
             // 3. Green Phosphor Tint (P43 Phosphor roughly)
             // Mostly green, some blue, tiny bit of red
@@ -128,16 +128,16 @@ pub fn apply_night_vision(fb: &mut Framebuffer, config: &NightVisionConfig) {
             let dist_sq = dx * dx + dy_sq;
             let dist_norm_sq = dist_sq / max_dist_sq;
             let vignette = (1.0 - dist_norm_sq).max(0.0); // 1.0 at center, 0.0 at corners
-            let vignette = (vignette * vignette * (3.0 - 2.0 * vignette)).clamp(0.0, 1.0); // Smooth falloff approx without sqrt
+            let vignette = (vignette * vignette * (3.0 - 2.0 * vignette)).max(0.0).min(1.0); // Smooth falloff approx without sqrt
 
             out_r *= vignette;
             out_g *= vignette;
             out_b *= vignette;
 
             // Write back to row
-            let final_r = (out_r.clamp(0.0, 1.0) * 255.0) as u32;
-            let final_g = (out_g.clamp(0.0, 1.0) * 255.0) as u32;
-            let final_b = (out_b.clamp(0.0, 1.0) * 255.0) as u32;
+            let final_r = (out_r.max(0.0).min(1.0) * 255.0) as u32;
+            let final_g = (out_g.max(0.0).min(1.0) * 255.0) as u32;
+            let final_b = (out_b.max(0.0).min(1.0) * 255.0) as u32;
 
             *pixel = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
         }

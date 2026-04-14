@@ -74,7 +74,7 @@ impl Starfield {
 
             if sx >= 0.0 && sx < width && sy >= 0.0 && sy < height {
                 // Dim the star based on depth
-                let depth_ratio = (star.z / self.max_depth).clamp(0.0, 1.0);
+                let depth_ratio = (star.z / self.max_depth).max(0.0).min(1.0);
                 // Inverse so closer is brighter
                 let intensity = 1.0 - depth_ratio;
 

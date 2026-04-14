@@ -27,7 +27,7 @@ pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
         return;
     }
 
-    let amount = amount.clamp(0.0, 1.0);
+    let amount = amount.max(0.0).min(1.0);
 
     // Original weight is scaled by amount
     // Center pixel gets (1 + 4 * amount), surrounding gets (-amount)
@@ -82,9 +82,9 @@ pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
                     b_sum += s_b * side_weight_fixed;
                 }
 
-                let r = (r_sum >> 8).clamp(0, 255) as u32;
-                let g = (g_sum >> 8).clamp(0, 255) as u32;
-                let b = (b_sum >> 8).clamp(0, 255) as u32;
+                let r = (r_sum >> 8).max(0).min(255) as u32;
+                let g = (g_sum >> 8).max(0).min(255) as u32;
+                let b = (b_sum >> 8).max(0).min(255) as u32;
 
                 // preserve alpha
                 let a = center_c & 0xFF00_0000;

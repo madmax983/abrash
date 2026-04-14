@@ -124,8 +124,8 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
                         let sample_y = (cy + r * sin_t) as i32;
 
                         // Clamp coordinates to stay within bounds
-                        let clamped_x = sample_x.clamp(0, width as i32 - 1) as usize;
-                        let clamped_y = sample_y.clamp(0, height as i32 - 1) as usize;
+                        let clamped_x = sample_x.max(0).min(width as i32 - 1) as usize;
+                        let clamped_y = sample_y.max(0).min(height as i32 - 1) as usize;
 
                         *pixel = src_fb[clamped_y * width + clamped_x];
                     }
@@ -163,8 +163,8 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
                     let sample_y = (cy + r * sin_t) as i32;
 
                     // Clamp coordinates to stay within bounds
-                    let clamped_x = sample_x.clamp(0, width as i32 - 1) as usize;
-                    let clamped_y = sample_y.clamp(0, height as i32 - 1) as usize;
+                    let clamped_x = sample_x.max(0).min(width as i32 - 1) as usize;
+                    let clamped_y = sample_y.max(0).min(height as i32 - 1) as usize;
 
                     *pixel = src_fb[clamped_y * width + clamped_x];
                 }

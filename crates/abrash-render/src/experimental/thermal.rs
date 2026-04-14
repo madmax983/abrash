@@ -43,7 +43,7 @@ pub fn apply_thermal(fb: &mut Framebuffer, config: &ThermalConfig) {
     }
 
     let pixels = fb.as_mut_slice();
-    let intensity = config.intensity.clamp(0.0, 1.0);
+    let intensity = config.intensity.max(0.0).min(1.0);
     let invert = config.invert;
 
     // Fixed-point intensity (0..256)

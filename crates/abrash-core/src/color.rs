@@ -129,10 +129,10 @@ impl Color {
     /// Components are clamped to `[0.0, 1.0]` before encoding.
     #[must_use]
     pub fn to_argb_u32(self) -> u32 {
-        let r = (linear_to_srgb(self.r.clamp(0.0, 1.0)) * 255.0 + 0.5) as u32;
-        let g = (linear_to_srgb(self.g.clamp(0.0, 1.0)) * 255.0 + 0.5) as u32;
-        let b = (linear_to_srgb(self.b.clamp(0.0, 1.0)) * 255.0 + 0.5) as u32;
-        let a = (self.a.clamp(0.0, 1.0) * 255.0 + 0.5) as u32;
+        let r = (linear_to_srgb(self.r.max(0.0).min(1.0)) * 255.0 + 0.5) as u32;
+        let g = (linear_to_srgb(self.g.max(0.0).min(1.0)) * 255.0 + 0.5) as u32;
+        let b = (linear_to_srgb(self.b.max(0.0).min(1.0)) * 255.0 + 0.5) as u32;
+        let a = (self.a.max(0.0).min(1.0) * 255.0 + 0.5) as u32;
         (a << 24) | (r << 16) | (g << 8) | b
     }
 
@@ -140,10 +140,10 @@ impl Color {
     #[must_use]
     pub fn to_srgb_f32(self) -> (f32, f32, f32, f32) {
         (
-            linear_to_srgb(self.r.clamp(0.0, 1.0)),
-            linear_to_srgb(self.g.clamp(0.0, 1.0)),
-            linear_to_srgb(self.b.clamp(0.0, 1.0)),
-            self.a.clamp(0.0, 1.0),
+            linear_to_srgb(self.r.max(0.0).min(1.0)),
+            linear_to_srgb(self.g.max(0.0).min(1.0)),
+            linear_to_srgb(self.b.max(0.0).min(1.0)),
+            self.a.max(0.0).min(1.0),
         )
     }
 
@@ -154,8 +154,8 @@ impl Color {
     /// Hue wraps: values outside `[0, 360)` are taken modulo 360.
     #[must_use]
     pub fn from_hsv(h: f32, s: f32, v: f32) -> Self {
-        let s = s.clamp(0.0, 1.0);
-        let v = v.clamp(0.0, 1.0);
+        let s = s.max(0.0).min(1.0);
+        let v = v.max(0.0).min(1.0);
         if s == 0.0 {
             return Self::rgb(v, v, v);
         }
@@ -181,9 +181,9 @@ impl Color {
     /// Components are clamped to `[0.0, 1.0]` before conversion.
     #[must_use]
     pub fn to_hsv(self) -> (f32, f32, f32) {
-        let r = self.r.clamp(0.0, 1.0);
-        let g = self.g.clamp(0.0, 1.0);
-        let b = self.b.clamp(0.0, 1.0);
+        let r = self.r.max(0.0).min(1.0);
+        let g = self.g.max(0.0).min(1.0);
+        let b = self.b.max(0.0).min(1.0);
         let cmax = r.max(g).max(b);
         let cmin = r.min(g).min(b);
         let delta = cmax - cmin;
@@ -205,8 +205,8 @@ impl Color {
     /// Construct from HSL (hue 0–360°, saturation 0–1, lightness 0–1) in linear space.
     #[must_use]
     pub fn from_hsl(h: f32, s: f32, l: f32) -> Self {
-        let s = s.clamp(0.0, 1.0);
-        let l = l.clamp(0.0, 1.0);
+        let s = s.max(0.0).min(1.0);
+        let l = l.max(0.0).min(1.0);
         if s == 0.0 {
             return Self::rgb(l, l, l);
         }
@@ -227,9 +227,9 @@ impl Color {
     /// Convert this color to HSL `(hue 0–360°, saturation 0–1, lightness 0–1)`.
     #[must_use]
     pub fn to_hsl(self) -> (f32, f32, f32) {
-        let r = self.r.clamp(0.0, 1.0);
-        let g = self.g.clamp(0.0, 1.0);
-        let b = self.b.clamp(0.0, 1.0);
+        let r = self.r.max(0.0).min(1.0);
+        let g = self.g.max(0.0).min(1.0);
+        let b = self.b.max(0.0).min(1.0);
         let cmax = r.max(g).max(b);
         let cmin = r.min(g).min(b);
         let delta = cmax - cmin;
@@ -451,9 +451,9 @@ impl Color {
     #[inline]
     pub fn adjust_brightness(self, amount: f32) -> Self {
         Self {
-            r: (self.r + amount).clamp(0.0, 1.0),
-            g: (self.g + amount).clamp(0.0, 1.0),
-            b: (self.b + amount).clamp(0.0, 1.0),
+            r: (self.r + amount).max(0.0).min(1.0),
+            g: (self.g + amount).max(0.0).min(1.0),
+            b: (self.b + amount).max(0.0).min(1.0),
             a: self.a,
         }
     }
@@ -482,7 +482,7 @@ impl Color {
     #[must_use]
     #[inline]
     pub fn adjust_contrast(self, factor: f32) -> Self {
-        let adj = |v: f32| ((v - 0.5) * factor + 0.5).clamp(0.0, 1.0);
+        let adj = |v: f32| ((v - 0.5) * factor + 0.5).max(0.0).min(1.0);
         Self {
             r: adj(self.r),
             g: adj(self.g),
@@ -513,7 +513,7 @@ impl Color {
     #[must_use]
     pub fn adjust_saturation(self, factor: f32) -> Self {
         let (h, s, v) = self.to_hsv();
-        Self::from_hsv(h, (s * factor).clamp(0.0, 1.0), v).with_alpha(self.a)
+        Self::from_hsv(h, (s * factor).max(0.0).min(1.0), v).with_alpha(self.a)
     }
 
     /// Perceptual luminance: `0.2126·R + 0.7152·G + 0.0722·B` (ITU-R BT.709).
@@ -631,7 +631,7 @@ impl Color {
         let g = -1.268_438 * l + 2.609_757_4 * m - 0.341_319_38 * s;
         let b = -0.004_196_086 * l - 0.703_418_6 * m + 1.707_614_7 * s;
 
-        Self::new(r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0), 1.0)
+        Self::new(r.max(0.0).min(1.0), g.max(0.0).min(1.0), b.max(0.0).min(1.0), 1.0)
     }
 
     /// Lerp two colors in **Oklab** space for perceptually smooth gradients.
@@ -685,13 +685,13 @@ impl Color {
     /// ```
     #[must_use]
     pub fn from_temperature(kelvin: f32) -> Self {
-        let t = kelvin.clamp(1000.0, 40_000.0) / 100.0;
+        let t = kelvin.max(1000.0).min(40_000.0) / 100.0;
 
         let r = if t <= 66.0 {
             1.0_f32
         } else {
             let x = t - 60.0;
-            (329.698_727_44 * x.powf(-0.133_204_759_2) / 255.0).clamp(0.0, 1.0)
+            (329.698_727_44 * x.powf(-0.133_204_759_2) / 255.0).max(0.0).min(1.0)
         };
 
         let g = if t <= 66.0 {
@@ -700,7 +700,7 @@ impl Color {
             let x = t - 60.0;
             288.122_169_52 * x.powf(-0.075_514_849_2) / 255.0
         }
-        .clamp(0.0, 1.0);
+        .max(0.0).min(1.0);
 
         let b = if t >= 66.0 {
             1.0_f32
@@ -708,7 +708,7 @@ impl Color {
             0.0
         } else {
             let x = t - 10.0;
-            ((138.517_731_2 * x.ln() - 305.044_792_6) / 255.0).clamp(0.0, 1.0)
+            ((138.517_731_2 * x.ln() - 305.044_792_6) / 255.0).max(0.0).min(1.0)
         };
 
         // Convert from sRGB (the approximation is in perceptual space) to linear
@@ -758,7 +758,7 @@ impl Color {
         if stops.len() == 1 {
             return stops[0].1;
         }
-        let t = t.clamp(stops[0].0, stops[stops.len() - 1].0);
+        let t = t.max(stops[0].0).min(stops[stops.len() - 1].0);
         // Find the segment
         for i in 0..stops.len() - 1 {
             let (t0, c0) = stops[i];
@@ -796,7 +796,7 @@ impl Color {
             if b >= 1.0 {
                 1.0
             } else {
-                (a / (1.0 - b)).clamp(0.0, 1.0)
+                (a / (1.0 - b)).max(0.0).min(1.0)
             }
         };
         Self::new(
@@ -828,7 +828,7 @@ impl Color {
             if b <= 0.0 {
                 0.0
             } else {
-                (1.0 - (1.0 - a) / b).clamp(0.0, 1.0)
+                (1.0 - (1.0 - a) / b).max(0.0).min(1.0)
             }
         };
         Self::new(
@@ -940,7 +940,7 @@ impl Color {
         let r = 3.240_454_2 * x - 1.537_138_5 * y - 0.498_531_4 * z;
         let g = -0.969_266_0 * x + 1.876_010_8 * y + 0.041_556_0 * z;
         let b = 0.055_643_4 * x - 0.204_025_9 * y + 1.057_225_2 * z;
-        Self::new(r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0), 1.0)
+        Self::new(r.max(0.0).min(1.0), g.max(0.0).min(1.0), b.max(0.0).min(1.0), 1.0)
     }
 
     /// Convert to Oklch (L, Chroma, Hue) — the cylindrical form of Oklab.

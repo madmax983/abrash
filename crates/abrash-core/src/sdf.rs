@@ -108,7 +108,7 @@ pub fn rounded_rect_2d(p: Vec2, centre: Vec2, half_size: Vec2, radius: f32) -> f
 pub fn segment_2d(p: Vec2, a: Vec2, b: Vec2) -> f32 {
     let ab = b - a;
     let ap = p - a;
-    let t = (ap.dot(ab) / ab.dot(ab)).clamp(0.0, 1.0);
+    let t = (ap.dot(ab) / ab.dot(ab)).max(0.0).min(1.0);
     (ap - ab * t).length()
 }
 
@@ -148,9 +148,9 @@ pub fn triangle_2d(p: Vec2, a: Vec2, b: Vec2, c: Vec2) -> f32 {
     let v2 = p - c;
 
     // For each edge, project v onto the edge and compute the "signed" clamped distance.
-    let pq0 = v0 - e0 * (v0.dot(e0) / e0.dot(e0)).clamp(0.0, 1.0);
-    let pq1 = v1 - e1 * (v1.dot(e1) / e1.dot(e1)).clamp(0.0, 1.0);
-    let pq2 = v2 - e2 * (v2.dot(e2) / e2.dot(e2)).clamp(0.0, 1.0);
+    let pq0 = v0 - e0 * (v0.dot(e0) / e0.dot(e0)).max(0.0).min(1.0);
+    let pq1 = v1 - e1 * (v1.dot(e1) / e1.dot(e1)).max(0.0).min(1.0);
+    let pq2 = v2 - e2 * (v2.dot(e2) / e2.dot(e2)).max(0.0).min(1.0);
 
     // Cross products for sign detection
     let s = (e0.x * e2.y - e0.y * e2.x).signum();
@@ -277,7 +277,7 @@ pub fn torus_3d(p: Vec3, centre: Vec3, major_r: f32, minor_r: f32) -> f32 {
 pub fn capsule_3d(p: Vec3, a: Vec3, b: Vec3, radius: f32) -> f32 {
     let ab = b - a;
     let ap = p - a;
-    let t = (ap.dot(ab) / ab.dot(ab)).clamp(0.0, 1.0);
+    let t = (ap.dot(ab) / ab.dot(ab)).max(0.0).min(1.0);
     (ap - ab * t).length() - radius
 }
 
@@ -390,7 +390,7 @@ pub fn truncated_cone_3d(p: Vec3, a: Vec3, b: Vec3, ra: f32, rb: f32) -> f32 {
     let cay = (paba - 0.5).abs() - 0.5;
 
     let k = rba * rba + baba;
-    let f = ((rba * (x - ra) + paba * baba) / k).clamp(0.0, 1.0);
+    let f = ((rba * (x - ra) + paba * baba) / k).max(0.0).min(1.0);
 
     let cbx = x - ra - f * rba;
     let cby = paba - f;
@@ -587,7 +587,7 @@ pub fn octahedron_3d(p: Vec3, centre: Vec3, s: f32) -> f32 {
     } else {
         return m * 0.577_350_27; // inside — scale by 1/sqrt(3)
     };
-    let k = (0.5 * (qz - qy + s)).clamp(0.0, s);
+    let k = (0.5 * (qz - qy + s)).max(0.0).min(s);
     (Vec3::new(qx, qy - s + k, qz - k)).length()
 }
 
@@ -626,7 +626,7 @@ pub fn pyramid_3d(p: Vec3, centre: Vec3, height: f32) -> f32 {
     let qy = height * p.y - 0.5 * p.x;
     let qz = height * p.x + 0.5 * p.y;
     let s = (-qx).max(0.0);
-    let t = ((qy - 0.5 * p.z) / (m2 + 0.25)).clamp(0.0, 1.0);
+    let t = ((qy - 0.5 * p.z) / (m2 + 0.25)).max(0.0).min(1.0);
     let a = m2 * (qx + s) * (qx + s) + qy * qy;
     let b = m2 * (qx + 0.5 * t) * (qx + 0.5 * t) + (qy - m2 * t) * (qy - m2 * t);
     let d = if qy.min(-qx * m2 - qy * 0.5) > 0.0 {
@@ -668,7 +668,7 @@ pub fn hexagonal_prism_3d(p: Vec3, centre: Vec3, r: f32, h: f32) -> f32 {
     let px = p.x - 2.0 * dot * KX;
     let py = p.y - 2.0 * dot * KY;
     // Clamp hex boundary
-    let px_clamped = px - (px).clamp(-KZ * r, KZ * r);
+    let px_clamped = px - (px).max(-KZ * r).min(KZ * r);
     let py_r = py - r;
     let cx = (px_clamped * px_clamped + py_r * py_r).sqrt();
     let dx = cx * (py - r).signum();
@@ -700,7 +700,7 @@ pub fn hexagonal_prism_3d(p: Vec3, centre: Vec3, r: f32, h: f32) -> f32 {
 #[inline]
 pub fn elongate(p: Vec3, h: Vec3, sdf: impl Fn(Vec3) -> f32) -> f32 {
     let neg_h = Vec3::new(-h.x, -h.y, -h.z);
-    let q = p - p.clamp(neg_h, h);
+    let q = p - p.max(neg_h).min(h);
     sdf(q)
 }
 
@@ -804,7 +804,7 @@ pub fn star_2d(p: Vec2, centre: Vec2, n: u32, r1: f32, r2: f32) -> f32 {
     let t = {
         let lp_minus_tip = Vec2::new(lp.x - tip.x, lp.y - tip.y);
         let edge_len2 = edge.x * edge.x + edge.y * edge.y;
-        ((lp_minus_tip.x * edge.x + lp_minus_tip.y * edge.y) / edge_len2).clamp(0.0, 1.0)
+        ((lp_minus_tip.x * edge.x + lp_minus_tip.y * edge.y) / edge_len2).max(0.0).min(1.0)
     };
     let closest = Vec2::new(tip.x + edge.x * t, tip.y + edge.y * t);
     let dist = Vec2::new(lp.x - closest.x, lp.y - closest.y).length();
@@ -878,7 +878,7 @@ pub fn solid_angle_3d(p: Vec3, centre: Vec3, ra: f32, angle: f32) -> f32 {
     let c = Vec2::new(angle.sin(), angle.cos());
     let q = Vec2::new(Vec2::new(p.x, p.z).length(), p.y);
     let l = q.length() - ra;
-    let t = q.dot(c).clamp(0.0, ra);
+    let t = q.dot(c).max(0.0).min(ra);
     let m = Vec2::new(q.x - c.x * t, q.y - c.y * t).length();
     l.max(m * (c.y * q.x - c.x * q.y).signum())
 }
@@ -1241,12 +1241,12 @@ pub fn bezier_sdf_2d(p: Vec2, a: Vec2, b: Vec2, c: Vec2) -> f32 {
                 break;
             }
             t -= ft / dft;
-            t = t.clamp(0.0, 1.0);
+            t = t.max(0.0).min(1.0);
             if (ft / dft).abs() < 1e-6 {
                 break;
             }
         }
-        let t = t.clamp(0.0, 1.0);
+        let t = t.max(0.0).min(1.0);
         let bx = (1.0 - t) * (1.0 - t) * a.x + 2.0 * t * (1.0 - t) * b.x + t * t * c.x;
         let by = (1.0 - t) * (1.0 - t) * a.y + 2.0 * t * (1.0 - t) * b.y + t * t * c.y;
         let d = Vec2::new(p.x - bx, p.y - by).length();
@@ -1292,7 +1292,7 @@ pub fn regular_ngon_2d(p: Vec2, n: u32, r: f32) -> f32 {
         let v1 = Vec2::new(r * a1.cos(), r * a1.sin());
         let edge = v1 - v0;
         let len_sq = edge.length_sq();
-        let t = ((p - v0).dot(edge) / len_sq).clamp(0.0, 1.0);
+        let t = ((p - v0).dot(edge) / len_sq).max(0.0).min(1.0);
         let closest = v0 + edge * t;
         min_dist = min_dist.min((p - closest).length());
         // Cross product: positive = p is to the left = inside for CCW polygon
@@ -1457,7 +1457,7 @@ pub fn ellipse_2d(p: Vec2, ab: Vec2) -> f32 {
     let g = m + m * n2;
 
     let co = if d < 0.0 {
-        let h = (q / c3).clamp(-1.0, 1.0).acos() / 3.0;
+        let h = (q / c3).max(-1.0).min(1.0).acos() / 3.0;
         let s = h.cos();
         let t = h.sin() * 3.0_f32.sqrt();
         let rx = (-c * (s + t + 2.0) + m2).max(0.0).sqrt();
@@ -1475,7 +1475,7 @@ pub fn ellipse_2d(p: Vec2, ab: Vec2) -> f32 {
         (ry / (rm - rx).max(1e-10).sqrt() + 2.0 * g / rm - m) / 2.0
     };
 
-    let co = co.clamp(0.0, 1.0);
+    let co = co.max(0.0).min(1.0);
     let ex = ab.x * co;
     let ey = ab.y * (1.0 - co * co).max(0.0).sqrt();
     (p - Vec2::new(ex, ey)).length() * (p.y - ey).signum()
@@ -1508,7 +1508,7 @@ pub fn pie_2d(p: Vec2, sc: (f32, f32), r: f32) -> f32 {
     let (s, c) = sc;
     let sc_vec = Vec2::new(s, c);
     let radial = p.length() - r;
-    let edge_proj = p.dot(sc_vec).clamp(0.0, r);
+    let edge_proj = p.dot(sc_vec).max(0.0).min(r);
     let edge_dist = (p - sc_vec * edge_proj).length();
     // s > 0: outside angular extent → nearest boundary is the straight edge (edge_dist)
     // s < 0: inside angular extent  → max(radial, -edge_dist) handles both inside
@@ -1543,7 +1543,7 @@ pub fn pie_2d(p: Vec2, sc: (f32, f32), r: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn smooth_min(a: f32, b: f32, k: f32) -> (f32, f32) {
-    let h = (0.5 + 0.5 * (b - a) / k).clamp(0.0, 1.0);
+    let h = (0.5 + 0.5 * (b - a) / k).max(0.0).min(1.0);
     let d = b * (1.0 - h) + a * h - k * h * (1.0 - h);
     (d, h)
 }
@@ -1660,7 +1660,7 @@ pub fn heart_2d(p: Vec2) -> f32 {
 pub fn rhombus_2d(p: Vec2, b: Vec2) -> f32 {
     let p = p.abs();
     // Signed distance: project onto edge normal then max with two half-planes
-    let h = ((b.x - b.y - 2.0 * p.x + 2.0 * p.y) / (b.x + b.y)).clamp(-1.0, 1.0);
+    let h = ((b.x - b.y - 2.0 * p.x + 2.0 * p.y) / (b.x + b.y)).max(-1.0).min(1.0);
     let d = (p - Vec2::new(b.x * (1.0 - h) * 0.5, b.y * (1.0 + h) * 0.5)).length();
     let s = p.x * b.y + p.y * b.x - b.x * b.y;
     d * s.signum()
@@ -1726,9 +1726,9 @@ pub fn egg_2d(p: Vec2, ra: f32, rb: f32) -> f32 {
 #[must_use]
 pub fn repeat_finite_3d(p: Vec3, cell: Vec3, count: Vec3) -> Vec3 {
     Vec3::new(
-        p.x - cell.x * (p.x / cell.x).round().clamp(-count.x, count.x),
-        p.y - cell.y * (p.y / cell.y).round().clamp(-count.y, count.y),
-        p.z - cell.z * (p.z / cell.z).round().clamp(-count.z, count.z),
+        p.x - cell.x * (p.x / cell.x).round().max(-count.x).min(count.x),
+        p.y - cell.y * (p.y / cell.y).round().max(-count.y).min(count.y),
+        p.z - cell.z * (p.z / cell.z).round().max(-count.z).min(count.z),
     )
 }
 
@@ -1756,7 +1756,7 @@ pub fn stadium_2d(p: Vec2, a: Vec2, b: Vec2, r: f32) -> f32 {
     // Distance to segment ab, then subtract radius — same as capsule_2d
     let ab = b - a;
     let ap = p - a;
-    let t = (ap.dot(ab) / ab.length_sq()).clamp(0.0, 1.0);
+    let t = (ap.dot(ab) / ab.length_sq()).max(0.0).min(1.0);
     (ap - ab * t).length() - r
 }
 
@@ -1788,7 +1788,7 @@ pub fn trapezoid_2d(p: Vec2, r1: f32, r2: f32, h: f32) -> f32 {
         p.x - (p.x.min(if p.y < 0.0 { r1 } else { r2 })),
         p.y.abs() - h,
     );
-    let t = ((k1 - p).dot(k2) / k2.length_sq()).clamp(0.0, 1.0);
+    let t = ((k1 - p).dot(k2) / k2.length_sq()).max(0.0).min(1.0);
     let cb = p - k1 + k2 * t;
     let s = if cb.x < 0.0 && ca.y < 0.0 {
         -1.0_f32
@@ -1821,9 +1821,9 @@ pub fn parallelogram_2d(p: Vec2, wi: f32, he: f32, sk: f32) -> f32 {
     let e = Vec2::new(sk, he);
     let mut p = if p.y < 0.0 { Vec2::new(-p.x, -p.y) } else { p };
     let mut w = p - e;
-    w.x -= w.x.clamp(-wi, wi);
+    w.x -= w.x.max(-wi).min(wi);
     let d1 = w.length_sq();
-    p.x -= p.x.clamp(-wi, wi);
+    p.x -= p.x.max(-wi).min(wi);
     let d2 = p.length_sq();
     let s = if p.x * e.y - p.y * e.x < 0.0 {
         -1.0_f32
@@ -1857,7 +1857,7 @@ pub fn uneven_capsule_2d(p: Vec2, a: Vec2, b: Vec2, ra: f32, rb: f32) -> f32 {
     // Project onto segment, then interpolate radii
     let ab = b - a;
     let ap = p - a;
-    let h = (ap.dot(ab) / ab.length_sq()).clamp(0.0, 1.0);
+    let h = (ap.dot(ab) / ab.length_sq()).max(0.0).min(1.0);
     let r = ra + (rb - ra) * h;
     (ap - ab * h).length() - r
 }
@@ -2231,7 +2231,7 @@ pub fn sdf_subtract(a: f32, b: f32) -> f32 {
 pub fn segment_3d(p: Vec3, a: Vec3, b: Vec3) -> f32 {
     let ab = b - a;
     let ap = p - a;
-    let t = (ap.dot(ab) / ab.length_sq()).clamp(0.0, 1.0);
+    let t = (ap.dot(ab) / ab.length_sq()).max(0.0).min(1.0);
     (ap - ab * t).length()
 }
 
@@ -3211,7 +3211,7 @@ pub fn blobby_cross_2d(pos: Vec2, he: f32) -> f32 {
         cbrt(qr) - cbrt(qmr)
     } else {
         let r = p.max(0.0).sqrt();
-        let angle = (q / (p * r).max(1e-10)).clamp(-1.0, 1.0).acos();
+        let angle = (q / (p * r).max(1e-10)).max(-1.0).min(1.0).acos();
         2.0 * r * (angle / 3.0).cos()
     };
 
@@ -3390,7 +3390,7 @@ pub fn stairs_2d(p: Vec2, wh: Vec2, n: u32) -> f32 {
     // When inside the staircase AABB, find the nearest step edge
     if p.x >= 0.0 && p.y >= 0.0 && p.x <= ba.x && p.y <= ba.y {
         // Which step are we in?
-        let step = (p.x / wh.x).floor().clamp(0.0, n_f - 1.0);
+        let step = (p.x / wh.x).floor().max(0.0).min(n_f - 1.0);
         let step_top = (step + 1.0) * wh.y;
         let step_right = (step + 1.0) * wh.x;
         // Distance to the two interior step edges (top face and right face)
@@ -3620,7 +3620,7 @@ pub fn quad_3d(p: Vec3, a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> f32 {
 
     // Clamp-and-distance for each edge
     let edge_dist2 = |pe: Vec3, edge: Vec3| -> f32 {
-        let t = (pe.dot(edge) / dot2(edge)).clamp(0.0, 1.0);
+        let t = (pe.dot(edge) / dot2(edge)).max(0.0).min(1.0);
         dot2(edge * t - pe)
     };
 
@@ -3819,9 +3819,9 @@ pub fn triangle_3d(p: Vec3, a: Vec3, b: Vec3, c: Vec3) -> f32 {
 
     let dist2 = if signs < 2.0 {
         // Project outside → nearest edge
-        let d_ba = dot2(ba * (ba.dot(pa) / dot2(ba)).clamp(0.0, 1.0) - pa);
-        let d_cb = dot2(cb * (cb.dot(pb) / dot2(cb)).clamp(0.0, 1.0) - pb);
-        let d_ac = dot2(ac * (ac.dot(pc) / dot2(ac)).clamp(0.0, 1.0) - pc);
+        let d_ba = dot2(ba * (ba.dot(pa) / dot2(ba)).max(0.0).min(1.0) - pa);
+        let d_cb = dot2(cb * (cb.dot(pb) / dot2(cb)).max(0.0).min(1.0) - pb);
+        let d_ac = dot2(ac * (ac.dot(pc) / dot2(ac)).max(0.0).min(1.0) - pc);
         d_ba.min(d_cb).min(d_ac)
     } else {
         // Project inside → perpendicular distance to plane
@@ -4079,7 +4079,7 @@ pub fn twist_z(p: Vec3, k: f32, sdf: impl Fn(Vec3) -> f32) -> f32 {
 pub fn groove_2d(p: Vec2, d: f32, a: Vec2, b: Vec2, ra: f32, rb: f32) -> f32 {
     let pa = p - a;
     let ba = b - a;
-    let t = (pa.dot(ba) / ba.dot(ba)).clamp(0.0, 1.0);
+    let t = (pa.dot(ba) / ba.dot(ba)).max(0.0).min(1.0);
     let groove_d = (pa - ba * t).length() - ra;
     d.max(-groove_d + rb)
 }
@@ -4369,7 +4369,7 @@ pub fn rounded_star_2d(p: Vec2, r: f32, n: u32, m: f32) -> f32 {
     // Distance to the rounded star edge
     q.x -= r * acs.x;
     q.y -= r * acs.y;
-    let dot = (-q.x * ecs.x - q.y * ecs.y).clamp(0.0, r * acs.y / ecs.y);
+    let dot = (-q.x * ecs.x - q.y * ecs.y).max(0.0).min(r * acs.y / ecs.y);
     q.x += ecs.x * dot;
     q.y += ecs.y * dot;
     let l = q.x.mul_add(q.x, q.y * q.y).sqrt();
@@ -4446,7 +4446,7 @@ pub fn arrow_3d(p: Vec3, a: Vec3, b: Vec3, ra: f32, rb: f32, head_frac: f32) -> 
     }
     let dir = V3::new(ab.x / len, ab.y / len, ab.z / len);
     // Split point: shaft ends, cone begins
-    let head_len = len * head_frac.clamp(0.0, 1.0);
+    let head_len = len * head_frac.max(0.0).min(1.0);
     let shaft_end = V3::new(
         b.x - dir.x * head_len,
         b.y - dir.y * head_len,
@@ -4601,7 +4601,7 @@ pub fn polygon_sdf_2d(p: Vec2, vertices: &[Vec2]) -> f32 {
         let t = if e2 < 1e-12 {
             0.0
         } else {
-            ((wx * ex + wy * ey) / e2).clamp(0.0, 1.0)
+            ((wx * ex + wy * ey) / e2).max(0.0).min(1.0)
         };
         let bx = wx - ex * t;
         let by = wy - ey * t;
@@ -5179,7 +5179,7 @@ pub fn diamond_3d(p: Vec3, h: f32, r: f32) -> f32 {
     // t = ((q - A) · (B - A)) / |B-A|²
     //   = (r*(r - q.x) + h*q.y) / (r² + h²)
     let t = (r * (r - q.x) + h * q.y) / (r * r + h * h);
-    let t = t.clamp(0.0, 1.0);
+    let t = t.max(0.0).min(1.0);
     let closest = Vec2::new(r * (1.0 - t), h * t);
     let diff = Vec2::new(q.x - closest.x, q.y - closest.y);
     // Outward normal to the edge is (h, r).
@@ -5564,7 +5564,7 @@ pub fn teardrop_2d(p: Vec2, r: f32, len: f32) -> f32 {
     let q = Vec2::new(p.x.abs(), p.y);
     let ba = Vec2::new(0.0, -len - r); // from top of head (y=r) to tip, simplified
     let pa = Vec2::new(q.x, q.y - r);
-    let h = (pa.dot(ba) / ba.dot(ba)).clamp(0.0, 1.0);
+    let h = (pa.dot(ba) / ba.dot(ba)).max(0.0).min(1.0);
     let cone_r = r * (1.0 - h); // taper radius
     let body = Vec2::new(pa.x - ba.x * h, pa.y - ba.y * h).length() - cone_r;
     head.min(body)
@@ -5693,7 +5693,7 @@ pub fn wave_sdf_2d(p: Vec2, amplitude: f32, frequency: f32, phase: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn sdf_morph(a: f32, b: f32, t: f32) -> f32 {
-    a + (b - a) * t.clamp(0.0, 1.0)
+    a + (b - a) * t.max(0.0).min(1.0)
 }
 
 /// **3-D domain warping** using Perlin noise offsets.
@@ -5763,7 +5763,7 @@ pub fn ambient_occlusion_estimate(p: Vec3, n: Vec3, step: f32, sdf: impl Fn(Vec3
         occ += (h - d) * scale;
         scale *= 0.95;
     }
-    (1.0 - 3.0 * occ).clamp(0.0, 1.0)
+    (1.0 - 3.0 * occ).max(0.0).min(1.0)
 }
 
 /// **Soft shadow** ray marcher for SDF scenes (Inigo Quilez technique).
@@ -5812,9 +5812,9 @@ pub fn soft_shadow_estimate(
             return 0.0;
         }
         res = res.min(k * h / t);
-        t += h.clamp(0.01, 0.2);
+        t += h.max(0.01).min(0.2);
     }
-    res.clamp(0.0, 1.0)
+    res.max(0.0).min(1.0)
 }
 
 #[cfg(test)]

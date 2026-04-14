@@ -613,7 +613,7 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
     }
 
     let pixels = fb.as_mut_slice();
-    let intensity = config.intensity.clamp(0.0, 1.0);
+    let intensity = config.intensity.max(0.0).min(1.0);
     // Use fixed point arithmetic for blending: factor in [0, 256]
     let max_noise_shift = (intensity * 256.0) as u32;
 
@@ -709,7 +709,7 @@ fn apply_color_adjust_scalar(pixels: &mut [u32], brightness: i32, contrast: f32)
     for (i, entry) in lut.iter_mut().enumerate() {
         let val = i as i32;
         let new_val = (((val - 128) * contrast_fixed) >> 8) + 128 + brightness;
-        *entry = new_val.clamp(0, 255) as u32;
+        *entry = new_val.max(0).min(255) as u32;
     }
 
     for pixel in pixels.iter_mut() {
@@ -760,7 +760,7 @@ fn apply_vignette_scalar(
             let dx_sq_scaled = dx * dx * scale;
 
             // Quadratic falloff
-            let factor = (row_base_factor - dx_sq_scaled).clamp(0.0, 1.0);
+            let factor = (row_base_factor - dx_sq_scaled).max(0.0).min(1.0);
 
             // Fixed point approximation to match SIMD precision (8.8 fixed point)
             let factor_fixed = (factor * 256.0) as u32;
@@ -1492,7 +1492,7 @@ mod simd {
             while x < width {
                 let dx = x as f32 - center_x;
                 let dx_sq_scaled = dx * dx * scale;
-                let factor = (row_base_factor - dx_sq_scaled).clamp(0.0, 1.0);
+                let factor = (row_base_factor - dx_sq_scaled).max(0.0).min(1.0);
 
                 let p = unsafe { *ptr };
                 let a = p & 0xFF00_0000;

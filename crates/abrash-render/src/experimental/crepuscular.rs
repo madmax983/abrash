@@ -132,11 +132,11 @@ pub fn apply_god_rays(fb: &mut Framebuffer, config: &GodRaysConfig) {
 
                 // Convert back from fixed point to floating point exposure
                 let final_r =
-                    (((accum_r as f32) / 65536.0) * config.exposure).clamp(0.0, 255.0) as u32;
+                    (((accum_r as f32) / 65536.0) * config.exposure).max(0.0).min(255.0) as u32;
                 let final_g =
-                    (((accum_g as f32) / 65536.0) * config.exposure).clamp(0.0, 255.0) as u32;
+                    (((accum_g as f32) / 65536.0) * config.exposure).max(0.0).min(255.0) as u32;
                 let final_b =
-                    (((accum_b as f32) / 65536.0) * config.exposure).clamp(0.0, 255.0) as u32;
+                    (((accum_b as f32) / 65536.0) * config.exposure).max(0.0).min(255.0) as u32;
 
                 *pixel = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
             }

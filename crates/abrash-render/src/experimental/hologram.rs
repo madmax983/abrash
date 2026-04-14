@@ -110,7 +110,7 @@ pub fn apply_hologram(fb: &mut Framebuffer, config: &HologramConfig) {
             for (x, pixel) in row.iter_mut().enumerate() {
                 // Apply horizontal shift safely
                 let mut src_x = x as i32 + x_shift;
-                src_x = src_x.clamp(0, width as i32 - 1);
+                src_x = src_x.max(0).min(width as i32 - 1);
 
                 let src_idx = y * width + (src_x as usize);
                 let p = src_pixels[src_idx];
@@ -123,9 +123,9 @@ pub fn apply_hologram(fb: &mut Framebuffer, config: &HologramConfig) {
                 let lum = 0.299 * r + 0.587 * g + 0.114 * b;
 
                 // Map luminance to target color, scaling by intensity
-                let final_r = (lum * tc_r / 255.0 * combined_intensity).clamp(0.0, 255.0) as u32;
-                let final_g = (lum * tc_g / 255.0 * combined_intensity).clamp(0.0, 255.0) as u32;
-                let final_b = (lum * tc_b / 255.0 * combined_intensity).clamp(0.0, 255.0) as u32;
+                let final_r = (lum * tc_r / 255.0 * combined_intensity).max(0.0).min(255.0) as u32;
+                let final_g = (lum * tc_g / 255.0 * combined_intensity).max(0.0).min(255.0) as u32;
+                let final_b = (lum * tc_b / 255.0 * combined_intensity).max(0.0).min(255.0) as u32;
 
                 *pixel = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
             }

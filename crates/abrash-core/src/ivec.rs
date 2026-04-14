@@ -628,7 +628,7 @@ mod tests {
         let b = IVec2::new(3, 7);
         assert_eq!(a.min(b), IVec2::new(3, 2));
         assert_eq!(a.max(b), IVec2::new(5, 7));
-        let c = IVec2::new(4, 4).clamp(IVec2::new(0, 0), IVec2::new(3, 6));
+        let c = IVec2::new(4, 4).max(IVec2::new(0, 0)).min(IVec2::new(3, 6));
         assert_eq!(c, IVec2::new(3, 4));
     }
 

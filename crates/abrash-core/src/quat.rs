@@ -242,7 +242,7 @@ impl Quat {
             return result.normalize();
         }
 
-        let theta = dot.clamp(-1.0, 1.0).acos();
+        let theta = dot.max(-1.0).min(1.0).acos();
         let sin_theta = theta.sin();
         let a = ((1.0 - t) * theta).sin() / sin_theta;
         let b = (t * theta).sin() / sin_theta;
@@ -396,7 +396,7 @@ impl Quat {
     #[must_use]
     pub fn to_axis_angle(self) -> (Vec3, f32) {
         let q = self.normalize();
-        let angle = 2.0 * q.w.clamp(-1.0, 1.0).acos();
+        let angle = 2.0 * q.w.max(-1.0).min(1.0).acos();
         let s_sq = (1.0 - q.w * q.w).max(0.0);
         if s_sq <= 1e-12 {
             return (Vec3::new(1.0, 0.0, 0.0), 0.0);

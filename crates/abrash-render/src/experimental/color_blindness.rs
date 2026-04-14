@@ -70,9 +70,9 @@ pub fn apply_color_blindness(fb: &mut Framebuffer, cvd_type: ColorBlindnessType)
         let g = ((p >> 8) & 0xFF) as i32;
         let b = (p & 0xFF) as i32;
 
-        let new_r = ((r * m00 + g * m01 + b * m02) >> 16).clamp(0, 255) as u32;
-        let new_g = ((r * m10 + g * m11 + b * m12) >> 16).clamp(0, 255) as u32;
-        let new_b = ((r * m20 + g * m21 + b * m22) >> 16).clamp(0, 255) as u32;
+        let new_r = ((r * m00 + g * m01 + b * m02) >> 16).max(0).min(255) as u32;
+        let new_g = ((r * m10 + g * m11 + b * m12) >> 16).max(0).min(255) as u32;
+        let new_b = ((r * m20 + g * m21 + b * m22) >> 16).max(0).min(255) as u32;
 
         *pixel = a | (new_r << 16) | (new_g << 8) | new_b;
     });

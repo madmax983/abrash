@@ -121,7 +121,7 @@ pub fn apply_neon_outline(fb: &mut Framebuffer, config: &NeonOutlineConfig) {
                     let horizontal_weight = abs_gy / total_g;
 
                     // The intensity of the glow depends on how far past the threshold we are
-                    let intensity = ((magnitude - config.threshold) as f32 / 100.0).clamp(0.0, 1.0);
+                    let intensity = ((magnitude - config.threshold) as f32 / 100.0).max(0.0).min(1.0);
 
                     let color = blend_neon(
                         config.color_horizontal,
@@ -210,9 +210,9 @@ fn blend_neon(ch: u32, cv: u32, wh: f32, wv: f32, intensity: f32) -> u32 {
     let bv = (cv & 0xFF) as f32;
 
     // Additive blend based on weights and intensity
-    let r = ((rh * wh + rv * wv) * intensity).clamp(0.0, 255.0) as u32;
-    let g = ((gh * wh + gv * wv) * intensity).clamp(0.0, 255.0) as u32;
-    let b = ((bh * wh + bv * wv) * intensity).clamp(0.0, 255.0) as u32;
+    let r = ((rh * wh + rv * wv) * intensity).max(0.0).min(255.0) as u32;
+    let g = ((gh * wh + gv * wv) * intensity).max(0.0).min(255.0) as u32;
+    let b = ((bh * wh + bv * wv) * intensity).max(0.0).min(255.0) as u32;
 
     0xFF00_0000 | (r << 16) | (g << 8) | b
 }

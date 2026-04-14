@@ -167,8 +167,8 @@ impl ReactionDiffusion {
                 let next_b = b
                     + (config.db * sum_b + reaction - (config.kill + config.feed) * b) * config.dt;
 
-                next_grid[idx].a = next_a.clamp(0.0, 1.0);
-                next_grid[idx].b = next_b.clamp(0.0, 1.0);
+                next_grid[idx].a = next_a.max(0.0).min(1.0);
+                next_grid[idx].b = next_b.max(0.0).min(1.0);
             }
         }
 
@@ -195,7 +195,7 @@ impl ReactionDiffusion {
 
                 // b_val is typically 0.0 to ~0.5, we can map it directly or scale it slightly
                 // Let's use a nice color gradient based on B
-                let t = (b_val * 2.0).clamp(0.0, 1.0);
+                let t = (b_val * 2.0).max(0.0).min(1.0);
 
                 let c1 = color::Color::from_argb_u32(color1);
                 let c2 = color::Color::from_argb_u32(color2);

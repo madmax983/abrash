@@ -4129,9 +4129,9 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
                 let g_val = g_curr.max(0);
                 let b_val = b_curr.max(0);
 
-                let final_r = ((tex_r * r_val) >> 16).clamp(0, 255) as u32;
-                let final_g = ((tex_g * g_val) >> 16).clamp(0, 255) as u32;
-                let final_b = ((tex_b * b_val) >> 16).clamp(0, 255) as u32;
+                let final_r = ((tex_r * r_val) >> 16).max(0).min(255) as u32;
+                let final_g = ((tex_g * g_val) >> 16).max(0).min(255) as u32;
+                let final_b = ((tex_b * b_val) >> 16).max(0).min(255) as u32;
 
                 let final_color =
                     ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
@@ -4214,9 +4214,9 @@ fn draw_span_textured_gouraud_scalar(
             let g_clamped = g_fix.max(0);
             let b_clamped = b_fix.max(0);
 
-            let final_r = ((tex_r * r_clamped) >> 16).clamp(0, 255) as u32;
-            let final_g = ((tex_g * g_clamped) >> 16).clamp(0, 255) as u32;
-            let final_b = ((tex_b * b_clamped) >> 16).clamp(0, 255) as u32;
+            let final_r = ((tex_r * r_clamped) >> 16).max(0).min(255) as u32;
+            let final_g = ((tex_g * g_clamped) >> 16).max(0).min(255) as u32;
+            let final_b = ((tex_b * b_clamped) >> 16).max(0).min(255) as u32;
 
             let final_color = ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
 
@@ -4471,9 +4471,9 @@ pub fn draw_scanline_textured_gouraud(
                             let g_val = g_curr.max(0);
                             let b_val = b_curr.max(0);
 
-                            let final_r = ((tex_r * r_val) >> 16).clamp(0, 255) as u32;
-                            let final_g = ((tex_g * g_val) >> 16).clamp(0, 255) as u32;
-                            let final_b = ((tex_b * b_val) >> 16).clamp(0, 255) as u32;
+                            let final_r = ((tex_r * r_val) >> 16).max(0).min(255) as u32;
+                            let final_g = ((tex_g * g_val) >> 16).max(0).min(255) as u32;
+                            let final_b = ((tex_b * b_val) >> 16).max(0).min(255) as u32;
 
                             let final_color =
                                 ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;

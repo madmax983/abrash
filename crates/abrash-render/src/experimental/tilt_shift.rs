@@ -145,7 +145,7 @@ pub fn apply_tilt_shift(fb: &mut Framebuffer, config: &TiltShiftConfig) {
             // Calculate blur amount (0.0 to 1.0)
             // Normalize distance outside the sharp range
             let blur_amount =
-                ((y_dist - sharp_range_pixels) / (height as f32 * 0.5)).clamp(0.0, 1.0);
+                ((y_dist - sharp_range_pixels) / (height as f32 * 0.5)).max(0.0).min(1.0);
 
             // Apply a smoothstep for softer transition
             let t = blur_amount * blur_amount * (3.0 - 2.0 * blur_amount);

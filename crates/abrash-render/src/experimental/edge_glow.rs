@@ -76,7 +76,7 @@ pub fn apply_edge_glow(fb: &mut Framebuffer, config: &EdgeGlowConfig) {
 
         // Fixed point configuration for fast inner loops
         let intensity_fixed = (config.intensity * 256.0).max(0.0) as u32;
-        let darken_fixed = (config.darken_factor * 256.0).clamp(0.0, 256.0) as u32;
+        let darken_fixed = (config.darken_factor * 256.0).max(0.0).min(256.0) as u32;
 
         let edge_r = (config.edge_color >> 16) & 0xFF;
         let edge_g = (config.edge_color >> 8) & 0xFF;

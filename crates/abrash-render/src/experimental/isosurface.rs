@@ -226,7 +226,7 @@ fn polygonize_tetrahedron(
         };
 
         // Safety clamp
-        let t = t.clamp(0.0, 1.0);
+        let t = t.max(0.0).min(1.0);
 
         // Interpolate position
         // p = p_a + t * (p_b - p_a)

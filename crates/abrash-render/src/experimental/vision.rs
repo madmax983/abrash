@@ -112,7 +112,7 @@ fn apply_night_vision(fb: &mut Framebuffer, config: &VisionConfig) {
 
             // Map to Green phosphor
             let val = (lum + noise) * vignette * config.intensity;
-            let val_clamped = val.clamp(0.0, 255.0) as u32;
+            let val_clamped = val.max(0.0).min(255.0) as u32;
 
             // Result is mostly green, slight blue/red tint for phosphor feel
             *pixel =
@@ -140,7 +140,7 @@ fn apply_thermal_vision(fb: &mut Framebuffer, zb: &ZBuffer, _config: &VisionConf
         // t = (depth - (-1.0)) / 2.0 = (depth + 1.0) / 2.0.
         // Invert for Hot->Cold mapping: 1.0 - t
 
-        let t = ((depth + 1.0) * 0.5).clamp(0.0, 1.0);
+        let t = ((depth + 1.0) * 0.5).max(0.0).min(1.0);
         let heat = 1.0 - t;
 
         pixels[i] = get_thermal_color(heat);

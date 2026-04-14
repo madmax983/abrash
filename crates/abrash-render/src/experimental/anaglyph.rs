@@ -156,7 +156,7 @@ fn process_row(
             // Clamp shift to [-max_offset, max_offset]
 
             let mut normalized_shift = 1.0 - (d / config.focal_depth);
-            normalized_shift = normalized_shift.clamp(-1.0, 1.0);
+            normalized_shift = normalized_shift.max(-1.0).min(1.0);
 
             #[allow(clippy::cast_possible_truncation)]
             let shift = (normalized_shift * config.max_offset as f32).round() as i32;
@@ -204,7 +204,7 @@ fn process_row(
                 -(config.max_offset as i32)
             } else {
                 let mut ns = 1.0 - (my_d / config.focal_depth);
-                ns = ns.clamp(-1.0, 1.0);
+                ns = ns.max(-1.0).min(1.0);
                 (ns * config.max_offset as f32).round() as i32
             };
 

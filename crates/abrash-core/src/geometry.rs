@@ -561,7 +561,7 @@ impl AABB {
     #[must_use]
     #[inline]
     pub const fn closest_point(&self, point: Vec3) -> Vec3 {
-        point.clamp(self.min, self.max)
+        point.max(self.min).min(self.max)
     }
 
     /// Squared distance from `point` to this AABB.
@@ -1381,9 +1381,9 @@ impl OBB {
     pub fn closest_point(&self, point: Vec3) -> Vec3 {
         let l = self.local_coords(point);
         let c = Vec3::new(
-            l.x.clamp(-self.half_extents.x, self.half_extents.x),
-            l.y.clamp(-self.half_extents.y, self.half_extents.y),
-            l.z.clamp(-self.half_extents.z, self.half_extents.z),
+            l.x.max(-self.half_extents.x).min(self.half_extents.x),
+            l.y.max(-self.half_extents.y).min(self.half_extents.y),
+            l.z.max(-self.half_extents.z).min(self.half_extents.z),
         );
         self.center + self.axes[0] * c.x + self.axes[1] * c.y + self.axes[2] * c.z
     }
@@ -1558,7 +1558,7 @@ impl Capsule {
         if len_sq < 1e-10 {
             return (self.a, 0.0); // degenerate capsule = sphere
         }
-        let t = ((point - self.a).dot(ab) / len_sq).clamp(0.0, 1.0);
+        let t = ((point - self.a).dot(ab) / len_sq).max(0.0).min(1.0);
         (self.a + ab * t, t)
     }
 
@@ -1680,25 +1680,25 @@ fn segment_segment_dist_sq(p0: Vec3, p1: Vec3, q0: Vec3, q1: Vec3) -> f32 {
     let (s, t) = if a <= 1e-10 && e <= 1e-10 {
         (0.0_f32, 0.0_f32)
     } else if a <= 1e-10 {
-        (0.0, (f / e).clamp(0.0, 1.0))
+        (0.0, (f / e).max(0.0).min(1.0))
     } else {
         let c = d1.dot(r);
         if e <= 1e-10 {
-            ((-c / a).clamp(0.0, 1.0), 0.0)
+            ((-c / a).max(0.0).min(1.0), 0.0)
         } else {
             let b_dot = d1.dot(d2);
             let denom = a * e - b_dot * b_dot;
             let s = if denom.abs() > 1e-10 {
-                ((b_dot * f - c * e) / denom).clamp(0.0, 1.0)
+                ((b_dot * f - c * e) / denom).max(0.0).min(1.0)
             } else {
                 0.0
             };
             let t_unclamped = (b_dot * s + f) / e;
             if t_unclamped < 0.0 {
-                let s2 = (-c / a).clamp(0.0, 1.0);
+                let s2 = (-c / a).max(0.0).min(1.0);
                 (s2, 0.0)
             } else if t_unclamped > 1.0 {
-                let s2 = ((b_dot - c) / a).clamp(0.0, 1.0);
+                let s2 = ((b_dot - c) / a).max(0.0).min(1.0);
                 (s2, 1.0)
             } else {
                 (s, t_unclamped)
@@ -1800,7 +1800,7 @@ impl Segment {
         if len_sq < 1e-10 {
             return self.a;
         }
-        let t = ((point - self.a).dot(dir) / len_sq).clamp(0.0, 1.0);
+        let t = ((point - self.a).dot(dir) / len_sq).max(0.0).min(1.0);
         self.a + dir * t
     }
 

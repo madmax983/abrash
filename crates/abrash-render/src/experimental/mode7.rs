@@ -53,7 +53,7 @@ impl Default for Mode7Config {
 
 /// Helper function to interpolate between two ARGB colors.
 fn lerp_color(c1: u32, c2: u32, t: f32) -> u32 {
-    let t = t.clamp(0.0, 1.0);
+    let t = t.max(0.0).min(1.0);
     let inv_t = 1.0 - t;
 
     let a1 = ((c1 >> 24) & 0xFF) as f32;
@@ -153,7 +153,7 @@ pub fn render_mode7(fb: &mut Framebuffer, texture: &Texture, config: &Mode7Confi
 
         // Optional: crude distance fog to hide aliasing at the horizon
         let fog_factor =
-            ((distance - config.fog_start) / (config.fog_end - config.fog_start)).clamp(0.0, 1.0);
+            ((distance - config.fog_start) / (config.fog_end - config.fog_start)).max(0.0).min(1.0);
 
         // Precalculate horizontal step size in space coordinates
         let step_space_x = distance / config.fov;

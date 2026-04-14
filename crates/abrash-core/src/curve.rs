@@ -180,7 +180,7 @@ impl CatmullRom {
             return self.points[0];
         }
 
-        let scaled = t.clamp(0.0, 1.0) * (n - 1) as f32;
+        let scaled = t.max(0.0).min(1.0) * (n - 1) as f32;
         let seg = (scaled as usize).min(n - 2);
         let local_t = scaled - seg as f32;
 

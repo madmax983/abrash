@@ -197,7 +197,7 @@ fn add_error(buffer: &mut [f32], idx: usize, r_err: f32, g_err: f32, b_err: f32,
 
 /// Quantizes a value to the specified bit depth.
 fn quantize(val: f32, depth: u8) -> u8 {
-    let val = val.clamp(0.0, 255.0);
+    let val = val.max(0.0).min(255.0);
     let levels = (1 << depth) - 1;
     let step = 255.0 / levels as f32;
 

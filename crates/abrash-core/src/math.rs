@@ -212,7 +212,7 @@ pub fn lerp(a: f32, b: f32, t: f32) -> f32 {
 #[must_use]
 #[inline]
 pub const fn saturate(x: f32) -> f32 {
-    x.clamp(0.0, 1.0)
+    x.max(0.0).min(1.0)
 }
 
 /// Hermite interpolation: smooth ramp from 0 to 1 over \[edge0, edge1\].
@@ -231,7 +231,7 @@ pub const fn saturate(x: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
-    let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
+    let t = ((x - edge0) / (edge1 - edge0)).max(0.0).min(1.0);
     t * t * (3.0 - 2.0 * t)
 }
 
@@ -241,7 +241,7 @@ pub fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn smootherstep(edge0: f32, edge1: f32, x: f32) -> f32 {
-    let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
+    let t = ((x - edge0) / (edge1 - edge0)).max(0.0).min(1.0);
     t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
 }
 
@@ -419,7 +419,7 @@ pub fn inverse_lerp(a: f32, b: f32, value: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn remap_clamped(x: f32, from_min: f32, from_max: f32, to_min: f32, to_max: f32) -> f32 {
-    let t = ((x - from_min) / (from_max - from_min)).clamp(0.0, 1.0);
+    let t = ((x - from_min) / (from_max - from_min)).max(0.0).min(1.0);
     to_min + t * (to_max - to_min)
 }
 
@@ -477,7 +477,7 @@ pub fn sign_no_zero(x: f32) -> f32 {
 #[inline]
 pub fn bias(t: f32, b: f32) -> f32 {
     // exponent = log(b) / log(0.5) = −log(b) / log(2)
-    let b = b.clamp(1e-6, 1.0 - 1e-6);
+    let b = b.max(1e-6).min(1.0 - 1e-6);
     t.powf(-b.ln() / std::f32::consts::LN_2)
 }
 
@@ -565,7 +565,7 @@ pub fn sawtooth_wave(t: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn square_wave(t: f32, duty: f32) -> f32 {
-    if t.rem_euclid(1.0) < duty.clamp(0.0, 1.0) {
+    if t.rem_euclid(1.0) < duty.max(0.0).min(1.0) {
         1.0
     } else {
         0.0
@@ -591,7 +591,7 @@ pub fn square_wave(t: f32, duty: f32) -> f32 {
 #[inline]
 pub fn pulse_wave(t: f32, center: f32, width: f32) -> f32 {
     let t = t.rem_euclid(1.0);
-    let half = (width * 0.5).clamp(0.0, 0.5);
+    let half = (width * 0.5).max(0.0).min(0.5);
     // Wrap-aware distance to center
     let d = (t - center.rem_euclid(1.0)).rem_euclid(1.0);
     let d = d.min(1.0 - d); // shortest arc on the unit circle
@@ -632,7 +632,7 @@ pub fn exp_decay(t: f32, rate: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn ease_in(t: f32) -> f32 {
-    let t = t.clamp(0.0, 1.0);
+    let t = t.max(0.0).min(1.0);
     t * t * t
 }
 
@@ -650,7 +650,7 @@ pub fn ease_in(t: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn ease_out(t: f32) -> f32 {
-    let t = t.clamp(0.0, 1.0);
+    let t = t.max(0.0).min(1.0);
     let inv = 1.0 - t;
     1.0 - inv * inv * inv
 }
@@ -672,7 +672,7 @@ pub fn ease_out(t: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn ease_in_out(t: f32) -> f32 {
-    let t = t.clamp(0.0, 1.0);
+    let t = t.max(0.0).min(1.0);
     t * t * (3.0 - 2.0 * t)
 }
 
@@ -801,7 +801,7 @@ pub fn cartesian_to_spherical(v: Vec3) -> (f32, f32, f32) {
     if r < 1e-10 {
         return (0.0, 0.0, 0.0);
     }
-    let theta = (v.y / r).clamp(-1.0, 1.0).acos();
+    let theta = (v.y / r).max(-1.0).min(1.0).acos();
     let phi = v.z.atan2(v.x).rem_euclid(std::f32::consts::TAU);
     (r, theta, phi)
 }
@@ -1375,7 +1375,7 @@ impl Vec2 {
         if denom <= 0.000_000_01 {
             return 0.0;
         }
-        (self.dot(other) / denom).clamp(-1.0, 1.0).acos()
+        (self.dot(other) / denom).max(-1.0).min(1.0).acos()
     }
 
     /// Component-wise minimum.
@@ -1403,8 +1403,8 @@ impl Vec2 {
     #[inline]
     pub const fn clamp(self, min: Self, max: Self) -> Self {
         Self {
-            x: self.x.clamp(min.x, max.x),
-            y: self.y.clamp(min.y, max.y),
+            x: self.x.max(min.x).min(max.x),
+            y: self.y.max(min.y).min(max.y),
         }
     }
 
@@ -1496,8 +1496,8 @@ impl Vec2 {
     #[must_use]
     #[inline]
     pub fn smoothstep(self, edge0: Self, edge1: Self) -> Self {
-        let tx = ((self.x - edge0.x) / (edge1.x - edge0.x)).clamp(0.0, 1.0);
-        let ty = ((self.y - edge0.y) / (edge1.y - edge0.y)).clamp(0.0, 1.0);
+        let tx = ((self.x - edge0.x) / (edge1.x - edge0.x)).max(0.0).min(1.0);
+        let ty = ((self.y - edge0.y) / (edge1.y - edge0.y)).max(0.0).min(1.0);
         Self::new(tx * tx * (3.0 - 2.0 * tx), ty * ty * (3.0 - 2.0 * ty))
     }
 
@@ -1852,7 +1852,7 @@ impl Vec3 {
     pub fn slerp(self, other: Self, t: f32) -> Self {
         let a = self.normalize_or_zero();
         let b = other.normalize_or_zero();
-        let dot = a.dot(b).clamp(-1.0, 1.0);
+        let dot = a.dot(b).max(-1.0).min(1.0);
 
         // For tiny angles, lerp is numerically more stable and faster.
         if dot > 0.999_5 {
@@ -2200,7 +2200,7 @@ impl Vec3 {
     #[must_use]
     #[inline]
     pub fn refract(self, normal: Self, eta: f32) -> Self {
-        let cos_i = (-self.dot(normal)).clamp(-1.0, 1.0);
+        let cos_i = (-self.dot(normal)).max(-1.0).min(1.0);
         let k = 1.0 - eta * eta * (1.0 - cos_i * cos_i);
         if k < 0.0 {
             Self::ZERO
@@ -2289,7 +2289,7 @@ impl Vec3 {
         if denom <= 0.000_000_01 {
             return 0.0;
         }
-        (self.dot(other) / denom).clamp(-1.0, 1.0).acos()
+        (self.dot(other) / denom).max(-1.0).min(1.0).acos()
     }
 
     /// Builds an orthonormal basis from this direction.
@@ -2466,9 +2466,9 @@ impl Vec3 {
     #[inline]
     pub const fn clamp(self, min: Self, max: Self) -> Self {
         Self {
-            x: self.x.clamp(min.x, max.x),
-            y: self.y.clamp(min.y, max.y),
-            z: self.z.clamp(min.z, max.z),
+            x: self.x.max(min.x).min(max.x),
+            y: self.y.max(min.y).min(max.y),
+            z: self.z.max(min.z).min(max.z),
         }
     }
 
@@ -2574,9 +2574,9 @@ impl Vec3 {
     #[must_use]
     #[inline]
     pub fn smoothstep(self, edge0: Self, edge1: Self) -> Self {
-        let tx = ((self.x - edge0.x) / (edge1.x - edge0.x)).clamp(0.0, 1.0);
-        let ty = ((self.y - edge0.y) / (edge1.y - edge0.y)).clamp(0.0, 1.0);
-        let tz = ((self.z - edge0.z) / (edge1.z - edge0.z)).clamp(0.0, 1.0);
+        let tx = ((self.x - edge0.x) / (edge1.x - edge0.x)).max(0.0).min(1.0);
+        let ty = ((self.y - edge0.y) / (edge1.y - edge0.y)).max(0.0).min(1.0);
+        let tz = ((self.z - edge0.z) / (edge1.z - edge0.z)).max(0.0).min(1.0);
         Self::new(
             tx * tx * (3.0 - 2.0 * tx),
             ty * ty * (3.0 - 2.0 * ty),
@@ -5480,7 +5480,7 @@ mod tests {
         assert_eq!(min, Vec4::new(-1.0, 1.0, 7.0, 0.5));
         assert_eq!(max, Vec4::new(2.0, 3.0, 10.0, 2.0));
 
-        let clamped = Vec4::new(3.0, 0.0, 8.0, 1.5).clamp(min, max);
+        let clamped = Vec4::new(3.0, 0.0, 8.0, 1.5).max(min).min(max);
         assert_eq!(clamped, Vec4::new(2.0, 1.0, 8.0, 1.5));
 
         assert!((a.distance_sq(b) - 24.25).abs() < 1e-6);
@@ -5925,10 +5925,10 @@ impl Vec4 {
     #[inline]
     pub const fn clamp(self, min: Self, max: Self) -> Self {
         Self {
-            x: self.x.clamp(min.x, max.x),
-            y: self.y.clamp(min.y, max.y),
-            z: self.z.clamp(min.z, max.z),
-            w: self.w.clamp(min.w, max.w),
+            x: self.x.max(min.x).min(max.x),
+            y: self.y.max(min.y).min(max.y),
+            z: self.z.max(min.z).min(max.z),
+            w: self.w.max(min.w).min(max.w),
         }
     }
 
@@ -6594,7 +6594,7 @@ impl Quat {
     #[must_use]
     #[inline]
     pub fn angle(self) -> f32 {
-        2.0 * self.w.clamp(-1.0, 1.0).acos()
+        2.0 * self.w.max(-1.0).min(1.0).acos()
     }
 
     /// Axis of the rotation (normalised). Returns `Vec3::Y` for the identity.
@@ -8351,7 +8351,7 @@ pub const fn prev_power_of_two(x: u32) -> u32 {
 /// assert!((smootherstep5(0.5) - 0.5).abs() < 1e-6);
 /// ```
 pub fn smootherstep5(t: f32) -> f32 {
-    let t = t.clamp(0.0, 1.0);
+    let t = t.max(0.0).min(1.0);
     t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
 }
 
@@ -8371,7 +8371,7 @@ pub fn smootherstep5(t: f32) -> f32 {
 /// assert!((smootherstep7(0.5) - 0.5).abs() < 1e-6);
 /// ```
 pub fn smootherstep7(t: f32) -> f32 {
-    let t = t.clamp(0.0, 1.0);
+    let t = t.max(0.0).min(1.0);
     let t2 = t * t;
     let t4 = t2 * t2;
     t4 * (-20.0 * t * t * t + 70.0 * t2 - 84.0 * t + 35.0)
@@ -8980,7 +8980,7 @@ pub fn perspective_correct_lerp(t: f32, v0: f32, v1: f32, w0: f32, w1: f32) -> f
 /// assert!((smoothstep_sine(0.5) - 0.5).abs() < 1e-6);
 /// ```
 pub fn smoothstep_sine(t: f32) -> f32 {
-    let t = t.clamp(0.0, 1.0);
+    let t = t.max(0.0).min(1.0);
     0.5 - (core::f32::consts::PI * t).cos() * 0.5
 }
 
@@ -8997,7 +8997,7 @@ pub fn smoothstep_sine(t: f32) -> f32 {
 /// assert!(ease_exp_in(0.5, 4.0) < 0.5, "ease-in should be below diagonal at 0.5");
 /// ```
 pub fn ease_exp_in(t: f32, k: f32) -> f32 {
-    let t = t.clamp(0.0, 1.0);
+    let t = t.max(0.0).min(1.0);
     if t == 0.0 {
         return 0.0;
     }
@@ -9178,7 +9178,7 @@ pub fn reinhard_white(x: f32, white: f32) -> f32 {
 /// assert!(aces_filmic(100.0) <= 1.0); // large input clamps to exactly 1.0
 /// ```
 pub fn aces_filmic(x: f32) -> f32 {
-    ((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14)).clamp(0.0, 1.0)
+    ((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14)).max(0.0).min(1.0)
 }
 
 /// Exposure adjustment: multiply by `2^ev` stops.
@@ -9211,8 +9211,8 @@ pub fn exposure(x: f32, ev: f32) -> f32 {
 /// assert!((v2 - 0.0).abs() < 1e-5, "south pole v=0: {v2}");
 /// ```
 pub fn sphere_normal_to_uv(n: Vec3) -> (f32, f32) {
-    let u = (n.x.atan2(n.z) / core::f32::consts::TAU + 0.5).clamp(0.0, 1.0);
-    let v = (n.y.clamp(-1.0, 1.0).asin() / core::f32::consts::PI + 0.5).clamp(0.0, 1.0);
+    let u = (n.x.atan2(n.z) / core::f32::consts::TAU + 0.5).max(0.0).min(1.0);
+    let v = (n.y.max(-1.0).min(1.0).asin() / core::f32::consts::PI + 0.5).max(0.0).min(1.0);
     (u, v)
 }
 
@@ -9250,7 +9250,7 @@ pub fn make_view_ray(uv: Vec2, fov_y: f32, aspect: f32) -> Vec3 {
 /// assert!(linear_to_srgb(0.5) > 0.70);
 /// ```
 pub fn linear_to_srgb(x: f32) -> f32 {
-    let x = x.clamp(0.0, 1.0);
+    let x = x.max(0.0).min(1.0);
     if x <= 0.003_130_8 {
         x * 12.92
     } else {
@@ -9268,7 +9268,7 @@ pub fn linear_to_srgb(x: f32) -> f32 {
 /// assert!((srgb_to_linear(1.0) - 1.0).abs() < 1e-5);
 /// ```
 pub fn srgb_to_linear(x: f32) -> f32 {
-    let x = x.clamp(0.0, 1.0);
+    let x = x.max(0.0).min(1.0);
     if x <= 0.04045 {
         x / 12.92
     } else {
@@ -9542,7 +9542,7 @@ pub fn hsl_to_rgb(h: f32, s: f32, l: f32) -> (f32, f32, f32) {
 /// ```
 #[inline]
 pub fn fresnel_schlick(cos_theta: f32, f0: f32) -> f32 {
-    f0 + (1.0 - f0) * (1.0 - cos_theta).clamp(0.0, 1.0).powi(5)
+    f0 + (1.0 - f0) * (1.0 - cos_theta).max(0.0).min(1.0).powi(5)
 }
 
 /// **Ray–sphere** intersection.
@@ -10064,23 +10064,23 @@ pub fn rgba_over(
 /// assert!(r2 > b2, "warm: red > blue: {r2} vs {b2}");
 /// ```
 pub fn color_temperature_rgb(kelvin: f32) -> (f32, f32, f32) {
-    let t = kelvin.clamp(1000.0, 40_000.0) / 100.0;
+    let t = kelvin.max(1000.0).min(40_000.0) / 100.0;
     let r = if t <= 66.0 {
         1.0
     } else {
-        (329.698_727_45 * (t - 60.0).powf(-0.133_204_759_2) / 255.0).clamp(0.0, 1.0)
+        (329.698_727_45 * (t - 60.0).powf(-0.133_204_759_2) / 255.0).max(0.0).min(1.0)
     };
     let g = if t <= 66.0 {
-        (99.470_802_53 * t.ln() - 161.119_568_34).clamp(0.0, 255.0) / 255.0
+        (99.470_802_53 * t.ln() - 161.119_568_34).max(0.0).min(255.0) / 255.0
     } else {
-        (288.122_169_52 * (t - 60.0).powf(-0.075_514_849_2) / 255.0).clamp(0.0, 1.0)
+        (288.122_169_52 * (t - 60.0).powf(-0.075_514_849_2) / 255.0).max(0.0).min(1.0)
     };
     let b = if t >= 66.0 {
         1.0
     } else if t <= 19.0 {
         0.0
     } else {
-        ((138.517_731_21 * (t - 10.0).ln() - 305.044_792_7) / 255.0).clamp(0.0, 1.0)
+        ((138.517_731_21 * (t - 10.0).ln() - 305.044_792_7) / 255.0).max(0.0).min(1.0)
     };
     (r, g, b)
 }
@@ -11468,7 +11468,7 @@ pub fn refract(incident: Vec3, normal: Vec3, eta: f32) -> Option<Vec3> {
 pub fn closest_point_on_segment_3d(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
     let ab = b - a;
     let t = (p - a).dot(ab) / ab.dot(ab);
-    let t = t.clamp(0.0, 1.0);
+    let t = t.max(0.0).min(1.0);
     Vec3::new(a.x + t * ab.x, a.y + t * ab.y, a.z + t * ab.z)
 }
 
@@ -12628,14 +12628,14 @@ mod tests_pass_31 {
 #[must_use]
 #[inline]
 pub fn ease_quart_in(t: f32) -> f32 {
-    t.clamp(0.0, 1.0).powi(4)
+    t.max(0.0).min(1.0).powi(4)
 }
 
 /// Quartic ease-out: decelerates with `(1−t)⁴`.
 #[must_use]
 #[inline]
 pub fn ease_quart_out(t: f32) -> f32 {
-    let t = 1.0 - t.clamp(0.0, 1.0);
+    let t = 1.0 - t.max(0.0).min(1.0);
     1.0 - t.powi(4)
 }
 
@@ -12643,7 +12643,7 @@ pub fn ease_quart_out(t: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn ease_quart_in_out(t: f32) -> f32 {
-    let t = t.clamp(0.0, 1.0);
+    let t = t.max(0.0).min(1.0);
     if t < 0.5 {
         8.0 * t.powi(4)
     } else {
@@ -12656,14 +12656,14 @@ pub fn ease_quart_in_out(t: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn ease_quint_in(t: f32) -> f32 {
-    t.clamp(0.0, 1.0).powi(5)
+    t.max(0.0).min(1.0).powi(5)
 }
 
 /// Quintic ease-out: decelerates with `(1−t)⁵`.
 #[must_use]
 #[inline]
 pub fn ease_quint_out(t: f32) -> f32 {
-    let t = 1.0 - t.clamp(0.0, 1.0);
+    let t = 1.0 - t.max(0.0).min(1.0);
     1.0 - t.powi(5)
 }
 
@@ -12671,7 +12671,7 @@ pub fn ease_quint_out(t: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn ease_quint_in_out(t: f32) -> f32 {
-    let t = t.clamp(0.0, 1.0);
+    let t = t.max(0.0).min(1.0);
     if t < 0.5 {
         16.0 * t.powi(5)
     } else {
@@ -13474,10 +13474,10 @@ pub fn checkerboard_2d(p: Vec2, scale: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn pack_unorm_4x8(r: f32, g: f32, b: f32, a: f32) -> u32 {
-    let ri = (r.clamp(0.0, 1.0) * 255.0 + 0.5) as u32;
-    let gi = (g.clamp(0.0, 1.0) * 255.0 + 0.5) as u32;
-    let bi = (b.clamp(0.0, 1.0) * 255.0 + 0.5) as u32;
-    let ai = (a.clamp(0.0, 1.0) * 255.0 + 0.5) as u32;
+    let ri = (r.max(0.0).min(1.0) * 255.0 + 0.5) as u32;
+    let gi = (g.max(0.0).min(1.0) * 255.0 + 0.5) as u32;
+    let bi = (b.max(0.0).min(1.0) * 255.0 + 0.5) as u32;
+    let ai = (a.max(0.0).min(1.0) * 255.0 + 0.5) as u32;
     ri | (gi << 8) | (bi << 16) | (ai << 24)
 }
 
@@ -13507,8 +13507,8 @@ pub fn unpack_unorm_4x8(packed: u32) -> (f32, f32, f32, f32) {
 #[must_use]
 #[inline]
 pub fn pack_snorm_2x16(x: f32, y: f32) -> u32 {
-    let xi = (x.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16 as u32;
-    let yi = (y.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16 as u32;
+    let xi = (x.max(-1.0).min(1.0) * 32_767.0).round() as i16 as u16 as u32;
+    let yi = (y.max(-1.0).min(1.0) * 32_767.0).round() as i16 as u16 as u32;
     xi | (yi << 16)
 }
 
@@ -13516,8 +13516,8 @@ pub fn pack_snorm_2x16(x: f32, y: f32) -> u32 {
 #[must_use]
 #[inline]
 pub fn unpack_snorm_2x16(packed: u32) -> (f32, f32) {
-    let x = ((packed & 0xFFFF) as i16 as f32 / 32_767.0).clamp(-1.0, 1.0);
-    let y = (((packed >> 16) & 0xFFFF) as i16 as f32 / 32_767.0).clamp(-1.0, 1.0);
+    let x = ((packed & 0xFFFF) as i16 as f32 / 32_767.0).max(-1.0).min(1.0);
+    let y = (((packed >> 16) & 0xFFFF) as i16 as f32 / 32_767.0).max(-1.0).min(1.0);
     (x, y)
 }
 
@@ -14079,7 +14079,7 @@ pub fn signed_angle_3d(from: Vec3, to: Vec3, axis: Vec3) -> f32 {
 /// Smoothly traces the great-circle arc from `a` to `b`. Falls back to `lerp`
 /// when the vectors are nearly parallel (angle < ~0.1°) to avoid divide-by-zero.
 pub fn vec3_slerp(a: Vec3, b: Vec3, t: f32) -> Vec3 {
-    let cos_theta = a.dot(b).clamp(-1.0, 1.0);
+    let cos_theta = a.dot(b).max(-1.0).min(1.0);
     if cos_theta > 1.0 - 1e-6 {
         // Nearly identical — linear blend then re-normalise
         let v = Vec3::new(
@@ -14260,7 +14260,7 @@ pub fn smooth_min_exp(a: f32, b: f32, k: f32) -> f32 {
 ///
 /// `k` controls the blend radius. Typical range: 0.1–2.0.
 pub fn smooth_min_poly(a: f32, b: f32, k: f32) -> f32 {
-    let h = (0.5 + 0.5 * (b - a) / k).clamp(0.0, 1.0);
+    let h = (0.5 + 0.5 * (b - a) / k).max(0.0).min(1.0);
     lerp(b, a, h) - k * h * (1.0 - h)
 }
 
@@ -14565,7 +14565,7 @@ pub fn swing_twist_decompose(q: Quat, twist_axis: Vec3) -> (Quat, Quat) {
 /// Returns `None` on total internal reflection.
 pub fn refract_vec3(incident: Vec3, normal: Vec3, eta: f32) -> Option<Vec3> {
     let neg_incident = Vec3::new(-incident.x, -incident.y, -incident.z);
-    let cos_i = neg_incident.dot(normal).clamp(-1.0, 1.0);
+    let cos_i = neg_incident.dot(normal).max(-1.0).min(1.0);
     let k = 1.0 - eta * eta * (1.0 - cos_i * cos_i);
     if k < 0.0 {
         return None;
@@ -14826,7 +14826,7 @@ pub fn mip_level(dudx: f32, dvdx: f32, dudy: f32, dvdy: f32, max_level: f32) -> 
     let rho_x = dudx * dudx + dvdx * dvdx;
     let rho_y = dudy * dudy + dvdy * dvdy;
     let rho = rho_x.max(rho_y).max(1e-20);
-    (0.5 * rho.log2()).clamp(0.0, max_level)
+    (0.5 * rho.log2()).max(0.0).min(max_level)
 }
 
 /// Adjust contrast of a value `x ∈ [0,1]` around midpoint 0.5.
@@ -14834,7 +14834,7 @@ pub fn mip_level(dudx: f32, dvdx: f32, dudy: f32, dvdy: f32, max_level: f32) -> 
 /// `contrast > 1.0` increases contrast; `0 < contrast < 1.0` reduces it.
 /// Output is clamped to `[0, 1]`.
 pub fn contrast_adjust(x: f32, contrast: f32) -> f32 {
-    ((x - 0.5) * contrast + 0.5).clamp(0.0, 1.0)
+    ((x - 0.5) * contrast + 0.5).max(0.0).min(1.0)
 }
 
 /// Adjust saturation of an RGB colour using Rec.709 luma.
@@ -14844,9 +14844,9 @@ pub fn contrast_adjust(x: f32, contrast: f32) -> f32 {
 pub fn saturation_adjust(r: f32, g: f32, b: f32, factor: f32) -> (f32, f32, f32) {
     // Rec.709 luma coefficients
     let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    let nr = (luma + factor * (r - luma)).clamp(0.0, 1.0);
-    let ng = (luma + factor * (g - luma)).clamp(0.0, 1.0);
-    let nb = (luma + factor * (b - luma)).clamp(0.0, 1.0);
+    let nr = (luma + factor * (r - luma)).max(0.0).min(1.0);
+    let ng = (luma + factor * (g - luma)).max(0.0).min(1.0);
+    let nb = (luma + factor * (b - luma)).max(0.0).min(1.0);
     (nr, ng, nb)
 }
 
@@ -15456,24 +15456,24 @@ pub fn closest_segment_to_segment(p1: Vec3, p2: Vec3, p3: Vec3, p4: Vec3) -> (Ve
     let e = d2.x * d2.x + d2.y * d2.y + d2.z * d2.z;
     let f = d2.x * r.x + d2.y * r.y + d2.z * r.z;
     let (s, t) = if a < 1e-10 {
-        (0.0, (f / e.max(1e-10)).clamp(0.0, 1.0))
+        (0.0, (f / e.max(1e-10)).max(0.0).min(1.0))
     } else {
         let c = d1.x * r.x + d1.y * r.y + d1.z * r.z;
         if e < 1e-10 {
-            ((-c / a).clamp(0.0, 1.0), 0.0)
+            ((-c / a).max(0.0).min(1.0), 0.0)
         } else {
             let b = d1.x * d2.x + d1.y * d2.y + d1.z * d2.z;
             let denom = a * e - b * b;
             let s0 = if denom.abs() > 1e-10 {
-                ((b * f - c * e) / denom).clamp(0.0, 1.0)
+                ((b * f - c * e) / denom).max(0.0).min(1.0)
             } else {
                 0.0
             };
             let t0 = (b * s0 + f) / e.max(1e-10);
             if t0 < 0.0 {
-                ((-c / a).clamp(0.0, 1.0), 0.0)
+                ((-c / a).max(0.0).min(1.0), 0.0)
             } else if t0 > 1.0 {
-                (((b - c) / a).clamp(0.0, 1.0), 1.0)
+                (((b - c) / a).max(0.0).min(1.0), 1.0)
             } else {
                 (s0, t0)
             }
@@ -15696,7 +15696,7 @@ mod tests_pass_44 {
 ///
 /// Call once per frame: `state = exponential_smooth(state, new_value, alpha)`.
 pub fn exponential_smooth(current: f32, target: f32, alpha: f32) -> f32 {
-    current + alpha.clamp(0.0, 1.0) * (target - current)
+    current + alpha.max(0.0).min(1.0) * (target - current)
 }
 
 /// One-step of the **1€ filter** (Casiez et al. 2012) for adaptive smoothing.
@@ -16498,8 +16498,8 @@ pub fn stratified_jitter_2d(n: u32, jitter: &[(f32, f32)]) -> Vec<(f32, f32)> {
                 (0.5, 0.5)
             };
             (
-                (j as f32 + jx.clamp(0.0, 1.0)) * inv_n,
-                (i as f32 + jy.clamp(0.0, 1.0)) * inv_n,
+                (j as f32 + jx.max(0.0).min(1.0)) * inv_n,
+                (i as f32 + jy.max(0.0).min(1.0)) * inv_n,
             )
         })
         .collect()
@@ -16652,7 +16652,7 @@ pub fn ridged_fbm_3d(mut p: Vec3, octaves: u32, lacunarity: f32, gain: f32) -> f
         let n = 1.0 - perlin_noise_3d(p).abs();
         let n = n * n * weight;
         value += n * amplitude;
-        weight = n.clamp(0.0, 1.0);
+        weight = n.max(0.0).min(1.0);
         p = Vec3::new(p.x * lacunarity, p.y * lacunarity, p.z * lacunarity);
         amplitude *= gain;
     }
@@ -16728,7 +16728,7 @@ pub fn fbm_ridged_2d(mut p: Vec2, octaves: u32, lacunarity: f32, gain: f32) -> f
         let n = 1.0 - perlin_2d(p).abs();
         let n = n * n * weight;
         value += n * amplitude;
-        weight = n.clamp(0.0, 1.0);
+        weight = n.max(0.0).min(1.0);
         p = Vec2::new(p.x * lacunarity, p.y * lacunarity);
         amplitude *= gain;
     }
@@ -16987,7 +16987,7 @@ pub fn pearson_correlation(x: &[f32], y: &[f32]) -> Option<f32> {
     if sx < 1e-10 || sy < 1e-10 {
         return None;
     }
-    Some((cov / (sx * sy)).clamp(-1.0, 1.0))
+    Some((cov / (sx * sy)).max(-1.0).min(1.0))
 }
 
 /// Count the number of zero crossings in a signal (sign changes between adjacent samples).
@@ -17238,10 +17238,10 @@ pub fn two_bone_ik(root: Vec3, l1: f32, l2: f32, target: Vec3, hint: Vec3) -> Ve
     let dir = Vec3::new(to_target.x / dist, to_target.y / dist, to_target.z / dist);
 
     // Clamp reach to [|l1-l2|, l1+l2].
-    let d = dist.clamp((l1 - l2).abs(), l1 + l2);
+    let d = dist.max((l1 - l2).abs()).min(l1 + l2);
 
     // Law of cosines: angle at root between reach direction and bone1.
-    let cos_a = ((d * d + l1 * l1 - l2 * l2) / (2.0 * d * l1)).clamp(-1.0, 1.0);
+    let cos_a = ((d * d + l1 * l1 - l2 * l2) / (2.0 * d * l1)).max(-1.0).min(1.0);
     let angle_a = cos_a.acos();
 
     // Rotation axis = dir x hint (perpendicular to the reach plane).
@@ -17385,7 +17385,7 @@ pub fn bezier_arc_length_param(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, s: f32, s
     if total < 1e-10 {
         return 0.0;
     }
-    let target_len = s.clamp(0.0, 1.0) * total;
+    let target_len = s.max(0.0).min(1.0) * total;
     let idx = lengths.partition_point(|&l| l <= target_len).min(n).max(1);
     let lo = lengths[idx - 1];
     let hi = lengths[idx];
@@ -17666,7 +17666,7 @@ pub fn sphere_vs_capsule(center: Vec3, sr: f32, cap_a: Vec3, cap_b: Vec3, cr: f3
     let t = if len_sq < 1e-12 {
         0.0
     } else {
-        ((to_c.x * seg.x + to_c.y * seg.y + to_c.z * seg.z) / len_sq).clamp(0.0, 1.0)
+        ((to_c.x * seg.x + to_c.y * seg.y + to_c.z * seg.z) / len_sq).max(0.0).min(1.0)
     };
     let closest = Vec3::new(
         cap_a.x + t * seg.x,
@@ -18031,7 +18031,7 @@ pub fn sdf_capsule_3d(p: Vec3, a: Vec3, b: Vec3, r: f32) -> f32 {
     let t = if ba_len_sq < 1e-12 {
         0.0
     } else {
-        ((pa.x * ba.x + pa.y * ba.y + pa.z * ba.z) / ba_len_sq).clamp(0.0, 1.0)
+        ((pa.x * ba.x + pa.y * ba.y + pa.z * ba.z) / ba_len_sq).max(0.0).min(1.0)
     };
     let dx = pa.x - t * ba.x;
     let dy = pa.y - t * ba.y;
@@ -18092,7 +18092,7 @@ pub fn sdf_cone_finite(p: Vec3, a: Vec3, b: Vec3, r: f32) -> f32 {
     let d_dot = qx * cx + qr * cr;
     let d_cross = qx * cr - qr * cx;
     // Clamp d_dot to the slant segment [0, c_len].
-    let d_dot_c = d_dot.clamp(0.0, c_len);
+    let d_dot_c = d_dot.max(0.0).min(c_len);
     let dx = d_dot - d_dot_c;
     let dy = d_cross;
     let dist = dx.mul_add(dx, dy * dy).sqrt();
@@ -18435,7 +18435,7 @@ pub fn hash_to_unit_vec3(seed: u32) -> Vec3 {
 ///
 /// Valid range: 1667 K to 25 000 K.  Returns linear sRGB; may be out-of-gamut.
 pub fn blackbody_linear_rgb(kelvin: f32) -> (f32, f32, f32) {
-    let t = kelvin.clamp(1667.0, 25_000.0);
+    let t = kelvin.max(1667.0).min(25_000.0);
     // Kang 2002 — chromaticity x as function of T.
     let x = if t < 4000.0 {
         let ti = 1.0 / t;
@@ -19662,7 +19662,7 @@ pub fn sdf_hex_prism(p: Vec3, h: Vec2) -> f32 {
     let qx = ap.x - dot * KX;
     let qz = ap.z - dot * KY;
     // Distance to hex edge in XZ, height in Y.
-    let dx_raw = ((qx - (qz / KZ).clamp(0.0, h.x * KZ)).powi(2) + (qz - h.x).powi(2)).sqrt();
+    let dx_raw = ((qx - (qz / KZ).max(0.0).min(h.x * KZ)).powi(2) + (qz - h.x).powi(2)).sqrt();
     let dx_sign = if qx - h.x * KZ > 0.0 || qz - h.x > 0.0 {
         1.0_f32
     } else {
@@ -19691,7 +19691,7 @@ pub fn sdf_pyramid(p: Vec3, h: f32) -> f32 {
     // Project onto the slant edge.
     let q = Vec3::new(qz, h * qy - 0.5 * qx, h * qx + 0.5 * qy);
     let s = (-q.x).max(0.0);
-    let t = ((q.y - 0.5 * qz) / (m2 + 0.25)).clamp(0.0, 1.0);
+    let t = ((q.y - 0.5 * qz) / (m2 + 0.25)).max(0.0).min(1.0);
     let a = m2 * (q.x + s).powi(2) + q.y * q.y;
     let b = m2 * (q.x + 0.5 * t).powi(2) + (q.y - m2 * t).powi(2);
     let d = if q.y.min(-q.x * m2 - q.y * 0.5) > 0.0 {
@@ -19730,7 +19730,7 @@ pub fn sdf_op_smooth_intersect(a: f32, b: f32, k: f32) -> f32 {
 pub fn sdf_op_elongate(p: Vec3, h: Vec3) -> Vec3 {
     // Vec3 has no Neg — negate component-wise.
     let neg_h = Vec3::new(-h.x, -h.y, -h.z);
-    p - p.clamp(neg_h, h)
+    p - p.max(neg_h).min(h)
 }
 
 /// Twist space around the Y axis before evaluating an SDF.
@@ -19927,7 +19927,7 @@ pub fn fog_factor_linear(dist: f32, start: f32, end: f32) -> f32 {
     if end <= start {
         return 1.0;
     }
-    ((end - dist) / (end - start)).clamp(0.0, 1.0)
+    ((end - dist) / (end - start)).max(0.0).min(1.0)
 }
 
 /// Exponential fog factor: `exp(-density * dist)`.

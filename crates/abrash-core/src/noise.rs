@@ -758,7 +758,7 @@ pub fn fbm_simplex_2d(x: f32, y: f32, octaves: u32, lacunarity: f32, gain: f32) 
         amplitude *= gain;
         frequency *= lacunarity;
     }
-    value.clamp(-1.0, 1.0)
+    value.max(-1.0).min(1.0)
 }
 
 /// Fractional Brownian Motion built on top of [`simplex_3d`].
@@ -783,7 +783,7 @@ pub fn fbm_simplex_3d(x: f32, y: f32, z: f32, octaves: u32, lacunarity: f32, gai
         amplitude *= gain;
         frequency *= lacunarity;
     }
-    value.clamp(-1.0, 1.0)
+    value.max(-1.0).min(1.0)
 }
 
 // ── Curl Noise ────────────────────────────────────────────────────────────────
@@ -900,11 +900,11 @@ pub fn ridge_noise_2d(
         let n = 1.0 - gradient_noise_2d(x * frequency, y * frequency).abs();
         let ridge = n * n; // sharpen
         value += ridge * amplitude * weight;
-        weight = (ridge * sharpness).clamp(0.0, 1.0);
+        weight = (ridge * sharpness).max(0.0).min(1.0);
         amplitude *= gain;
         frequency *= lacunarity;
     }
-    value.clamp(0.0, 1.0)
+    value.max(0.0).min(1.0)
 }
 
 /// Billow noise (2D): `|fBm|` — cloudy, puffy terrain features.
@@ -1096,7 +1096,7 @@ pub fn gabor_noise_2d(x: f32, y: f32, freq: f32, theta: f32, bandwidth: f32, cel
             }
         }
     }
-    sum.clamp(-1.0, 1.0)
+    sum.max(-1.0).min(1.0)
 }
 
 /// 3D Voronoi noise returning `(f1, f2, cell_id)`.
@@ -1186,11 +1186,11 @@ pub fn ridge_noise_3d(x: f32, y: f32, z: f32, octaves: u32, lacunarity: f32, gai
         let n = 1.0 - gradient_noise_3d(x * frequency, y * frequency, z * frequency).abs();
         let n = n * n * weight;
         value += n * amplitude;
-        weight = n.clamp(0.0, 1.0);
+        weight = n.max(0.0).min(1.0);
         frequency *= lacunarity;
         amplitude *= gain;
     }
-    value.clamp(0.0, 1.0)
+    value.max(0.0).min(1.0)
 }
 
 /// Billow noise (3D): absolute-value fBm — produces cloud-like puffs.
@@ -1345,7 +1345,7 @@ pub fn fbm_value_3d(x: f32, y: f32, z: f32, octaves: u32, lacunarity: f32, gain:
 #[must_use]
 pub fn cellular_noise_2d(x: f32, y: f32, jitter: f32) -> f32 {
     let (f1, f2, _) = voronoi_noise_2d(x, y, jitter);
-    (f2 - f1).clamp(0.0, 1.0)
+    (f2 - f1).max(0.0).min(1.0)
 }
 
 /// Cellular noise (3D): returns the distance to the nearest cell border (`f2 - f1`).
@@ -1367,7 +1367,7 @@ pub fn cellular_noise_2d(x: f32, y: f32, jitter: f32) -> f32 {
 #[must_use]
 pub fn cellular_noise_3d(x: f32, y: f32, z: f32, jitter: f32) -> f32 {
     let (f1, f2, _) = voronoi_noise_3d(x, y, z, jitter);
-    (f2 - f1).clamp(0.0, 1.0)
+    (f2 - f1).max(0.0).min(1.0)
 }
 
 #[cfg(test)]

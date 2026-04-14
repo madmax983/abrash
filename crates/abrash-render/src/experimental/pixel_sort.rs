@@ -49,7 +49,7 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
 
     // Convert 0.0-1.0 threshold to 0-255 luminance
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let lum_threshold = (config.threshold.clamp(0.0, 1.0) * 255.0) as u8;
+    let lum_threshold = (config.threshold.max(0.0).min(1.0) * 255.0) as u8;
 
     #[cfg(feature = "parallel")]
     {

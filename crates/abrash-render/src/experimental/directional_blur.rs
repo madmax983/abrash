@@ -90,8 +90,8 @@ pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &Directiona
                     let py = cur_y >> 16;
 
                     // Clamp to edges
-                    let px = px.clamp(0, width as i32 - 1) as usize;
-                    let py = py.clamp(0, height as i32 - 1) as usize;
+                    let px = px.max(0).min(width as i32 - 1) as usize;
+                    let py = py.max(0).min(height as i32 - 1) as usize;
 
                     let color = source_slice[py * width + px];
                     let r = (color >> 16) & 0xFF;

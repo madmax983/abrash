@@ -116,7 +116,7 @@ fn process_row(
             0
         } else {
             // Normalize depth roughly 0 to 1, invert so closer is larger shift
-            let mut d = ((depth + 1.0) * 0.5 * config.depth_scale).clamp(0.0, 1.0);
+            let mut d = ((depth + 1.0) * 0.5 * config.depth_scale).max(0.0).min(1.0);
             d = 1.0 - d; // Closer objects (smaller d) get larger shift
 
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]

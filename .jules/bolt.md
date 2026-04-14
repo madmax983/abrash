@@ -313,3 +313,9 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Optimized `clear_rect` boundary clamping]**
 **Learning:** In tight inner loops or coordinate bounds calculations (e.g., `clear_rect`), replacing standard library `Ord::clamp(min, max)` with chained `.max(min).min(max)` can improve throughput by eliding the hidden `assert!(min <= max)` panic branch present in `clamp`.
 **Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.
+**[Optimized \`clamp\` boundary checking]**
+**Learning:** In tight inner loops or coordinate bounds calculations (e.g., rasterization and post-processing filters), replacing standard library `Ord::clamp(min, max)` with chained `.max(min).min(max)` can improve throughput by eliding the hidden `assert!(min <= max)` panic branch present in `clamp`.
+**Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` across `abrash-render` and `abrash-core` in performance-critical paths, verifying safety and logic through tests.
+**[Optimized `clamp` boundary checking]**
+**Learning:** In tight inner loops (e.g., per-pixel image processing), replacing standard library `Ord::clamp(min, max)` with chained `.max(min).min(max)` can improve throughput by eliding the hidden `assert!(min <= max)` panic branch. However, manual `if`/`else` branching may regress performance. Crucially, NEVER apply this optimization immediately before an `unsafe { get_unchecked(...) }` block, as the elided bounds check creates a critical memory safety risk (Undefined Behavior).
+**Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` across `abrash-render` and `abrash-core` in performance-critical paths, verifying safety and logic through tests. Reverted changes before `unsafe` blocks.

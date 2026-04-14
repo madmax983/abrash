@@ -155,7 +155,7 @@ pub fn apply_depth_of_field(fb: &mut Framebuffer, zb: &ZBuffer, config: &DepthOf
             // If dist < range, factor = 0.
             // If dist > range, factor increases.
             // Simple linear falloff:
-            let factor = ((dist - config.focus_range) / config.focus_range).clamp(0.0, 1.0);
+            let factor = ((dist - config.focus_range) / config.focus_range).max(0.0).min(1.0);
 
             if factor > 0.0 {
                 let orig = *orig_ptr;

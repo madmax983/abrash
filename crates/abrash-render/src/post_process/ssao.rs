@@ -171,7 +171,7 @@ pub fn apply_ssao(fb: &mut Framebuffer, zb: &ZBuffer, proj: &Mat4, config: &Ssao
 
         for (p, &occ) in pixels.iter_mut().zip(occlusion_buffer.iter()) {
             let factor = 1.0 - occ * intensity_factor;
-            let factor = factor.clamp(0.0, 1.0);
+            let factor = factor.max(0.0).min(1.0);
 
             // /// Bolt Performance Optimization:
             // /// Use integer fixed-point math for color blending (8.8 precision)

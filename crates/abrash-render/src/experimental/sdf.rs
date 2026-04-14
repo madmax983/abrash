@@ -69,7 +69,7 @@ impl SdfObject {
             SdfPrimitive::Capsule { start, end, radius } => {
                 let pa = p - start;
                 let ba = end - start;
-                let h = (pa.dot(ba) / ba.dot(ba)).clamp(0.0, 1.0);
+                let h = (pa.dot(ba) / ba.dot(ba)).max(0.0).min(1.0);
                 (pa - ba * h).length() - radius
             }
         }

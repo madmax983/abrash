@@ -93,7 +93,7 @@ pub fn apply_wobble(fb: &mut Framebuffer, config: &WobbleConfig) {
             let src_x = x as i32 - shift;
 
             // Handle horizontal bounds via clamping (or wrapping, but clamping is safer).
-            let clamped_src_x = src_x.clamp(0, width as i32 - 1) as usize;
+            let clamped_src_x = src_x.max(0).min(width as i32 - 1) as usize;
 
             *pixel = src_row[clamped_src_x];
         }

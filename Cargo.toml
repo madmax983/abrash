@@ -749,3 +749,6 @@ required-features = ["nova"]
 name = "mandelbrot_bench"
 harness = false
 required-features = ["nova"]
+[[bench]]
+name = "clamp_bench"
+harness = false
