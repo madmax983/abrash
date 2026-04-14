@@ -4942,7 +4942,6 @@ mod warden_tests {
             ptr.write(15, 0xFFFFFFFF);
         }
     }
-
 }
 #[cfg(test)]
 mod tile_bins_tests {

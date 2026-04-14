@@ -22,7 +22,7 @@ use abrash_core::fixed16_16::Fixed16_16;
 use abrash_core::framebuffer::Framebuffer;
 use abrash_core::zbuffer::ZBuffer;
 
-use crate::bsp::{BspMap, BspSector, BspSeg};
+use crate::bsp::{BspMapData, BspSector, BspSeg};
 use crate::bsp_clip::{
     ColumnClip, angle_to_column, clip_seg_angles, point_to_angle, projection_distance,
     seg_perpendicular_distance, wall_scale_at_column,
@@ -30,7 +30,7 @@ use crate::bsp_clip::{
 use crate::bsp_visplane::VisplaneAllocator;
 use crate::types::Vec2Fixed;
 
-use super::bsp_lighting::{BspTextures, colormap_index};
+use super::bsp_lighting::{BspTextureCache, colormap_index};
 
 #[inline]
 /// Draw a single textured wall column from `y_top` to `y_bot` (inclusive).
@@ -52,7 +52,7 @@ use super::bsp_lighting::{BspTextures, colormap_index};
 pub fn draw_wall_column(
     fb: &mut Framebuffer,
     zbuf: &mut ZBuffer,
-    textures: &impl BspTextures,
+    textures: &BspTextureCache,
     col: i32,
     y_top: i32,
     y_bot: i32,
@@ -110,7 +110,7 @@ pub fn draw_wall_column(
 pub fn draw_visplane_spans(
     fb: &mut Framebuffer,
     zbuf: &mut ZBuffer,
-    textures: &impl BspTextures,
+    textures: &BspTextureCache,
     visplanes: &VisplaneAllocator,
     camera_pos: Vec2Fixed,
     camera_angle: Bam,
@@ -260,8 +260,8 @@ fn compute_texture_col(
 pub fn render_bsp_view(
     fb: &mut Framebuffer,
     zbuf: &mut ZBuffer,
-    map: &impl BspMap,
-    textures: &impl BspTextures,
+    map: &BspMapData,
+    textures: &BspTextureCache,
     camera_pos: Vec2Fixed,
     camera_angle: Bam,
     camera_z: Fixed16_16,
@@ -530,70 +530,16 @@ pub fn render_bsp_view(
 
 #[cfg(test)]
 mod tests {
-    use super::super::bsp_lighting::BspTextures;
+    use super::super::bsp_lighting::BspTextureCache;
     use super::*;
 
     /// Mock texture provider for unit tests.
-    struct MockTextures {
-        wall_column_data: Vec<u8>,
-        flat: [u8; 4096],
-        colormap_data: [[u8; 256]; 32],
-        palette: [u32; 256],
-    }
-
-    impl MockTextures {
-        fn new() -> Self {
-            // Wall column: 128 texels, all palette index 1
-            let wall_column_data = vec![1u8; 128];
-
-            // Flat: all palette index 2
-            let flat = [2u8; 4096];
-
-            // Colormaps: row 0 = identity, rows 1..31 = all map to 0 (dark)
-            let mut colormap_data = [[0u8; 256]; 32];
-            for i in 0..256 {
-                colormap_data[0][i] = i as u8; // identity
-            }
-            // rows 1..31 are already zeroed (all map to palette 0 = black)
-
-            // Palette
-            let mut palette = [0xFF00_0000u32; 256]; // default black+alpha
-            palette[0] = 0xFF00_0000; // black
-            palette[1] = 0xFFFF_0000; // red
-            palette[2] = 0xFF00_FF00; // green
-
-            Self {
-                wall_column_data,
-                flat,
-                colormap_data,
-                palette,
-            }
-        }
-    }
-
-    impl BspTextures for MockTextures {
-        fn wall_column(&self, _texture_id: u16, _col: usize) -> &[u8] {
-            &self.wall_column_data
-        }
-
-        fn flat_data(&self, _texture_id: u16) -> &[u8; 4096] {
-            &self.flat
-        }
-
-        fn colormap(&self, index: u8) -> &[u8; 256] {
-            &self.colormap_data[index as usize]
-        }
-
-        fn palette_argb(&self, palette_idx: u8) -> u32 {
-            self.palette[palette_idx as usize]
-        }
-    }
 
     #[test]
     fn draw_wall_column_fills_pixels() {
         let mut fb = Framebuffer::new(320, 200).unwrap();
         let mut zbuf = ZBuffer::new(320, 200).unwrap();
-        let textures = MockTextures::new();
+        let textures = BspTextureCache::new();
 
         // Draw a column at x=160, from y=80 to y=120
         draw_wall_column(
@@ -632,7 +578,7 @@ mod tests {
     fn draw_wall_column_writes_zbuffer() {
         let mut fb = Framebuffer::new(320, 200).unwrap();
         let mut zbuf = ZBuffer::new(320, 200).unwrap();
-        let textures = MockTextures::new();
+        let textures = BspTextureCache::new();
 
         draw_wall_column(
             &mut fb,
@@ -667,7 +613,7 @@ mod tests {
     fn draw_wall_column_empty_range_no_op() {
         let mut fb = Framebuffer::new(320, 200).unwrap();
         let mut zbuf = ZBuffer::new(320, 200).unwrap();
-        let textures = MockTextures::new();
+        let textures = BspTextureCache::new();
 
         // Inverted range: y_top > y_bot
         draw_wall_column(
@@ -708,7 +654,7 @@ mod tests {
     fn draw_visplane_spans_fills_floor() {
         let mut fb = Framebuffer::new(320, 200).unwrap();
         let mut zbuf = ZBuffer::new(320, 200).unwrap();
-        let textures = MockTextures::new();
+        let textures = BspTextureCache::new();
 
         // Build a visplane spanning cols 100-200, rows 150-180
         let mut visplanes = VisplaneAllocator::new(320);
@@ -766,7 +712,7 @@ mod tests {
     fn draw_visplane_spans_empty_allocator_is_noop() {
         let mut fb = Framebuffer::new(320, 200).unwrap();
         let mut zbuf = ZBuffer::new(320, 200).unwrap();
-        let textures = MockTextures::new();
+        let textures = BspTextureCache::new();
         let visplanes = VisplaneAllocator::new(320);
 
         draw_visplane_spans(
@@ -796,175 +742,17 @@ mod tests {
     // render_bsp_view integration tests
     // -----------------------------------------------------------------------
 
-    use crate::bsp::{BspMap, BspSector, BspSeg};
+    use crate::bsp::{BspMapData, BspSector, BspSeg};
     use abrash_core::bam::{ANG90, ANG180, ANG270};
 
     /// Integration BSP map: a single 512x512 room with 4 solid walls.
-    struct IntegrationBspMap {
-        sector: BspSector,
-        segs: Vec<BspSeg>,
-    }
-
-    impl IntegrationBspMap {
-        fn new() -> Self {
-            let sector = BspSector {
-                floor_height: 0,
-                ceil_height: 128,
-                light_level: 160,
-                floor_texture: 1,
-                ceil_texture: 2,
-            };
-
-            // Four walls of a 512x512 room. Segs are wound so the front sector
-            // (interior) is on the RIGHT side of the v1->v2 direction, following
-            // Doom's BSP convention. This means from a camera inside the room,
-            // point_to_angle(camera, v1) > point_to_angle(camera, v2) holds,
-            // giving a valid angular span < 180 degrees.
-            let segs = vec![
-                // North wall: (512,0) -> (0,0), seg runs west, normal=ANG90+ANG180=south-ish
-                // From camera at center: v1 at -45deg, v2 at -135deg... no.
-                // Actually let's think about this differently.
-                // For camera at (256,256) facing east:
-                //
-                // East wall: must present v1 at +angle, v2 at -angle from camera.
-                //   v1=(512,512) -> angle=+45, v2=(512,0) -> angle=-45. Span=90. GOOD.
-                //   Seg direction is south (ANG270). Normal = ANG270+ANG90 = ANG0 = east.
-                //   But we want the normal pointing WEST (inward). So seg angle = ANG90,
-                //   meaning seg runs north. Let's use v1=(512,512), v2=(512,0), angle=ANG90.
-                //   Normal = ANG90 + ANG90 = ANG180 = west. That's inward. GOOD.
-                //
-                // Actually Doom computes seg angle from v1 to v2:
-                //   angle = atan2(v2.y - v1.y, v2.x - v1.x)
-                //   For (512,512)->(512,0): dx=0, dy=-512 => angle=atan2(-512,0) = -90 = ANG270
-                //   Normal = ANG270 + ANG90 = ANG0 = east (pointing outward, wrong!)
-                //
-                // We need the normal to point INWARD (toward 256,256).
-                // For east wall: inward normal points west (ANG180).
-                // Normal = seg_angle + ANG90 = ANG180 means seg_angle = ANG90.
-                // seg_angle=ANG90 means atan2(dy,dx)=90deg, so dy>0, dx=0.
-                // That's v2.y > v1.y, so v1=(512,0) -> v2=(512,512).
-                // From camera: angle_to_v1 = atan2(0-256, 512-256) = atan2(-256,256) = -45deg
-                //              angle_to_v2 = atan2(512-256, 512-256) = atan2(256,256) = +45deg
-                // span = angle1 - angle2 = -45 - 45 = -90deg. In BAM unsigned, that wraps
-                // to a huge value >= ANG180, so the seg is rejected as backfacing.
-                //
-                // The REAL fix: we need to swap v1/v2 AND update the angle accordingly.
-                // If seg runs from (512,512) to (512,0), angle = atan2(-512,0) = ANG270.
-                // Normal = ANG270 + ANG90 = 0 = east (outward). Still wrong.
-                //
-                // The issue is that in Doom, the "front sector" is on the RIGHT side
-                // of the seg direction. For a wall at x=512 with interior to the left
-                // (west), the seg should run NORTH (v1=(512,0)->v2=(512,512), angle=ANG90).
-                // Front sector is on the right = west side = interior. Normal points LEFT
-                // of travel = west = ANG180. But seg_perpendicular_distance uses
-                // angle+ANG90 as the normal, and ANG90+ANG90 = ANG180 = west. GOOD.
-                //
-                // But then from camera: angle1=atan2(-256,256)=-45, angle2=atan2(256,256)=+45.
-                // span = -45 - 45 = -90 in degrees => BAM wraps to >ANG180 => rejected.
-                //
-                // The problem is clip_seg_angles expects angle1 > angle2 (left > right).
-                // For this seg, v1 is to the RIGHT and v2 is to the LEFT of center.
-                // In Doom, the node builder ensures segs are ordered so that
-                // angle_to_v1 > angle_to_v2 from any viewpoint in the front sector.
-                // For the east wall with the camera at center, we need v1 to subtend
-                // the LARGER angle. So v1 should be at (512,512) (+45 deg from camera)
-                // and v2 at (512,0) (-45 deg). That gives:
-                //   seg runs south: angle = atan2(0-512, 512-512) = atan2(-512,0) = ANG270
-                //   normal = ANG270 + ANG90 = 0 = east (OUTWARD)
-                // But we need normal inward!
-                //
-                // Resolution: seg_perpendicular_distance takes abs(), so the sign of
-                // the normal doesn't matter for distance. And colormap_index just uses
-                // distance. The wall DOES get drawn regardless of normal direction.
-                // The only issue is whether the seg passes clip_seg_angles.
-                //
-                // So the fix is simple: order vertices so angle1 > angle2 from the
-                // camera's perspective. For east wall with camera facing east:
-                //   v1=(512,512) at +45deg, v2=(512,0) at -45deg. span=90deg. VALID.
-
-                // East wall: v1=(512,512) -> v2=(512,0), seg angle = ANG270 (south)
-                BspSeg {
-                    v1: Vec2Fixed::from_ints(512, 512),
-                    v2: Vec2Fixed::from_ints(512, 0),
-                    offset: Fixed16_16::ZERO,
-                    angle: ANG270,
-                    front_sector: 0,
-                    back_sector: None,
-                    upper_texture: 0,
-                    middle_texture: 1,
-                    lower_texture: 0,
-                    line_flags: 0x0001,
-                },
-                // North wall: v1=(512,0) -> v2=(0,0), seg angle = ANG180 (west)
-                BspSeg {
-                    v1: Vec2Fixed::from_ints(512, 0),
-                    v2: Vec2Fixed::from_ints(0, 0),
-                    offset: Fixed16_16::ZERO,
-                    angle: ANG180,
-                    front_sector: 0,
-                    back_sector: None,
-                    upper_texture: 0,
-                    middle_texture: 1,
-                    lower_texture: 0,
-                    line_flags: 0x0001,
-                },
-                // West wall: v1=(0,0) -> v2=(0,512), seg angle = ANG90 (north)
-                BspSeg {
-                    v1: Vec2Fixed::from_ints(0, 0),
-                    v2: Vec2Fixed::from_ints(0, 512),
-                    offset: Fixed16_16::ZERO,
-                    angle: ANG90,
-                    front_sector: 0,
-                    back_sector: None,
-                    upper_texture: 0,
-                    middle_texture: 1,
-                    lower_texture: 0,
-                    line_flags: 0x0001,
-                },
-                // South wall: v1=(0,512) -> v2=(512,512), seg angle = Bam::ZERO (east)
-                BspSeg {
-                    v1: Vec2Fixed::from_ints(0, 512),
-                    v2: Vec2Fixed::from_ints(512, 512),
-                    offset: Fixed16_16::ZERO,
-                    angle: Bam::ZERO,
-                    front_sector: 0,
-                    back_sector: None,
-                    upper_texture: 0,
-                    middle_texture: 1,
-                    lower_texture: 0,
-                    line_flags: 0x0001,
-                },
-            ];
-
-            Self { sector, segs }
-        }
-    }
-
-    impl BspMap for IntegrationBspMap {
-        fn traverse_front_to_back(&self, _pos: Vec2Fixed, visitor: &mut dyn FnMut(usize)) {
-            visitor(0);
-        }
-
-        fn subsector_segs(&self, ssector_idx: usize) -> &[BspSeg] {
-            assert_eq!(ssector_idx, 0, "integration map only has subsector 0");
-            &self.segs
-        }
-
-        fn seg_front_sector(&self, _seg: &BspSeg) -> &BspSector {
-            &self.sector
-        }
-
-        fn seg_back_sector(&self, seg: &BspSeg) -> Option<&BspSector> {
-            seg.back_sector.map(|_| &self.sector)
-        }
-    }
 
     #[test]
     fn render_bsp_view_does_not_panic() {
         let mut fb = Framebuffer::new(320, 200).unwrap();
         let mut zbuf = ZBuffer::new(320, 200).unwrap();
-        let map = IntegrationBspMap::new();
-        let textures = MockTextures::new();
+        let map = BspMapData::new_integration();
+        let textures = BspTextureCache::new();
 
         // Camera at center of 512x512 room, facing east, eye at z=41
         render_bsp_view(
@@ -984,8 +772,8 @@ mod tests {
     fn render_bsp_view_draws_walls() {
         let mut fb = Framebuffer::new(320, 200).unwrap();
         let mut zbuf = ZBuffer::new(320, 200).unwrap();
-        let map = IntegrationBspMap::new();
-        let textures = MockTextures::new();
+        let map = BspMapData::new_integration();
+        let textures = BspTextureCache::new();
 
         render_bsp_view(
             &mut fb,
@@ -1010,8 +798,8 @@ mod tests {
     fn render_bsp_view_writes_depth() {
         let mut fb = Framebuffer::new(320, 200).unwrap();
         let mut zbuf = ZBuffer::new(320, 200).unwrap();
-        let map = IntegrationBspMap::new();
-        let textures = MockTextures::new();
+        let map = BspMapData::new_integration();
+        let textures = BspTextureCache::new();
 
         render_bsp_view(
             &mut fb,
@@ -1037,8 +825,8 @@ mod tests {
         // 1x1 framebuffer -- should not panic.
         let mut fb = Framebuffer::new(1, 1).unwrap();
         let mut zbuf = ZBuffer::new(1, 1).unwrap();
-        let map = IntegrationBspMap::new();
-        let textures = MockTextures::new();
+        let map = BspMapData::new_integration();
+        let textures = BspTextureCache::new();
 
         render_bsp_view(
             &mut fb,

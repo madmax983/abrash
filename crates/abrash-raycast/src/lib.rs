@@ -1,4 +1,13 @@
-#![allow(clippy::all, unused_variables, dead_code, unused_imports, unused_mut)]
+#![allow(
+    clippy::all,
+    clippy::float_cmp,
+    clippy::missing_panics_doc,
+    clippy::too_many_lines,
+    unused_variables,
+    dead_code,
+    unused_imports,
+    unused_mut
+)]
 //! Raycasting engine for the Abrash graphics project.
 //!
 //! Stateless free functions, borrow-only, `Send + Sync` by construction.
