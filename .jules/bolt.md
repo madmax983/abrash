@@ -313,3 +313,11 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Optimized `clear_rect` boundary clamping]**
 **Learning:** In tight inner loops or coordinate bounds calculations (e.g., `clear_rect`), replacing standard library `Ord::clamp(min, max)` with chained `.max(min).min(max)` can improve throughput by eliding the hidden `assert!(min <= max)` panic branch present in `clamp`.
 **Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.
+
+**[Optimize Rayon iterators using flat_map instead of flat_map_iter]**
+**Learning:** Using `flat_map_iter` within a Rayon `par_iter()` chain (e.g. `.par_extend(triangles.par_iter().flat_map_iter(...))`) can cause unnecessary iterator overhead and prevent the collection type (like a `Vec` or `smallvec`) from optimally utilizing existing capacity during a `.par_extend()` operation. Rayon's standard `.flat_map()` handles thread-local parallel collections more cleanly.
+**Action:** Replace `.flat_map_iter()` with standard `.flat_map()` when feeding values into a `par_extend()` call. This ensures efficient utilization of pre-allocated buffers and eliminates hidden allocation overhead in hot loops.
+
+**[Pre-allocate Vec collections in high-level renderers]**
+**Learning:** Just like `ResourcePool`, top-level renderers (like `GpuRenderer` and `GpuBlitter`) shouldn't instantiate their internal resource-tracking lists (like `meshes`, `materials`, `commands`) using `Vec::new()`. Leaving these empty initially forces dynamic heap resizing when a game/scene starts loading its assets.
+**Action:** Use `Vec::with_capacity(N)` when instantiating internal vectors in rendering structures to eliminate heap reallocation overhead during the initial boot and level-load phases.
