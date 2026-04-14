@@ -52,7 +52,7 @@ fn bench_scene_render(c: &mut Criterion) {
     let proj = Mat4::perspective(1.0, width as f32 / height as f32, 0.1, 1000.0);
     let camera = Camera::new(view, proj);
 
-    let mut scene = Scene::new(camera);
+    let mut scene = Scene::with_capacity(camera, 100);
 
     // Add 100 objects in a grid pattern
     for i in 0..100 {
@@ -84,7 +84,7 @@ fn build_scene(width: u32, height: u32) -> Scene {
         Vec3::new(0.0, 1.0, 0.0),
     );
     let proj = Mat4::perspective(1.0, width as f32 / height as f32, 0.1, 1000.0);
-    let mut scene = Scene::new(Camera::new(view, proj));
+    let mut scene = Scene::with_capacity(Camera::new(view, proj), 100);
     for i in 0..100 {
         let x = (i % 10) as f32 * 15.0 - 75.0;
         let z = (i / 10) as f32 * 15.0 - 75.0;
@@ -215,7 +215,7 @@ fn build_scene_cfg(width: u32, height: u32, obj_count: usize, grid_size: usize) 
         Vec3::new(0.0, 1.0, 0.0),
     );
     let proj = Mat4::perspective(1.0, width as f32 / height as f32, 0.1, 1000.0);
-    let mut scene = Scene::new(Camera::new(view, proj));
+    let mut scene = Scene::with_capacity(Camera::new(view, proj), obj_count);
     let cols = (obj_count as f32).sqrt().ceil() as usize;
     for i in 0..obj_count {
         let x = (i % cols) as f32 * 15.0 - (cols as f32 * 7.5);
