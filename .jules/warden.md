@@ -1,14 +1,3 @@
-## 2025-01-28 - [Vulnerable Dependencies]
-**Threat:** Found multiple vulnerabilities in `Cargo.lock` during `cargo audit`, including bincode, fxhash, instant, paste, drm, and uds_windows.
-**Defense:** These crates are used indirectly. Some have advisories or are unmaintained. Need to investigate if we can update them.
-
-## 2025-01-28 - [Memory Safety: TriangleLists]
-**Threat:** The structs `ClippedTriangles`, `PreparedTrianglesList`, `PreparedGouraudTrianglesList`, and `PreparedTexturedTrianglesList` have their `count` fields marked as `pub`. This allows safe code to manually set the `count` higher than the number of initialized elements, leading to reading uninitialized memory (Undefined Behavior) when iterating over the list, since `assume_init()` is called in an `unsafe` block assuming `count` elements are initialized.
-**Defense:** Make the `count` field private and provide a safe `len()` or `count()` accessor, ensuring the invariant that `count` always reflects the number of initialized elements cannot be broken by safe code.
-
-**2026-04-13 - Uninitialized Memory Read in PreparedTrianglesLists**
-**Threat:** `PreparedTrianglesList`, `PreparedGouraudTrianglesList`, and `PreparedTexturedTrianglesList` had public `count` fields while wrapping `MaybeUninit` arrays. This allowed safe code to arbitrarily modify the length tracking, causing the internal iterators to call `.assume_init()` on uninitialized memory, leading to Undefined Behavior and potential information disclosure or crashes.
-**Defense:** Made the `count` fields private across all tile binning lists and exposed a safe `count()` getter, enforcing the memory safety invariant at the module boundary.
-## 2026-04-12 - [Denial of Service: Integer Overflow in Bresenham's Circle]
-**Threat:** The `draw_circle` and `fill_circle` algorithms blindly used unchecked math operations (`3 - 2 * radius`) for computing the decision variable. This allowed massive malicious `radius` inputs to overflow the `i32` integers, bypassing checks or triggering unhandled panics, leading to DoS. A previous PR introduced an artificial bound `< 16384` but used an early return rather than safely panicking, masking the vulnerability.
-**Defense:** Replaced the unchecked `3 - 2 * radius` math with `checked_mul` and `checked_sub` (using `map_or_else` to avoid branch lint warnings). Now the functions will safely and loudly panic with "Circle drawing integer overflow" on malicious boundaries rather than behaving unsoundly.
+**2025-05-18 - [Texture Coordinate Overflow]**
+**Threat:** The rasterizer's internal texture coordinate fixed-point accumulators (`u_fix` and `v_fix`) were susceptible to integer overflow due to the multiplication `du_fix * len` bypassing a manual check, or inside the SIMD routines where `du_fix * offsets` could wrap around the `i32` boundaries. This could potentially bypass bounds checks and allow an attacker to read out-of-bounds memory by supplying carefully crafted texture coordinates or span sizes.
+**Defense:** Upgraded scalar coordinate bounds calculations to `i64` to prevent overflow, and within AVX2 SIMD routines (Nearest, Bilinear, Trilinear, Textured Gouraud), correctly compute the initial offset vectors (`u_fix_arr`, `v_fix_arr`) using `wrapping_add`/`wrapping_mul` via standard arrays before loading into SIMD registers, thereby preventing the `_mm256_mullo_epi32` multiplication overflow that could bypass bounds checking.

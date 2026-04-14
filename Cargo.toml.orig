@@ -723,6 +723,7 @@ required-features = ["nova"]
 name = "frosted_glass_demo"
 path = "examples/frosted_glass_demo.rs"
 required-features = ["nova"]
+imprecise_flops = "allow"
 
 [[example]]
 name = "steganography_demo"
@@ -746,15 +747,5 @@ required-features = ["nova"]
 
 [[bench]]
 name = "mandelbrot_bench"
-harness = false
-required-features = ["nova"]
-
-[[example]]
-name = "fire_demo"
-path = "examples/fire_demo.rs"
-required-features = ["nova"]
-
-[[bench]]
-name = "fire_bench"
 harness = false
 required-features = ["nova"]

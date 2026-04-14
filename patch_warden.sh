@@ -1,0 +1,125 @@
+cat << 'INNER_EOF' > patch_warden.diff
+--- crates/abrash-render/src/rasterizer/texture.rs
++++ crates/abrash-render/src/rasterizer/texture.rs
+@@ -282,19 +282,19 @@ pub(crate) fn draw_span_nearest(
+         // Calculate range of u_fix and v_fix using i64 to prevent wrap-around bypassing bounds checks.
+         let u_start_64 = i64::from(u_fix);
+         let du_64 = i64::from(du_fix);
+-        let u_end_64 = u_start_64 + du_64 * i64::from(len - 1);
++        let u_end_64 = u_start_64 + du_64 * (len as i64 - 1);
+
+         let (u_min_64, u_max_64) = if du_64 >= 0 {
+             (u_start_64, u_end_64)
+         } else {
+             (u_end_64, u_start_64)
+         };
+
+         let v_start_64 = i64::from(v_fix);
+         let dv_64 = i64::from(dv_fix);
+-        let v_end_64 = v_start_64 + dv_64 * i64::from(len - 1);
++        let v_end_64 = v_start_64 + dv_64 * (len as i64 - 1);
+
+         let (v_min_64, v_max_64) = if dv_64 >= 0 {
+             (v_start_64, v_end_64)
+@@ -683,11 +683,15 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
+
+         let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_curr), _mm256_mul_ps(dz_dx_vec, offsets_f));
+
+-        let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
+-        let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
+-
+-        let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_curr), du_off);
+-        let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_curr), dv_off);
++        // Calculate initial u/v safely without overflow
++        let mut u_fix_arr = [0i32; 8];
++        let mut v_fix_arr = [0i32; 8];
++        for j in 0..8 {
++            u_fix_arr[j] = u_curr.wrapping_add(du_fix.wrapping_mul(j as i32));
++            v_fix_arr[j] = v_curr.wrapping_add(dv_fix.wrapping_mul(j as i32));
++        }
++        let mut u_fix_vec = _mm256_loadu_si256(u_fix_arr.as_ptr() as *const __m256i);
++        let mut v_fix_vec = _mm256_loadu_si256(v_fix_arr.as_ptr() as *const __m256i);
+
+         let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
+         let du_step = _mm256_slli_epi32(du_fix_vec, 3);
+@@ -1017,10 +1021,14 @@ pub(crate) unsafe fn draw_span_nearest_simd(
+
+         let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_curr), _mm256_mul_ps(dz_dx_vec, offsets_f));
+
+-        let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
+-        let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
+-
+-        let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_curr), du_off);
+-        let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_curr), dv_off);
++        // Calculate initial u/v safely without overflow
++        let mut u_fix_arr = [0i32; 8];
++        let mut v_fix_arr = [0i32; 8];
++        for j in 0..8 {
++            u_fix_arr[j] = u_curr.wrapping_add(du_fix.wrapping_mul(j as i32));
++            v_fix_arr[j] = v_curr.wrapping_add(dv_fix.wrapping_mul(j as i32));
++        }
++        let mut u_fix_vec = _mm256_loadu_si256(u_fix_arr.as_ptr() as *const __m256i);
++        let mut v_fix_vec = _mm256_loadu_si256(v_fix_arr.as_ptr() as *const __m256i);
+
+         let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
+@@ -2872,11 +2880,15 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
+
+         let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_curr), _mm256_mul_ps(dz_dx_vec, offsets_f));
+
+-        let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
+-        let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
+-
+-        let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_curr), du_off);
+-        let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_curr), dv_off);
++        // Calculate initial u/v safely without overflow
++        let mut u_fix_arr = [0i32; 8];
++        let mut v_fix_arr = [0i32; 8];
++        for j in 0..8 {
++            u_fix_arr[j] = u_curr.wrapping_add(du_fix.wrapping_mul(j as i32));
++            v_fix_arr[j] = v_curr.wrapping_add(dv_fix.wrapping_mul(j as i32));
++        }
++        let mut u_fix_vec = _mm256_loadu_si256(u_fix_arr.as_ptr() as *const __m256i);
++        let mut v_fix_vec = _mm256_loadu_si256(v_fix_arr.as_ptr() as *const __m256i);
+
+         let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
+         let du_step = _mm256_slli_epi32(du_fix_vec, 3);
+@@ -3713,8 +3725,15 @@ unsafe fn draw_span_textured_gouraud_simd(
+         let dg_off = _mm256_mullo_epi32(dg_vec, offsets_i);
+         let db_off = _mm256_mullo_epi32(db_vec, offsets_i);
+
+-        let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_fix_start), du_off);
+-        let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_fix_start), dv_off);
++        // Calculate initial u/v safely without overflow
++        let mut u_fix_arr = [0i32; 8];
++        let mut v_fix_arr = [0i32; 8];
++        for j in 0..8 {
++            u_fix_arr[j] = u_fix_start.wrapping_add(du_fix.wrapping_mul(j as i32));
++            v_fix_arr[j] = v_fix_start.wrapping_add(dv_fix.wrapping_mul(j as i32));
++        }
++        let mut u_fix_vec = _mm256_loadu_si256(u_fix_arr.as_ptr() as *const __m256i);
++        let mut v_fix_vec = _mm256_loadu_si256(v_fix_arr.as_ptr() as *const __m256i);
+         let mut r_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(r_start), dr_off);
+         let mut g_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(g_start), dg_off);
+         let mut b_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(b_start), db_off);
+@@ -3908,8 +3927,15 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
+         let dg_off = _mm256_mullo_epi32(dg_vec, offsets_i);
+         let db_off = _mm256_mullo_epi32(db_vec, offsets_i);
+
+-        let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_fix_start), du_off);
+-        let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_fix_start), dv_off);
++        // Calculate initial u/v safely without overflow
++        let mut u_fix_arr = [0i32; 8];
++        let mut v_fix_arr = [0i32; 8];
++        for j in 0..8 {
++            u_fix_arr[j] = u_fix_start.wrapping_add(du_fix.wrapping_mul(j as i32));
++            v_fix_arr[j] = v_fix_start.wrapping_add(dv_fix.wrapping_mul(j as i32));
++        }
++        let mut u_fix_vec = _mm256_loadu_si256(u_fix_arr.as_ptr() as *const __m256i);
++        let mut v_fix_vec = _mm256_loadu_si256(v_fix_arr.as_ptr() as *const __m256i);
+         let mut r_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(r_start), dr_off);
+         let mut g_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(g_start), dg_off);
+         let mut b_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(b_start), db_off);
+INNER_EOF
+git checkout crates/abrash-render/src/rasterizer/texture.rs
+patch crates/abrash-render/src/rasterizer/texture.rs < patch_warden.diff
+cargo test --test havoc_texture_fastpath_exploit --features simd

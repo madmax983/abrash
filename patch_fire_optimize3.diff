@@ -1,0 +1,55 @@
+--- crates/abrash-render/src/experimental/fire.rs
++++ crates/abrash-render/src/experimental/fire.rs
+@@ -48,22 +48,21 @@
+
+         chunk_iter.for_each(|(y, row)| {
++            let below_y = y + 1;
++            let below_idx = below_y * width;
++            let below2_idx = if below_y + 1 < height {
++                (below_y + 1) * width
++            } else {
++                below_idx
++            };
++            let cool_idx = y * width;
++
++            // Pre-calculate row offsets to avoid multiplication in hot loop
++            let src_below = &src_pixels[below_idx..below_idx + width];
++            let src_below2 = &src_pixels[below2_idx..below2_idx + width];
++            let cool_row = &cooling_map[cool_idx..cool_idx + width];
++
+             for x in 0..width {
+                 let left_x = x.saturating_sub(1);
+                 let right_x = (x + 1).min(width - 1);
+-                let below_y = y + 1;
+-
+-                // Read from the row below in the source buffer
+-                let p_center = src_pixels[below_y * width + x];
+-                let p_left = src_pixels[below_y * width + left_x];
+-                let p_right = src_pixels[below_y * width + right_x];
+-                let p_below2 = if below_y + 1 < height {
+-                    src_pixels[(below_y + 1) * width + x]
+-                } else {
+-                    p_center
+-                };
++
++                let p_center = src_below[x];
++                let p_left = src_below[left_x];
++                let p_right = src_below[right_x];
++                let p_below2 = src_below2[x];
+
+                 let h_center = (p_center >> 16) & 0xFF;
+                 let h_left = (p_left >> 16) & 0xFF;
+                 let h_right = (p_right >> 16) & 0xFF;
+                 let h_below2 = (p_below2 >> 16) & 0xFF;
+
+                 // Shift by 2 is equivalent to divide by 4, but significantly faster
+                 let avg_heat = (h_center + h_left + h_right + h_below2) >> 2;
+
+-                let cooling = cooling_map[y * width + x] as u32;
++                let cooling = cool_row[x] as u32;
+                 let new_heat = avg_heat.saturating_sub(cooling);
+
+                 row[x] = (new_heat << 16) | (new_heat << 8) | new_heat; // greyscale for now
+             }
+         });
+     });
