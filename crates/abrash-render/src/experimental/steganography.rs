@@ -16,10 +16,14 @@ pub fn encode_message(fb: &mut Framebuffer, message: &str) -> Result<(), &'stati
     let len = bytes.len() as u32;
 
     // We need 4 bytes for the length, plus the bytes of the message.
-    let total_bytes_needed = 4_usize.checked_add(bytes.len()).ok_or("Message too large")?;
+    let total_bytes_needed = 4_usize
+        .checked_add(bytes.len())
+        .ok_or("Message too large")?;
 
     // Each pixel can store 3 bits (one in R, one in G, one in B).
-    let bits_needed = total_bytes_needed.checked_mul(8).ok_or("Message too large")?;
+    let bits_needed = total_bytes_needed
+        .checked_mul(8)
+        .ok_or("Message too large")?;
     let pixels_needed = bits_needed.checked_add(2).ok_or("Message too large")? / 3;
 
     if pixels_needed > (fb.width() * fb.height()) as usize {

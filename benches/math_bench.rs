@@ -1,4 +1,3 @@
-
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_sin(c: &mut Criterion) {
@@ -12,7 +11,6 @@ fn bench_sin(c: &mut Criterion) {
             }
         });
     });
-
 
     c.bench_function("std_sin_cos_loop", |b| {
         b.iter(|| {
@@ -30,7 +28,6 @@ fn bench_sin(c: &mut Criterion) {
             }
         });
     });
-
 }
 
 criterion_group!(benches, bench_sin);

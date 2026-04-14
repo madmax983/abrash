@@ -41,6 +41,41 @@
 use std::mem::MaybeUninit;
 use std::ops::{Add, Mul, Sub};
 
+/// Fast polynomial approximation of sin and cos.
+///
+/// Computes an approximation of `sin(x)` and `cos(x)` using a polynomial approximation.
+/// This offers a significant performance advantage over the standard library's `sin_cos`
+/// implementation for hot paths where absolute precision is not critical.
+#[inline]
+pub fn fast_sin_cos(mut x: f32) -> (f32, f32) {
+    let pi = std::f32::consts::PI;
+    let tau = std::f32::consts::TAU;
+    let inv_tau = 1.0 / tau;
+
+    // Wrap x to [-PI, PI]
+    x -= (x * inv_tau).round() * tau;
+
+    // Constants for sin approximation
+    let b = 4.0 / pi;
+    let c = -4.0 / (pi * pi);
+    let p = 0.225;
+
+    // Compute sin
+    let mut sin_y = b * x + c * x * x.abs();
+    sin_y = p * (sin_y * sin_y.abs() - sin_y) + sin_y;
+
+    // Compute cos by shifting x by PI/2
+    let mut cx = x + std::f32::consts::FRAC_PI_2;
+    if cx > pi {
+        cx -= tau;
+    }
+
+    let mut cos_y = b * cx + c * cx * cx.abs();
+    cos_y = p * (cos_y * cos_y.abs() - cos_y) + cos_y;
+
+    (sin_y, cos_y)
+}
+
 /// Fast approximation of the inverse square root.
 ///
 /// Computes an approximation of `1.0 / sqrt(x)`. This uses the hardware-accelerated
@@ -7810,6 +7845,46 @@ pub fn golden_ratio_sequence(n: u32) -> f32 {
 #[cfg(test)]
 mod tests_pass_17 {
     use super::*;
+
+    // ── fast_sin_cos ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_fast_sin_cos() {
+        let max_error = 0.002_f32;
+        let test_angles = [
+            0.0_f32,
+            std::f32::consts::FRAC_PI_6,
+            std::f32::consts::FRAC_PI_4,
+            std::f32::consts::FRAC_PI_3,
+            std::f32::consts::FRAC_PI_2,
+            std::f32::consts::PI,
+            std::f32::consts::PI + std::f32::consts::FRAC_PI_4,
+            std::f32::consts::TAU - 0.1,
+            -std::f32::consts::FRAC_PI_4,
+            -std::f32::consts::PI,
+            10.0,
+            -10.0,
+        ];
+
+        for &angle in &test_angles {
+            let (expected_sin, expected_cos) = angle.sin_cos();
+            let (actual_sin, actual_cos) = fast_sin_cos(angle);
+            assert!(
+                (actual_sin - expected_sin).abs() <= max_error,
+                "sin({}) expected {}, got {}",
+                angle,
+                expected_sin,
+                actual_sin
+            );
+            assert!(
+                (actual_cos - expected_cos).abs() <= max_error,
+                "cos({}) expected {}, got {}",
+                angle,
+                expected_cos,
+                actual_cos
+            );
+        }
+    }
 
     // ── halton ────────────────────────────────────────────────────────────
     #[test]
