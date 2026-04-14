@@ -95,5 +95,5 @@ fn main() {
 #[cfg(feature = "nova")]
 fn main() {
     println!("🌟 Nova: Mandelbrot Demo");
-    run_windowed(MandelbrotDemo::new().unwrap())
+    run_windowed(MandelbrotDemo::new().unwrap());
 }

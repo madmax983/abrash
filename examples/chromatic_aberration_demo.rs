@@ -143,5 +143,5 @@ fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(ChromaticAberrationDemo::new().unwrap())
+    run_windowed(ChromaticAberrationDemo::new().unwrap());
 }

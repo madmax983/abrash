@@ -313,3 +313,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Optimized `clear_rect` boundary clamping]**
 **Learning:** In tight inner loops or coordinate bounds calculations (e.g., `clear_rect`), replacing standard library `Ord::clamp(min, max)` with chained `.max(min).min(max)` can improve throughput by eliding the hidden `assert!(min <= max)` panic branch present in `clamp`.
 **Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.
+
+**[Pre-allocate Scene and SdfScene with `with_capacity`]**
+**Learning:** Using `Scene::new()` and `SdfScene::new()` in benchmarks, tests, and examples when the total number of objects is known in advance leads to unnecessary dynamic heap reallocations as elements are added.
+**Action:** Introduced `with_capacity` constructors to both `Scene` and `SdfScene` to explicitly pre-allocate the inner `objects` vector, eliminating multiple reallocation cycles during scene initialization.

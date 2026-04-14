@@ -104,6 +104,14 @@ impl SdfScene {
         }
     }
 
+    /// ⚡ Bolt: Create a new scene with pre-allocated capacity.
+    #[must_use]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            objects: Vec::with_capacity(capacity),
+        }
+    }
+
     pub fn add(&mut self, object: SdfObject) {
         self.objects.push(object);
     }

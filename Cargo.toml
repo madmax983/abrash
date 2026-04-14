@@ -160,6 +160,11 @@ path = "examples/pixel_sort_demo.rs"
 required-features = ["nova"]
 
 [[example]]
+name = "fire_demo"
+path = "examples/fire_demo.rs"
+required-features = ["nova"]
+
+[[example]]
 name = "anaglyph_demo"
 path = "examples/anaglyph_demo.rs"
 required-features = ["nova"]

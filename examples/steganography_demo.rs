@@ -106,7 +106,22 @@ impl WindowApp for SteganographyDemoApp {
         // Generate a plasma background
         apply_plasma(&mut self.framebuffer, self.time, 1.0);
 
-        if !self.encoded {
+        if self.encoded {
+            // we re-encode it every frame because we redraw the plasma
+            if let Err(e) = encode_message(&mut self.framebuffer, SECRET_MESSAGE) {
+                let mut error_table = Table::new();
+                error_table
+                    .load_preset(presets::UTF8_FULL)
+                    .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+                    .set_header(vec![
+                        Cell::new("❌ Encoding Error")
+                            .add_attribute(comfy_table::Attribute::Bold)
+                            .fg(Color::Red),
+                    ])
+                    .add_row(vec![Cell::new(e).fg(Color::Yellow)]);
+                eprintln!("\n{error_table}");
+            }
+        } else {
             // Encode the message
             if let Err(e) = encode_message(&mut self.framebuffer, SECRET_MESSAGE) {
                 let mut error_table = Table::new();
@@ -185,21 +200,6 @@ impl WindowApp for SteganographyDemoApp {
                     eprintln!("\n{error_table}");
                 }
             }
-        } else {
-            // we re-encode it every frame because we redraw the plasma
-            if let Err(e) = encode_message(&mut self.framebuffer, SECRET_MESSAGE) {
-                let mut error_table = Table::new();
-                error_table
-                    .load_preset(presets::UTF8_FULL)
-                    .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
-                    .set_header(vec![
-                        Cell::new("❌ Encoding Error")
-                            .add_attribute(comfy_table::Attribute::Bold)
-                            .fg(Color::Red),
-                    ])
-                    .add_row(vec![Cell::new(e).fg(Color::Yellow)]);
-                eprintln!("\n{error_table}");
-            }
         }
 
         self.present()
@@ -210,5 +210,5 @@ fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(SteganographyDemoApp::new().unwrap())
+    run_windowed(SteganographyDemoApp::new().unwrap());
 }

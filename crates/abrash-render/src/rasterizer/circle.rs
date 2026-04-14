@@ -56,10 +56,9 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     let mut d = 2_i32.checked_mul(radius).map_or_else(
         || panic!("Circle drawing integer overflow"),
         |val| {
-            3_i32.checked_sub(val).map_or_else(
-                || panic!("Circle drawing integer overflow"),
-                |d_val| d_val,
-            )
+            3_i32
+                .checked_sub(val)
+                .map_or_else(|| panic!("Circle drawing integer overflow"), |d_val| d_val)
         },
     );
 
@@ -185,10 +184,9 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     let mut d = 2_i32.checked_mul(radius).map_or_else(
         || panic!("Circle drawing integer overflow"),
         |val| {
-            3_i32.checked_sub(val).map_or_else(
-                || panic!("Circle drawing integer overflow"),
-                |d_val| d_val,
-            )
+            3_i32
+                .checked_sub(val)
+                .map_or_else(|| panic!("Circle drawing integer overflow"), |d_val| d_val)
         },
     );
 
