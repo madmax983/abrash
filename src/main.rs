@@ -321,6 +321,34 @@ Keyboard: Interactive",
         instructions: "Mouse: None\nKeyboard: None",
         example_name: "melt_demo",
     },
+    Demo {
+        name: "Digital Rain",
+        category: DemoCategory::Simulation,
+        description: "Post-processing falling characters (Matrix style) effect",
+        instructions: "Mouse: None\nKeyboard: None",
+        example_name: "digital_rain_demo",
+    },
+    Demo {
+        name: "Frosted Glass",
+        category: DemoCategory::Simulation,
+        description: "Post-processing textured privacy glass effect",
+        instructions: "Mouse: None\nKeyboard: None",
+        example_name: "frosted_glass_demo",
+    },
+    Demo {
+        name: "Steganography",
+        category: DemoCategory::Simulation,
+        description: "Encodes and decodes a hidden message in a Plasma framebuffer",
+        instructions: "Mouse: None\nKeyboard: Close window to exit",
+        example_name: "steganography_demo",
+    },
+    Demo {
+        name: "Reaction-Diffusion",
+        category: DemoCategory::Simulation,
+        description: "Simulates Gray-Scott Turing patterns over time",
+        instructions: "Mouse: Click to add drops\nKeyboard: Space to clear, C to reset",
+        example_name: "reaction_diffusion_demo",
+    },
 ];
 
 fn is_gpu_render_example(example_name: &str) -> bool {
@@ -350,6 +378,10 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "halftone_demo"
         || example_name == "arboretum_cli"
         || example_name == "melt_demo"
+        || example_name == "digital_rain_demo"
+        || example_name == "frosted_glass_demo"
+        || example_name == "steganography_demo"
+        || example_name == "reaction_diffusion_demo"
 }
 
 fn build_demo_command_args(example_name: &str, use_tui_backend: bool) -> Vec<String> {
@@ -443,6 +475,7 @@ fn run_tui_dashboard() -> Result<(), Box<dyn Error>> {
         let mut error_table = ComfyTable::new();
         error_table
             .load_preset(ComfyPresets::UTF8_FULL)
+            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
             .set_header(vec![
                 ComfyCell::new("❌ Application Error")
                     .add_attribute(comfy_table::Attribute::Bold)
@@ -462,6 +495,7 @@ fn print_demo_list() {
     let mut table = ComfyTable::new();
     table
         .load_preset(ComfyPresets::UTF8_BORDERS_ONLY)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             ComfyCell::new("Icon")
                 .add_attribute(comfy_table::Attribute::Bold)
@@ -762,6 +796,7 @@ fn print_launch_header(name: &str) {
     let mut table = ComfyTable::new();
     table
         .load_preset(ComfyPresets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             ComfyCell::new("🚀 Launching Demo")
                 .add_attribute(comfy_table::Attribute::Bold)
@@ -777,6 +812,7 @@ fn print_launch_success() {
     let mut success_table = ComfyTable::new();
     success_table
         .load_preset(ComfyPresets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             ComfyCell::new("✅ Demo Exited Successfully")
                 .add_attribute(comfy_table::Attribute::Bold)
@@ -791,6 +827,7 @@ fn print_launch_error(status: std::process::ExitStatus) {
     let mut error_table = ComfyTable::new();
     error_table
         .load_preset(ComfyPresets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             ComfyCell::new("❌ Demo Crashed")
                 .add_attribute(comfy_table::Attribute::Bold)

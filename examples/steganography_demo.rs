@@ -16,6 +16,7 @@ fn print_banner() {
     let mut table = Table::new();
     table
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Property").fg(Color::Cyan),
             Cell::new("Value").fg(Color::Cyan),
@@ -33,6 +34,7 @@ fn print_banner() {
     let mut controls = Table::new();
     controls
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Input").fg(Color::Cyan),
             Cell::new("Action").fg(Color::Cyan),
@@ -110,6 +112,7 @@ impl WindowApp for SteganographyDemoApp {
                 let mut error_table = Table::new();
                 error_table
                     .load_preset(presets::UTF8_FULL)
+                    .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
                     .set_header(vec![
                         Cell::new("❌ Encoding Error")
                             .add_attribute(comfy_table::Attribute::Bold)
@@ -121,6 +124,7 @@ impl WindowApp for SteganographyDemoApp {
                 let mut success_table = Table::new();
                 success_table
                     .load_preset(presets::UTF8_FULL)
+                    .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
                     .set_header(vec![
                         Cell::new("✅ Steganography Active")
                             .add_attribute(comfy_table::Attribute::Bold)
@@ -151,6 +155,7 @@ impl WindowApp for SteganographyDemoApp {
                         let mut error_table = Table::new();
                         error_table
                             .load_preset(presets::UTF8_FULL)
+                            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
                             .set_header(vec![
                                 Cell::new("❌ Decoding Error")
                                     .add_attribute(comfy_table::Attribute::Bold)
@@ -167,6 +172,7 @@ impl WindowApp for SteganographyDemoApp {
                     let mut error_table = Table::new();
                     error_table
                         .load_preset(presets::UTF8_FULL)
+                        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
                         .set_header(vec![
                             Cell::new("❌ Decoding Error")
                                 .add_attribute(comfy_table::Attribute::Bold)
@@ -185,6 +191,7 @@ impl WindowApp for SteganographyDemoApp {
                 let mut error_table = Table::new();
                 error_table
                     .load_preset(presets::UTF8_FULL)
+                    .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
                     .set_header(vec![
                         Cell::new("❌ Encoding Error")
                             .add_attribute(comfy_table::Attribute::Bold)

@@ -1,8 +1,10 @@
-**[Reusing Vecs to Elide per-frame allocations]**
-**Learning:** `Vec::collect()` inside a per-frame render loop (like `flush_to_view` in `GpuBlitter`) results in a dynamic heap allocation every time it's called. This can be elided by keeping a pre-allocated vector inside the parent structure.
-**Action:** Add a `Vec<T>` to the main structure (e.g. `GpuBlitter { instances: Vec<SpriteInstance> }`), and in the hot path use `self.instances.clear(); self.instances.extend(...)` instead of `.collect::<Vec<_>>()`. This prevents the recurring heap allocation overhead while maintaining memory safety.
-# Bolt's Journal
+**[Eliminate false `clone()` zero-cost abstraction]
+**Learning:** Calling `.clone().into_bytes()` on a `String` is not a zero-cost abstraction. It performs a deep copy and creates a new heap allocation, offering no performance benefit over `.as_bytes().to_vec()`.
+**Action:** Do not attempt to use `.clone().into_bytes()` as an optimization over `.to_vec()`. To truly eliminate allocations, either reuse a pre-allocated vector or avoid cloning the underlying string entirely.
 
+**[Pre-allocate all vectors in `with_capacity`]
+**Learning:** When implementing `with_capacity` constructors for structs with multiple vector fields (e.g., `DrawList`), leaving some fields initialized with `Vec::new()` introduces hidden heap allocations when they are later populated.
+**Action:** Always provide explicit capacity parameters for all relevant vector fields in a `with_capacity` constructor.
 **[Performance Optimization: Unchecked Rasterizer Access]**
 **Learning:** Removing bounds checks (`test_and_set` -> `test_and_set_unchecked`) in the single-pixel/empty-span path of the rasterizer yielded a ~20% performance improvement for small triangles. This path is hit frequently for sub-pixel or thin geometry.
 **Action:** Look for other "checked by logic" hot paths where `unsafe` unchecked access can be justified by loop invariants.
@@ -275,10 +277,48 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 
 **[Optimize apply_frosted_glass per-frame allocation]**
 **Learning:** Re-learned and solidified the power of `thread_local!` buffers for intermediate processing steps like full-screen image effects. Calling `.to_vec()` on a slice inside a per-frame or highly parallel operation creates massive garbage and allocator pressure.
+**Action:** Replace  with  whenever the exponent is a known integer, particularly in hot rendering paths like specular reflection calculations.
+
+**[Performance Optimization: f32::powi vs f32::powf for Integer Exponents]**
+**Learning:** Using `f32::powf()` with a whole number (e.g., `x.powf(32.0)`) is significantly slower than using `f32::powi(32)` because `powf` invokes complex C-math library routines designed to handle fractional powers and negative bases. `powi` reduces the operation to a fast chain of multiplications.
+**Action:** Replace `x.powf(n.0)` with `x.powi(n)` whenever the exponent is a known integer, particularly in hot rendering paths like specular reflection calculations.
+
+**[Performance Optimization: f32::powi vs f32::powf for Integer Exponents]**
+**Learning:** Using `f32::powf()` with a whole number (e.g., `x.powf(32.0)`) is significantly slower than using `f32::powi(32)` because `powf` invokes complex C-math library routines designed to handle fractional powers and negative bases. `powi` reduces the operation to a fast chain of multiplications.
+**Action:** Replace `x.powf(n.0)` with `x.powi(n)` whenever the exponent is a known integer, particularly in hot rendering paths like specular reflection calculations.
+
+**[Performance Optimization: f32::powi vs f32::powf for Integer Exponents]**
+**Learning:** Using `f32::powf()` with a whole number (e.g., `x.powf(32.0)`) is significantly slower than using `f32::powi(32)` because `powf` invokes complex C-math library routines designed to handle fractional powers and negative bases. `powi` reduces the operation to a fast chain of multiplications.
+**Action:** Replace `x.powf(n.0)` with `x.powi(n)` whenever the exponent is a known integer, particularly in hot rendering paths like specular reflection calculations.
+**[Performance Optimization: f32::powi vs f32::powf for Integer Exponents]**
+**Learning:** Using `f32::powf()` with a whole number (e.g., `x.powf(32.0)`) is significantly slower than using `f32::powi(32)` because `powf` invokes complex C-math library routines designed to handle fractional powers and negative bases. `powi` reduces the operation to a fast chain of multiplications.
+**Action:** Replace `x.powf(n.0)` with `x.powi(n)` whenever the exponent is a known integer, particularly in hot rendering paths like specular reflection calculations.
 **Action:** When a post-processing effect requires reading from a source frame while modifying the destination (to avoid read/write tearing), cache the source clone using `thread_local! { static SOURCE_PIXELS: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) }; }` and reuse the allocated capacity via `.clear()` and `.extend_from_slice()`.
 **[Replace consecutive Vec::push calls with extend_from_slice]**
 **Learning:** In hot pixel conversion loops (e.g., converting 0xAARRGGBB to RGBA bytes for wgpu), calling `.push()` sequentially for each channel incurs bounds/capacity checking overhead per byte and inhibits compiler optimizations.
 **Action:** Replaced four consecutive `.push()` calls with a stack-allocated byte array `let bytes = [r, g, b, a];` followed by `.extend_from_slice(&bytes)`. This eliminates bounds checks and allows the compiler (LLVM) to vectorize or unroll the memory copy. Implemented in `abrash-gpu-render` (`blitter.rs`, `renderer.rs`, `environment.rs`).
+<<<<<<< bolt-inline-radial-blur-143401320521592032
 **[Inlined per-pixel logic in radial blur]
 **Learning:** In hot per-pixel rendering loops (like radial blur), avoiding closures and inlining the logic removes allocation/invocation overhead and improves register utilization, yielding measurable performance gains.
 **Action:** Removed the `process_pixel` closure in `apply_radial_blur` and inlined its body directly into the `cfg(feature = "parallel")` and `cfg(not(feature = "parallel"))` loops.
+=======
+**Standard Library Trig Intrinsics outpace custom polynomials**
+**Learning:** Replacing standard library trigonometric functions like `f32::sin_cos()` with custom polynomial approximations (e.g., `fast_sin_cos()`) in hot pixel loops can severely regress performance (e.g., by ~20%) due to modern LLVM hardware intrinsic auto-vectorization outperforming manual scalar approximations.
+**Action:** Removed `fast_sin_cos`, `fast_sin`, and `fast_cos` from `abrash-core` and replaced all usages across the codebase with the standard library's `.sin_cos()`, `.sin()`, and `.cos()`, yielding a measurable ~18% benchmark improvement on tight loop executions.
+⚡ Bolt: Optimized specular calculation with f32::powi
+**Learning:** Using `f32::powf(32.0)` with a whole number exponent is slower than `f32::powi(32)` due to the underlying complex C-math routines used for `powf`. Replace it in hot rendering paths for measurable performance improvements.
+**Action:** Replaced `reflect_dir.dot(view_dir).max(0.0).powf(32.0)` with `.powi(32)` in `crates/abrash-render/src/experimental/raytracer.rs` specular reflection logic.
+## [Eliding Nested Bounds Checks in Vision Mode]
+**Learning:** By switching from nested / loops with direct array indexing () to using  and , we can guarantee that all array accesses are safe and bounds checks are fully elided in hot processing loops. Additionally, precalculating inverted divisions () and squaring values outside inner loops avoids redundant computational overhead.
+**Action:** Refactored  in  to use chunked iterators instead of computed indices, hoisted  out of the inner loop, and replaced division with multiplication by a precalculated reciprocal.
+**[Eliding Nested Bounds Checks in Vision Mode]**
+**Learning:** By switching from nested `x`/`y` loops with direct array indexing (`pixels[idx]`) to using `.chunks_exact_mut()` and `.iter_mut()`, we can guarantee that all array accesses are safe and bounds checks are fully elided in hot processing loops. Additionally, precalculating inverted divisions (`1.0 / max`) and squaring values outside inner loops avoids redundant computational overhead.
+**Action:** Refactored `apply_night_vision` in `crates/abrash-render/src/experimental/vision.rs` to use chunked iterators instead of computed indices, hoisted `dy * dy` out of the inner loop, and replaced division with multiplication by a precalculated reciprocal.
+
+**Pre-allocate ResourcePool vectors**
+**Learning:** Pre-allocating `ResourcePool` entry vectors eliminates multiple heap reallocations when registering initial scene assets, providing a small but measurable boot/level-load speedup.
+**Action:** Always provide and utilize a `with_capacity` constructor for generic resource or object pools whose sizing requirements are loosely predictable at instantiation.
+**[Optimized `clear_rect` boundary clamping]**
+**Learning:** In tight inner loops or coordinate bounds calculations (e.g., `clear_rect`), replacing standard library `Ord::clamp(min, max)` with chained `.max(min).min(max)` can improve throughput by eliding the hidden `assert!(min <= max)` panic branch present in `clamp`.
+**Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.
+>>>>>>> trunk

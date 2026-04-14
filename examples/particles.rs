@@ -122,6 +122,7 @@ fn print_banner(args: &Args) {
     let mut table = Table::new();
     table
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Parameter").fg(Color::Cyan),
             Cell::new("Value").fg(Color::Cyan),
@@ -154,6 +155,7 @@ fn print_banner(args: &Args) {
     let mut controls = Table::new();
     controls
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Input").fg(Color::Cyan),
             Cell::new("Action").fg(Color::Cyan),
