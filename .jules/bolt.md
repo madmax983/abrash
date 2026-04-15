@@ -331,3 +331,11 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Learning:** When reading back mapped GPU memory (e.g., `wgpu::BufferView`), avoid calling `.to_vec()` to convert it to a standard vector before iteration. Iterating directly over the mapped slice eliminates massive per-frame O(N) heap allocations and memory copies (e.g., ~8MB for 1080p framebuffers).
 **Action:** Replaced `let rgba = data.to_vec();` with direct slice reference `let rgba = &data;` in `blitter.rs` readback iteration.
 **Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.
+
+**Eliding Panic Bounds Checks in Hot Loops**
+**Learning:** In tight inner loops (e.g., per-pixel color packing in rasterization), standard library methods like `Ord::clamp(min, max)` introduce implicit `assert!(min <= max)` bounds checking that can incur branching overhead.
+**Action:** Replace `.clamp(0, 255)` with chained `.max(0).min(255)` with constant values in critical paths. This produces identical logical bounds but safely elides the hidden panic branch, improving CPU throughput without invoking `unsafe` behavior.
+
+**Preventing Algorithm Overflow without Corrupting Logic**
+**Learning:** When mitigating intentional integer overflow panics in geometric algorithms (like Bresenham's line drawing) exposed by fuzzing/Chaos testing, using saturating operations (e.g., `saturating_add`, `saturating_mul`) masks the panic but corrupts the mathematical invariant, leading to silent rendering bugs.
+**Action:** Widen intermediate accumulators to a larger integer type (e.g., `i64` from `i32`) to safely accommodate edge-case overflow limits while mathematically preserving the exact algorithm.

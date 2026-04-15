@@ -155,9 +155,9 @@ pub const fn pack_color_channels(r: u32, g: u32, b: u32) -> u32 {
 #[inline(always)]
 #[must_use]
 pub fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
-    let r = (c.0 >> 16).clamp(0, 255) as u32;
-    let g = (c.1 >> 16).clamp(0, 255) as u32;
-    let b = (c.2 >> 16).clamp(0, 255) as u32;
+    let r = (c.0 >> 16).max(0).min(255) as u32;
+    let g = (c.1 >> 16).max(0).min(255) as u32;
+    let b = (c.2 >> 16).max(0).min(255) as u32;
     pack_color_channels(r, g, b)
 }
 
@@ -165,9 +165,9 @@ pub fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
 #[inline(always)]
 #[must_use]
 pub fn pack_color_fixed_i32(c: (i32, i32, i32)) -> u32 {
-    let r = (c.0 >> 16).clamp(0, 255) as u32;
-    let g = (c.1 >> 16).clamp(0, 255) as u32;
-    let b = (c.2 >> 16).clamp(0, 255) as u32;
+    let r = (c.0 >> 16).max(0).min(255) as u32;
+    let g = (c.1 >> 16).max(0).min(255) as u32;
+    let b = (c.2 >> 16).max(0).min(255) as u32;
     pack_color_channels(r, g, b)
 }
 

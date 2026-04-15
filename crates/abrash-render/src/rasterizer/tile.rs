@@ -3865,9 +3865,9 @@ fn process_tile_scanline_gouraud(
             let tile_idx = ctx.get_indices(x_start, y);
             if z_left < ctx.depths[tile_idx] {
                 ctx.depths[tile_idx] = z_left;
-                let r = (c_left.0 >> 16).clamp(0, 255) as u32;
-                let g = (c_left.1 >> 16).clamp(0, 255) as u32;
-                let b = (c_left.2 >> 16).clamp(0, 255) as u32;
+                let r = (c_left.0 >> 16).max(0).min(255) as u32;
+                let g = (c_left.1 >> 16).max(0).min(255) as u32;
+                let b = (c_left.2 >> 16).max(0).min(255) as u32;
                 ctx.pixels[tile_idx] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
             }
         }
@@ -3941,9 +3941,9 @@ fn draw_scanline_gouraud_i32_tile(
         unsafe {
             if z < *zb_ptr {
                 *zb_ptr = z;
-                let rv = (r >> 16).clamp(0, 255) as u32;
-                let gv = (g >> 16).clamp(0, 255) as u32;
-                let bv = (b >> 16).clamp(0, 255) as u32;
+                let rv = (r >> 16).max(0).min(255) as u32;
+                let gv = (g >> 16).max(0).min(255) as u32;
+                let bv = (b >> 16).max(0).min(255) as u32;
                 *fb_ptr = 0xFF00_0000 | (rv << 16) | (gv << 8) | bv;
             }
             fb_ptr = fb_ptr.add(1);
