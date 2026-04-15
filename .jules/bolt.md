@@ -331,3 +331,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Learning:** When reading back mapped GPU memory (e.g., `wgpu::BufferView`), avoid calling `.to_vec()` to convert it to a standard vector before iteration. Iterating directly over the mapped slice eliminates massive per-frame O(N) heap allocations and memory copies (e.g., ~8MB for 1080p framebuffers).
 **Action:** Replaced `let rgba = data.to_vec();` with direct slice reference `let rgba = &data;` in `blitter.rs` readback iteration.
 **Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.
+**[Performance Optimization: f32::powi vs f32::powf for Integer Exponents]**
+**Learning:** Using `f32::powf()` with a whole number (e.g., `x.powf(32.0)`) is significantly slower than using `f32::powi(32)` because `powf` invokes complex C-math library routines designed to handle fractional powers and negative bases. `powi` reduces the operation to a fast chain of multiplications.
+**Action:** Replace `x.powf(n.0)` with `x.powi(n)` whenever the exponent is a known integer, particularly in hot rendering paths.

@@ -111,5 +111,5 @@ impl WindowApp for PlasmaDemoApp {
 fn main() {
     print_banner();
 
-    run_windowed(PlasmaDemoApp::new().unwrap())
+    run_windowed(PlasmaDemoApp::new().unwrap());
 }

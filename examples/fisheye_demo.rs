@@ -141,5 +141,5 @@ fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(FisheyeDemoApp::new().unwrap())
+    run_windowed(FisheyeDemoApp::new().unwrap());
 }

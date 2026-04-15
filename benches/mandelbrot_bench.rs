@@ -13,7 +13,7 @@ fn bench_mandelbrot(c: &mut Criterion) {
     group.bench_function("render_mandelbrot", |b| {
         b.iter(|| {
             render_mandelbrot(black_box(&mut fb), black_box(&config));
-        })
+        });
     });
 
     group.finish();
