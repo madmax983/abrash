@@ -331,3 +331,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Learning:** When reading back mapped GPU memory (e.g., `wgpu::BufferView`), avoid calling `.to_vec()` to convert it to a standard vector before iteration. Iterating directly over the mapped slice eliminates massive per-frame O(N) heap allocations and memory copies (e.g., ~8MB for 1080p framebuffers).
 **Action:** Replaced `let rgba = data.to_vec();` with direct slice reference `let rgba = &data;` in `blitter.rs` readback iteration.
 **Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.
+
+**Explicit Vec::with_capacity vs ExactSizeIterator .collect()**
+**Learning:** While `.collect()` on an `ExactSizeIterator` (like a mapped slice) automatically pre-allocates memory, replacing it with explicit `Vec::with_capacity()` and `.extend()` visually guarantees allocation behavior in hot paths and safely prevents future regressions if the iterator chain is later modified to lose its size hint.
+**Action:** Use `Vec::with_capacity` paired with `.extend` or `.push` in performance-critical loops when mapping arrays to ensure explicit allocation boundaries and to clearly signal performance intent via inline documentation (`/// ⚡ Bolt:`).
