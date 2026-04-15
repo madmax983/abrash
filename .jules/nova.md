@@ -239,3 +239,8 @@
 **Concept:** A retro fractal visualization post-processing or generative feature mapping the complex plane to pixel colors based on iteration depth in the Mandelbrot set.
 **Fate:** Implemented
 **Lesson:** Using `rayon` parallel closures avoids massive calculation delays for deep iterations on large framebuffers. By abstracting the core complex loop from the display projection, the fractal generation becomes simple, scalable, and independent of specific rendering constraints. A custom color palette improves aesthetics tremendously.
+
+## [Falling Sand Simulation]
+**Concept:** A 2D cellular automata grid simulating the physics of falling particles like Sand, Water, and immovable Wood. Fits squarely into the simulation demo category.
+**Fate:** Implemented
+**Lesson:** Iterating from bottom-to-top is crucial for falling simulations so that particles fall efficiently without "teleporting" through multiple steps. Randomizing horizontal processing direction prevents bias (e.g. falling sand leaning to one side). It integrates flawlessly by treating the framebuffer purely as a display output for the grid state.

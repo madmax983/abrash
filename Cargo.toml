@@ -781,3 +781,8 @@ required-features = ["nova"]
 [[example]]
 name = "gamma_demo"
 path = "examples/gamma_demo.rs"
+
+[[example]]
+name = "falling_sand_demo"
+path = "examples/falling_sand_demo.rs"
+required-features = ["nova"]

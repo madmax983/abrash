@@ -35,8 +35,8 @@ pub mod brickify;
 
 pub mod blueprint;
 pub mod cloth;
-pub mod color_splash;
 pub mod color_blindness;
+pub mod color_splash;
 pub mod crepuscular;
 pub mod crosshatch;
 pub mod crt;
@@ -46,6 +46,7 @@ pub mod dither;
 pub mod duotone;
 pub mod edge_glow;
 pub mod emboss;
+pub mod falling_sand;
 pub mod fisheye;
 pub mod frosted_glass;
 pub mod glitch;

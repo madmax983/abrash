@@ -71,6 +71,14 @@ struct Demo {
 
 const DEMOS: &[Demo] = &[
     Demo {
+        name: "Falling Sand",
+        category: DemoCategory::Simulation,
+        description: "Cellular automata sand simulation",
+        instructions: "• Mouse: None
+• Keyboard: None (Auto-playing)",
+        example_name: "falling_sand_demo",
+    },
+    Demo {
         name: "Lit Cube",
         category: DemoCategory::Cpu3D,
         description: "Flat shaded cube with directional lighting",
@@ -370,7 +378,8 @@ fn is_gpu_render_example(example_name: &str) -> bool {
 }
 
 fn is_nova_example(example_name: &str) -> bool {
-    example_name == "cloth_demo"
+    example_name == "falling_sand_demo"
+        || example_name == "cloth_demo"
         || example_name == "raytracer_demo"
         || example_name == "vision_demo"
         || example_name == "pixel_sort_demo"
