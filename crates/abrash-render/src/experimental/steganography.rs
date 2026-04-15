@@ -16,11 +16,11 @@ pub fn encode_message(fb: &mut Framebuffer, message: &str) -> Result<(), &'stati
     let len = bytes.len() as u32;
 
     // We need 4 bytes for the length, plus the bytes of the message.
-    let total_bytes_needed = 4 + bytes.len();
+    let total_bytes_needed = 4_usize.checked_add(bytes.len()).ok_or("Message too large")?;
 
     // Each pixel can store 3 bits (one in R, one in G, one in B).
-    let bits_needed = total_bytes_needed * 8;
-    let pixels_needed = (bits_needed + 2) / 3;
+    let bits_needed = total_bytes_needed.checked_mul(8).ok_or("Message too large")?;
+    let pixels_needed = bits_needed.checked_add(2).ok_or("Message too large")? / 3;
 
     if pixels_needed > (fb.width() * fb.height()) as usize {
         return Err("Framebuffer too small to hold the message");
@@ -56,7 +56,7 @@ pub fn encode_message(fb: &mut Framebuffer, message: &str) -> Result<(), &'stati
                     // B
                     p = (p & !1) | u32::from(bit_val);
                 }
-                _ => unreachable!(),
+                _ => unreachable!("channel_idx is always % 3, so it's 0, 1, or 2"),
             }
             pixels[pixel_idx] = p;
 
@@ -91,7 +91,7 @@ pub fn decode_message(fb: &Framebuffer) -> Option<String> {
                 0 => (p >> 16) & 1,
                 1 => (p >> 8) & 1,
                 2 => p & 1,
-                _ => unreachable!(),
+                _ => unreachable!("channel_idx is always % 3, so it's 0, 1, or 2"),
             };
 
             *byte |= (bit_val as u8) << bit;
@@ -102,8 +102,8 @@ pub fn decode_message(fb: &Framebuffer) -> Option<String> {
     let len = u32::from_le_bytes(len_bytes) as usize;
 
     // Check if the length is valid
-    let bits_needed = (4 + len) * 8;
-    let pixels_needed = (bits_needed + 2) / 3;
+    let bits_needed = 4_usize.checked_add(len)?.checked_mul(8)?;
+    let pixels_needed = bits_needed.checked_add(2)? / 3;
 
     if len > pixels.len() * 3 / 8 || pixels_needed > pixels.len() {
         return None;
@@ -122,7 +122,7 @@ pub fn decode_message(fb: &Framebuffer) -> Option<String> {
                 0 => (p >> 16) & 1,
                 1 => (p >> 8) & 1,
                 2 => p & 1,
-                _ => unreachable!(),
+                _ => unreachable!("channel_idx is always % 3, so it's 0, 1, or 2"),
             };
 
             byte |= (bit_val as u8) << bit;
@@ -158,5 +158,17 @@ mod tests {
         let message = "A";
 
         assert!(encode_message(&mut fb, message).is_err());
+    }
+
+    #[test]
+    fn test_decode_message_overflow() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let pixels = fb.as_mut_slice();
+        for i in 0..11 {
+            pixels[i] = 0xFFFFFFFF;
+        }
+
+        let decoded = decode_message(&fb);
+        assert_eq!(decoded, None);
     }
 }

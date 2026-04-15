@@ -1,3 +1,31 @@
+//! A render target that wraps externally-owned memory buffers.
+//!
+//! Unlike [`crate::render_api::RenderTarget`] which allocates and owns its internal memory,
+//! a [`BorrowedRenderTarget`] allows you to render directly into existing slices.
+//! This is extremely useful for zero-copy integration with platform-specific windowing systems
+//! (like softbuffer, minifb, or winit) where the window buffer is provided to you.
+//!
+//! # Examples
+//!
+//! ```
+//! use abrash_render::render_api::BorrowedRenderTarget;
+//!
+//! // Imagine these buffers come from a windowing system or FFI boundary
+//! let mut color_buffer = vec![0_u32; 800 * 600];
+//! let mut depth_buffer = vec![f32::INFINITY; 800 * 600];
+//!
+//! // Wrap them safely for the renderer
+//! let target = BorrowedRenderTarget::new(
+//!     800,
+//!     600,
+//!     &mut color_buffer,
+//!     &mut depth_buffer
+//! ).expect("Buffers matched dimensions");
+//!
+//! assert_eq!(target.width(), 800);
+//! assert_eq!(target.height(), 600);
+//! ```
+
 /// A render target backed by caller-owned pixel and depth slices.
 pub struct BorrowedRenderTarget<'a> {
     pixels: &'a mut [u32],
