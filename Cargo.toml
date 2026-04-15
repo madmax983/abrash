@@ -781,3 +781,13 @@ required-features = ["nova"]
 [[example]]
 name = "gamma_demo"
 path = "examples/gamma_demo.rs"
+
+[[example]]
+name = "fire_demo"
+path = "examples/fire_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "fire_bench"
+harness = false
+required-features = ["nova"]

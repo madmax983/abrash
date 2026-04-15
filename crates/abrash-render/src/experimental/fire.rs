@@ -45,17 +45,19 @@ pub fn apply_fire(fb: &mut Framebuffer, cooling_map: &[u8]) {
         let chunk_iter = dest_pixels[..width * (height - 1)].chunks_exact_mut(width).enumerate();
 
         chunk_iter.for_each(|(y, row)| {
-            for x in 0..width {
-                let left_x = x.saturating_sub(1);
-                let right_x = (x + 1).min(width - 1);
-                let below_y = y + 1;
+            let below_y = y + 1;
+            let below_idx = below_y * width;
+            let map_idx = y * width;
 
-                // Read from the row below in the source buffer
-                let p_center = src_pixels[below_y * width + x];
-                let p_left = src_pixels[below_y * width + left_x];
-                let p_right = src_pixels[below_y * width + right_x];
-                let p_below2 = if below_y + 1 < height {
-                    src_pixels[(below_y + 1) * width + x]
+            let has_below2 = below_y + 1 < height;
+            let below2_idx = (below_y + 1) * width;
+
+            let process_pixel = |x: usize, left_x: usize, right_x: usize| -> u32 {
+                let p_center = src_pixels[below_idx + x];
+                let p_left = src_pixels[below_idx + left_x];
+                let p_right = src_pixels[below_idx + right_x];
+                let p_below2 = if has_below2 {
+                    src_pixels[below2_idx + x]
                 } else {
                     p_center
                 };
@@ -65,13 +67,23 @@ pub fn apply_fire(fb: &mut Framebuffer, cooling_map: &[u8]) {
                 let h_right = (p_right >> 16) & 0xFF;
                 let h_below2 = (p_below2 >> 16) & 0xFF;
 
-                // Shift by 2 is equivalent to divide by 4, but significantly faster
                 let avg_heat = (h_center + h_left + h_right + h_below2) >> 2;
-
-                let cooling = cooling_map[y * width + x] as u32;
+                let cooling = cooling_map[map_idx + x] as u32;
                 let new_heat = avg_heat.saturating_sub(cooling);
 
-                row[x] = (new_heat << 16) | (new_heat << 8) | new_heat; // greyscale for now
+                (new_heat << 16) | (new_heat << 8) | new_heat
+            };
+
+            if width == 1 {
+                row[0] = process_pixel(0, 0, 0);
+            } else {
+                row[0] = process_pixel(0, 0, 1);
+
+                for x in 1..width - 1 {
+                    row[x] = process_pixel(x, x - 1, x + 1);
+                }
+
+                row[width - 1] = process_pixel(width - 1, width - 2, width - 1);
             }
         });
     });
