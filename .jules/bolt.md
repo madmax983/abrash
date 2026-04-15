@@ -331,3 +331,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Learning:** When reading back mapped GPU memory (e.g., `wgpu::BufferView`), avoid calling `.to_vec()` to convert it to a standard vector before iteration. Iterating directly over the mapped slice eliminates massive per-frame O(N) heap allocations and memory copies (e.g., ~8MB for 1080p framebuffers).
 **Action:** Replaced `let rgba = data.to_vec();` with direct slice reference `let rgba = &data;` in `blitter.rs` readback iteration.
 **Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.
+**[Eliminate O(N) heap allocations during string expansion]**
+**Learning:** During iterative string generation (such as L-System expansion) where intermediate buffers are repeatedly constructed, calling `.to_vec()` on slices or dynamically allocating `Vec::with_capacity` on the hot path per-frame introduces massive garbage and allocator pressure.
+**Action:** Defer to a `thread_local!` static buffer pair (`std::cell::RefCell<(Vec<u8>, Vec<u8>)>`) and use `.clear()` and `.extend_from_slice()` alongside `std::mem::swap` to maintain and reuse capacity across frames safely without allocating anew.
