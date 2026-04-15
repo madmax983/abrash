@@ -82,20 +82,30 @@ use super::texture::{draw_span_bilinear_simd, draw_span_nearest_simd, draw_span_
 /// Groups screen space parameters to reduce function arguments and improve clarity.
 #[derive(Clone, Copy)]
 pub struct ScreenSpaceContext {
+    /// Width of the tile.
     pub width: u32,
+    /// Height of the tile.
     pub height: u32,
+    /// Half width of the tile.
     pub half_width: f32,
+    /// Half height of the tile.
     pub half_height: f32,
 }
 
 /// Defines the bounds and target position for merging a tile into the framebuffer.
 #[derive(Clone, Copy)]
 pub struct TileMergeBounds {
+    /// Tile X index.
     pub tx: u32,
+    /// Tile Y index.
     pub ty: u32,
+    /// Width of the tile.
     pub width: u32,
+    /// Height of the tile.
     pub height: u32,
+    /// Minimum Y bounds.
     pub y_min: i32,
+    /// Maximum Y bounds.
     pub y_max: i32,
 }
 use super::{
@@ -134,7 +144,7 @@ struct SendPtr<T>(*mut T, usize);
 #[cfg(feature = "parallel")]
 impl<T> SendPtr<T> {
     /// SAFETY: Caller must ensure the index is within bounds and writes are to non-overlapping regions
-    #[inline]
+
     unsafe fn write(&self, index: usize, value: T) {
         assert!(index < self.1, "Index out of bounds");
         // SAFETY: Caller guarantees index is within bounds and writes are non-overlapping
@@ -241,8 +251,11 @@ pub type TexturedClipTriangle = ((Vec3, f32), Vec2, (Vec3, f32), Vec2, (Vec3, f3
 /// and omitting unused `inv_w` for flat shading.
 #[derive(Clone, Copy, Debug)]
 pub struct CompactScreenPoint {
+    /// X coordinate.
     pub x: i32,
+    /// Y coordinate.
     pub y: i32,
+    /// Z coordinate.
     pub z: f32,
 }
 
@@ -259,37 +272,66 @@ impl CompactScreenPoint {
 
 /// A triangle that has been clipped, projected, culled, Y-sorted, and had gradients computed.
 #[derive(Clone, Copy)]
+/// A triangle that has been clipped, projected, culled, Y-sorted, and had gradients computed.
 pub struct PreparedTriangle {
+    /// Top vertex (lowest Y).
     pub p0: CompactScreenPoint,
+    /// Middle vertex.
     pub p1: CompactScreenPoint,
+    /// Bottom vertex (highest Y).
     pub p2: CompactScreenPoint,
+    /// Change in depth per pixel in X direction.
     pub dz_dx: f32,
+    /// True if the long edge connecting p0 and p2 is on the left side.
     pub long_edge_is_left: bool,
+    /// Flat color to fill the triangle with.
     pub color: u32,
+    /// Minimum X coordinate of the bounding box.
     pub aabb_min_x: u16,
+    /// Minimum Y coordinate of the bounding box.
     pub aabb_min_y: u16,
+    /// Maximum X coordinate of the bounding box.
     pub aabb_max_x: u16,
+    /// Maximum Y coordinate of the bounding box.
     pub aabb_max_y: u16,
-    pub min_depth: f32, // Minimum depth across triangle
-    pub max_depth: f32, // Maximum depth across triangle
+    /// Minimum depth across triangle.
+    /// Minimum depth across triangle.
+    pub min_depth: f32,
+    /// Maximum depth across triangle.
+    /// Maximum depth across triangle.
+    pub max_depth: f32,
 }
 
 /// A Gouraud-shaded triangle prepared for rasterization.
 #[derive(Clone, Copy)]
 pub struct PreparedGouraudTriangle {
+    /// Top vertex (lowest Y).
     pub p0: CompactScreenPoint,
+    /// Middle vertex.
     pub p1: CompactScreenPoint,
+    /// Bottom vertex (highest Y).
     pub p2: CompactScreenPoint,
-    pub c0: (i32, i32, i32), // Fixed-point color at p0
+    /// Fixed-point color at p0.
+    pub c0: (i32, i32, i32),
+    /// Fixed-point color at p1.
     pub c1: (i32, i32, i32),
+    /// Fixed-point color at p2.
     pub c2: (i32, i32, i32),
+    /// Gradients for interpolating color across the triangle.
     pub gradients: GouraudGradients,
+    /// True if the long edge connecting p0 and p2 is on the left side.
     pub long_edge_is_left: bool,
+    /// Minimum X coordinate of the bounding box.
     pub aabb_min_x: u16,
+    /// Minimum Y coordinate of the bounding box.
     pub aabb_min_y: u16,
+    /// Maximum X coordinate of the bounding box.
     pub aabb_max_x: u16,
+    /// Maximum Y coordinate of the bounding box.
     pub aabb_max_y: u16,
+    /// Minimum depth across triangle.
     pub min_depth: f32,
+    /// Maximum depth across triangle.
     pub max_depth: f32,
 }
 
@@ -319,6 +361,7 @@ pub struct PreparedTexturedTriangle {
     /// Gradients for interpolating depth and texture coordinates.
     pub gradients: PerspectiveTextureGradients,
     /// Indicates whether the longest edge connects p0 and p2 on the left side of the triangle.
+    /// True if the long edge connecting p0 and p2 is on the left side.
     pub long_edge_is_left: bool,
     /// Minimum X bound of the triangle's bounding box.
     pub aabb_min_x: i32,
@@ -329,7 +372,9 @@ pub struct PreparedTexturedTriangle {
     /// Maximum Y bound of the triangle's bounding box.
     pub aabb_max_y: i32,
     /// Minimum depth across triangle.
+    /// Minimum depth across triangle.
     pub min_depth: f32,
+    /// Maximum depth across triangle.
     /// Maximum depth across triangle.
     pub max_depth: f32,
 }
@@ -375,7 +420,9 @@ pub struct PreparedGouraudTrianglesList {
 }
 
 impl PreparedGouraudTrianglesList {
-    #[must_use]
+
+    /// Creates a new, empty list.
+
     pub const fn new() -> Self {
         Self {
             tris: unsafe { MaybeUninit::uninit().assume_init() },
@@ -390,7 +437,9 @@ impl PreparedGouraudTrianglesList {
         }
     }
 
-    #[must_use]
+
+    /// Returns the number of triangles in the list.
+
     pub const fn count(&self) -> usize {
         self.count
     }
@@ -408,6 +457,7 @@ impl IntoIterator for PreparedGouraudTrianglesList {
     }
 }
 
+/// An iterator over a list of prepared Gouraud triangles.
 pub struct PreparedGouraudTrianglesIter {
     list: PreparedGouraudTrianglesList,
     index: usize,
@@ -427,13 +477,17 @@ impl Iterator for PreparedGouraudTrianglesIter {
     }
 }
 
+/// A fixed-capacity list of prepared flat-shaded triangles.
 pub struct PreparedTrianglesList {
+    /// The uninitialized backing array of triangles.
     pub tris: [MaybeUninit<PreparedTriangle>; 8],
     count: usize,
 }
 
 impl PreparedTrianglesList {
-    #[must_use]
+
+    /// Creates a new, empty list.
+
     pub const fn new() -> Self {
         Self {
             tris: unsafe { MaybeUninit::uninit().assume_init() },
@@ -441,6 +495,7 @@ impl PreparedTrianglesList {
         }
     }
 
+    /// Pushes a triangle into the list if capacity allows.
     pub const fn push(&mut self, tri: PreparedTriangle) {
         if self.count < 8 {
             self.tris[self.count].write(tri);
@@ -448,7 +503,9 @@ impl PreparedTrianglesList {
         }
     }
 
-    #[must_use]
+
+    /// Returns the number of triangles in the list.
+
     pub const fn count(&self) -> usize {
         self.count
     }
@@ -508,6 +565,7 @@ impl rayon::iter::IntoParallelIterator for PreparedGouraudTrianglesList {
     }
 }
 
+/// An iterator over a list of prepared flat-shaded triangles.
 pub struct PreparedTrianglesIter {
     list: PreparedTrianglesList,
     index: usize,
@@ -527,13 +585,17 @@ impl Iterator for PreparedTrianglesIter {
     }
 }
 
+/// A fixed-capacity list of prepared textured triangles.
 pub struct PreparedTexturedTrianglesList {
+    /// The uninitialized backing array of triangles.
     pub tris: [MaybeUninit<PreparedTexturedTriangle>; 8],
     count: usize,
 }
 
 impl PreparedTexturedTrianglesList {
-    #[must_use]
+
+    /// Creates a new, empty list.
+
     pub const fn new() -> Self {
         Self {
             tris: unsafe { MaybeUninit::uninit().assume_init() },
@@ -541,6 +603,7 @@ impl PreparedTexturedTrianglesList {
         }
     }
 
+    /// Pushes a triangle into the list if capacity allows.
     pub const fn push(&mut self, tri: PreparedTexturedTriangle) {
         if self.count < 8 {
             self.tris[self.count].write(tri);
@@ -548,7 +611,9 @@ impl PreparedTexturedTrianglesList {
         }
     }
 
-    #[must_use]
+
+    /// Returns the number of triangles in the list.
+
     pub const fn count(&self) -> usize {
         self.count
     }
@@ -566,6 +631,7 @@ impl IntoIterator for PreparedTexturedTrianglesList {
     }
 }
 
+/// An iterator over a list of prepared textured triangles.
 pub struct PreparedTexturedTrianglesIter {
     list: PreparedTexturedTrianglesList,
     index: usize,
@@ -589,14 +655,20 @@ impl Iterator for PreparedTexturedTrianglesIter {
 ///
 /// Replaces `Vec<Vec<usize>>` to reduce heap allocations and improve cache locality.
 pub struct TileBins {
-    pub heads: Vec<u32>, // Index into nexts/tris. u32::MAX = None
-    pub tails: Vec<u32>, // Index into nexts/tris. u32::MAX = None
-    pub nexts: Vec<u32>, // Link to next node
-    pub tris: Vec<u32>,  // Triangle index
+    /// The head indices into the nexts and tris vectors for each bin. `u32::MAX` = None.
+    pub heads: Vec<u32>,
+    /// The tail indices into the nexts and tris vectors for each bin. `u32::MAX` = None.
+    pub tails: Vec<u32>,
+    /// Links to the next node in the linked list.
+    pub nexts: Vec<u32>,
+    /// The triangle indices for each node.
+    pub tris: Vec<u32>,
 }
 
 impl TileBins {
-    #[must_use]
+
+    /// Initializes a new bin structure with a given number of tiles.
+
     pub fn new(num_tiles: usize) -> Self {
         Self {
             heads: vec![u32::MAX; num_tiles],
@@ -606,6 +678,7 @@ impl TileBins {
         }
     }
 
+    /// Clears the bin structure for the next frame.
     pub fn clear(&mut self) {
         self.heads.fill(u32::MAX);
         self.tails.fill(u32::MAX);
@@ -613,6 +686,8 @@ impl TileBins {
         self.tris.clear();
     }
 
+
+    /// Pushes a triangle index into the bin for the given tile index.
     #[inline]
     pub fn push(&mut self, tile_idx: usize, tri_idx: usize) {
         let node_idx = self.tris.len() as u32;
@@ -629,7 +704,9 @@ impl TileBins {
         self.tails[tile_idx] = node_idx;
     }
 
-    #[must_use]
+
+    /// Iterates over the triangle indices in the given bin.
+    #[inline]
     pub fn iter(&self, tile_idx: usize) -> TileBinIter<'_> {
         TileBinIter {
             bins: self,
@@ -638,6 +715,7 @@ impl TileBins {
     }
 }
 
+/// An iterator over a tile bin.
 pub struct TileBinIter<'a> {
     bins: &'a TileBins,
     curr: u32,
@@ -646,7 +724,7 @@ pub struct TileBinIter<'a> {
 impl Iterator for TileBinIter<'_> {
     type Item = usize;
 
-    #[inline]
+
     fn next(&mut self) -> Option<Self::Item> {
         if self.curr == u32::MAX {
             None
@@ -1582,7 +1660,7 @@ impl TileRenderer {
     /// # Panics
     ///
     /// Panics if width or height is zero.
-    #[must_use]
+
     pub fn new(width: u32, height: u32) -> Self {
         assert!(width > 0 && height > 0, "Dimensions must be positive");
 
@@ -1658,13 +1736,13 @@ impl TileRenderer {
     }
 
     /// Returns the number of tiles in X direction.
-    #[must_use]
+
     pub const fn tiles_x(&self) -> u32 {
         self.tiles_x
     }
 
     /// Returns the number of tiles in Y direction.
-    #[must_use]
+
     pub const fn tiles_y(&self) -> u32 {
         self.tiles_y
     }
@@ -2146,6 +2224,7 @@ impl TileRenderer {
         );
     }
 
+    /// Renders a batch of flat-shaded triangles directly into externally provided pixel and depth slices.
     pub fn render_batch_into_slices(
         &mut self,
         width: u32,
@@ -2209,6 +2288,7 @@ impl TileRenderer {
         );
     }
 
+    /// Renders a batch of textured triangles directly into externally provided pixel and depth slices.
     pub fn render_batch_textured_into_slices(
         &mut self,
         width: u32,
