@@ -8,6 +8,8 @@ use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
 use abrash_core::utils::XorShift32;
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
 
 use abrash::experimental::reaction_diffusion::ReactionDiffusion;
 
@@ -118,7 +120,53 @@ impl WindowApp for ReactionDiffusionDemo {
     }
 }
 
+fn print_banner() {
+    println!(
+        "\n{}",
+        "🌟 Reaction-Diffusion (Gray-Scott) Demo".bold().cyan()
+    );
+    println!("{}", "=======================================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Simulates the Turing patterns formed by two interacting chemicals.")
+                .fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Behavior"),
+            Cell::new("Double-buffered grid and 3x3 Laplacian convolutions").fg(Color::Yellow),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Close window to exit"),
+        ]);
+
+    println!("\n{}", "🎮 Controls".bold());
+    println!("{controls}\n");
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    print_banner();
     run_windowed(ReactionDiffusionDemo::new());
     Ok(())
 }

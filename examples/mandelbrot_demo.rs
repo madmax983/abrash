@@ -6,6 +6,8 @@ use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
 
 #[cfg(feature = "nova")]
 use abrash::experimental::mandelbrot::{MandelbrotConfig, render_mandelbrot};
@@ -93,7 +95,50 @@ fn main() {
 }
 
 #[cfg(feature = "nova")]
+
+fn print_banner() {
+    println!("\n{}", "🌟 Mandelbrot Demo".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Renders the Mandelbrot set").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Behavior"),
+            Cell::new("Auto-zooming").fg(Color::Yellow),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Close window to exit"),
+        ]);
+
+    println!("\n{}", "🎮 Controls".bold());
+    println!("{controls}\n");
+}
+
+#[cfg(feature = "nova")]
 fn main() {
-    println!("🌟 Nova: Mandelbrot Demo");
+    print_banner();
     run_windowed(MandelbrotDemo::new().unwrap())
 }

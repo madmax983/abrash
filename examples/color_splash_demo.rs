@@ -1,6 +1,6 @@
 #![cfg(feature = "backend-winit")]
 
-use abrash::experimental::color_splash::{apply_color_splash, ColorSplashConfig};
+use abrash::experimental::color_splash::{ColorSplashConfig, apply_color_splash};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
 use abrash::platform::{
@@ -8,6 +8,8 @@ use abrash::platform::{
 };
 use abrash::rasterizer::fill_triangle_gouraud;
 use abrash::zbuffer::ZBuffer;
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
 use std::time::Instant;
 
 const WIDTH: u32 = 640;
@@ -90,13 +92,7 @@ impl WindowApp for ColorSplashDemoApp {
             let v1 = ((Vec3::new(x - radius, y + radius, 0.5), 1.0), c);
             let v2 = ((Vec3::new(x + radius, y + radius, 0.5), 1.0), c);
 
-            fill_triangle_gouraud(
-                &mut self.framebuffer,
-                &mut self.zbuffer,
-                v0,
-                v1,
-                v2,
-            );
+            fill_triangle_gouraud(&mut self.framebuffer, &mut self.zbuffer, v0, v1, v2);
         };
 
         // Draw multiple colored triangles moving in a circle
@@ -121,6 +117,48 @@ impl WindowApp for ColorSplashDemoApp {
     }
 }
 
+fn print_banner() {
+    println!("\n{}", "🌟 Color Splash Demo".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Selective color post-processing filter").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Behavior"),
+            Cell::new("Moving colored triangles in a circle").fg(Color::Yellow),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Close window to exit"),
+        ]);
+
+    println!("\n{}", "🎮 Controls".bold());
+    println!("{controls}\n");
+}
+
 fn main() {
+    print_banner();
     run_windowed(ColorSplashDemoApp::new())
 }

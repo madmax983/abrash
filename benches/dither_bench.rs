@@ -1,4 +1,4 @@
-use abrash::experimental::dither::{apply_dither, DitherConfig, DitherMode};
+use abrash::experimental::dither::{DitherConfig, DitherMode, apply_dither};
 use abrash::framebuffer::Framebuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 

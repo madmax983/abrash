@@ -25,8 +25,7 @@ use std::time::Instant;
 use winit::event::{ElementState, KeyEvent, WindowEvent};
 use winit::keyboard::{Key, NamedKey};
 
-use comfy_table::{Cell, Color, Table, presets};
-use crossterm::style::Stylize;
+
 
 #[derive(Debug)]
 struct DemoError(String);
@@ -354,65 +353,6 @@ impl WindowApp for ShowcaseApp {
             ground: ground_mat,
         });
 
-        println!(
-            "\n{}",
-            "✨ Abrash Deferred Rendering Showcase".bold().cyan()
-        );
-        println!("{}", "=====================================".dark_grey());
-
-        let mut info_table = Table::new();
-        info_table
-            .load_preset(presets::UTF8_FULL)
-            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
-            .set_header(vec![
-                Cell::new("Property").fg(Color::Cyan),
-                Cell::new("Value").fg(Color::Cyan),
-            ])
-            .add_row(vec![
-                Cell::new("Pipeline"),
-                Cell::new("Shadow > G-Buffer > Deferred Lighting > Tone Map").fg(Color::Green),
-            ])
-            .add_row(vec![
-                Cell::new("Lights"),
-                Cell::new("1 directional (shadows) + 3 point (orbiting)").fg(Color::Yellow),
-            ])
-            .add_row(vec![
-                Cell::new("Meshes"),
-                Cell::new("sphere, cube, cylinder, torus, plane"),
-            ])
-            .add_row(vec![
-                Cell::new("Objects"),
-                Cell::new("15 objects, 6 materials"),
-            ]);
-
-        println!("\n{}", "⚙️  Info".bold());
-        println!("{info_table}");
-
-        let mut controls = Table::new();
-        controls
-            .load_preset(presets::UTF8_FULL)
-            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
-            .set_header(vec![
-                Cell::new("Input").fg(Color::Cyan),
-                Cell::new("Action").fg(Color::Cyan),
-            ])
-            .add_row(vec![
-                Cell::new("D"),
-                Cell::new("Cycle debug modes (position/normal/albedo/roughness/metallic/depth)"),
-            ])
-            .add_row(vec![
-                Cell::new("T"),
-                Cell::new("Toggle TAA (temporal anti-aliasing)"),
-            ])
-            .add_row(vec![
-                Cell::new("Space"),
-                Cell::new("Pause/resume animation"),
-            ])
-            .add_row(vec![Cell::new("Esc"), Cell::new("Quit")]);
-
-        println!("\n{}", "🎮 Controls".bold());
-        println!("{controls}\n");
-
         Ok(())
     }
 
@@ -496,7 +436,72 @@ impl WindowApp for ShowcaseApp {
     }
 }
 
+fn print_banner() {
+    use comfy_table::{Cell, Color, Table, presets};
+    use crossterm::style::Stylize;
+
+    println!(
+        "\n{}",
+        "✨ Abrash Deferred Rendering Showcase".bold().cyan()
+    );
+    println!("{}", "=====================================".dark_grey());
+
+    let mut info_table = Table::new();
+    info_table
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Pipeline"),
+            Cell::new("Shadow > G-Buffer > Deferred Lighting > Tone Map").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Lights"),
+            Cell::new("1 directional (shadows) + 3 point (orbiting)").fg(Color::Yellow),
+        ])
+        .add_row(vec![
+            Cell::new("Meshes"),
+            Cell::new("sphere, cube, cylinder, torus, plane"),
+        ])
+        .add_row(vec![
+            Cell::new("Objects"),
+            Cell::new("15 objects, 6 materials"),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{info_table}");
+
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("D"),
+            Cell::new("Cycle debug modes (position/normal/albedo/roughness/metallic/depth)"),
+        ])
+        .add_row(vec![
+            Cell::new("T"),
+            Cell::new("Toggle TAA (temporal anti-aliasing)"),
+        ])
+        .add_row(vec![
+            Cell::new("Space"),
+            Cell::new("Pause/resume animation"),
+        ])
+        .add_row(vec![Cell::new("Esc"), Cell::new("Quit")]);
+
+    println!("\n{}", "🎮 Controls".bold());
+    println!("{controls}\n");
+}
+
 fn main() -> Result<(), DemoError> {
+    print_banner();
     run_windowed(ShowcaseApp::new());
     Ok(())
 }

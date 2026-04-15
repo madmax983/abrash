@@ -330,11 +330,32 @@ mod winit_demo {
     }
 }
 
+fn print_banner(_source_name: &str, _verts: usize, _tris: usize) {
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Source"),
+            Cell::new(_source_name).fg(Color::Yellow),
+        ])
+        .add_row(vec![
+            Cell::new("Status"),
+            Cell::new("✅ Loaded Successfully").fg(Color::Green),
+        ])
+        .add_row(vec![Cell::new("Vertices"), Cell::new(verts.to_string())])
+        .add_row(vec![Cell::new("Triangles"), Cell::new(tris.to_string())]);
+
+    println!("\n{}", "📦 Asset Information".bold());
+    println!("{table}");
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-
-    println!("\n{}", "🎨 Abrash OBJ Viewer".bold().cyan());
-    println!("{}", "=====================".dark_grey());
 
     let (mesh_source, source_name) = args.input.map_or_else(
         || (SPACESHIP_OBJ.to_string(), "Built-in Spaceship".to_string()),
@@ -366,33 +387,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load the mesh
     let mesh = match load_obj(&mesh_source) {
         Ok(m) => {
-            let mut table = Table::new();
-            table
-                .load_preset(presets::UTF8_FULL)
-                .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
-                .set_header(vec![
-                    Cell::new("Property").fg(Color::Cyan),
-                    Cell::new("Value").fg(Color::Cyan),
-                ])
-                .add_row(vec![
-                    Cell::new("Source"),
-                    Cell::new(&source_name).fg(Color::Yellow),
-                ])
-                .add_row(vec![
-                    Cell::new("Status"),
-                    Cell::new("✅ Loaded Successfully").fg(Color::Green),
-                ])
-                .add_row(vec![
-                    Cell::new("Vertices"),
-                    Cell::new(m.vertices.len().to_string()),
-                ])
-                .add_row(vec![
-                    Cell::new("Triangles"),
-                    Cell::new(m.indices.len().to_string()),
-                ]);
-
-            println!("\n{}", "📦 Asset Information".bold());
-            println!("{table}");
+            print_banner(&source_name, m.vertices.len(), m.indices.len());
             m
         }
         Err(e) => {
@@ -410,23 +405,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             std::process::exit(1);
         }
     };
-
-    let mut controls = Table::new();
-    controls
-        .load_preset(presets::UTF8_FULL)
-        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
-        .set_header(vec![
-            Cell::new("Input").fg(Color::Cyan),
-            Cell::new("Action").fg(Color::Cyan),
-        ])
-        .add_row(vec![
-            Cell::new("Mouse"),
-            Cell::new("(Coming Soon)").fg(Color::DarkGrey),
-        ])
-        .add_row(vec![Cell::new("Keyboard"), Cell::new("Auto-rotating")]);
-
-    println!("\n{}", "🎮 Controls".bold());
-    println!("{controls}\n");
 
     // Compute normals for flat shading logic
     let normals = mesh.compute_face_normals();

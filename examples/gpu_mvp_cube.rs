@@ -62,46 +62,6 @@ impl WindowApp for GpuMvpCubeApp {
     }
 
     fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        use comfy_table::{Cell, Color, Table, presets};
-        use crossterm::style::Stylize;
-
-        println!("\n{}", "🧊 GPU MVP Cube Demo".bold().cyan());
-        println!("{}", "=====================".dark_grey());
-
-        let mut table = Table::new();
-        table
-            .load_preset(presets::UTF8_FULL)
-            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
-            .set_header(vec![
-                Cell::new("Property").fg(Color::Cyan),
-                Cell::new("Value").fg(Color::Cyan),
-            ])
-            .add_row(vec![
-                Cell::new("Description"),
-                Cell::new("Hardware-accelerated spinning cube").fg(Color::Green),
-            ])
-            .add_row(vec![
-                Cell::new("Renderer"),
-                Cell::new("WGPU Backend").fg(Color::Yellow),
-            ]);
-
-        println!("\n{}", "⚙️  Info".bold());
-        println!("{table}");
-
-        let mut controls = Table::new();
-        controls
-            .load_preset(presets::UTF8_FULL)
-            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
-            .set_header(vec![
-                Cell::new("Input").fg(Color::Cyan),
-                Cell::new("Action").fg(Color::Cyan),
-            ])
-            .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
-            .add_row(vec![Cell::new("Keyboard"), Cell::new("Auto-rotating")]);
-
-        println!("\n{}", "🎮 Controls".bold());
-        println!("{controls}\n");
-
         let (mut renderer, surface) = GpuRenderer::new_windowed(ctx.window)?;
         let mesh = renderer.create_mesh(&Mesh::cube(1.0))?;
         let material = renderer.create_material(Material::flat(0xFFFF_4444));
@@ -169,7 +129,50 @@ impl WindowApp for GpuMvpCubeApp {
     }
 }
 
+fn print_banner() {
+    use comfy_table::{Cell, Color, Table, presets};
+    use crossterm::style::Stylize;
+
+    println!("\n{}", "🧊 GPU MVP Cube Demo".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Hardware-accelerated spinning cube").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Renderer"),
+            Cell::new("WGPU Backend").fg(Color::Yellow),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
+        .add_row(vec![Cell::new("Keyboard"), Cell::new("Auto-rotating")]);
+
+    println!("\n{}", "🎮 Controls".bold());
+    println!("{controls}\n");
+}
+
 fn main() -> Result<(), DemoError> {
+    print_banner();
     run_windowed(GpuMvpCubeApp::new());
     Ok(())
 }
