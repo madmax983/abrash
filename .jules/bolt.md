@@ -331,3 +331,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Learning:** When reading back mapped GPU memory (e.g., `wgpu::BufferView`), avoid calling `.to_vec()` to convert it to a standard vector before iteration. Iterating directly over the mapped slice eliminates massive per-frame O(N) heap allocations and memory copies (e.g., ~8MB for 1080p framebuffers).
 **Action:** Replaced `let rgba = data.to_vec();` with direct slice reference `let rgba = &data;` in `blitter.rs` readback iteration.
 **Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.
+
+**[Eliminate overdraw in circle rasterization]**
+**Learning:** In symmetric drawing algorithms (like Bresenham's circle), plotting 8-way symmetric points unconditionally will overdraw identical pixels when coordinates are on axes or diagonals (e.g., `x == 0` or `x == y`). Adding a simple conditional check (e.g., `if x != 0`) before writing to the framebuffer prevents redundant writes and measurably improves rasterization performance.
+**Action:** Added conditional checks (`x != 0`, `y != 0`, `x != y`) to `draw_circle_points_unchecked` and `draw_circle_points` in `crates/abrash-render/src/rasterizer/circle.rs` to eliminate redundant pixel writes.
