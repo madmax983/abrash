@@ -5,7 +5,7 @@ use abrash::math::Vec3;
 use abrash::mesh::Mesh;
 
 #[test]
-// #[should_panic(expected = "index out of bounds")]
+#[should_panic(expected = "index out of bounds")]
 fn test_havoc_jelly_stress_panic() {
     // 1. Setup a valid SoftBody
     let mut mesh = Mesh::new();
