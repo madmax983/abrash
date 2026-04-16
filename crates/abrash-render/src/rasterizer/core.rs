@@ -127,9 +127,9 @@ pub(crate) fn is_backface(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> 
 /// Convert Vec3 color (0.0-1.0 per channel) to u32 ARGB
 #[must_use]
 pub fn color_to_u32(color: Vec3) -> u32 {
-    let r = (color.x.clamp(0.0, 1.0) * 255.0) as u32;
-    let g = (color.y.clamp(0.0, 1.0) * 255.0) as u32;
-    let b = (color.z.clamp(0.0, 1.0) * 255.0) as u32;
+    let r = (color.x.max(0.0).min(1.0) * 255.0) as u32;
+    let g = (color.y.max(0.0).min(1.0) * 255.0) as u32;
+    let b = (color.z.max(0.0).min(1.0) * 255.0) as u32;
     0xFF00_0000 | (r << 16) | (g << 8) | b
 }
 
@@ -138,9 +138,9 @@ pub fn color_to_u32(color: Vec3) -> u32 {
 #[inline(always)]
 #[allow(clippy::missing_const_for_fn)]
 pub fn color_to_u32_scaled(color: Vec3) -> u32 {
-    let r = color.x.clamp(0.0, 255.0) as u32;
-    let g = color.y.clamp(0.0, 255.0) as u32;
-    let b = color.z.clamp(0.0, 255.0) as u32;
+    let r = color.x.max(0.0).min(255.0) as u32;
+    let g = color.y.max(0.0).min(255.0) as u32;
+    let b = color.z.max(0.0).min(255.0) as u32;
     0xFF00_0000 | (r << 16) | (g << 8) | b
 }
 

@@ -40,6 +40,12 @@ fn test_gamma_correction_identity() {
     let b = pixel & 0xFF;
 
     assert_eq!(r, 128, "Red channel should remain unchanged with gamma 1.0");
-    assert_eq!(g, 128, "Green channel should remain unchanged with gamma 1.0");
-    assert_eq!(b, 128, "Blue channel should remain unchanged with gamma 1.0");
+    assert_eq!(
+        g, 128,
+        "Green channel should remain unchanged with gamma 1.0"
+    );
+    assert_eq!(
+        b, 128,
+        "Blue channel should remain unchanged with gamma 1.0"
+    );
 }

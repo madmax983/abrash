@@ -70,7 +70,8 @@ pub fn apply_color_splash(fb: &mut Framebuffer, config: &ColorSplashConfig) {
         }
 
         let luma_u8 = pixel_luminance(p);
-        let grayscale_pixel = (0xFF << 24) | ((luma_u8 as u32) << 16) | ((luma_u8 as u32) << 8) | (luma_u8 as u32);
+        let grayscale_pixel =
+            (0xFF << 24) | ((luma_u8 as u32) << 16) | ((luma_u8 as u32) << 8) | (luma_u8 as u32);
 
         if dist_sq >= total_tol_sq {
             // Full grayscale
