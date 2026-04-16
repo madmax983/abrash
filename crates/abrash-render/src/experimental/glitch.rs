@@ -126,7 +126,7 @@ pub fn apply_glitch(fb: &mut Framebuffer, intensity: f32, time: f32) {
 /// clamping to the edges of the row if the shift goes out of bounds.
 #[inline(always)]
 fn get_channel_safe(src: &[u32], width: usize, _height: usize, x: i32, y: i32, shift: u8) -> u32 {
-    let clamped_x = x.clamp(0, width as i32 - 1) as usize;
+    let clamped_x = x.max(0).min(width as i32 - 1) as usize;
     let idx = y as usize * width + clamped_x;
     (src[idx] >> shift) & 0xFF
 }

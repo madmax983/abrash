@@ -91,6 +91,7 @@ impl CpuRenderer {
             // ⚡ Bolt: Pre-allocate standard scene capacities to prevent initial heap resizing
             meshes: ResourcePool::with_capacity(128),
             textures: ResourcePool::with_capacity(64),
+
             materials: ResourcePool::with_capacity(128),
         }
     }
