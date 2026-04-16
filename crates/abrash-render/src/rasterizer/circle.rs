@@ -233,8 +233,6 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
         return;
     }
 
-    let mut last_y = y;
-
     if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
         while y >= x {
             draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
@@ -243,20 +241,14 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
             }
 
             if d > 0 {
+                if y > x {
+                    draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
+                    draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
+                }
                 y -= 1;
                 d = d + 4 * (x - y) + 10;
             } else {
                 d = d + 4 * x + 6;
-            }
-
-            if y != last_y {
-                if last_y > x {
-                    draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + last_y, color);
-                    if last_y > 0 {
-                        draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - last_y, color);
-                    }
-                }
-                last_y = y;
             }
 
             x += 1;
@@ -270,20 +262,14 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
             }
 
             if d > 0 {
+                if y > x {
+                    draw_horizontal_line(fb, xc - x, xc + x, yc + y, color);
+                    draw_horizontal_line(fb, xc - x, xc + x, yc - y, color);
+                }
                 y -= 1;
                 d = d + 4 * (x - y) + 10;
             } else {
                 d = d + 4 * x + 6;
-            }
-
-            if y != last_y {
-                if last_y > x {
-                    draw_horizontal_line(fb, xc - x, xc + x, yc + last_y, color);
-                    if last_y > 0 {
-                        draw_horizontal_line(fb, xc - x, xc + x, yc - last_y, color);
-                    }
-                }
-                last_y = y;
             }
 
             x += 1;
