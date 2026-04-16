@@ -338,6 +338,9 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Learning:** When reading back mapped GPU memory (e.g., `wgpu::BufferView`), avoid calling `.to_vec()` to convert it to a standard vector before iteration. Iterating directly over the mapped slice eliminates massive per-frame O(N) heap allocations and memory copies (e.g., ~8MB for 1080p framebuffers).
 **Action:** Replaced `let rgba = data.to_vec();` with direct slice reference `let rgba = &data;` in `blitter.rs` readback iteration.
 **Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.
+**[Eliminate bounds check panics with min/max chaining for u32 colors]**
+**Learning:** In tight inner loops (e.g., per-pixel color packing from fixed point), replacing standard library `Ord::clamp(min, max)` with chained `.max(min).min(max)` elides the hidden `assert!(min <= max)` panic branch present in `clamp`, which improves throughput in hot rasterization loops.
+**Action:** Replaced `.clamp(0, 255)` with `.max(0).min(255)` in `pack_color_fixed`, `pack_color_fixed_i32`, `color_to_u32`, and inside Gouraud shading scanline loops.
 
 **[Eliminate bounds check panics with min/max chaining]**
 **Learning:** In tight inner loops (e.g., per-pixel image processing), replacing standard library `Ord::clamp(min, max)` with chained `.max(min).min(max)` can improve throughput by eliding the hidden `assert!(min <= max)` panic branch. However, manual `if`/`else` branching may regress performance. Crucially, NEVER apply this optimization immediately before an `unsafe { get_unchecked(...) }` block, as the elided bounds check creates a critical memory safety risk (Undefined Behavior).
