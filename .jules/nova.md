@@ -244,3 +244,8 @@
 **Concept:** A mathematical generator that renders the Mandelbrot set dynamically with parallelized computational loads and depth-based coloring. It translates pixel coordinates to complex coordinate space, testing divergence via iteration.
 **Fate:** Implemented
 **Lesson:** Iteration caps and precision control are crucial. Zooming deeper into the Mandelbrot requires significantly more iterations to resolve edge detail, but too many iterations on diverging pixels destroys performance. Leveraging Rayon to concurrently process pixels handles the dense iteration loops very efficiently compared to single-threaded logic.
+
+## Falling Sand Simulation
+**Concept:** Simulating falling sand physics directly on the Framebuffer using cellular automaton style updates.
+**Fate:** Implemented
+**Lesson:** Iterating from bottom-to-top avoids teleporting particles through multiple steps in a single frame. Randomizing horizontal processing direction prevents directional bias when sand grains fall diagonally.
