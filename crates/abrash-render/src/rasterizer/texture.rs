@@ -55,24 +55,32 @@ use super::core::blend_swar_simd;
 #[derive(Clone, Copy)]
 pub struct PerspectiveTextureGradients {
     /// Change in depth (Z) per X pixel.
+    /// Change in depth per pixel in X direction.
     pub dz_dx: f32,
     /// Change in $1/w$ per X pixel.
+    /// Change in inverse W per pixel in X direction.
     pub dq_dx: f32,
     /// Change in $u/w$ per X pixel.
+    /// Change in texture U per pixel in X direction.
     pub du_dx: f32,
     /// Change in $v/w$ per X pixel.
+    /// Change in texture V per pixel in X direction.
     pub dv_dx: f32,
     /// Change in $1/w$ per Y scanline.
+    /// Change in inverse W per pixel in Y direction.
     pub dq_dy: f32,
     /// Change in $u/w$ per Y scanline.
+    /// Change in texture U per pixel in Y direction.
     pub du_dy: f32,
     /// Change in $v/w$ per Y scanline.
+    /// Change in texture V per pixel in Y direction.
     pub dv_dy: f32,
 }
 
 impl PerspectiveTextureGradients {
     #[allow(clippy::too_many_arguments)]
     #[must_use]
+    /// Creates a new struct.
     pub fn new(
         p0: ScreenPoint,
         p1: ScreenPoint,
@@ -92,6 +100,7 @@ impl PerspectiveTextureGradients {
 
     #[allow(clippy::too_many_arguments)]
     #[must_use]
+    /// Creates a new struct with winding.
     pub fn new_with_winding(
         p0: ScreenPoint,
         p1: ScreenPoint,
@@ -228,10 +237,15 @@ impl PerspectiveTextureEdgeWalker {
 }
 
 #[derive(Clone, Copy)]
+/// Start of a perspective correct texture span.
 pub struct PerspectiveSpanStart {
+    /// Z coordinate.
     pub z: f32,
+    /// Inverse W coordinate.
     pub q: f32,
+    /// Texture U coordinate.
     pub u: f32,
+    /// Texture V coordinate.
     pub v: f32,
 }
 
@@ -3434,26 +3448,41 @@ pub fn fill_triangle_normal_mapped(
 }
 
 #[derive(Clone, Copy)]
+/// Gradients for textured gouraud triangles.
 pub struct TexturedGouraudGradients {
+    /// Change in depth per pixel in X direction.
     pub dz_dx: f32,
+    /// Change in inverse W per pixel in X direction.
     pub dq_dx: f32,
+    /// Change in texture U per pixel in X direction.
     pub du_dx: f32,
+    /// Change in texture V per pixel in X direction.
     pub dv_dx: f32,
+    /// Change in red per pixel in X direction.
     pub dr_dx: f32,
+    /// Change in green per pixel in X direction.
     pub dg_dx: f32,
+    /// Change in blue per pixel in X direction.
     pub db_dx: f32,
     // Y gradients for steps
+    /// Change in inverse W per pixel in Y direction.
     pub dq_dy: f32,
+    /// Change in texture U per pixel in Y direction.
     pub du_dy: f32,
+    /// Change in texture V per pixel in Y direction.
     pub dv_dy: f32,
+    /// Change in red per pixel in Y direction.
     pub dr_dy: f32,
+    /// Change in green per pixel in Y direction.
     pub dg_dy: f32,
+    /// Change in blue per pixel in Y direction.
     pub db_dy: f32,
 }
 
 impl TexturedGouraudGradients {
     #[allow(clippy::too_many_arguments)]
     #[must_use]
+    /// Creates a new struct.
     pub fn new(
         p0: ScreenPoint,
         p1: ScreenPoint,
@@ -3646,13 +3675,21 @@ impl TexturedGouraudEdgeWalker {
 }
 
 #[derive(Clone, Copy)]
+/// Start of a textured gouraud span.
 pub struct TexturedGouraudSpanStart {
+    /// Z coordinate.
     pub z: f32,
+    /// Inverse W coordinate.
     pub q: f32,
+    /// Texture U coordinate.
     pub u: f32,
+    /// Texture V coordinate.
     pub v: f32,
+    /// Red color.
     pub r: f32,
+    /// Green color.
     pub g: f32,
+    /// Blue color.
     pub b: f32,
 }
 

@@ -1,0 +1,10 @@
+--- crates/abrash-render/src/rasterizer/line.rs
++++ crates/abrash-render/src/rasterizer/line.rs
+@@ -19,6 +19,7 @@
+     v1: (Vec3, f32),
+     color: u32,
+ ) {
++    assert_same_dimensions(fb, zb);
+     // Clip against frustum (returns None if fully culled)
+     if let Some((v0_clipped, v1_clipped)) = clip_line_to_frustum(
+         v0,

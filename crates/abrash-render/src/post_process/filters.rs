@@ -124,6 +124,7 @@ pub fn apply_scanline_jitter(fb: &mut Framebuffer, config: &ScanlineJitterConfig
     }
 }
 
+/// Applies a grayscale filter to the framebuffer.
 pub fn apply_grayscale(fb: &mut Framebuffer) {
     let pixels = fb.as_mut_slice();
 

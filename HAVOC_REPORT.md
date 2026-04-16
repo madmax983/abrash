@@ -157,3 +157,32 @@ cargo test --test havoc_arboretum_oom --features nova -- --ignored
 
 ## 😈 Comment
 You remembered to limit the string expansion, but forgot that strings are executable code. You let the Turtle walk straight off a 9.6-Gigabyte cliff via pre-allocation and infinite stacks. You were wrong.
+
+# 👺 Havoc: SoftBody::get_vertex_stress Out-of-Bounds Panic
+
+## 🧨 The Trigger
+Calling `get_vertex_stress()` on a `SoftBody` after the user has truncated or cleared the public `mesh.vertices` array. Because `get_vertex_stress` blindly trusts the indices stored in `spring_indices_a` and `spring_indices_b` to index into the now-empty `mesh.vertices` vector, it triggers an out-of-bounds read panic.
+
+## 📉 The Stack Trace
+```
+thread 'test_havoc_jelly_stress_panic' panicked at crates/abrash-render/src/experimental/jelly.rs:707:41:
+index out of bounds: the len is 0 but the index is 0
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+   1: core::panicking::panic_fmt
+   2: core::panicking::panic_bounds_check
+   3: <usize as core::slice::index::SliceIndex<[T]>>::index
+   4: core::slice::index::<impl core::ops::index::Index<I> for [T]>::index
+   5: <alloc::vec::Vec<T,A> as core::ops::index::Index<I>>::index
+   6: abrash_render::experimental::jelly::SoftBody::get_vertex_stress
+   7: havoc_jelly_stress_panic::test_havoc_jelly_stress_panic
+```
+
+## 🧪 Reproduction
+Run the following test command:
+```bash
+cargo test --test havoc_jelly_stress_panic --features nova
+```
+
+## 😈 Comment
+You fortified `update()` and `collide_sdf()` against structural changes to `mesh.vertices`, but you forgot `get_vertex_stress()`! You blindly trusted `spring_indices_a` as if the user would never modify public state. You left the back door wide open. You were wrong.

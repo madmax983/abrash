@@ -242,6 +242,6 @@ impl WindowApp for DitherDemoApp {
 
 fn main() -> Result<(), AppError> {
     print_banner();
-    run_windowed(DitherDemoApp::new()?)?;
+    run_windowed(DitherDemoApp::new().unwrap());
     Ok(())
 }

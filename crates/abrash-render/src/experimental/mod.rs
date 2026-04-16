@@ -32,6 +32,7 @@ pub mod autostereogram;
 pub mod black_hole;
 pub mod boids;
 pub mod brickify;
+pub mod fractal;
 
 pub mod blueprint;
 pub mod cloth;
@@ -89,3 +90,4 @@ pub mod voxel_explosion;
 pub mod voxelizer;
 pub mod water_ripple;
 pub mod wobble;
+pub mod fire;

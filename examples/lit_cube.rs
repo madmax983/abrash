@@ -220,5 +220,5 @@ impl WindowApp for LitCubeApp {
 
 fn main() {
     print_banner();
-    run_windowed(LitCubeApp::new().unwrap())
+    run_windowed(LitCubeApp::new().unwrap());
 }

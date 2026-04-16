@@ -1,4 +1,5 @@
 use abrash_core::bam::{ANG45, Bam};
+use abrash_core::math::fast_sin_cos;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bam_table_lookup(c: &mut Criterion) {
@@ -37,10 +38,10 @@ fn batch_1000_polynomial(c: &mut Criterion) {
     let angles: Vec<f32> = (0..1000)
         .map(|i| i as f32 * std::f32::consts::TAU / 1000.0)
         .collect();
-    c.bench_function("1000x fast_sin_cos (polynomial)", |b| {
+    c.bench_function("1000x f32::sin_cos (polynomial)", |b| {
         b.iter(|| {
             for &a in &angles {
-                black_box(fast_sin_cos(a));
+                black_box(f32::sin_cos(a));
             }
         });
     });

@@ -1,0 +1,26 @@
+--- crates/abrash-render/src/rasterizer/line.rs
++++ crates/abrash-render/src/rasterizer/line.rs
+@@ -52,14 +52,19 @@
+         let mut z = p0.z;
+         let z_end = p1.z;
+
+-        let dx = (x1 - x0).abs();
+-        let dy = -(y1 - y0).abs();
++        let dx_full = (x1 as i64 - x0 as i64).abs();
++        let dy_full = (y1 as i64 - y0 as i64).abs();
++        if dx_full > 16384 || dy_full > 16384 {
++            return; // Prevent extreme values from causing DoS / Infinite Loops
++        }
++        let dx = dx_full as i32;
++        let dy = -(dy_full as i32);
+         let sx = if x0 < x1 { 1 } else { -1 };
+         let sy = if y0 < y1 { 1 } else { -1 };
+         let mut err = dx + dy;
+
+         // Calculate step size for Z interpolation
+         // Total steps = max(|dx|, |dy|)
+-        let steps = dx.max(-dy);
+-        let dz = if steps > 0 {
++        let steps = dx.max(-dy) as f32;
++        let dz = if steps > 0.0 {
+             (z_end - z) / (steps as f32)

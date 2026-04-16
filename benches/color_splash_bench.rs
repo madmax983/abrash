@@ -7,7 +7,7 @@ fn benchmark_color_splash(c: &mut Criterion) {
     let config = ColorSplashConfig::default();
 
     c.bench_function("color_splash_1080p", |b| {
-        b.iter(|| apply_color_splash(black_box(&mut fb), black_box(&config)))
+        b.iter(|| apply_color_splash(black_box(&mut fb), black_box(&config)));
     });
 }
 

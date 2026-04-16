@@ -748,8 +748,18 @@ name = "reaction_diffusion_demo"
 path = "examples/reaction_diffusion_demo.rs"
 required-features = ["nova"]
 
+[[example]]
+name = "fractal_demo"
+path = "examples/fractal_demo.rs"
+required-features = ["nova"]
+
 [[bench]]
 name = "jelly_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "fractal_bench"
 harness = false
 required-features = ["nova"]
 
@@ -781,3 +791,4 @@ required-features = ["nova"]
 [[example]]
 name = "gamma_demo"
 path = "examples/gamma_demo.rs"
+imprecise_flops = "allow"

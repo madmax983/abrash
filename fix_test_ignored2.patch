@@ -1,0 +1,11 @@
+--- tests/havoc_draw_line_3d.rs
++++ tests/havoc_draw_line_3d.rs
+@@ -10,7 +10,7 @@
+     #![proptest_config(ProptestConfig::with_cases(10))]
+
+     #[test]
+-    #[ignore = "👺 Havoc: Intentionally triggers UB/Panic by bypassing dimensional guards. Cannot be caught nicely in proptest due to SIGABRT"]
++    #[should_panic(expected = "Framebuffer and ZBuffer widths must match")]
+     fn havoc_test_draw_line_3d_zbuffer_oob(
+         width in 100u32..200u32,
+         height in 100u32..200u32,

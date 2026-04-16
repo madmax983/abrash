@@ -26,14 +26,14 @@ pub fn mesh_to_gpu(mesh: &crate::mesh::Mesh) -> Result<(Vec<GpuVertex>, Vec<u16>
     // Convert vertices
     // Note: Mesh uses Vec3 (f32, f32, f32), GpuVertex uses [f32; 3]
     // Mesh doesn't store vertex colors, so we default to white.
-    let vertices: Vec<GpuVertex> = mesh
-        .vertices
-        .iter()
-        .map(|v| GpuVertex {
-            position: [v.x, v.y, v.z],
-            color: [1.0, 1.0, 1.0],
-        })
-        .collect();
+    /// ⚡ Bolt: Use `Vec::with_capacity` and `.extend()` instead of `.collect()` to ensure the exact
+    /// capacity is allocated upfront. This explicitly eliminates the possibility of intermediate
+    /// dynamic heap allocations when converting mesh vertices to the GPU format.
+    let mut vertices = Vec::with_capacity(mesh.vertices.len());
+    vertices.extend(mesh.vertices.iter().map(|v| GpuVertex {
+        position: [v.x, v.y, v.z],
+        color: [1.0, 1.0, 1.0],
+    }));
 
     // Convert indices
     // Mesh uses [usize; 3], Gpu uses flat u16 buffer
