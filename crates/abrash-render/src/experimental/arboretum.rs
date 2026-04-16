@@ -146,29 +146,37 @@ impl LSystem {
             for (k, v) in &self.rules {
                 rules_array[(*k as usize) & 127] = Some(v.as_bytes());
             }
-            let mut current_bytes = self.axiom.as_bytes().to_vec();
-            let mut next_bytes = Vec::with_capacity(current_bytes.len() * 2);
-            for _ in 0..iterations {
-                /// By moving `next_bytes` outside the loop, we can `clear` and `reserve` its capacity
-                /// and then use `std::mem::swap`. This double-buffering completely eliminates O(N)
-                /// memory allocations and drops that were previously happening on every single iteration.
-                next_bytes.clear();
-                next_bytes.reserve(current_bytes.len() * 2);
-                for &b in &current_bytes {
-                    if let Some(replacement) = rules_array[(b as usize) & 127] {
-                        next_bytes.extend_from_slice(replacement);
-                    } else {
-                        next_bytes.push(b);
-                    }
-                    if next_bytes.len() > limit {
-                        return Err("L-system exceeded memory limits".to_string());
-                    }
-                }
-                std::mem::swap(&mut current_bytes, &mut next_bytes);
+            thread_local! {
+                static ARBORETUM_BUFFERS: std::cell::RefCell<(Vec<u8>, Vec<u8>)> = const { std::cell::RefCell::new((Vec::new(), Vec::new())) };
             }
+            return ARBORETUM_BUFFERS.with(|bufs| {
+                let mut bufs = bufs.borrow_mut();
+                let (current_bytes, next_bytes) = &mut *bufs;
+                current_bytes.clear();
+                current_bytes.extend_from_slice(self.axiom.as_bytes());
 
-            // Remove unsafe by converting back to string securely, though the ascii check guarantees safety.
-            return String::from_utf8(current_bytes).map_err(|e| e.to_string());
+                for _ in 0..iterations {
+                    /// By moving `next_bytes` outside the loop, we can `clear` and `reserve` its capacity
+                    /// and then use `std::mem::swap`. This double-buffering completely eliminates O(N)
+                    /// memory allocations and drops that were previously happening on every single iteration.
+                    next_bytes.clear();
+                    next_bytes.reserve(current_bytes.len() * 2);
+                    for &b in &*current_bytes {
+                        if let Some(replacement) = rules_array[(b as usize) & 127] {
+                            next_bytes.extend_from_slice(replacement);
+                        } else {
+                            next_bytes.push(b);
+                        }
+                        if next_bytes.len() > limit {
+                            return Err("L-system exceeded memory limits".to_string());
+                        }
+                    }
+                    std::mem::swap(current_bytes, next_bytes);
+                }
+
+                // Remove unsafe by converting back to string securely, though the ascii check guarantees safety.
+                String::from_utf8(current_bytes.clone()).map_err(|e| e.to_string())
+            });
         }
 
         // Fallback for unicode
