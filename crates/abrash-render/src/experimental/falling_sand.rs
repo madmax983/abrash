@@ -39,7 +39,11 @@ pub fn update_falling_sand(fb: &mut Framebuffer, sand_color: u32, empty_color: u
             // Only process sand particles
             if current_color == sand_color {
                 // Check cell directly below
-                if fb.get_pixel(ux as i32, (y + 1) as i32).unwrap_or(sand_color) == empty_color {
+                if fb
+                    .get_pixel(ux as i32, (y + 1) as i32)
+                    .unwrap_or(sand_color)
+                    == empty_color
+                {
                     fb.set_pixel(ux as i32, y as i32, empty_color);
                     fb.set_pixel(ux as i32, (y + 1) as i32, sand_color);
                 } else {
@@ -48,18 +52,38 @@ pub fn update_falling_sand(fb: &mut Framebuffer, sand_color: u32, empty_color: u
                     let try_left_first = rng.bool();
 
                     if try_left_first {
-                        if x > 0 && fb.get_pixel((ux - 1) as i32, (y + 1) as i32).unwrap_or(sand_color) == empty_color {
+                        if x > 0
+                            && fb
+                                .get_pixel((ux - 1) as i32, (y + 1) as i32)
+                                .unwrap_or(sand_color)
+                                == empty_color
+                        {
                             fb.set_pixel(ux as i32, y as i32, empty_color);
                             fb.set_pixel((ux - 1) as i32, (y + 1) as i32, sand_color);
-                        } else if ux + 1 < width && fb.get_pixel((ux + 1) as i32, (y + 1) as i32).unwrap_or(sand_color) == empty_color {
+                        } else if ux + 1 < width
+                            && fb
+                                .get_pixel((ux + 1) as i32, (y + 1) as i32)
+                                .unwrap_or(sand_color)
+                                == empty_color
+                        {
                             fb.set_pixel(ux as i32, y as i32, empty_color);
                             fb.set_pixel((ux + 1) as i32, (y + 1) as i32, sand_color);
                         }
                     } else {
-                        if ux + 1 < width && fb.get_pixel((ux + 1) as i32, (y + 1) as i32).unwrap_or(sand_color) == empty_color {
+                        if ux + 1 < width
+                            && fb
+                                .get_pixel((ux + 1) as i32, (y + 1) as i32)
+                                .unwrap_or(sand_color)
+                                == empty_color
+                        {
                             fb.set_pixel(ux as i32, y as i32, empty_color);
                             fb.set_pixel((ux + 1) as i32, (y + 1) as i32, sand_color);
-                        } else if x > 0 && fb.get_pixel((ux - 1) as i32, (y + 1) as i32).unwrap_or(sand_color) == empty_color {
+                        } else if x > 0
+                            && fb
+                                .get_pixel((ux - 1) as i32, (y + 1) as i32)
+                                .unwrap_or(sand_color)
+                                == empty_color
+                        {
                             fb.set_pixel(ux as i32, y as i32, empty_color);
                             fb.set_pixel((ux - 1) as i32, (y + 1) as i32, sand_color);
                         }
