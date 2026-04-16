@@ -1,3 +1,8 @@
+#!/bin/bash
+set -e
+
+# Replace BspTextures with BspTextureCache
+cat << 'INNER_EOF' > crates/abrash-raycast/src/renderer/bsp_lighting.rs
 //! BSP texture provider trait and distance-based colormap lighting.
 //!
 //! Consumers implement [`BspTextureCache`] to bridge their texture caches (WAD
@@ -38,7 +43,7 @@ impl BspTextureCache {
         // Palette: simple grayscale
         let mut palette = [0u32; 256];
         palette[0] = 0xFF00_0000; // black
-        palette[1] = 0xFFFF_0000; // red (wall)
+        palette[1] = 0xFF80_8080; // gray (wall)
         palette[2] = 0xFF00_00FF; // blue (flat)
 
         Self {
@@ -166,3 +171,4 @@ mod tests {
         assert!(negative <= MAX_COLORMAP);
     }
 }
+INNER_EOF

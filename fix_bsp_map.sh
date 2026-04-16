@@ -1,3 +1,8 @@
+#!/bin/bash
+set -e
+
+# Replace BspMap trait with BspMapData struct
+cat << 'INNER_EOF' > crates/abrash-raycast/src/bsp.rs
 //! BSP tree types for Doom-style map traversal.
 //!
 //! Parallel to the DDA grid raycaster — both answer "what does this ray hit?"
@@ -336,3 +341,4 @@ mod tests {
         }
     }
 }
+INNER_EOF
