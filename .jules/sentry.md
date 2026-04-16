@@ -24,3 +24,7 @@
 **[Steganography Integer Overflow Prevention]**
 **Learning:** When calculating buffer sizes or bit counts from arbitrary or untrusted lengths (e.g., from an image or framebuffer), standard arithmetic operators (`+`, `*`) can easily overflow `usize` boundaries and cause panics. For example, `(4 + len) * 8` can panic if `len` is close to `usize::MAX`.
 **Action:** Always use safe arithmetic like `checked_add` and `checked_mul` when dealing with lengths or sizes derived from untrusted inputs, and bubble up safe `Option` or `Result` types instead of crashing.
+
+**Fixed Havoc Draw Line 3D Overflow**
+**Learning:** Bresenham's line algorithm can experience massive integer overflow for large input coordinates (e.g. fuzzing with values > 1e16) when calculating intermediate error values (`dx`, `dy`, `err`, `e2`) with `i32` types, since the maximum difference between two screen points exceeds `i32::MAX`.
+**Action:** Upgraded the intermediate tracking types (`dx`, `dy`, `sx`, `sy`, `err`, `e2`) to `i64` in `draw_line_3d` to safely accommodate the mathematical differences of arbitrary large inputs without panic.

@@ -51,8 +51,8 @@ pub fn draw_line_3d(
         let mut z = p0.z;
         let z_end = p1.z;
 
-        let dx = (x1 - x0).abs();
-        let dy = -(y1 - y0).abs();
+        let dx = (x1 as i64 - x0 as i64).abs();
+        let dy = -(y1 as i64 - y0 as i64).abs();
         let sx = if x0 < x1 { 1 } else { -1 };
         let sy = if y0 < y1 { 1 } else { -1 };
         let mut err = dx + dy;
