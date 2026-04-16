@@ -32,6 +32,7 @@ pub mod autostereogram;
 pub mod black_hole;
 pub mod boids;
 pub mod brickify;
+pub mod fractal;
 
 pub mod blueprint;
 pub mod cloth;
@@ -73,6 +74,7 @@ pub mod radial_blur;
 pub mod raytracer;
 pub mod reaction_diffusion;
 pub mod sdf;
+pub mod selective_color;
 pub mod sharpen;
 pub mod slitscan;
 pub mod starfield;

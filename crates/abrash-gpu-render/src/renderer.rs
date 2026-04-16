@@ -240,7 +240,8 @@ impl GpuRenderer {
             texture_bind_group_layout,
             default_sampler,
             point_sampler,
-            textures: Vec::new(),
+            // ⚡ Bolt: Pre-allocate standard scene capacities to prevent initial heap resizing
+            textures: Vec::with_capacity(64),
             shadow_map,
             skybox_pass,
             skybox_cubemap: None,
@@ -259,9 +260,9 @@ impl GpuRenderer {
             #[cfg(feature = "ray-tracing")]
             rt_enabled,
             #[cfg(feature = "ray-tracing")]
-            mesh_blas: Vec::new(),
-            meshes: Vec::new(),
-            materials: Vec::new(),
+            mesh_blas: Vec::with_capacity(128),
+            meshes: Vec::with_capacity(128),
+            materials: Vec::with_capacity(128),
         }
     }
 

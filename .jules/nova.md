@@ -225,6 +225,11 @@
 **Fate:** Implemented
 **Lesson:** Storing minimal state (just the Y position of the "head" of each column) and applying a fast, simple RGB dimming pass over the entire framebuffer each frame effortlessly creates a complex-looking trail effect. It avoids the need to explicitly render the entire tail or manage complex string allocations, proving that simple pixel math often trumps complex data structures for visual flair.
 
+## [Selective Color Filter]
+**Concept:** A post-processing effect that converts the image to grayscale, except for pixels that match a specific target hue. Useful for emphasizing certain objects or colors (e.g., Sin City style).
+**Fate:** Implemented
+**Lesson:** Using the HSV color space makes it trivial to calculate angular differences in hue to isolate specific color ranges, allowing for a highly stylistic selective color effect without complex masking. Operating in-place using Rayon provides excellent performance over the framebuffer.
+
 ## [Color Splash]
 **Concept:** A selective color post-processing effect that converts the image to grayscale while preserving a specific target color (and colors within a certain tolerance).
 **Fate:** Implemented
@@ -234,3 +239,8 @@
 **Concept:** A retro fractal visualization post-processing or generative feature mapping the complex plane to pixel colors based on iteration depth in the Mandelbrot set.
 **Fate:** Implemented
 **Lesson:** Using `rayon` parallel closures avoids massive calculation delays for deep iterations on large framebuffers. By abstracting the core complex loop from the display projection, the fractal generation becomes simple, scalable, and independent of specific rendering constraints. A custom color palette improves aesthetics tremendously.
+
+## Fractal Explorer
+**Concept:** A mathematical generator that renders the Mandelbrot set dynamically with parallelized computational loads and depth-based coloring. It translates pixel coordinates to complex coordinate space, testing divergence via iteration.
+**Fate:** Implemented
+**Lesson:** Iteration caps and precision control are crucial. Zooming deeper into the Mandelbrot requires significantly more iterations to resolve edge detail, but too many iterations on diverging pixels destroys performance. Leveraging Rayon to concurrently process pixels handles the dense iteration loops very efficiently compared to single-threaded logic.
