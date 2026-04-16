@@ -9141,7 +9141,7 @@ pub fn aces_filmic(x: f32) -> f32 {
 /// ```
 #[inline]
 pub fn exposure(x: f32, ev: f32) -> f32 {
-    x * (2.0_f32).powf(ev)
+    x * ev.exp2()
 }
 
 /// Convert a unit-sphere **normal** to equirectangular `(u, v)` in `[0,1]²`.
@@ -10346,7 +10346,7 @@ pub fn ease_elastic_out(t: f32, amplitude: f32, period: f32) -> f32 {
     }
     let a = amplitude.max(1.0);
     let s = (a.recip()).asin() * period / core::f32::consts::TAU;
-    a * (2.0_f32).powf(-10.0 * t) * ((t - s) * core::f32::consts::TAU / period).sin() + 1.0
+    a * (-10.0 * t).exp2() * ((t - s) * core::f32::consts::TAU / period).sin() + 1.0
 }
 
 // ── Pass 25 tests ──────────────────────────────────────────────────────────────
@@ -11944,7 +11944,7 @@ pub fn ease_expo_in(t: f32) -> f32 {
     if t <= 0.0 {
         0.0
     } else {
-        (2.0_f32).powf(10.0 * t - 10.0)
+        (10.0 * t - 10.0).exp2()
     }
 }
 
@@ -11962,7 +11962,7 @@ pub fn ease_expo_out(t: f32) -> f32 {
     if t >= 1.0 {
         1.0
     } else {
-        1.0 - (2.0_f32).powf(-10.0 * t)
+        1.0 - (-10.0 * t).exp2()
     }
 }
 
@@ -11983,9 +11983,9 @@ pub fn ease_expo_in_out(t: f32) -> f32 {
     } else if t >= 1.0 {
         1.0
     } else if t < 0.5 {
-        (2.0_f32).powf(20.0 * t - 10.0) * 0.5
+        (20.0 * t - 10.0).exp2() * 0.5
     } else {
-        (2.0 - (2.0_f32).powf(-20.0 * t + 10.0)) * 0.5
+        (2.0 - (-20.0 * t + 10.0).exp2()) * 0.5
     }
 }
 
@@ -12128,10 +12128,10 @@ pub fn ease_elastic_in_out(t: f32, amplitude: f32, period: f32) -> f32 {
     let t2 = t * 2.0;
     if t2 < 1.0 {
         -0.5 * a
-            * (2.0_f32).powf(10.0 * (t2 - 1.0))
+            * (10.0 * (t2 - 1.0)).exp2()
             * ((t2 - 1.0 - s) * core::f32::consts::TAU / period).sin()
     } else {
-        a * (2.0_f32).powf(-10.0 * (t2 - 1.0))
+        a * (-10.0 * (t2 - 1.0)).exp2()
             * ((t2 - 1.0 - s) * core::f32::consts::TAU / period).sin()
             * 0.5
             + 1.0
@@ -19190,7 +19190,7 @@ pub fn ev100(aperture: f32, shutter: f32, iso: f32) -> f32 {
 /// `exposure = 1 / (1.2 * 2^EV100)`.
 #[inline]
 pub fn ev100_to_exposure(ev100_val: f32) -> f32 {
-    1.0 / (1.2 * (2.0_f32).powf(ev100_val))
+    1.0 / (1.2 * ev100_val.exp2())
 }
 
 /// Log-average luminance of a luminance slice — the geometric mean.
