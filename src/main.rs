@@ -180,12 +180,26 @@ Keyboard: Auto-rotating",
         example_name: "god_rays_demo",
     },
     Demo {
+        name: "Selective Color Demo",
+        category: DemoCategory::Simulation,
+        description: "Converts image to grayscale except for a target hue.",
+        instructions: "Observe the rotating cubes. Only the targeted hue will remain colored.",
+        example_name: "selective_color_demo",
+    },
+    Demo {
         name: "Jelly Physics",
         category: DemoCategory::Simulation,
         description: "Soft-body jelly physics simulation",
         instructions: "Mouse: None
 Keyboard: Auto-rotating",
         example_name: "jelly_demo",
+    },
+    Demo {
+        name: "Color Splash",
+        category: DemoCategory::Utility,
+        description: "Selective color post-processing filter",
+        instructions: "Mouse: None\nKeyboard: Auto-rotating",
+        example_name: "color_splash_demo",
     },
     Demo {
         name: "Anaglyph 3D",
@@ -349,6 +363,13 @@ Keyboard: Interactive",
         instructions: "Mouse: Click to add drops\nKeyboard: Space to clear, C to reset",
         example_name: "reaction_diffusion_demo",
     },
+    Demo {
+        name: "Fractal Explorer",
+        category: DemoCategory::Simulation,
+        description: "Mandelbrot set generator.",
+        instructions: "Mouse: None\nKeyboard: ESC to exit",
+        example_name: "fractal_demo",
+    },
 ];
 
 fn is_gpu_render_example(example_name: &str) -> bool {
@@ -363,7 +384,9 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "directional_blur_demo"
         || example_name == "god_rays_demo"
         || example_name == "jelly_demo"
+        || example_name == "color_splash_demo"
         || example_name == "anaglyph_demo"
+        || example_name == "fractal_demo"
         || example_name == "chromatic_aberration_demo"
         || example_name == "voronoi_demo"
         || example_name == "vignette_demo"

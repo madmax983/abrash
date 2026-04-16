@@ -748,8 +748,28 @@ name = "reaction_diffusion_demo"
 path = "examples/reaction_diffusion_demo.rs"
 required-features = ["nova"]
 
+[[example]]
+name = "fractal_demo"
+path = "examples/fractal_demo.rs"
+required-features = ["nova"]
+
 [[bench]]
 name = "jelly_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "fractal_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "selective_color_demo"
+path = "examples/selective_color_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "color_splash_bench"
 harness = false
 required-features = ["nova"]
 
@@ -761,6 +781,11 @@ required-features = ["nova"]
 [[bench]]
 name = "mandelbrot_bench"
 harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "color_splash_demo"
+path = "examples/color_splash_demo.rs"
 required-features = ["nova"]
 
 [[example]]

@@ -323,6 +323,13 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Learning:** In tight inner loops or coordinate bounds calculations (e.g., `clear_rect`), replacing standard library `Ord::clamp(min, max)` with chained `.max(min).min(max)` can improve throughput by eliding the hidden `assert!(min <= max)` panic branch present in `clamp`.
 **Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.
 
+**[Optimize Rayon iterators using flat_map instead of flat_map_iter]**
+**Learning:** Using `flat_map_iter` within a Rayon `par_iter()` chain (e.g. `.par_extend(triangles.par_iter().flat_map_iter(...))`) can cause unnecessary iterator overhead and prevent the collection type (like a `Vec` or `smallvec`) from optimally utilizing existing capacity during a `.par_extend()` operation. Rayon's standard `.flat_map()` handles thread-local parallel collections more cleanly.
+**Action:** Replace `.flat_map_iter()` with standard `.flat_map()` when feeding values into a `par_extend()` call. This ensures efficient utilization of pre-allocated buffers and eliminates hidden allocation overhead in hot loops.
+
+**[Pre-allocate Vec collections in high-level renderers]**
+**Learning:** Just like `ResourcePool`, top-level renderers (like `GpuRenderer` and `GpuBlitter`) shouldn't instantiate their internal resource-tracking lists (like `meshes`, `materials`, `commands`) using `Vec::new()`. Leaving these empty initially forces dynamic heap resizing when a game/scene starts loading its assets.
+**Action:** Use `Vec::with_capacity(N)` when instantiating internal vectors in rendering structures to eliminate heap reallocation overhead during the initial boot and level-load phases.
 **[Eliminate bounds check panics with min/max chaining]**
 **Learning:** In tight inner loops (e.g., per-pixel image processing), replacing standard library `Ord::clamp(min, max)` with chained `.max(min).min(max)` can improve throughput by eliding the hidden `assert!(min <= max)` panic branch. However, manual `if`/`else` branching may regress performance. Crucially, NEVER apply this optimization immediately before an `unsafe { get_unchecked(...) }` block, as the elided bounds check creates a critical memory safety risk (Undefined Behavior).
 **Action:** Replaced `.clamp()` with `.max().min()` in hot loops where memory safety is guaranteed by surrounding array length constraints or where the logic is safe (e.g., simple mathematical variables like colors, coordinates before safe array access).
@@ -334,3 +341,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Eliminate bounds check panics with min/max chaining for u32 colors]**
 **Learning:** In tight inner loops (e.g., per-pixel color packing from fixed point), replacing standard library `Ord::clamp(min, max)` with chained `.max(min).min(max)` elides the hidden `assert!(min <= max)` panic branch present in `clamp`, which improves throughput in hot rasterization loops.
 **Action:** Replaced `.clamp(0, 255)` with `.max(0).min(255)` in `pack_color_fixed`, `pack_color_fixed_i32`, `color_to_u32`, and inside Gouraud shading scanline loops.
+
+**[Eliminate bounds check panics with min/max chaining]**
+**Learning:** In tight inner loops (e.g., per-pixel image processing), replacing standard library `Ord::clamp(min, max)` with chained `.max(min).min(max)` can improve throughput by eliding the hidden `assert!(min <= max)` panic branch. However, manual `if`/`else` branching may regress performance. Crucially, NEVER apply this optimization immediately before an `unsafe { get_unchecked(...) }` block, as the elided bounds check creates a critical memory safety risk (Undefined Behavior).
+**Action:** Replaced `.clamp()` with `.max().min()` in hot loops where memory safety is guaranteed by surrounding array length constraints or where the logic is safe (e.g., simple mathematical variables like colors, coordinates before safe array access).

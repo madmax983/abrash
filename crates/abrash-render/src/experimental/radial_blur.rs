@@ -65,7 +65,7 @@ pub fn apply_radial_blur(
         // because the gap (bits 8-15) can hold exactly 256 accumulations of the max 8-bit value (255).
         let can_swar = samples <= 256;
 
-                #[cfg(feature = "parallel")]
+        #[cfg(feature = "parallel")]
         {
             use rayon::prelude::*;
 
@@ -73,133 +73,129 @@ pub fn apply_radial_blur(
                 .par_chunks_exact_mut(width)
                 .enumerate()
                 .for_each(|(y, row)| {
+                    let dy = y as f32 - cy_f32;
+                    let step_y = (dy * sf_fixed) as i32;
+
                     for (x, pixel) in row.iter_mut().enumerate() {
-                        *pixel = {
-            let dx = x as f32 - cx_f32;
-            let dy = y as f32 - cy_f32;
+                        let dx = x as f32 - cx_f32;
+                        let step_x = (dx * sf_fixed) as i32;
 
-            let step_x = (dx * sf_fixed) as i32;
-            let step_y = (dy * sf_fixed) as i32;
+                        let mut cur_x = (x as i32) << 16;
+                        let mut cur_y = (y as i32) << 16;
 
-            let mut cur_x = (x as i32) << 16;
-            let mut cur_y = (y as i32) << 16;
+                        if can_swar {
+                            let mut rb_acc = 0;
+                            let mut g_acc = 0;
 
-            if can_swar {
-                let mut rb_acc = 0;
-                let mut g_acc = 0;
+                            for _ in 0..samples {
+                                let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
+                                let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 
-                for _ in 0..samples {
-                    let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
-                    let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
+                                let color = src_fb[y_idx * width + x_idx];
 
-                    let color = src_fb[y_idx * width + x_idx];
+                                // Accumulate R and B channels simultaneously. The 0x00FF00FF mask isolates R and B.
+                                rb_acc += color & 0x00FF_00FF;
+                                // Accumulate G channel separately.
+                                g_acc += (color >> 8) & 0x0000_00FF;
 
-                    // Accumulate R and B channels simultaneously. The 0x00FF00FF mask isolates R and B.
-                    rb_acc += color & 0x00FF_00FF;
-                    // Accumulate G channel separately.
-                    g_acc += (color >> 8) & 0x0000_00FF;
+                                cur_x += step_x;
+                                cur_y += step_y;
+                            }
 
-                    cur_x += step_x;
-                    cur_y += step_y;
-                }
+                            let r = (rb_acc >> 16) / inv_samples;
+                            let g = g_acc / inv_samples;
+                            let b = (rb_acc & 0xFFFF) / inv_samples;
 
-                let r = (rb_acc >> 16) / inv_samples;
-                let g = g_acc / inv_samples;
-                let b = (rb_acc & 0xFFFF) / inv_samples;
+                            *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                        } else {
+                            let mut r_acc = 0;
+                            let mut g_acc = 0;
+                            let mut b_acc = 0;
 
-                (r << 16) | (g << 8) | b
-            } else {
-                let mut r_acc = 0;
-                let mut g_acc = 0;
-                let mut b_acc = 0;
+                            for _ in 0..samples {
+                                let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
+                                let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 
-                for _ in 0..samples {
-                    let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
-                    let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
+                                let color = src_fb[y_idx * width + x_idx];
+                                r_acc += (color >> 16) & 0xFF;
+                                g_acc += (color >> 8) & 0xFF;
+                                b_acc += color & 0xFF;
 
-                    let color = src_fb[y_idx * width + x_idx];
-                    r_acc += (color >> 16) & 0xFF;
-                    g_acc += (color >> 8) & 0xFF;
-                    b_acc += color & 0xFF;
+                                cur_x += step_x;
+                                cur_y += step_y;
+                            }
 
-                    cur_x += step_x;
-                    cur_y += step_y;
-                }
+                            let r = (r_acc / inv_samples) & 0xFF;
+                            let g = (g_acc / inv_samples) & 0xFF;
+                            let b = (b_acc / inv_samples) & 0xFF;
 
-                let r = (r_acc / inv_samples) & 0xFF;
-                let g = (g_acc / inv_samples) & 0xFF;
-                let b = (b_acc / inv_samples) & 0xFF;
-
-                (r << 16) | (g << 8) | b
-            }
-        };
+                            *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                        }
                     }
                 });
         }
 
         #[cfg(not(feature = "parallel"))]
         {
-            for (y, row) in dest_pixels.chunks_exact_mut(width).enumerate().take(height) {
-                for (x, pixel) in row.iter_mut().enumerate() {
-                    *pixel = {
-            let dx = x as f32 - cx_f32;
-            let dy = y as f32 - cy_f32;
+            for y in 0..height {
+                let row_start = y * width;
+                let dy = y as f32 - cy_f32;
+                let step_y = (dy * sf_fixed) as i32;
+                for x in 0..width {
+                    let dx = x as f32 - cx_f32;
+                    let step_x = (dx * sf_fixed) as i32;
 
-            let step_x = (dx * sf_fixed) as i32;
-            let step_y = (dy * sf_fixed) as i32;
+                    let mut cur_x = (x as i32) << 16;
+                    let mut cur_y = (y as i32) << 16;
 
-            let mut cur_x = (x as i32) << 16;
-            let mut cur_y = (y as i32) << 16;
+                    if can_swar {
+                        let mut rb_acc = 0;
+                        let mut g_acc = 0;
 
-            if can_swar {
-                let mut rb_acc = 0;
-                let mut g_acc = 0;
+                        for _ in 0..samples {
+                            let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
+                            let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 
-                for _ in 0..samples {
-                    let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
-                    let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
+                            let color = src_fb[y_idx * width + x_idx];
 
-                    let color = src_fb[y_idx * width + x_idx];
+                            // Accumulate R and B channels simultaneously. The 0x00FF00FF mask isolates R and B.
+                            rb_acc += color & 0x00FF_00FF;
+                            // Accumulate G channel separately.
+                            g_acc += (color >> 8) & 0x0000_00FF;
 
-                    // Accumulate R and B channels simultaneously. The 0x00FF00FF mask isolates R and B.
-                    rb_acc += color & 0x00FF_00FF;
-                    // Accumulate G channel separately.
-                    g_acc += (color >> 8) & 0x0000_00FF;
+                            cur_x += step_x;
+                            cur_y += step_y;
+                        }
 
-                    cur_x += step_x;
-                    cur_y += step_y;
-                }
+                        let r = (rb_acc >> 16) / inv_samples;
+                        let g = g_acc / inv_samples;
+                        let b = (rb_acc & 0xFFFF) / inv_samples;
 
-                let r = (rb_acc >> 16) / inv_samples;
-                let g = g_acc / inv_samples;
-                let b = (rb_acc & 0xFFFF) / inv_samples;
+                        dest_pixels[row_start + x] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                    } else {
+                        let mut r_acc = 0;
+                        let mut g_acc = 0;
+                        let mut b_acc = 0;
 
-                (r << 16) | (g << 8) | b
-            } else {
-                let mut r_acc = 0;
-                let mut g_acc = 0;
-                let mut b_acc = 0;
+                        for _ in 0..samples {
+                            let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
+                            let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 
-                for _ in 0..samples {
-                    let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
-                    let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
+                            let color = src_fb[y_idx * width + x_idx];
+                            r_acc += (color >> 16) & 0xFF;
+                            g_acc += (color >> 8) & 0xFF;
+                            b_acc += color & 0xFF;
 
-                    let color = src_fb[y_idx * width + x_idx];
-                    r_acc += (color >> 16) & 0xFF;
-                    g_acc += (color >> 8) & 0xFF;
-                    b_acc += color & 0xFF;
+                            cur_x += step_x;
+                            cur_y += step_y;
+                        }
 
-                    cur_x += step_x;
-                    cur_y += step_y;
-                }
+                        let r = (r_acc / inv_samples) & 0xFF;
+                        let g = (g_acc / inv_samples) & 0xFF;
+                        let b = (b_acc / inv_samples) & 0xFF;
 
-                let r = (r_acc / inv_samples) & 0xFF;
-                let g = (g_acc / inv_samples) & 0xFF;
-                let b = (b_acc / inv_samples) & 0xFF;
-
-                (r << 16) | (g << 8) | b
-            }
-        };
+                        dest_pixels[row_start + x] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                    }
                 }
             }
         }
