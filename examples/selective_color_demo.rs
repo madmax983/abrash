@@ -180,8 +180,6 @@ impl WindowApp for SelectiveColorApp {
                 let v1_clip = mvp.transform_point(v1_local);
                 let v2_clip = mvp.transform_point(v2_local);
 
-
-
                 // Backface culling in local space
                 let edge1 = v1_local - v0_local;
                 let edge2 = v2_local - v0_local;
@@ -191,12 +189,6 @@ impl WindowApp for SelectiveColorApp {
                     inv_model.transform_point(Vec3::new(0.0, 0.0, 5.0)).0 - v0_local;
 
                 if face_normal.dot(view_dir_local) > 0.0 {
-
-
-
-
-
-
                     fill_triangle_lit(
                         &mut self.fb,
                         &mut self.zb,

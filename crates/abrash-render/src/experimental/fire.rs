@@ -40,9 +40,13 @@ pub fn apply_fire(fb: &mut Framebuffer, cooling_map: &[u8]) {
         let dest_pixels = fb.as_mut_slice();
 
         #[cfg(feature = "parallel")]
-        let chunk_iter = dest_pixels[..width * (height - 1)].par_chunks_exact_mut(width).enumerate();
+        let chunk_iter = dest_pixels[..width * (height - 1)]
+            .par_chunks_exact_mut(width)
+            .enumerate();
         #[cfg(not(feature = "parallel"))]
-        let chunk_iter = dest_pixels[..width * (height - 1)].chunks_exact_mut(width).enumerate();
+        let chunk_iter = dest_pixels[..width * (height - 1)]
+            .chunks_exact_mut(width)
+            .enumerate();
 
         chunk_iter.for_each(|(y, row)| {
             for x in 0..width {

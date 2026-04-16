@@ -420,7 +420,6 @@ pub struct PreparedGouraudTrianglesList {
 }
 
 impl PreparedGouraudTrianglesList {
-
     /// Creates a new, empty list.
 
     pub const fn new() -> Self {
@@ -436,7 +435,6 @@ impl PreparedGouraudTrianglesList {
             self.count += 1;
         }
     }
-
 
     /// Returns the number of triangles in the list.
 
@@ -485,7 +483,6 @@ pub struct PreparedTrianglesList {
 }
 
 impl PreparedTrianglesList {
-
     /// Creates a new, empty list.
 
     pub const fn new() -> Self {
@@ -502,7 +499,6 @@ impl PreparedTrianglesList {
             self.count += 1;
         }
     }
-
 
     /// Returns the number of triangles in the list.
 
@@ -593,7 +589,6 @@ pub struct PreparedTexturedTrianglesList {
 }
 
 impl PreparedTexturedTrianglesList {
-
     /// Creates a new, empty list.
 
     pub const fn new() -> Self {
@@ -610,7 +605,6 @@ impl PreparedTexturedTrianglesList {
             self.count += 1;
         }
     }
-
 
     /// Returns the number of triangles in the list.
 
@@ -666,7 +660,6 @@ pub struct TileBins {
 }
 
 impl TileBins {
-
     /// Initializes a new bin structure with a given number of tiles.
 
     pub fn new(num_tiles: usize) -> Self {
@@ -686,7 +679,6 @@ impl TileBins {
         self.tris.clear();
     }
 
-
     /// Pushes a triangle index into the bin for the given tile index.
     #[inline]
     pub fn push(&mut self, tile_idx: usize, tri_idx: usize) {
@@ -703,7 +695,6 @@ impl TileBins {
         }
         self.tails[tile_idx] = node_idx;
     }
-
 
     /// Iterates over the triangle indices in the given bin.
     #[inline]
@@ -723,7 +714,6 @@ pub struct TileBinIter<'a> {
 
 impl Iterator for TileBinIter<'_> {
     type Item = usize;
-
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.curr == u32::MAX {

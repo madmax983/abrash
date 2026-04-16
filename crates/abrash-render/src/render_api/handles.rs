@@ -186,7 +186,6 @@ impl<T> ResourcePool<T> {
         self.entries.capacity()
     }
 
-
     /// Insert a resource and return its handle.
     pub fn insert(&mut self, value: T) -> Handle<T> {
         if let Some(index) = self.free_list.pop() {
