@@ -339,6 +339,9 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Action:** Replaced `let rgba = data.to_vec();` with direct slice reference `let rgba = &data;` in `blitter.rs` readback iteration.
 **Action:** Replaced `.clamp(0, limit)` with `.max(0).min(limit)` in `ZBuffer::clear_rect` and `Framebuffer::clear_rect`.
 
+**Explicit Vec::with_capacity vs ExactSizeIterator .collect()**
+**Learning:** While `.collect()` on an `ExactSizeIterator` (like a mapped slice) automatically pre-allocates memory, replacing it with explicit `Vec::with_capacity()` and `.extend()` visually guarantees allocation behavior in hot paths and safely prevents future regressions if the iterator chain is later modified to lose its size hint.
+**Action:** Use `Vec::with_capacity` paired with `.extend` or `.push` in performance-critical loops when mapping arrays to ensure explicit allocation boundaries and to clearly signal performance intent via inline documentation (`/// ⚡ Bolt:`).
 **Eliding Panic Bounds Checks in Hot Loops**
 **Learning:** In tight inner loops (e.g., per-pixel color packing in rasterization), standard library methods like `Ord::clamp(min, max)` introduce implicit `assert!(min <= max)` bounds checking that can incur branching overhead.
 **Action:** Replace `.clamp(0, 255)` with chained `.max(0).min(255)` with constant values in critical paths. This produces identical logical bounds but safely elides the hidden panic branch, improving CPU throughput without invoking `unsafe` behavior.
