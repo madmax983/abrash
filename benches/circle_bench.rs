@@ -1,5 +1,4 @@
 #![allow(unused)]
-use abrash_render::rasterizer::draw_circle;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 use abrash_core::framebuffer::Framebuffer;
