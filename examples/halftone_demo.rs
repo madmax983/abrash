@@ -159,5 +159,5 @@ fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(HalftoneDemoApp::new().unwrap())
+    run_windowed(HalftoneDemoApp::new().unwrap());
 }

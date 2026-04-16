@@ -116,5 +116,5 @@ impl WindowApp for ColorSplashDemoApp {
 }
 
 fn main() {
-    run_windowed(ColorSplashDemoApp::new())
+    run_windowed(ColorSplashDemoApp::new());
 }
