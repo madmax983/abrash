@@ -463,9 +463,10 @@ impl GpuBlitter {
             render_texture,
             render_view,
             readback_buffer,
-            commands: Vec::new(),
-            atlases: Vec::new(),
-            instances: Vec::new(),
+            // ⚡ Bolt: Pre-allocate standard blitter capacities to prevent initial heap resizing
+            commands: Vec::with_capacity(128),
+            atlases: Vec::with_capacity(16),
+            instances: Vec::with_capacity(128),
         }
     }
 

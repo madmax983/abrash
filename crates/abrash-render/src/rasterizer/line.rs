@@ -55,7 +55,7 @@ pub fn draw_line_3d(
         let dy = -(y1 - y0).abs();
         let sx = if x0 < x1 { 1 } else { -1 };
         let sy = if y0 < y1 { 1 } else { -1 };
-        let mut err = dx + dy;
+        let mut err = (dx as i64) + (dy as i64);
 
         // Calculate step size for Z interpolation
         // Total steps = max(|dx|, |dy|)
@@ -90,12 +90,12 @@ pub fn draw_line_3d(
                 break;
             }
             let e2 = 2 * err;
-            if e2 >= dy {
-                err += dy;
+            if e2 >= (dy as i64) {
+                err += dy as i64;
                 x0 += sx;
             }
-            if e2 <= dx {
-                err += dx;
+            if e2 <= (dx as i64) {
+                err += dx as i64;
                 y0 += sy;
             }
             z += dz;

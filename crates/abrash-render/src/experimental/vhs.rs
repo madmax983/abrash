@@ -115,8 +115,10 @@ pub fn apply_vhs(fb: &mut Framebuffer, config: &VhsConfig) {
             let (horizontal_shift, r_shift, b_shift) = if is_in_tracking_band {
                 // Determine how deep into the band we are (0.0 at edges, 1.0 at center)
                 let dist_to_center = (y as i32 - tracking_center).abs() as f32;
-                let band_intensity =
-                    1.0 - (dist_to_center / tracking_half_thickness as f32).clamp(0.0, 1.0);
+                let band_intensity = 1.0
+                    - (dist_to_center / tracking_half_thickness as f32)
+                        .max(0.0)
+                        .min(1.0);
 
                 // Add a sine wave oscillation to the shift for a "wobble" effect
                 let wobble = (config.time * 10.0 + y as f32 * 0.1).sin();
@@ -167,9 +169,9 @@ pub fn apply_vhs(fb: &mut Framebuffer, config: &VhsConfig) {
                         % 255) as i32;
                     let noise_val = ((pixel_noise - 128) as f32 * config.noise_intensity) as i32;
 
-                    final_r = (final_r + noise_val).clamp(0, 255);
-                    final_g = (final_g + noise_val).clamp(0, 255);
-                    final_b = (final_b + noise_val).clamp(0, 255);
+                    final_r = (final_r + noise_val).max(0).min(255);
+                    final_g = (final_g + noise_val).max(0).min(255);
+                    final_b = (final_b + noise_val).max(0).min(255);
                 }
 
                 // Add static "snow" specks
@@ -192,7 +194,7 @@ pub fn apply_vhs(fb: &mut Framebuffer, config: &VhsConfig) {
 /// clamping to the edges of the row if the shift goes out of bounds.
 #[inline(always)]
 fn get_channel_safe(src: &[u32], width: usize, _height: usize, x: i32, y: i32, shift: u8) -> u32 {
-    let clamped_x = x.clamp(0, width as i32 - 1) as usize;
+    let clamped_x = x.max(0).min(width as i32 - 1) as usize;
     let idx = y as usize * width + clamped_x;
     (src[idx] >> shift) & 0xFF
 }
