@@ -1,7 +1,7 @@
 use abrash_core::framebuffer::Framebuffer;
-use abrash_render::zbuffer::ZBuffer;
-use abrash_render::rasterizer::line::draw_line_3d;
 use abrash_core::math::Vec3;
+use abrash_render::rasterizer::line::draw_line_3d;
+use abrash_render::zbuffer::ZBuffer;
 use proptest::prelude::*;
 
 proptest! {

@@ -1,6 +1,6 @@
 #![cfg(feature = "backend-winit")]
 
-use abrash::experimental::color_splash::{apply_color_splash, ColorSplashConfig};
+use abrash::experimental::color_splash::{ColorSplashConfig, apply_color_splash};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
 use abrash::platform::{
@@ -90,13 +90,7 @@ impl WindowApp for ColorSplashDemoApp {
             let v1 = ((Vec3::new(x - radius, y + radius, 0.5), 1.0), c);
             let v2 = ((Vec3::new(x + radius, y + radius, 0.5), 1.0), c);
 
-            fill_triangle_gouraud(
-                &mut self.framebuffer,
-                &mut self.zbuffer,
-                v0,
-                v1,
-                v2,
-            );
+            fill_triangle_gouraud(&mut self.framebuffer, &mut self.zbuffer, v0, v1, v2);
         };
 
         // Draw multiple colored triangles moving in a circle
@@ -122,5 +116,5 @@ impl WindowApp for ColorSplashDemoApp {
 }
 
 fn main() {
-    run_windowed(ColorSplashDemoApp::new())
+    run_windowed(ColorSplashDemoApp::new());
 }

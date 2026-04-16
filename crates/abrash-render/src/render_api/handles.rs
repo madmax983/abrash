@@ -182,7 +182,7 @@ impl<T> ResourcePool<T> {
 
     /// Returns the total capacity of the pool without reallocating.
     #[must_use]
-    pub fn capacity(&self) -> usize {
+    pub const fn capacity(&self) -> usize {
         self.entries.capacity()
     }
 

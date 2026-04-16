@@ -91,17 +91,17 @@ pub fn apply_neon_outline(fb: &mut Framebuffer, config: &NeonOutlineConfig) {
                 //  0  0  0
                 //  1  2  1
 
-                let tl = get_luminance(src_pixels, width, x - 1, y - 1) as i32;
-                let tc = get_luminance(src_pixels, width, x, y - 1) as i32;
-                let tr = get_luminance(src_pixels, width, x + 1, y - 1) as i32;
+                let tl = i32::from(get_luminance(src_pixels, width, x - 1, y - 1));
+                let tc = i32::from(get_luminance(src_pixels, width, x, y - 1));
+                let tr = i32::from(get_luminance(src_pixels, width, x + 1, y - 1));
 
-                let cl = get_luminance(src_pixels, width, x - 1, y) as i32;
+                let cl = i32::from(get_luminance(src_pixels, width, x - 1, y));
                 // let cc = get_luminance(src_pixels, width, x, y) as i32;
-                let cr = get_luminance(src_pixels, width, x + 1, y) as i32;
+                let cr = i32::from(get_luminance(src_pixels, width, x + 1, y));
 
-                let bl = get_luminance(src_pixels, width, x - 1, y + 1) as i32;
-                let bc = get_luminance(src_pixels, width, x, y + 1) as i32;
-                let br = get_luminance(src_pixels, width, x + 1, y + 1) as i32;
+                let bl = i32::from(get_luminance(src_pixels, width, x - 1, y + 1));
+                let bc = i32::from(get_luminance(src_pixels, width, x, y + 1));
+                let br = i32::from(get_luminance(src_pixels, width, x + 1, y + 1));
 
                 let gx = (tr + 2 * cr + br) - (tl + 2 * cl + bl);
                 let gy = (bl + 2 * bc + br) - (tl + 2 * tc + tr);

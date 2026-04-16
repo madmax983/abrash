@@ -151,5 +151,5 @@ impl WindowApp for SwirlApp {
 
 fn main() {
     print_banner();
-    run_windowed(SwirlApp::new().unwrap())
+    run_windowed(SwirlApp::new().unwrap());
 }

@@ -40,7 +40,7 @@ fn batch_1000_polynomial(c: &mut Criterion) {
     c.bench_function("1000x fast_sin_cos (polynomial)", |b| {
         b.iter(|| {
             for &a in &angles {
-                black_box(fast_sin_cos(a));
+                black_box(a.sin_cos());
             }
         });
     });
