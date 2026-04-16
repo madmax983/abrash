@@ -1,6 +1,6 @@
 use abrash_core::framebuffer::Framebuffer;
-use abrash_render::experimental::color_splash::{apply_color_splash, ColorSplashConfig};
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use abrash_render::experimental::color_splash::{ColorSplashConfig, apply_color_splash};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn benchmark_color_splash(c: &mut Criterion) {
     let mut fb = Framebuffer::new(1920, 1080).unwrap();
