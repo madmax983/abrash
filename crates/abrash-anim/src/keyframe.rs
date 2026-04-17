@@ -3,7 +3,7 @@
 use abrash_core::animatable::Animatable;
 
 use crate::easing::Easing;
-use crate::evaluable::{Evaluable, Sample};
+use crate::evaluable::Sample;
 
 /// A tween segment that interpolates from one value to another with easing.
 ///
@@ -27,8 +27,8 @@ impl<T: Animatable> Keyframe<T> {
     }
 }
 
-impl<T: Animatable + Send + Sync> Evaluable<T> for Keyframe<T> {
-    fn evaluate(&self, phase: f32) -> Sample<T> {
+impl<T: Animatable + Send + Sync> Keyframe<T> {
+    pub fn evaluate(&self, phase: f32) -> Sample<T> {
         let phase = phase.clamp(0.0, 1.0);
         let eased = self.easing.apply(phase);
         let value = self.from.interpolate(&self.to, eased);
@@ -44,7 +44,7 @@ impl<T: Animatable + Send + Sync> Evaluable<T> for Keyframe<T> {
         Sample::new(value, velocity)
     }
 
-    fn natural_duration(&self) -> f32 {
+    pub fn natural_duration(&self) -> f32 {
         self.duration
     }
 }
@@ -58,35 +58,35 @@ mod tests {
     #[test]
     fn evaluate_at_zero_returns_from() {
         let kf = Keyframe::new(0.0_f32, 10.0, Easing::Linear, 1.0);
-        let s = Evaluable::evaluate(&kf, 0.0);
+        let s = kf.evaluate(0.0);
         assert!((s.value).abs() < EPSILON);
     }
 
     #[test]
     fn evaluate_at_one_returns_to() {
         let kf = Keyframe::new(0.0_f32, 10.0, Easing::Linear, 1.0);
-        let s = Evaluable::evaluate(&kf, 1.0);
+        let s = kf.evaluate(1.0);
         assert!((s.value - 10.0).abs() < EPSILON);
     }
 
     #[test]
     fn evaluate_midpoint_linear() {
         let kf = Keyframe::new(0.0_f32, 10.0, Easing::Linear, 1.0);
-        let s = Evaluable::evaluate(&kf, 0.5);
+        let s = kf.evaluate(0.5);
         assert!((s.value - 5.0).abs() < EPSILON);
     }
 
     #[test]
     fn velocity_nonzero_at_midpoint() {
         let kf = Keyframe::new(0.0_f32, 10.0, Easing::Linear, 1.0);
-        let s = Evaluable::evaluate(&kf, 0.5);
+        let s = kf.evaluate(0.5);
         assert!(s.velocity.abs() > EPSILON);
     }
 
     #[test]
     fn velocity_is_zero_at_ease_in_start() {
         let kf = Keyframe::new(0.0_f32, 10.0, Easing::EaseIn, 1.0);
-        let s = Evaluable::evaluate(&kf, 0.0);
+        let s = kf.evaluate(0.0);
         assert!(s.velocity.abs() < EPSILON);
     }
 

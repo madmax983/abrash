@@ -2,6 +2,10 @@
 
 use abrash_core::animatable::Animatable;
 
+use crate::hold::Hold;
+use crate::keyframe::Keyframe;
+use crate::sequence::Sequence;
+
 /// A value paired with its instantaneous velocity.
 ///
 /// Every `Evaluable` returns both value and velocity, enabling
@@ -32,14 +36,32 @@ impl<T: Animatable> Sample<T> {
 /// A pure function from normalized phase (0.0–1.0) to a `Sample<T>`.
 ///
 /// This is the core animation abstraction. Evaluables are composable:
-/// `Keyframe`, `Hold`, and `Sequence` all implement this trait.
-pub trait Evaluable<T: Animatable>: Send + Sync {
+/// `Keyframe`, `Hold`, and `Sequence` are available variants.
+pub enum Evaluable<T: Animatable> {
+    Keyframe(Keyframe<T>),
+    Hold(Hold<T>),
+    Sequence(Sequence<T>),
+}
+
+impl<T: Animatable + Send + Sync> Evaluable<T> {
     /// Evaluate the animation at a normalized phase (0.0–1.0).
-    fn evaluate(&self, phase: f32) -> Sample<T>;
+    pub fn evaluate(&self, phase: f32) -> Sample<T> {
+        match self {
+            Self::Keyframe(k) => k.evaluate(phase),
+            Self::Hold(h) => h.evaluate(phase),
+            Self::Sequence(s) => s.evaluate(phase),
+        }
+    }
 
     /// Preferred real-time duration in seconds.
     ///
     /// Used by composition types (e.g. `Sequence`) to allocate proportional
     /// phase ranges.
-    fn natural_duration(&self) -> f32;
+    pub fn natural_duration(&self) -> f32 {
+        match self {
+            Self::Keyframe(k) => k.natural_duration(),
+            Self::Hold(h) => h.natural_duration(),
+            Self::Sequence(s) => s.natural_duration(),
+        }
+    }
 }

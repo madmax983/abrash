@@ -20,17 +20,17 @@ use crate::clip::{AnimationChannel, ChannelValues};
 ///
 /// Panics if the channel values are not `Translation` or `Scale`.
 #[must_use]
-pub fn channel_to_vec3_evaluable(channel: &AnimationChannel) -> Box<dyn Evaluable<Vec3>> {
+pub fn channel_to_vec3_evaluable(channel: &AnimationChannel) -> Evaluable<Vec3> {
     let values = match &channel.values {
         ChannelValues::Translation(v) | ChannelValues::Scale(v) => v,
         ChannelValues::Rotation(_) => panic!("Expected Vec3 channel values (Translation or Scale)"),
     };
     let timestamps = &channel.timestamps;
 
-    let mut segments: Vec<Box<dyn Evaluable<Vec3>>> = Vec::with_capacity(timestamps.len() - 1);
+    let mut segments: Vec<Evaluable<Vec3>> = Vec::with_capacity(timestamps.len() - 1);
     for i in 0..timestamps.len() - 1 {
         let duration = timestamps[i + 1] - timestamps[i];
-        segments.push(Box::new(Keyframe::new(
+        segments.push(Evaluable::Keyframe(Keyframe::new(
             values[i],
             values[i + 1],
             Easing::Linear,
@@ -38,7 +38,7 @@ pub fn channel_to_vec3_evaluable(channel: &AnimationChannel) -> Box<dyn Evaluabl
         )));
     }
 
-    Box::new(Sequence::new(segments))
+    Evaluable::Sequence(Sequence::new(segments))
 }
 
 /// Convert a rotation channel into a `Sequence<Quat>`.
@@ -49,16 +49,16 @@ pub fn channel_to_vec3_evaluable(channel: &AnimationChannel) -> Box<dyn Evaluabl
 ///
 /// Panics if the channel values are not `Rotation`.
 #[must_use]
-pub fn channel_to_quat_evaluable(channel: &AnimationChannel) -> Box<dyn Evaluable<Quat>> {
+pub fn channel_to_quat_evaluable(channel: &AnimationChannel) -> Evaluable<Quat> {
     let ChannelValues::Rotation(values) = &channel.values else {
         panic!("Expected Quat channel values (Rotation)")
     };
     let timestamps = &channel.timestamps;
 
-    let mut segments: Vec<Box<dyn Evaluable<Quat>>> = Vec::with_capacity(timestamps.len() - 1);
+    let mut segments: Vec<Evaluable<Quat>> = Vec::with_capacity(timestamps.len() - 1);
     for i in 0..timestamps.len() - 1 {
         let duration = timestamps[i + 1] - timestamps[i];
-        segments.push(Box::new(Keyframe::new(
+        segments.push(Evaluable::Keyframe(Keyframe::new(
             values[i],
             values[i + 1],
             Easing::Linear,
@@ -66,7 +66,7 @@ pub fn channel_to_quat_evaluable(channel: &AnimationChannel) -> Box<dyn Evaluabl
         )));
     }
 
-    Box::new(Sequence::new(segments))
+    Evaluable::Sequence(Sequence::new(segments))
 }
 
 #[cfg(test)]
