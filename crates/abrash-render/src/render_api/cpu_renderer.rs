@@ -781,4 +781,10 @@ mod tests {
             "render_frame and extract+execute must be pixel-identical"
         );
     }
+
+    #[test]
+    #[should_panic(expected = "capacity overflow")]
+    fn test_cpu_renderer_drawlist_capacity_overflow() {
+        let _dl = DrawList::with_capacity(test_camera(), usize::MAX, usize::MAX, usize::MAX);
+    }
 }
