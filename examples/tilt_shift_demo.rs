@@ -1,4 +1,4 @@
-use abrash::experimental::tilt_shift::{TiltShiftConfig, apply_tilt_shift};
+use abrash_render::experimental::tilt_shift::{TiltShiftConfig, apply_tilt_shift};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,

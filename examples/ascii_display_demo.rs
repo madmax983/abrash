@@ -19,7 +19,7 @@ use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
 
 #[cfg(feature = "nova")]
-use abrash::experimental::ascii_display::{AsciiDisplayConfig, apply_ascii_display};
+use abrash_render::experimental::ascii_display::{AsciiDisplayConfig, apply_ascii_display};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;

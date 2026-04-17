@@ -1,4 +1,4 @@
-use abrash::experimental::mode7::{Mode7Config, render_mode7};
+use abrash_render::experimental::mode7::{Mode7Config, render_mode7};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,

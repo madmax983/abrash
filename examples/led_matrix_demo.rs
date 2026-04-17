@@ -1,4 +1,4 @@
-use abrash_render::experimental::fisheye::apply_fisheye;
+use abrash::experimental::led_matrix::{LedMatrixConfig, apply_led_matrix};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
@@ -11,8 +11,8 @@ use crossterm::style::Stylize;
 
 #[cfg(feature = "nova")]
 fn print_banner() {
-    println!("\n{}", "🌟 Fisheye Lens Demo".bold().cyan());
-    println!("{}", "=====================".dark_grey());
+    println!("\n{}", "🌟 LED Matrix Filter Demo".bold().cyan());
+    println!("{}", "=======================".dark_grey());
 
     let mut table = Table::new();
     table
@@ -24,7 +24,7 @@ fn print_banner() {
         ])
         .add_row(vec![
             Cell::new("Description"),
-            Cell::new("Demonstrates a fisheye barrel distortion effect").fg(Color::Green),
+            Cell::new("Applies a pixelated LED matrix / jumbotron effect").fg(Color::Green),
         ]);
 
     println!("\n{}", "⚙️  Info".bold());
@@ -49,32 +49,31 @@ fn print_banner() {
 
 const WIDTH: u32 = 640;
 const HEIGHT: u32 = 480;
-const TITLE: &str = "Nova: Fisheye Lens Demo";
+const TITLE: &str = "Nova: LED Matrix Filter Demo";
 
-struct FisheyeDemoApp {
+struct LedMatrixDemoApp {
     presenter: Option<SoftwarePresenter>,
     framebuffer: Framebuffer,
     background_fb: Framebuffer,
     time: f32,
 }
 
-impl FisheyeDemoApp {
+impl LedMatrixDemoApp {
     fn new() -> Result<Self, HostError> {
         let mut background_fb =
             Framebuffer::new(WIDTH, HEIGHT).map_err(|error| HostError::App(error.to_string()))?;
 
-        // Draw a grid pattern to clearly visualize the distortion
+        // Create a basic animated plasma-like gradient background
         for y in 0..HEIGHT {
+            let v = y as f32 / HEIGHT as f32;
             for x in 0..WIDTH {
-                // A primary checkerboard pattern + grid lines
-                let is_grid_line = x % 40 == 0 || y % 40 == 0;
-                let color = if is_grid_line {
-                    0xFF_FF_00_00 // Red lines
-                } else if (x / 40 + y / 40) % 2 == 0 {
-                    0xFF_44_44_44 // Dark gray
-                } else {
-                    0xFF_AA_AA_AA // Light gray
-                };
+                let u = x as f32 / WIDTH as f32;
+
+                let r = (u * 255.0) as u32;
+                let g = (v * 255.0) as u32;
+                let b = ((1.0 - u) * 255.0) as u32;
+
+                let color = 0xFF_00_00_00 | (r << 16) | (g << 8) | b;
                 background_fb.set_pixel(x as i32, y as i32, color);
             }
         }
@@ -99,7 +98,7 @@ impl FisheyeDemoApp {
     }
 }
 
-impl WindowApp for FisheyeDemoApp {
+impl WindowApp for LedMatrixDemoApp {
     type Error = HostError;
 
     fn config(&self) -> WindowHostConfig {
@@ -122,17 +121,38 @@ impl WindowApp for FisheyeDemoApp {
     }
 
     fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        // Copy the static grid background into the active framebuffer
+        // Redraw dynamic shapes into background
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                let mut u = x as f32 / WIDTH as f32;
+                let mut v = y as f32 / HEIGHT as f32;
+
+                u += (self.time * 0.5).sin() * 0.2;
+                v += (self.time * 0.3).cos() * 0.2;
+
+                let r = ((u * std::f32::consts::PI * 4.0).sin() * 127.0 + 128.0) as u32;
+                let g = ((v * std::f32::consts::PI * 4.0).cos() * 127.0 + 128.0) as u32;
+                let b = (((u + v) * std::f32::consts::PI * 2.0).sin() * 127.0 + 128.0) as u32;
+
+                let color = 0xFF_00_00_00 | (r << 16) | (g << 8) | b;
+                self.background_fb.set_pixel(x as i32, y as i32, color);
+            }
+        }
+
         self.framebuffer
             .as_mut_slice()
             .copy_from_slice(self.background_fb.as_slice());
 
-        // Animate the strength of the fisheye effect using a sine wave
-        // Animate between slightly negative (pin-cushion) and heavily positive (fisheye barrel)
-        let strength = (self.time * 2.0).sin() * 0.5 + 0.2;
+        // We want the LED effect to pulse slightly
+        let pulse = (self.time.sin() * 0.5 + 0.5) * 1.5;
+        let config = LedMatrixConfig {
+            cell_size: 10,
+            led_radius: 3.5 + pulse,
+            background_darken: 0.1,
+            edge_softness: 1.0,
+        };
 
-        apply_fisheye(&mut self.framebuffer, strength);
-
+        apply_led_matrix(&mut self.framebuffer, &config);
         self.present()
     }
 }
@@ -141,5 +161,5 @@ fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(FisheyeDemoApp::new().unwrap());
+    run_windowed(LedMatrixDemoApp::new().unwrap());
 }

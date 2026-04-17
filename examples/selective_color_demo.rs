@@ -20,7 +20,7 @@ use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
 
 #[cfg(feature = "nova")]
-use abrash::experimental::selective_color::{SelectiveColorConfig, apply_selective_color};
+use abrash_render::experimental::selective_color::{SelectiveColorConfig, apply_selective_color};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;

@@ -22,9 +22,10 @@ impl Pose {
     /// Create a bind pose from a skeleton's rest transforms.
     #[must_use]
     pub fn from_bind(skeleton: &crate::skeleton::Skeleton) -> Self {
-        Self {
-            local_transforms: skeleton.joints.iter().map(|j| j.bind_transform).collect(),
-        }
+        // ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
+        let mut local_transforms = Vec::with_capacity(skeleton.joints.len());
+        local_transforms.extend(skeleton.joints.iter().map(|j| j.bind_transform));
+        Self { local_transforms }
     }
 }
 

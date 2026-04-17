@@ -1,6 +1,6 @@
 #![cfg(feature = "backend-winit")]
 
-use abrash::experimental::fractal::render_mandelbrot;
+use abrash_render::experimental::fractal::render_mandelbrot;
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
@@ -103,7 +103,7 @@ impl WindowApp for FractalDemoApp {
         let target_x = -0.743_643_887_037_151;
         let target_y = 0.131_825_904_205_33;
 
-        let elapsed = self.time as f64;
+        let elapsed = f64::from(self.time);
 
         // Starts at zoom 1.5, scales down over time
         let zoom = 1.5 * ((-elapsed * 0.1).exp());
@@ -119,5 +119,5 @@ impl WindowApp for FractalDemoApp {
 
 fn main() {
     print_banner();
-    run_windowed(FractalDemoApp::new().unwrap())
+    run_windowed(FractalDemoApp::new().unwrap());
 }

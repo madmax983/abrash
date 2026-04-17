@@ -3,7 +3,7 @@
 //! Demonstrates the experimental CPU raytracer with reflections and shadows.
 
 #[cfg(all(feature = "nova", not(feature = "backend-winit")))]
-use abrash::experimental::raytracer::RayTracer;
+use abrash_render::experimental::raytracer::RayTracer;
 #[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 use abrash::framebuffer::Framebuffer;
 #[cfg(all(feature = "nova", not(feature = "backend-winit")))]
@@ -27,7 +27,7 @@ use crossterm::style::Stylize;
 
 #[cfg(all(feature = "nova", feature = "backend-winit"))]
 mod winit_demo {
-    use abrash::experimental::raytracer::RayTracer;
+    use abrash_render::experimental::raytracer::RayTracer;
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
     use abrash::mesh::Mesh;

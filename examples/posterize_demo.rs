@@ -1,5 +1,5 @@
 #[cfg(feature = "nova")]
-use abrash::experimental::posterize::{PosterizeConfig, apply_posterize};
+use abrash_render::experimental::posterize::{PosterizeConfig, apply_posterize};
 #[cfg(feature = "nova")]
 use abrash::framebuffer::Framebuffer;
 #[cfg(feature = "nova")]

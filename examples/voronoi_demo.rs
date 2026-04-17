@@ -1,4 +1,4 @@
-use abrash::experimental::voronoi::{VoronoiConfig, apply_voronoi};
+use abrash_render::experimental::voronoi::{VoronoiConfig, apply_voronoi};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;

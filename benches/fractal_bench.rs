@@ -15,8 +15,8 @@ fn bench_mandelbrot(c: &mut Criterion) {
                 black_box(0.0),
                 black_box(1.5),
                 black_box(50),
-            )
-        })
+            );
+        });
     });
     group.finish();
 }
