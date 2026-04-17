@@ -1653,6 +1653,8 @@ impl TileRenderer {
 
     pub fn new(width: u32, height: u32) -> Self {
         assert!(width > 0 && height > 0, "Dimensions must be positive");
+        // WARDEN DEFENSE: Prevent integer overflow on expected_len before allocating arrays
+        let _ = (width as usize).checked_mul(height as usize).expect("TileRenderer dimensions overflow");
 
         let tiles_x = width.div_ceil(TILE_SIZE);
         let tiles_y = height.div_ceil(TILE_SIZE);

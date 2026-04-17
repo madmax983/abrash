@@ -185,94 +185,103 @@ pub fn load_gltf(path: &Path) -> Result<GltfScene, GltfError> {
 // ---------------------------------------------------------------------------
 
 /// Extract all meshes (with optional skin data) from the document.
+fn extract_primitive(
+    primitive: gltf::Primitive<'_>,
+    buffers: &[gltf::buffer::Data],
+) -> Option<SkinnedMesh> {
+    let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
+
+    // Positions (required for a valid mesh)
+    let positions: Vec<Vec3> = reader
+        .read_positions()
+        .map(|iter| iter.map(|p| Vec3::new(p[0], p[1], p[2])).collect())
+        .unwrap_or_default();
+
+    if positions.is_empty() {
+        return None;
+    }
+
+    // Normals (optional)
+    let normals: Vec<Vec3> = reader
+        .read_normals()
+        .map(|iter| iter.map(|n| Vec3::new(n[0], n[1], n[2])).collect())
+        .unwrap_or_default();
+
+    // Texture coordinates (optional)
+    let uvs: Vec<Vec2> = reader
+        .read_tex_coords(0)
+        .map(|iter| iter.into_f32().map(|uv| Vec2::new(uv[0], uv[1])).collect())
+        .unwrap_or_default();
+
+    // Tangents (optional)
+    let tangents: Vec<Vec4> = reader
+        .read_tangents()
+        .map(|iter| iter.map(|t| Vec4::new(t[0], t[1], t[2], t[3])).collect())
+        .unwrap_or_default();
+
+    // Indices (triangulated)
+    let indices: Vec<[usize; 3]> = reader
+        .read_indices()
+        .map(|iter| {
+            let iter_u32 = iter.into_u32();
+            let mut indices = Vec::with_capacity(iter_u32.len() / 3);
+            let mut iter_usize = iter_u32.map(|i| i as usize);
+            while let (Some(a), Some(b), Some(c)) =
+                (iter_usize.next(), iter_usize.next(), iter_usize.next())
+            {
+                indices.push([a, b, c]);
+            }
+            indices
+        })
+        .unwrap_or_default();
+
+    let vertex_count = positions.len();
+
+    // Joint indices (optional — only present on skinned meshes)
+    let joint_indices: Vec<[u16; 4]> = reader
+        .read_joints(0)
+        .map(|iter| iter.into_u16().collect())
+        .unwrap_or_default();
+
+    // Weights (optional)
+    let weights: Vec<[f32; 4]> = reader
+        .read_weights(0)
+        .map(|iter| iter.into_f32().collect())
+        .unwrap_or_default();
+
+    let mesh = Mesh {
+        vertices: positions,
+        indices,
+        uvs,
+        normals,
+        tangents,
+    };
+
+    let skin = if joint_indices.is_empty() {
+        // No skin data — bind all verts to joint 0 with full weight.
+        SkinData {
+            joint_indices: vec![[0, 0, 0, 0]; vertex_count],
+            weights: vec![[1.0, 0.0, 0.0, 0.0]; vertex_count],
+        }
+    } else {
+        SkinData {
+            joint_indices,
+            weights,
+        }
+    };
+
+    Some(SkinnedMesh { mesh, skin })
+}
+
 fn extract_meshes(document: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<SkinnedMesh> {
     // ⚡ Bolt: Pre-allocate capacity using exact iterator bounds to eliminate dynamic heap reallocations
     let mut result = Vec::with_capacity(document.meshes().map(|m| m.primitives().count()).sum());
 
     for mesh in document.meshes() {
         for primitive in mesh.primitives() {
-            let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
-
-            // Positions (required for a valid mesh)
-            let positions: Vec<Vec3> = reader
-                .read_positions()
-                .map(|iter| iter.map(|p| Vec3::new(p[0], p[1], p[2])).collect())
-                .unwrap_or_default();
-
-            if positions.is_empty() {
-                continue;
+            if let Some(skinned_mesh) = extract_primitive(primitive, buffers) {
+                result.push(skinned_mesh);
             }
-
-            // Normals (optional)
-            let normals: Vec<Vec3> = reader
-                .read_normals()
-                .map(|iter| iter.map(|n| Vec3::new(n[0], n[1], n[2])).collect())
-                .unwrap_or_default();
-
-            // Texture coordinates (optional)
-            let uvs: Vec<Vec2> = reader
-                .read_tex_coords(0)
-                .map(|iter| iter.into_f32().map(|uv| Vec2::new(uv[0], uv[1])).collect())
-                .unwrap_or_default();
-
-            // Tangents (optional)
-            let tangents: Vec<Vec4> = reader
-                .read_tangents()
-                .map(|iter| iter.map(|t| Vec4::new(t[0], t[1], t[2], t[3])).collect())
-                .unwrap_or_default();
-
-            // Indices (triangulated)
-            let indices: Vec<[usize; 3]> = reader
-                .read_indices()
-                .map(|iter| {
-                    let iter_u32 = iter.into_u32();
-                    let mut indices = Vec::with_capacity(iter_u32.len() / 3);
-                    let mut iter_usize = iter_u32.map(|i| i as usize);
-                    while let (Some(a), Some(b), Some(c)) =
-                        (iter_usize.next(), iter_usize.next(), iter_usize.next())
-                    {
-                        indices.push([a, b, c]);
-                    }
-                    indices
-                })
-                .unwrap_or_default();
-
-            let vertex_count = positions.len();
-
-            // Joint indices (optional — only present on skinned meshes)
-            let joint_indices: Vec<[u16; 4]> = reader
-                .read_joints(0)
-                .map(|iter| iter.into_u16().collect())
-                .unwrap_or_default();
-
-            // Weights (optional)
-            let weights: Vec<[f32; 4]> = reader
-                .read_weights(0)
-                .map(|iter| iter.into_f32().collect())
-                .unwrap_or_default();
-
-            let mesh = Mesh {
-                vertices: positions,
-                indices,
-                uvs,
-                normals,
-                tangents,
-            };
-
-            let skin = if joint_indices.is_empty() {
-                // No skin data — bind all verts to joint 0 with full weight.
-                SkinData {
-                    joint_indices: vec![[0, 0, 0, 0]; vertex_count],
-                    weights: vec![[1.0, 0.0, 0.0, 0.0]; vertex_count],
-                }
-            } else {
-                SkinData {
-                    joint_indices,
-                    weights,
-                }
-            };
-
-            result.push(SkinnedMesh { mesh, skin });
         }
     }
 
