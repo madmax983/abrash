@@ -2,7 +2,7 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 use abrash_core::framebuffer::Framebuffer;
-use abrash_render::rasterizer::fill_circle;
+use abrash_render::rasterizer::{fill_circle, draw_circle};
 
 fn bench_fill_circle(c: &mut Criterion) {
     let mut fb = Framebuffer::new(800, 600).unwrap();
