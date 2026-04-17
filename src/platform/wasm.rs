@@ -54,7 +54,7 @@ where
     let _title = title.to_string();
     terminal.draw_web(move |f| {
         // Drain pending events
-        let pending: Vec<Event> = events.borrow_mut().drain(..).collect();
+        let pending = std::mem::take(&mut *events.borrow_mut());
 
         // Let the application render into the framebuffer
         render_fn(
