@@ -80,6 +80,21 @@ const fn from_material_handle(h: MaterialHandle) -> Handle<Material> {
     Handle::new(h.index, h.generation)
 }
 
+#[inline]
+fn validate_mesh_indices(mesh: &Mesh) -> Result<(), RenderError> {
+    for (tri_idx, indices) in mesh.indices.iter().enumerate() {
+        for &idx in indices {
+            if idx >= mesh.vertices.len() {
+                return Err(RenderError::InvalidMesh(format!(
+                    "triangle {tri_idx} has index {idx} but mesh only has {} vertices",
+                    mesh.vertices.len()
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
 impl CpuRenderer {
     /// Create a new CPU renderer for the given resolution.
     #[must_use]
@@ -303,17 +318,7 @@ impl CpuRenderer {
     ///
     /// Returns [`RenderError::InvalidMesh`] if the mesh data is malformed.
     pub fn create_mesh(&mut self, mesh: &Mesh) -> Result<MeshHandle, RenderError> {
-        // Validate all triangle indices are in bounds
-        for (tri_idx, indices) in mesh.indices.iter().enumerate() {
-            for &idx in indices {
-                if idx >= mesh.vertices.len() {
-                    return Err(RenderError::InvalidMesh(format!(
-                        "triangle {tri_idx} has index {idx} but mesh only has {} vertices",
-                        mesh.vertices.len()
-                    )));
-                }
-            }
-        }
+        validate_mesh_indices(mesh)?;
         let shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
         Ok(to_mesh_handle(self.meshes.insert(CpuMesh {
             mesh: mesh.clone(),
@@ -327,17 +332,7 @@ impl CpuRenderer {
     ///
     /// Returns [`RenderError::InvalidMesh`] if triangle indices point out of bounds.
     pub fn create_mesh_owned(&mut self, mesh: Mesh) -> Result<MeshHandle, RenderError> {
-        // Validate all triangle indices are in bounds
-        for (tri_idx, indices) in mesh.indices.iter().enumerate() {
-            for &idx in indices {
-                if idx >= mesh.vertices.len() {
-                    return Err(RenderError::InvalidMesh(format!(
-                        "triangle {tri_idx} has index {idx} but mesh only has {} vertices",
-                        mesh.vertices.len()
-                    )));
-                }
-            }
-        }
+        validate_mesh_indices(&mesh)?;
         let shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
         Ok(to_mesh_handle(self.meshes.insert(CpuMesh {
             mesh,
@@ -354,17 +349,7 @@ impl CpuRenderer {
     /// Returns [`RenderError::StaleHandle`] if the handle is invalid.
     /// Returns [`RenderError::InvalidMesh`] if the mesh data is malformed.
     pub fn update_mesh(&mut self, handle: MeshHandle, mesh: &Mesh) -> Result<(), RenderError> {
-        // Validate all triangle indices are in bounds
-        for (tri_idx, indices) in mesh.indices.iter().enumerate() {
-            for &idx in indices {
-                if idx >= mesh.vertices.len() {
-                    return Err(RenderError::InvalidMesh(format!(
-                        "triangle {tri_idx} has index {idx} but mesh only has {} vertices",
-                        mesh.vertices.len()
-                    )));
-                }
-            }
-        }
+        validate_mesh_indices(mesh)?;
 
         let cpu_mesh = self
             .meshes
