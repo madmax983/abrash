@@ -893,7 +893,7 @@ pub fn van_der_corput(mut bits: u32) -> f32 {
     bits as f32 * (1.0 / 4_294_967_296.0_f32)
 }
 
-/// Hammersley 2D point set — (i/N, van_der_corput(i)).
+/// Hammersley 2D point set — `(i/N, van_der_corput(i))`.
 ///
 /// Produces `total` stratified sample points in \[0,1)² with low discrepancy.
 /// Standard in PBR for importance-sampling the hemisphere and SSAO kernels.
@@ -8537,7 +8537,7 @@ mod tests_pass_19 {
 /// hash in ~3 instructions.
 ///
 /// Ideal for procedural generation, noise seeding, and GPU-style per-pixel
-/// random number generation.  Passes PractRand and BigCrush statistical tests.
+/// random number generation.  Passes `PractRand` and `BigCrush` statistical tests.
 ///
 /// # Examples
 ///
@@ -9141,7 +9141,7 @@ pub fn aces_filmic(x: f32) -> f32 {
 /// ```
 #[inline]
 pub fn exposure(x: f32, ev: f32) -> f32 {
-    x * (2.0_f32).powf(ev)
+    x * ev.exp2()
 }
 
 /// Convert a unit-sphere **normal** to equirectangular `(u, v)` in `[0,1]²`.
@@ -9799,9 +9799,9 @@ mod tests_pass_23 {
 
 // ── Pass 24: OKLab, Perlin noise, fBm, Worley, Porter-Duff, colour temp, GCD ─
 
-/// **OKLab** colour space (Björn Ottosson, 2020) — linear RGB → (L, a, b).
+/// **`OKLab`** colour space (Björn Ottosson, 2020) — linear RGB → `(L, a, b)`.
 ///
-/// OKLab is perceptually uniform: equal distances correspond to equal perceived
+/// `OKLab` is perceptually uniform: equal distances correspond to equal perceived
 /// colour differences. Ideal for perceptual blending and palette operations.
 ///
 /// Input is **linear** RGB, not gamma-encoded sRGB.
@@ -9828,7 +9828,7 @@ pub fn linear_rgb_to_oklab(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
     )
 }
 
-/// Inverse of [`linear_rgb_to_oklab`] — OKLab (L, a, b) → linear RGB.
+/// Inverse of [`linear_rgb_to_oklab`] — `OKLab` `(L, a, b)` → linear RGB.
 ///
 /// # Examples
 ///
@@ -10198,9 +10198,9 @@ pub fn luminance_rec709(r: f32, g: f32, b: f32) -> f32 {
     0.2126 * r + 0.7152 * g + 0.0722 * b
 }
 
-/// **OKLab interpolation** — perceptually uniform colour blend.
+/// **`OKLab` interpolation** — perceptually uniform colour blend.
 ///
-/// Interpolates between two OKLab colours `(L0, a0, b0)` and `(L1, a1, b1)`
+/// Interpolates between two `OKLab` colours `(L0, a0, b0)` and `(L1, a1, b1)`
 /// by factor `t ∈ [0, 1]`, returning the interpolated `(L, a, b)`.
 ///
 /// Unlike sRGB lerp, this preserves perceived colour saturation through the
@@ -10220,7 +10220,7 @@ pub fn oklab_mix(l0: f32, a0: f32, b0: f32, l1: f32, a1: f32, b1: f32, t: f32) -
     (l0 + (l1 - l0) * t, a0 + (a1 - a0) * t, b0 + (b1 - b0) * t)
 }
 
-/// **OKLab hue rotation** — rotate the hue angle in the `(a, b)` plane.
+/// **`OKLab` hue rotation** — rotate the hue angle in the `(a, b)` plane.
 ///
 /// Preserves the lightness `L` and chroma magnitude `sqrt(a² + b²)` while
 /// shifting the hue by `angle_deg` degrees.
@@ -10346,7 +10346,7 @@ pub fn ease_elastic_out(t: f32, amplitude: f32, period: f32) -> f32 {
     }
     let a = amplitude.max(1.0);
     let s = (a.recip()).asin() * period / core::f32::consts::TAU;
-    a * (2.0_f32).powf(-10.0 * t) * ((t - s) * core::f32::consts::TAU / period).sin() + 1.0
+    a * (-10.0 * t).exp2() * ((t - s) * core::f32::consts::TAU / period).sin() + 1.0
 }
 
 // ── Pass 25 tests ──────────────────────────────────────────────────────────────
@@ -10907,7 +10907,7 @@ pub fn mitchell_netravali(x: f32, b: f32, c: f32) -> f32 {
     }
 }
 
-/// Convert OKLab `(L, a, b)` to OKLCh `(L, C, h)` — polar form.
+/// Convert `OKLab` `(L, a, b)` to `OKLCh` `(L, C, h)` — polar form.
 ///
 /// `C = sqrt(a² + b²)`, `h = atan2(b, a)` in degrees [0, 360).
 ///
@@ -10926,7 +10926,7 @@ pub fn oklab_to_oklch(l: f32, a: f32, b: f32) -> (f32, f32, f32) {
     (l, c, h)
 }
 
-/// Convert OKLCh `(L, C, h)` to OKLab `(L, a, b)` — Cartesian form.
+/// Convert `OKLCh` `(L, C, h)` to `OKLab` `(L, a, b)` — Cartesian form.
 ///
 /// `a = C * cos(h)`, `b = C * sin(h)` with `h` in degrees.
 ///
@@ -11376,7 +11376,7 @@ pub fn reflect(incident: Vec3, normal: Vec3) -> Vec3 {
 ///
 /// Returns `None` for total internal reflection (when `eta * sin_θ > 1`).
 ///
-/// * `eta` = n_incident / n_transmitted (e.g. 1.0/1.5 air→glass).
+/// * `eta` = `n_incident` / `n_transmitted` (e.g. `1.0/1.5` air→glass).
 ///
 /// # Examples
 /// ```
@@ -11944,7 +11944,7 @@ pub fn ease_expo_in(t: f32) -> f32 {
     if t <= 0.0 {
         0.0
     } else {
-        (2.0_f32).powf(10.0 * t - 10.0)
+        (10.0 * t - 10.0).exp2()
     }
 }
 
@@ -11962,7 +11962,7 @@ pub fn ease_expo_out(t: f32) -> f32 {
     if t >= 1.0 {
         1.0
     } else {
-        1.0 - (2.0_f32).powf(-10.0 * t)
+        1.0 - (-10.0 * t).exp2()
     }
 }
 
@@ -11983,9 +11983,9 @@ pub fn ease_expo_in_out(t: f32) -> f32 {
     } else if t >= 1.0 {
         1.0
     } else if t < 0.5 {
-        (2.0_f32).powf(20.0 * t - 10.0) * 0.5
+        (20.0 * t - 10.0).exp2() * 0.5
     } else {
-        (2.0 - (2.0_f32).powf(-20.0 * t + 10.0)) * 0.5
+        (2.0 - (-20.0 * t + 10.0).exp2()) * 0.5
     }
 }
 
@@ -12128,10 +12128,10 @@ pub fn ease_elastic_in_out(t: f32, amplitude: f32, period: f32) -> f32 {
     let t2 = t * 2.0;
     if t2 < 1.0 {
         -0.5 * a
-            * (2.0_f32).powf(10.0 * (t2 - 1.0))
+            * (10.0 * (t2 - 1.0)).exp2()
             * ((t2 - 1.0 - s) * core::f32::consts::TAU / period).sin()
     } else {
-        a * (2.0_f32).powf(-10.0 * (t2 - 1.0))
+        a * (-10.0 * (t2 - 1.0)).exp2()
             * ((t2 - 1.0 - s) * core::f32::consts::TAU / period).sin()
             * 0.5
             + 1.0
@@ -16377,7 +16377,7 @@ pub fn sample_triangle_uniform(u1: f32, u2: f32) -> (f32, f32, f32) {
 /// Shirley-Chiu concentric disk mapping: maps `(u, v) ∈ [-1,1]²` to unit disk.
 ///
 /// Low-distortion (preserves area relationships better than polar mapping).
-/// Use with stratified samples for soft shadows and DoF.
+/// Use with stratified samples for soft shadows and `DoF`.
 /// Returns `(x, y)` on the unit disk.
 pub fn concentric_disk_sample(u: f32, v: f32) -> (f32, f32) {
     use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
@@ -17605,7 +17605,7 @@ pub fn capsule_vs_capsule(a0: Vec3, a1: Vec3, ra: f32, b0: Vec3, b1: Vec3, rb: f
 
 /// Returns `true` if a sphere overlaps a capsule.
 ///
-/// The capsule is defined by segment (cap_a, cap_b) and radius `cr`.
+/// The capsule is defined by segment (`cap_a`, `cap_b`) and radius `cr`.
 pub fn sphere_vs_capsule(center: Vec3, sr: f32, cap_a: Vec3, cap_b: Vec3, cr: f32) -> bool {
     let seg = Vec3::new(cap_b.x - cap_a.x, cap_b.y - cap_a.y, cap_b.z - cap_a.z);
     let len_sq = seg.x * seg.x + seg.y * seg.y + seg.z * seg.z;
@@ -18083,7 +18083,7 @@ pub fn sdf_cylinder_finite(p: Vec3, a: Vec3, b: Vec3, r: f32) -> f32 {
 
 /// SDF union (take closer surface).
 #[inline]
-pub fn sdf_op_union(a: f32, b: f32) -> f32 {
+pub const fn sdf_op_union(a: f32, b: f32) -> f32 {
     a.min(b)
 }
 
@@ -18095,7 +18095,7 @@ pub fn sdf_op_subtract(a: f32, b: f32) -> f32 {
 
 /// SDF intersection: keep only the overlap.
 #[inline]
-pub fn sdf_op_intersect(a: f32, b: f32) -> f32 {
+pub const fn sdf_op_intersect(a: f32, b: f32) -> f32 {
     a.max(b)
 }
 
@@ -18340,7 +18340,7 @@ mod tests_pass_53 {
 ///
 /// Avalanche score ~0.020 bits (near perfect for a 32-bit hash).
 #[inline]
-pub fn lowbias32(mut x: u32) -> u32 {
+pub const fn lowbias32(mut x: u32) -> u32 {
     x ^= x >> 16;
     x = x.wrapping_mul(0x45d9_f3b7);
     x ^= x >> 16;
@@ -18349,9 +18349,9 @@ pub fn lowbias32(mut x: u32) -> u32 {
     x
 }
 
-/// MurmurHash3 finalizer (fmix32) — excellent bit mixing for hash tables.
+/// `MurmurHash3` finalizer (fmix32) — excellent bit mixing for hash tables.
 #[inline]
-pub fn murmur3_fmix32(mut h: u32) -> u32 {
+pub const fn murmur3_fmix32(mut h: u32) -> u32 {
     h ^= h >> 16;
     h = h.wrapping_mul(0x85eb_ca6b);
     h ^= h >> 13;
@@ -18413,12 +18413,13 @@ pub fn blackbody_linear_rgb(kelvin: f32) -> (f32, f32, f32) {
 ///
 /// `x` and `y` must be in `[0, 2^n)`.  Returns the Hilbert index in
 /// `[0, 4^n)`.
-pub fn hilbert_xy_to_d(mut x: u32, mut y: u32, n: u32) -> u32 {
+#[allow(clippy::bool_to_int_with_if)]
+pub const fn hilbert_xy_to_d(mut x: u32, mut y: u32, n: u32) -> u32 {
     let mut d = 0u32;
     let mut s = 1u32 << (n - 1);
     while s > 0 {
-        let rx = if x & s > 0 { 1u32 } else { 0 };
-        let ry = if y & s > 0 { 1u32 } else { 0 };
+        let rx = (x & s > 0) as u32;
+        let ry = (y & s > 0) as u32;
         d += s * s * ((3 * rx) ^ ry);
         // Rotate quadrant.
         if ry == 0 {
@@ -18436,7 +18437,7 @@ pub fn hilbert_xy_to_d(mut x: u32, mut y: u32, n: u32) -> u32 {
 /// Decode Hilbert index `d` to `(x, y)` coordinates for a curve of order `n`.
 ///
 /// Inverse of `hilbert_xy_to_d`.  Returns `(x, y)` in `[0, 2^n)`.
-pub fn hilbert_d_to_xy(mut d: u32, n: u32) -> (u32, u32) {
+pub const fn hilbert_d_to_xy(mut d: u32, n: u32) -> (u32, u32) {
     let mut x = 0u32;
     let mut y = 0u32;
     let mut s = 1u32;
@@ -18927,7 +18928,7 @@ pub fn taa_halton_jitter(frame: u32, width: u32, height: u32) -> Vec2 {
 ///
 /// Handles normals, zeros, infinities, and NaN.  Subnormals are flushed to
 /// zero for simplicity (matches the most common GPU behaviour).
-pub fn f32_to_f16(x: f32) -> u16 {
+pub const fn f32_to_f16(x: f32) -> u16 {
     let bits = x.to_bits();
     let sign = ((bits >> 31) & 1) as u16;
     let exp32 = ((bits >> 23) & 0xff) as i32;
@@ -18952,7 +18953,8 @@ pub fn f32_to_f16(x: f32) -> u16 {
 }
 
 /// Convert a 16-bit half-float (`f16`) bit pattern to `f32`.
-pub fn f16_to_f32(h: u16) -> f32 {
+#[allow(clippy::cast_lossless)]
+pub const fn f16_to_f32(h: u16) -> f32 {
     let sign = ((h >> 15) & 1) as u32;
     let exp16 = ((h >> 10) & 0x1f) as i32;
     let mant16 = (h & 0x03ff) as u32;
@@ -19190,7 +19192,7 @@ pub fn ev100(aperture: f32, shutter: f32, iso: f32) -> f32 {
 /// `exposure = 1 / (1.2 * 2^EV100)`.
 #[inline]
 pub fn ev100_to_exposure(ev100_val: f32) -> f32 {
-    1.0 / (1.2 * (2.0_f32).powf(ev100_val))
+    1.0 / (1.2 * ev100_val.exp2())
 }
 
 /// Log-average luminance of a luminance slice — the geometric mean.
@@ -19328,6 +19330,9 @@ pub fn quat_look_at(forward: Vec3, up: Vec3) -> Quat {
 /// 1 — they are normalised internally.  All quaternions are driven to the same
 /// hemisphere as `quats[0]` before blending to avoid flipping artefacts.
 /// Returns the identity quaternion if the input is empty or weights sum to 0.
+/// # Panics
+///
+/// Panics if `quats` and `weights` have different lengths.
 pub fn quat_nlerp_weighted(quats: &[Quat], weights: &[f32]) -> Quat {
     assert_eq!(quats.len(), weights.len());
     if quats.is_empty() {

@@ -599,6 +599,11 @@ path = "examples/halftone_demo.rs"
 required-features = ["nova"]
 
 [[example]]
+name = "led_matrix_demo"
+path = "examples/led_matrix_demo.rs"
+required-features = ["nova"]
+
+[[example]]
 name = "pop_art_demo"
 path = "examples/pop_art_demo.rs"
 required-features = ["nova"]
@@ -798,7 +803,7 @@ name = "fire_demo"
 path = "examples/fire_demo.rs"
 required-features = ["nova"]
 
-
 [[bench]]
 name = "rect_bench"
 harness = false
+required-features = ["nova"]
