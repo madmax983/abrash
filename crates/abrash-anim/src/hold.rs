@@ -2,7 +2,7 @@
 
 use abrash_core::animatable::Animatable;
 
-use crate::evaluable::{Evaluable, Sample};
+use crate::evaluable::Sample;
 
 /// A segment that holds a constant value for a given duration.
 ///
@@ -19,12 +19,12 @@ impl<T: Animatable> Hold<T> {
     }
 }
 
-impl<T: Animatable + Send + Sync> Evaluable<T> for Hold<T> {
-    fn evaluate(&self, _phase: f32) -> Sample<T> {
+impl<T: Animatable + Send + Sync> Hold<T> {
+    pub fn evaluate(&self, _phase: f32) -> Sample<T> {
         Sample::at_rest(self.value.clone())
     }
 
-    fn natural_duration(&self) -> f32 {
+    pub fn natural_duration(&self) -> f32 {
         self.duration
     }
 }
@@ -37,7 +37,7 @@ mod tests {
     fn hold_always_returns_same_value() {
         let h = Hold::new(42.0_f32, 1.0);
         for phase in [0.0, 0.25, 0.5, 0.75, 1.0] {
-            let s = Evaluable::evaluate(&h, phase);
+            let s = h.evaluate(phase);
             assert!((s.value - 42.0).abs() < f32::EPSILON);
         }
     }
@@ -45,7 +45,7 @@ mod tests {
     #[test]
     fn hold_velocity_is_zero() {
         let h = Hold::new(42.0_f32, 1.0);
-        let s = Evaluable::evaluate(&h, 0.5);
+        let s = h.evaluate(0.5);
         assert!(s.velocity.abs() < f32::EPSILON);
     }
 

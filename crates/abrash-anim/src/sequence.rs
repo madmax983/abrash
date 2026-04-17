@@ -9,18 +9,18 @@ use crate::evaluable::{Evaluable, Sample};
 /// Each child gets a proportional slice of the 0.0--1.0 phase range
 /// based on `natural_duration() / total_duration`.
 pub struct Sequence<T: Animatable> {
-    segments: Vec<Box<dyn Evaluable<T>>>,
+    segments: Vec<Evaluable<T>>,
     boundaries: Vec<(f32, f32)>,
     total_duration: f32,
 }
 
-impl<T: Animatable> Sequence<T> {
+impl<T: Animatable + Send + Sync> Sequence<T> {
     /// Create a sequence from a list of evaluable segments.
     ///
     /// # Panics
     /// Panics if `segments` is empty.
     #[must_use]
-    pub fn new(segments: Vec<Box<dyn Evaluable<T>>>) -> Self {
+    pub fn new(segments: Vec<Evaluable<T>>) -> Self {
         assert!(
             !segments.is_empty(),
             "Sequence requires at least one segment"
@@ -48,8 +48,8 @@ impl<T: Animatable> Sequence<T> {
     }
 }
 
-impl<T: Animatable> Evaluable<T> for Sequence<T> {
-    fn evaluate(&self, phase: f32) -> Sample<T> {
+impl<T: Animatable + Send + Sync> Sequence<T> {
+    pub fn evaluate(&self, phase: f32) -> Sample<T> {
         let phase = phase.clamp(0.0, 1.0);
 
         for (i, &(start, end)) in self.boundaries.iter().enumerate() {
@@ -69,7 +69,7 @@ impl<T: Animatable> Evaluable<T> for Sequence<T> {
         )
     }
 
-    fn natural_duration(&self) -> f32 {
+    pub fn natural_duration(&self) -> f32 {
         self.total_duration
     }
 }
@@ -90,23 +90,23 @@ mod tests {
     #[test]
     fn two_equal_segments_split_evenly() {
         let seq = Sequence::new(vec![
-            Box::new(Keyframe::new(0.0_f32, 10.0, Easing::Linear, 1.0)),
-            Box::new(Keyframe::new(10.0_f32, 20.0, Easing::Linear, 1.0)),
+            Evaluable::Keyframe(Keyframe::new(0.0_f32, 10.0, Easing::Linear, 1.0)),
+            Evaluable::Keyframe(Keyframe::new(10.0_f32, 20.0, Easing::Linear, 1.0)),
         ]);
 
-        let s = Evaluable::evaluate(&seq, 0.0);
+        let s = seq.evaluate(0.0);
         assert!((s.value).abs() < EPSILON);
 
-        let s = Evaluable::evaluate(&seq, 0.25);
+        let s = seq.evaluate(0.25);
         assert!((s.value - 5.0).abs() < EPSILON);
 
-        let s = Evaluable::evaluate(&seq, 0.5);
+        let s = seq.evaluate(0.5);
         assert!((s.value - 10.0).abs() < EPSILON);
 
-        let s = Evaluable::evaluate(&seq, 0.75);
+        let s = seq.evaluate(0.75);
         assert!((s.value - 15.0).abs() < EPSILON);
 
-        let s = Evaluable::evaluate(&seq, 1.0);
+        let s = seq.evaluate(1.0);
         assert!((s.value - 20.0).abs() < EPSILON);
     }
 
@@ -115,37 +115,37 @@ mod tests {
         // 1s tween + 3s hold = 4s total
         // Tween occupies 0.0..0.25, hold occupies 0.25..1.0
         let seq = Sequence::new(vec![
-            Box::new(Keyframe::new(0.0_f32, 10.0, Easing::Linear, 1.0)),
-            Box::new(Hold::new(10.0_f32, 3.0)),
+            Evaluable::Keyframe(Keyframe::new(0.0_f32, 10.0, Easing::Linear, 1.0)),
+            Evaluable::Hold(Hold::new(10.0_f32, 3.0)),
         ]);
 
         // phase 0.125 is midpoint of first segment (0.0..0.25)
-        let s = Evaluable::evaluate(&seq, 0.125);
+        let s = seq.evaluate(0.125);
         assert!((s.value - 5.0).abs() < EPSILON);
 
         // phase 0.5 is inside the hold segment
-        let s = Evaluable::evaluate(&seq, 0.5);
+        let s = seq.evaluate(0.5);
         assert!((s.value - 10.0).abs() < EPSILON);
     }
 
     #[test]
     fn total_duration_is_sum() {
         let seq = Sequence::new(vec![
-            Box::new(Keyframe::new(0.0_f32, 10.0, Easing::Linear, 2.0)),
-            Box::new(Hold::new(10.0_f32, 3.0)),
+            Evaluable::Keyframe(Keyframe::new(0.0_f32, 10.0, Easing::Linear, 2.0)),
+            Evaluable::Hold(Hold::new(10.0_f32, 3.0)),
         ]);
         assert!((seq.natural_duration() - 5.0).abs() < EPSILON);
     }
 
     #[test]
     fn single_segment_sequence() {
-        let seq = Sequence::new(vec![Box::new(Keyframe::new(
+        let seq = Sequence::new(vec![Evaluable::Keyframe(Keyframe::new(
             0.0_f32,
             10.0,
             Easing::Linear,
             1.0,
         ))]);
-        let s = Evaluable::evaluate(&seq, 0.5);
+        let s = seq.evaluate(0.5);
         assert!((s.value - 5.0).abs() < EPSILON);
     }
 
@@ -154,7 +154,7 @@ mod tests {
         expected = "The loop always returns because the last segment condition `i == self.segments.len() - 1` is always met"
     )]
     fn sequence_evaluate_unreachable_guard() {
-        let mut seq = Sequence::new(vec![Box::new(Keyframe::new(
+        let mut seq = Sequence::new(vec![Evaluable::Keyframe(Keyframe::new(
             0.0_f32,
             10.0,
             Easing::Linear,
@@ -166,6 +166,6 @@ mod tests {
         seq.boundaries.clear();
 
         // This should trigger the `unreachable!()` guard.
-        let _ = Evaluable::evaluate(&seq, 0.5);
+        let _ = seq.evaluate(0.5);
     }
 }

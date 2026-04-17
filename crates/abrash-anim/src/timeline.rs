@@ -22,7 +22,7 @@ enum TimelineState<T: Animatable> {
 /// Call [`tick`](Self::tick) each frame with the delta time to advance
 /// the animation and retrieve the current `Sample<T>`.
 pub struct Timeline<T: Animatable> {
-    root: Box<dyn Evaluable<T>>,
+    root: Evaluable<T>,
     clock: AnimationClock,
     duration: f32,
     playback: PlaybackMode,
@@ -33,7 +33,7 @@ pub struct Timeline<T: Animatable> {
 impl<T: Animatable + Send + Sync + 'static> Timeline<T> {
     /// Create a timeline from an arbitrary evaluable root.
     #[must_use]
-    pub fn from_evaluable(root: Box<dyn Evaluable<T>>, playback: PlaybackMode) -> Self {
+    pub fn from_evaluable(root: Evaluable<T>, playback: PlaybackMode) -> Self {
         let duration = root.natural_duration();
         let initial = root.evaluate(0.0);
         Self {
@@ -51,7 +51,7 @@ impl<T: Animatable + Send + Sync + 'static> Timeline<T> {
     pub fn tween(from: T, to: T, duration: Duration) -> Self {
         let secs = duration.as_secs_f32();
         Self::from_evaluable(
-            Box::new(Keyframe::new(from, to, Easing::Linear, secs)),
+            Evaluable::Keyframe(Keyframe::new(from, to, Easing::Linear, secs)),
             PlaybackMode::Once,
         )
     }
@@ -64,7 +64,7 @@ impl<T: Animatable + Send + Sync + 'static> Timeline<T> {
     pub fn easing(mut self, easing: Easing) -> Self {
         let sample_start = self.root.evaluate(0.0);
         let sample_end = self.root.evaluate(1.0);
-        self.root = Box::new(Keyframe::new(
+        self.root = Evaluable::Keyframe(Keyframe::new(
             sample_start.value,
             sample_end.value,
             easing,
@@ -279,10 +279,10 @@ mod tests {
         use crate::sequence::Sequence;
 
         let seq = Sequence::new(vec![
-            Box::new(Keyframe::new(0.0, 10.0, Easing::Linear, 1.0)),
-            Box::new(Hold::new(10.0, 0.5)),
+            Evaluable::Keyframe(Keyframe::new(0.0, 10.0, Easing::Linear, 1.0)),
+            Evaluable::Hold(Hold::new(10.0, 0.5)),
         ]);
-        let tl = Timeline::<f32>::from_evaluable(Box::new(seq), PlaybackMode::Once);
+        let tl = Timeline::<f32>::from_evaluable(Evaluable::Sequence(seq), PlaybackMode::Once);
 
         assert!((tl.duration() - 1.5).abs() < EPSILON);
     }
