@@ -58,14 +58,9 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
     let mut x = 0;
     let mut y = radius;
-    let mut d = 2_i32.checked_mul(radius).map_or_else(
-        || panic!("Circle drawing integer overflow"),
-        |val| {
-            3_i32
-                .checked_sub(val)
-                .map_or_else(|| panic!("Circle drawing integer overflow"), |d_val| d_val)
-        },
-    );
+    // ⚡ Bolt: Expand Bresenham's decision variable to i64 to prevent integer overflow
+    // panics without corrupting the mathematical invariant via saturating math or branching.
+    let mut d = 3_i64 - 2_i64 * i64::from(radius);
 
     // Fast path: fully on screen
     let min_x = i64::from(xc) - i64::from(radius);
@@ -83,9 +78,9 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
             x += 1;
             if d > 0 {
                 y -= 1;
-                d = d + 4 * (x - y) + 10;
+                d = d + 4 * i64::from(x - y) + 10;
             } else {
-                d = d + 4 * x + 6;
+                d = d + 4 * i64::from(x) + 6;
             }
             draw_circle_points_unchecked(fb, xc, yc, x, y, color);
         }
@@ -96,9 +91,9 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
             x += 1;
             if d > 0 {
                 y -= 1;
-                d = d + 4 * (x - y) + 10;
+                d = d + 4 * i64::from(x - y) + 10;
             } else {
-                d = d + 4 * x + 6;
+                d = d + 4 * i64::from(x) + 6;
             }
             draw_circle_points(fb, xc, yc, x, y, color);
         }
@@ -214,14 +209,9 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
     let mut x = 0;
     let mut y = radius;
-    let mut d = 2_i32.checked_mul(radius).map_or_else(
-        || panic!("Circle drawing integer overflow"),
-        |val| {
-            3_i32
-                .checked_sub(val)
-                .map_or_else(|| panic!("Circle drawing integer overflow"), |d_val| d_val)
-        },
-    );
+    // ⚡ Bolt: Expand Bresenham's decision variable to i64 to prevent integer overflow
+    // panics without corrupting the mathematical invariant via saturating math or branching.
+    let mut d = 3_i64 - 2_i64 * i64::from(radius);
 
     // Fast path: fully on screen
     let min_x = i64::from(xc) - i64::from(radius);
@@ -246,9 +236,9 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
                     draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
                 }
                 y -= 1;
-                d = d + 4 * (x - y) + 10;
+                d = d + 4 * i64::from(x - y) + 10;
             } else {
-                d = d + 4 * x + 6;
+                d = d + 4 * i64::from(x) + 6;
             }
 
             x += 1;
@@ -267,9 +257,9 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
                     draw_horizontal_line(fb, xc - x, xc + x, yc - y, color);
                 }
                 y -= 1;
-                d = d + 4 * (x - y) + 10;
+                d = d + 4 * i64::from(x - y) + 10;
             } else {
-                d = d + 4 * x + 6;
+                d = d + 4 * i64::from(x) + 6;
             }
 
             x += 1;
