@@ -1,4 +1,3 @@
-use abrash_render::experimental::pixel_sort::{PixelSortConfig, apply_pixel_sort};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
@@ -8,6 +7,7 @@ use abrash::platform::{
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
+use abrash_render::experimental::pixel_sort::{PixelSortConfig, apply_pixel_sort};
 use std::f32::consts::PI;
 use std::fmt;
 use std::io::Error as IoError;

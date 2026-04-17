@@ -1,9 +1,9 @@
-use abrash_render::experimental::mode7::{Mode7Config, render_mode7};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
 use abrash::texture::Texture;
+use abrash_render::experimental::mode7::{Mode7Config, render_mode7};
 
 #[cfg(feature = "nova")]
 use comfy_table::{Cell, Color, Table, presets};

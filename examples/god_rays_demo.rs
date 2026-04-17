@@ -1,9 +1,9 @@
 #[cfg(all(feature = "nova", feature = "backend-tui"))]
 mod app {
-    use abrash_render::experimental::crepuscular::{GodRaysConfig, apply_god_rays};
     use abrash::framebuffer::Framebuffer;
     use abrash::platform::tui::TuiWindow;
     use abrash::zbuffer::ZBuffer;
+    use abrash_render::experimental::crepuscular::{GodRaysConfig, apply_god_rays};
     use comfy_table::{Cell, Color, Table, presets};
     use crossterm::event::{self, Event, KeyCode};
     use crossterm::style::Stylize;

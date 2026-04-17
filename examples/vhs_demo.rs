@@ -1,8 +1,8 @@
-use abrash_render::experimental::vhs::{VhsConfig, apply_vhs};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
+use abrash_render::experimental::vhs::{VhsConfig, apply_vhs};
 
 #[cfg(feature = "nova")]
 use comfy_table::{Cell, Color, Table, presets};

@@ -2,7 +2,6 @@
 //!
 //! Demonstrates the retro "plastic interlocking bricks" post-processing filter.
 
-use abrash_render::experimental::brickify::apply_brickify;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
@@ -12,6 +11,7 @@ use abrash::platform::{
 use abrash::rasterizer::fill_triangle_lit;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
+use abrash_render::experimental::brickify::apply_brickify;
 use std::f32::consts::PI;
 
 #[cfg(feature = "nova")]

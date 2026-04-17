@@ -1,8 +1,8 @@
-use abrash_render::experimental::halftone::apply_halftone;
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
+use abrash_render::experimental::halftone::apply_halftone;
 use std::f32::consts::PI;
 
 #[cfg(feature = "nova")]

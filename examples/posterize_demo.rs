@@ -1,9 +1,9 @@
 #[cfg(feature = "nova")]
-use abrash_render::experimental::posterize::{PosterizeConfig, apply_posterize};
-#[cfg(feature = "nova")]
 use abrash::framebuffer::Framebuffer;
 #[cfg(feature = "nova")]
 use abrash::texture::Texture;
+#[cfg(feature = "nova")]
+use abrash_render::experimental::posterize::{PosterizeConfig, apply_posterize};
 #[cfg(feature = "nova")]
 use comfy_table::{Cell, Color, Table, presets};
 #[cfg(feature = "nova")]

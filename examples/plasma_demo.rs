@@ -1,10 +1,10 @@
 #![cfg(feature = "backend-winit")]
 
-use abrash_render::experimental::plasma::apply_plasma;
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
+use abrash_render::experimental::plasma::apply_plasma;
 
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;

@@ -9,12 +9,12 @@ use std::error::Error;
 
 #[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 mod demo {
-    use abrash_render::experimental::cloth::Cloth;
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
     use abrash::platform::Window;
     use abrash::rasterizer::fill_triangle_3d;
     use abrash::zbuffer::ZBuffer;
+    use abrash_render::experimental::cloth::Cloth;
     use std::f32::consts::PI;
     use std::time::Instant;
 
@@ -130,7 +130,6 @@ mod demo {
 
 #[cfg(all(feature = "nova", feature = "backend-winit"))]
 mod winit_demo {
-    use abrash_render::experimental::cloth::Cloth;
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
     use abrash::platform::{
@@ -138,6 +137,7 @@ mod winit_demo {
     };
     use abrash::rasterizer::fill_triangle_3d;
     use abrash::zbuffer::ZBuffer;
+    use abrash_render::experimental::cloth::Cloth;
     use std::f32::consts::PI;
     use std::io;
 

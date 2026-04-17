@@ -43,7 +43,15 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
         return;
     }
 
-    let source_buffer = fb.as_slice().to_vec();
+    // ⚡ Bolt: Eliminate per-frame heap allocation by using a thread-local static buffer.
+    thread_local! {
+        static SOURCE_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
+
+    let mut src_pixels = SOURCE_PIXELS.with(|buf| buf.take());
+    src_pixels.clear();
+    src_pixels.extend_from_slice(fb.as_slice());
+    let source_buffer = src_pixels.as_slice();
 
     let pixels = fb.as_mut_slice();
 
@@ -135,6 +143,10 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
                 }
             }
         }
+    });
+
+    SOURCE_PIXELS.with(|buf| {
+        buf.replace(src_pixels);
     });
 }
 

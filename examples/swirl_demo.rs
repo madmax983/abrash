@@ -7,11 +7,11 @@
 //! cargo run --example swirl_demo --no-default-features --features "backend-tui parallel nova" --release
 //! ```
 
-use abrash_render::experimental::swirl::{SwirlConfig, apply_swirl};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
+use abrash_render::experimental::swirl::{SwirlConfig, apply_swirl};
 use std::f32::consts::PI;
 
 use comfy_table::{Cell, Color, Table, presets};

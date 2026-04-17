@@ -1,5 +1,4 @@
 #![cfg(feature = "backend-winit")]
-use abrash_render::experimental::slitscan::SlitScanFilter;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
@@ -9,6 +8,7 @@ use abrash::platform::{
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
+use abrash_render::experimental::slitscan::SlitScanFilter;
 use std::f32::consts::PI;
 use std::fmt;
 use std::io::Error as IoError;

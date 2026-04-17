@@ -1,4 +1,3 @@
-use abrash_render::experimental::directional_blur::{DirectionalBlurConfig, apply_directional_blur};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
@@ -7,6 +6,9 @@ use abrash::platform::{
 };
 use abrash::scene::{Camera, Scene, SceneObject};
 use abrash::time::FixedTimestep;
+use abrash_render::experimental::directional_blur::{
+    DirectionalBlurConfig, apply_directional_blur,
+};
 use std::f32::consts::PI;
 use std::fmt;
 use std::io::Error as IoError;

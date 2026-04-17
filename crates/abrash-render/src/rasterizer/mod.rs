@@ -66,8 +66,8 @@ pub mod gouraud;
 pub mod line;
 pub mod pbr;
 pub mod phong;
-pub mod reflection;
 pub mod rect;
+pub mod reflection;
 pub mod texture;
 pub mod tile;
 
@@ -81,8 +81,8 @@ pub use self::pbr::fill_triangle_pbr;
 pub use self::phong::{
     fill_triangle_lit, fill_triangle_phong, fill_triangle_phong_shadowed, fill_triangle_point_lit,
 };
+pub use self::rect::{draw_rect, draw_rounded_rect, fill_rect, fill_rounded_rect};
 pub use self::reflection::fill_triangle_reflection;
-pub use self::rect::{draw_rect, fill_rect, draw_rounded_rect, fill_rounded_rect};
 pub use self::texture::{
     PerspectiveSpanStart, PerspectiveTextureGradients, TexturedGouraudGradients,
     TexturedGouraudSpanStart, draw_scanline_textured_gouraud, draw_scanline_textured_perspective,
