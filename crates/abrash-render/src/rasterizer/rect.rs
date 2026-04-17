@@ -1,4 +1,3 @@
-
 use abrash_core::framebuffer::Framebuffer;
 use abrash_core::ivec::IVec2;
 
@@ -61,12 +60,23 @@ pub fn fill_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, 
     fb.clear_rect(x, y, width, height, color);
 }
 
-pub fn draw_rounded_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, radius: i32, color: u32) {
+pub fn draw_rounded_rect(
+    fb: &mut Framebuffer,
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+    radius: i32,
+    color: u32,
+) {
     if width == 0 || height == 0 {
         return;
     }
 
-    let radius = radius.max(0).min((width as i32) / 2).min((height as i32) / 2);
+    let radius = radius
+        .max(0)
+        .min((width as i32) / 2)
+        .min((height as i32) / 2);
 
     if radius == 0 {
         draw_rect(fb, x, y, width, height, color);
@@ -93,7 +103,12 @@ pub fn draw_rounded_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, heigh
     }
     if inner_h > 0 {
         draw_line_2d_local(fb, IVec2::new(x, cy_top), IVec2::new(x, cy_bottom), color); // Left
-        draw_line_2d_local(fb, IVec2::new(x + width as i32 - 1, cy_top), IVec2::new(x + width as i32 - 1, cy_bottom), color); // Right
+        draw_line_2d_local(
+            fb,
+            IVec2::new(x + width as i32 - 1, cy_top),
+            IVec2::new(x + width as i32 - 1, cy_bottom),
+            color,
+        ); // Right
     }
 
     let mut cx = 0;
@@ -152,12 +167,23 @@ pub fn draw_rounded_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, heigh
     }
 }
 
-pub fn fill_rounded_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, radius: i32, color: u32) {
+pub fn fill_rounded_rect(
+    fb: &mut Framebuffer,
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+    radius: i32,
+    color: u32,
+) {
     if width == 0 || height == 0 {
         return;
     }
 
-    let radius = radius.max(0).min((width as i32) / 2).min((height as i32) / 2);
+    let radius = radius
+        .max(0)
+        .min((width as i32) / 2)
+        .min((height as i32) / 2);
 
     if radius == 0 {
         fill_rect(fb, x, y, width, height, color);
@@ -165,7 +191,14 @@ pub fn fill_rounded_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, heigh
     }
 
     // Fill the central inner rectangle block
-    fill_rect(fb, x, y + radius, width, height - 2 * (radius as u32), color);
+    fill_rect(
+        fb,
+        x,
+        y + radius,
+        width,
+        height - 2 * (radius as u32),
+        color,
+    );
 
     let cx_left = x + radius;
     let cx_right = x + width as i32 - 1 - radius;
@@ -190,7 +223,13 @@ pub fn fill_rounded_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, heigh
             // To avoid overdraw on the middle portions if cx != cy
             if cx != cy {
                 draw_horizontal_line_unchecked(fb, cx_left - cy, cx_right + cy, cy_top - cx, color);
-                draw_horizontal_line_unchecked(fb, cx_left - cy, cx_right + cy, cy_bottom + cx, color);
+                draw_horizontal_line_unchecked(
+                    fb,
+                    cx_left - cy,
+                    cx_right + cy,
+                    cy_bottom + cx,
+                    color,
+                );
             }
 
             if d < 0 {

@@ -1,8 +1,8 @@
-use abrash_render::experimental::hologram::{HologramConfig, apply_hologram};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::zbuffer::ZBuffer;
+use abrash_render::experimental::hologram::{HologramConfig, apply_hologram};
 
 #[cfg(feature = "nova")]
 use comfy_table::{Cell, Color, Table, presets};

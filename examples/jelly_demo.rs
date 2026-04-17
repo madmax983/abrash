@@ -4,14 +4,14 @@ use std::error::Error;
 
 #[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 mod demo {
-    use abrash_render::experimental::jelly::SoftBody;
-    use abrash_render::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene, render_sdf};
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
     use abrash::mesh::Mesh;
     use abrash::platform::Window;
     use abrash::rasterizer::fill_triangle_3d;
     use abrash::zbuffer::ZBuffer;
+    use abrash_render::experimental::jelly::SoftBody;
+    use abrash_render::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene, render_sdf};
     use std::time::Instant;
 
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
@@ -132,8 +132,6 @@ mod demo {
 
 #[cfg(all(feature = "nova", feature = "backend-winit"))]
 mod winit_demo {
-    use abrash_render::experimental::jelly::SoftBody;
-    use abrash_render::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene, render_sdf};
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
     use abrash::mesh::Mesh;
@@ -142,6 +140,8 @@ mod winit_demo {
     };
     use abrash::rasterizer::fill_triangle_3d;
     use abrash::zbuffer::ZBuffer;
+    use abrash_render::experimental::jelly::SoftBody;
+    use abrash_render::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene, render_sdf};
     use std::io;
 
     const WIDTH: u32 = 800;

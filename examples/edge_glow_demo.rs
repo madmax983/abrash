@@ -1,7 +1,7 @@
 #[cfg(feature = "nova")]
-use abrash_render::experimental::edge_glow::{EdgeGlowConfig, apply_edge_glow};
-#[cfg(feature = "nova")]
 use abrash::framebuffer::Framebuffer;
+#[cfg(feature = "nova")]
+use abrash_render::experimental::edge_glow::{EdgeGlowConfig, apply_edge_glow};
 
 #[cfg(all(feature = "nova", feature = "backend-tui"))]
 use abrash::platform::tui::TuiWindow;

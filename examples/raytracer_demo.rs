@@ -3,8 +3,6 @@
 //! Demonstrates the experimental CPU raytracer with reflections and shadows.
 
 #[cfg(all(feature = "nova", not(feature = "backend-winit")))]
-use abrash_render::experimental::raytracer::RayTracer;
-#[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 use abrash::framebuffer::Framebuffer;
 #[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 use abrash::math::{Mat4, Vec3};
@@ -17,6 +15,8 @@ use abrash::scene::{Camera, Scene, SceneObject};
 #[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 use abrash::time::FixedTimestep;
 #[cfg(all(feature = "nova", not(feature = "backend-winit")))]
+use abrash_render::experimental::raytracer::RayTracer;
+#[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 use std::f32::consts::PI;
 #[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 use std::sync::Arc;
@@ -27,7 +27,6 @@ use crossterm::style::Stylize;
 
 #[cfg(all(feature = "nova", feature = "backend-winit"))]
 mod winit_demo {
-    use abrash_render::experimental::raytracer::RayTracer;
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
     use abrash::mesh::Mesh;
@@ -35,6 +34,7 @@ mod winit_demo {
         SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
     };
     use abrash::scene::{Camera, Scene, SceneObject};
+    use abrash_render::experimental::raytracer::RayTracer;
     use std::f32::consts::PI;
     use std::io;
     use std::sync::Arc;

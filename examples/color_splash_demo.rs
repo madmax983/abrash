@@ -1,6 +1,5 @@
 #![cfg(feature = "backend-winit")]
 
-use abrash_render::experimental::color_splash::{ColorSplashConfig, apply_color_splash};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
 use abrash::platform::{
@@ -8,6 +7,7 @@ use abrash::platform::{
 };
 use abrash::rasterizer::fill_triangle_gouraud;
 use abrash::zbuffer::ZBuffer;
+use abrash_render::experimental::color_splash::{ColorSplashConfig, apply_color_splash};
 use std::time::Instant;
 
 const WIDTH: u32 = 640;

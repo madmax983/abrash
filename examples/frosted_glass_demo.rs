@@ -7,11 +7,11 @@
 //! cargo run --example frosted_glass_demo --no-default-features --features "backend-tui parallel nova" --release
 //! ```
 
-use abrash_render::experimental::frosted_glass::apply_frosted_glass;
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
+use abrash_render::experimental::frosted_glass::apply_frosted_glass;
 
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;

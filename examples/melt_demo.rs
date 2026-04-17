@@ -1,9 +1,9 @@
-use abrash_render::experimental::melt::{MeltConfig, apply_melt};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec2;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
+use abrash_render::experimental::melt::{MeltConfig, apply_melt};
 
 #[cfg(feature = "nova")]
 use comfy_table::{Cell, Color, Table, presets};
