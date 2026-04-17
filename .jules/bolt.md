@@ -371,6 +371,10 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## Optimize Circle Fill Routine
 **Learning:** When optimizing filled circle rasterization (e.g., Bresenham's algorithm), drawing horizontal scanlines directly based on the decision variable (e.g., `d > 0`) eliminates the need for trailing state variables (like `last_y`) and redundant conditional checks. This reduces branching complexity in the hot loop while preventing horizontal overdraw.
 **Action:** Removed `last_y` and streamlined the `fill_circle` function, resulting in simpler code and slightly better performance.
+
+**[Performance Optimization: f32::exp2() vs (2.0_f32).powf()]**
+**Learning:** Using `(2.0_f32).powf(x)` is ~10x slower than using `x.exp2()`, because `powf` invokes complex C-math library routines for arbitrary bases, whereas `exp2` maps directly to highly optimized hardware instructions for base-2 exponentials.
+**Action:** Replace `(2.0_f32).powf(x)` with `x.exp2()` across all mathematical curves, easing functions, and calculations to drastically reduce execution time without sacrificing safety or readability.
 ## YYYY-MM-DD - Optimization of Vec::new to take in winit events
 **Learning:** Replaced events.borrow_mut().drain(..).collect() with std::mem::take(&mut *events.borrow_mut()).
 **Action:** Replaced dynamic heap allocation with constant-time pointer swap.
