@@ -20082,3 +20082,16 @@ mod tests_pass_59 {
         assert!((g - 1.0).abs() < 0.01, "g={g}");
     }
 }
+
+#[cfg(test)]
+mod tests_nlerp_fix {
+    use super::*;
+
+    #[test]
+    fn test_nlerp_sum_zero() {
+        let quats = vec![Quat::identity(), Quat::identity()];
+        let weights = vec![0.0, 0.0];
+        let q = quat_nlerp_weighted(&quats, &weights);
+        assert_eq!(q.w, 1.0);
+    }
+}

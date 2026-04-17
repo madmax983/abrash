@@ -24,3 +24,9 @@
 **[Steganography Integer Overflow Prevention]**
 **Learning:** When calculating buffer sizes or bit counts from arbitrary or untrusted lengths (e.g., from an image or framebuffer), standard arithmetic operators (`+`, `*`) can easily overflow `usize` boundaries and cause panics. For example, `(4 + len) * 8` can panic if `len` is close to `usize::MAX`.
 **Action:** Always use safe arithmetic like `checked_add` and `checked_mul` when dealing with lengths or sizes derived from untrusted inputs, and bubble up safe `Option` or `Result` types instead of crashing.
+**[Testing Corrupted Handle Freelist Guards]**
+**Learning:** Defensive `unreachable!()` guards in resource pools (e.g. verifying that a slot pulled from a free list is actually `Vacant` rather than `Occupied`) can only be tested by directly mutating private internal state (corrupting the free list or entry state) and simulating a double-alloc or memory corruption bug.
+**Action:** When auditing custom allocation pools or handle maps, write tests in the same module that artificially mutate the internal structures (e.g. modifying the `entries` or `free_list`) to ensure these hard-to-reach defensive panics actually fire when invariants are broken.
+**[DrawList Capacity Overflow]**
+**Learning:** Functions that pre-allocate massive vectors inside graphic pipelines (like `DrawList::with_capacity(..., usize::MAX, ...)`) will rightfully panic with a built-in rust `capacity overflow` if they are given absurd memory bounds (e.g., from an untrusted fuzzed command buffer length).
+**Action:** Always constrain maximum batch, vertex, or object counts (and correctly handle OOM via checked math) prior to dynamically allocating memory bounds from frame descriptions. Use `should_panic(expected = "capacity overflow")` tests to document exactly when boundaries are expected to burst.
