@@ -371,3 +371,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## Optimize Circle Fill Routine
 **Learning:** When optimizing filled circle rasterization (e.g., Bresenham's algorithm), drawing horizontal scanlines directly based on the decision variable (e.g., `d > 0`) eliminates the need for trailing state variables (like `last_y`) and redundant conditional checks. This reduces branching complexity in the hot loop while preventing horizontal overdraw.
 **Action:** Removed `last_y` and streamlined the `fill_circle` function, resulting in simpler code and slightly better performance.
+**ASCII Terminal State Tracking Optimization**
+**Learning:** When exporting terminal-based graphical representations with ANSI codes, the naive approach writes a full ANSI color change sequence (`\x1b[...m`) for every single character. Even with `BufWriter` or writing directly to a `Formatter`, this generates incredibly bloated output data and wastes CPU time.
+**Action:** Implement simple state-tracking (e.g., `let mut last_color = None;`) while iterating over pixels. Only emit the ANSI sequence when the color actually changes, and reset it (`\x1b[0m`) at the end of each line or when necessary. This minimizes the data payload and significantly speeds up terminal rendering and text processing.

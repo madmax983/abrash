@@ -116,16 +116,26 @@ impl<'a> AsciiConverter<'a> {
         // ANSI sequence is roughly "\x1b[38;2;RRR;GGG;BBBmC" -> ~20 chars
         let mut result = String::with_capacity(((width * 20) * height) as usize);
 
+        let mut last_color = None;
+
         for row in self.framebuffer.as_slice().chunks_exact(width as usize) {
             for &pixel in row {
                 let ch = self.charset.map(pixel_luminance(pixel));
-                let r = (pixel >> 16) & 0xFF;
-                let g = (pixel >> 8) & 0xFF;
-                let b = pixel & 0xFF;
-                let _ = write!(result, "\x1b[38;2;{r};{g};{b}m{ch}");
+                let current_color = pixel & 0x00FF_FFFF;
+
+                if last_color != Some(current_color) {
+                    let r = (current_color >> 16) & 0xFF;
+                    let g = (current_color >> 8) & 0xFF;
+                    let b = current_color & 0xFF;
+                    let _ = write!(result, "\x1b[38;2;{r};{g};{b}m");
+                    last_color = Some(current_color);
+                }
+
+                result.push(ch);
             }
             // Reset color at end of line
             result.push_str("\x1b[0m\n");
+            last_color = None;
         }
         result
     }
@@ -137,10 +147,16 @@ impl<'a> AsciiConverter<'a> {
     /// # Errors
     /// Returns an error if the file cannot be created or written to.
     pub fn export_ascii<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
-        let ascii_str = self.to_string();
+        let mut file = std::io::BufWriter::new(File::create(path)?);
 
-        let mut file = File::create(path)?;
-        file.write_all(ascii_str.as_bytes())?;
+        let width = self.framebuffer.width() as usize;
+        for row in self.framebuffer.as_slice().chunks_exact(width) {
+            for &pixel in row {
+                let ch = self.charset.map(pixel_luminance(pixel));
+                write!(file, "{ch}")?;
+            }
+            file.write_all(b"\n")?;
+        }
 
         Ok(())
     }
@@ -153,10 +169,29 @@ impl<'a> AsciiConverter<'a> {
     /// # Errors
     /// Returns an error if the file cannot be created or written to.
     pub fn export_ansi<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
-        let ansi_str = self.to_colored_string();
+        let mut file = std::io::BufWriter::new(File::create(path)?);
 
-        let mut file = File::create(path)?;
-        file.write_all(ansi_str.as_bytes())?;
+        let width = self.framebuffer.width() as usize;
+        let mut last_color = None;
+
+        for row in self.framebuffer.as_slice().chunks_exact(width) {
+            for &pixel in row {
+                let ch = self.charset.map(pixel_luminance(pixel));
+                let current_color = pixel & 0x00FF_FFFF;
+
+                if last_color != Some(current_color) {
+                    let r = (current_color >> 16) & 0xFF;
+                    let g = (current_color >> 8) & 0xFF;
+                    let b = current_color & 0xFF;
+                    write!(file, "\x1b[38;2;{r};{g};{b}m")?;
+                    last_color = Some(current_color);
+                }
+
+                write!(file, "{ch}")?;
+            }
+            file.write_all(b"\x1b[0m\n")?;
+            last_color = None; // Reset color at the end of the line
+        }
 
         Ok(())
     }
@@ -164,18 +199,16 @@ impl<'a> AsciiConverter<'a> {
 
 impl fmt::Display for AsciiConverter<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // ⚡ Bolt: Eliminate the O(N) heap allocation of `String::with_capacity`
+        // by writing characters directly to the formatter.
         let width = self.framebuffer.width();
-        let height = self.framebuffer.height();
-        // Estimate capacity: (width + 1) * height
-        let mut result = String::with_capacity(((width + 1) * height) as usize);
-
         for row in self.framebuffer.as_slice().chunks_exact(width as usize) {
             for &pixel in row {
-                result.push(self.charset.map(pixel_luminance(pixel)));
+                f.write_char(self.charset.map(pixel_luminance(pixel)))?;
             }
-            result.push('\n');
+            f.write_char('\n')?;
         }
-        write!(f, "{result}")
+        Ok(())
     }
 }
 
