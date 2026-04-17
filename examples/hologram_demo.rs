@@ -1,4 +1,4 @@
-use abrash::experimental::hologram::{HologramConfig, apply_hologram};
+use abrash_render::experimental::hologram::{HologramConfig, apply_hologram};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::rasterizer::fill_triangle_3d;

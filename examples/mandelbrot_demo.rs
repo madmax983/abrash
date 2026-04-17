@@ -8,7 +8,7 @@ use abrash::platform::{
 };
 
 #[cfg(feature = "nova")]
-use abrash::experimental::mandelbrot::{MandelbrotConfig, render_mandelbrot};
+use abrash_render::experimental::mandelbrot::{MandelbrotConfig, render_mandelbrot};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;

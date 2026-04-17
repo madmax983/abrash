@@ -1,4 +1,4 @@
-use abrash::experimental::night_vision::{NightVisionConfig, apply_night_vision};
+use abrash_render::experimental::night_vision::{NightVisionConfig, apply_night_vision};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;

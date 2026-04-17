@@ -1,4 +1,4 @@
-use abrash::experimental::halftone::apply_halftone;
+use abrash_render::experimental::halftone::apply_halftone;
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,

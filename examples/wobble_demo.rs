@@ -1,4 +1,4 @@
-use abrash::experimental::wobble::{WobbleConfig, apply_wobble};
+use abrash_render::experimental::wobble::{WobbleConfig, apply_wobble};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,

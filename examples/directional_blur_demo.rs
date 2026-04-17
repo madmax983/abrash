@@ -1,4 +1,4 @@
-use abrash::experimental::directional_blur::{DirectionalBlurConfig, apply_directional_blur};
+use abrash_render::experimental::directional_blur::{DirectionalBlurConfig, apply_directional_blur};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;

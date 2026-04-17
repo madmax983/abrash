@@ -1,4 +1,4 @@
-use abrash::experimental::fisheye::apply_fisheye;
+use abrash_render::experimental::fisheye::apply_fisheye;
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,

@@ -1,6 +1,6 @@
 #![cfg(feature = "backend-winit")]
 
-use abrash::experimental::plasma::apply_plasma;
+use abrash_render::experimental::plasma::apply_plasma;
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,

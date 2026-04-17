@@ -1,4 +1,4 @@
-use abrash::experimental::anaglyph::{AnaglyphConfig, apply_anaglyph};
+use abrash_render::experimental::anaglyph::{AnaglyphConfig, apply_anaglyph};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
