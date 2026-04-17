@@ -1,0 +1,181 @@
+//! Pencil Sketch Filter
+//!
+//! A post-processing effect that simulates a hand-drawn pencil sketch.
+//! It works by combining edge detection (to draw the strokes) with
+//! procedural hatching to simulate shading and texture based on luminance.
+
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::utils::pixel_luminance;
+
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
+/// Configuration for the Pencil Sketch effect.
+#[derive(Debug, Clone, Copy)]
+pub struct PencilSketchConfig {
+    /// Threshold for edge detection.
+    pub edge_threshold: u32,
+    /// Pencil stroke color (usually black/dark grey).
+    pub stroke_color: u32,
+    /// Paper color (usually white/off-white).
+    pub paper_color: u32,
+    /// Intensity of the hatching effect based on luminance (0.0 to 1.0).
+    pub hatch_intensity: f32,
+}
+
+impl Default for PencilSketchConfig {
+    fn default() -> Self {
+        Self {
+            edge_threshold: 40,
+            stroke_color: 0xFF_22_22_22, // Dark charcoal
+            paper_color: 0xFF_F0_F0_EA,  // Slightly warm off-white paper
+            hatch_intensity: 0.8,
+        }
+    }
+}
+
+/// Applies a pencil sketch effect to the framebuffer.
+pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
+    let width = fb.width() as usize;
+    let height = fb.height() as usize;
+
+    if width == 0 || height == 0 {
+        return;
+    }
+
+    let source_buffer = fb.as_slice().to_vec();
+
+    let pixels = fb.as_mut_slice();
+
+    #[cfg(feature = "parallel")]
+    let iter = pixels.par_chunks_exact_mut(width).enumerate();
+    #[cfg(not(feature = "parallel"))]
+    let iter = pixels.chunks_exact_mut(width).enumerate();
+
+    iter.for_each(|(y, row)| {
+        for (x, pixel) in row.iter_mut().enumerate() {
+            // Bounds check for Sobel 3x3
+            if x == 0 || y == 0 || x >= width - 1 || y >= height - 1 {
+                *pixel = config.paper_color;
+                continue;
+            }
+
+            // --- 1. Edge Detection (Sobel) ---
+            // Fetch 3x3 neighborhood luminance
+            let tl = pixel_luminance(source_buffer[(y - 1) * width + (x - 1)]);
+            let tc = pixel_luminance(source_buffer[(y - 1) * width + x]);
+            let tr = pixel_luminance(source_buffer[(y - 1) * width + (x + 1)]);
+            let cl = pixel_luminance(source_buffer[y * width + (x - 1)]);
+            let cr = pixel_luminance(source_buffer[y * width + (x + 1)]);
+            let bl = pixel_luminance(source_buffer[(y + 1) * width + (x - 1)]);
+            let bc = pixel_luminance(source_buffer[(y + 1) * width + x]);
+            let br = pixel_luminance(source_buffer[(y + 1) * width + (x + 1)]);
+
+            // Sobel X
+            let gx = (i32::from(tr) + 2 * i32::from(cr) + i32::from(br))
+                - (i32::from(tl) + 2 * i32::from(cl) + i32::from(bl));
+
+            // Sobel Y
+            let gy = (i32::from(bl) + 2 * i32::from(bc) + i32::from(br))
+                - (i32::from(tl) + 2 * i32::from(tc) + i32::from(tr));
+
+            // Approximate gradient magnitude
+            let magnitude = (gx.abs() + gy.abs()) as u32;
+
+            let is_edge = magnitude > config.edge_threshold;
+
+            if is_edge {
+                // Draw strong stroke
+                *pixel = config.stroke_color;
+            } else {
+                // --- 2. Tonal Hatching ---
+                let luminance = f32::from(pixel_luminance(source_buffer[y * width + x])) / 255.0;
+
+                // Simple procedural hatching pattern
+                let mut is_hatch = false;
+
+                // The darker the region, the more hatching strokes we apply.
+                // Hatch level 1 (light shadows): diagonal /
+                if luminance < 0.7 {
+                    is_hatch |= (x + y) % 4 == 0;
+                }
+                // Hatch level 2 (mid shadows): crossing diagonal \
+                if luminance < 0.5 {
+                    is_hatch |= (x.wrapping_sub(y)) % 4 == 0;
+                }
+                // Hatch level 3 (deep shadows): vertical
+                if luminance < 0.3 {
+                    is_hatch |= x % 3 == 0;
+                }
+
+                // Add some noise to hatching
+                // Use a simple pseudo-random hash based on coordinates
+                let hash = ((x * 3_266_489_917) ^ (y * 2_654_435_761)).wrapping_mul(0x85eb_ca6b);
+                let noise = (hash % 100) as f32 / 100.0;
+
+                if is_hatch && noise < config.hatch_intensity {
+                    // Blend stroke color lightly into paper color for hatching strokes
+                    let r_s = (config.stroke_color >> 16) & 0xFF;
+                    let g_s = (config.stroke_color >> 8) & 0xFF;
+                    let b_s = config.stroke_color & 0xFF;
+
+                    let r_p = (config.paper_color >> 16) & 0xFF;
+                    let g_p = (config.paper_color >> 8) & 0xFF;
+                    let b_p = config.paper_color & 0xFF;
+
+                    // Mix 50/50 for a lighter stroke effect for shading
+                    let r = (r_s + r_p) / 2;
+                    let g = (g_s + g_p) / 2;
+                    let b = (b_s + b_p) / 2;
+
+                    *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                } else {
+                    // Plain paper
+                    *pixel = config.paper_color;
+                }
+            }
+        }
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pencil_sketch_config_default() {
+        let config = PencilSketchConfig::default();
+        assert_eq!(config.stroke_color, 0xFF_22_22_22);
+        assert_eq!(config.paper_color, 0xFF_F0_F0_EA);
+    }
+
+    #[test]
+    fn test_apply_pencil_sketch() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        // Draw a solid black square on white background to create sharp edges
+        fb.clear(0xFF_FF_FF_FF); // White background
+        for y in 3..7 {
+            for x in 3..7 {
+                fb.set_pixel(x as i32, y as i32, 0xFF_00_00_00); // Black square
+            }
+        }
+
+        let config = PencilSketchConfig::default();
+        apply_pencil_sketch(&mut fb, &config);
+
+        // Edges of the square should be colored with stroke_color
+        // (x=3 is the left edge, x=6 is the right edge)
+        let edge_pixel = fb.get_pixel(3, 3).unwrap();
+        assert_eq!(
+            edge_pixel, config.stroke_color,
+            "Edge pixel should be colored as a pencil stroke"
+        );
+
+        // The background (0,0) should be colored with paper_color
+        let bg_pixel = fb.get_pixel(0, 0).unwrap();
+        assert_eq!(
+            bg_pixel, config.paper_color,
+            "Background should be paper color"
+        );
+    }
+}
