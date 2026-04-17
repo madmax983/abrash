@@ -123,24 +123,26 @@ impl CpuRenderer {
     pub fn extract_draw_list(&self, frame: &Frame) -> Result<DrawList, RenderError> {
         let view_proj = frame.camera.view * frame.camera.projection;
 
-        // Pre-calculate total required vertices to avoid dynamic reallocations
+        // ⚡ Bolt: Hoist handle resolution out of the rendering loops.
+        // By pre-resolving `CpuMesh` and `Material` references into a pre-allocated vector,
+        // we completely eliminate `HashMap`/`SlotMap` lookups inside the hot vertex processing
+        // loop (especially avoiding reference resolution within the Rayon parallel closure).
         let mut total_vertices = 0;
+        let mut resolved_commands = Vec::with_capacity(frame.commands.len());
+
         for cmd in &frame.commands {
             let cpu_mesh = self
                 .meshes
                 .get(from_mesh_handle(cmd.mesh))
                 .ok_or(RenderError::StaleHandle("mesh"))?;
 
-            // Validate material handles sequentially to eliminate intermediate Result vectors later
-            if self
+            let material = self
                 .materials
                 .get(from_material_handle(cmd.material))
-                .is_none()
-            {
-                return Err(RenderError::StaleHandle("material"));
-            }
+                .ok_or(RenderError::StaleHandle("material"))?;
 
             total_vertices += cpu_mesh.mesh.vertices.len();
+            resolved_commands.push((cmd, cpu_mesh, material));
         }
 
         let mut draw_list = DrawList::with_capacity(
@@ -157,11 +159,9 @@ impl CpuRenderer {
             use rayon::prelude::*;
 
             // Calculate vertex ranges first to know where each mesh writes
-            let mut ranges = Vec::with_capacity(frame.commands.len());
+            let mut ranges = Vec::with_capacity(resolved_commands.len());
             let mut current_offset = 0;
-            for cmd in &frame.commands {
-                // Since we already checked handles above, unwraps here are safe
-                let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
+            for (_, cpu_mesh, _) in &resolved_commands {
                 let len = cpu_mesh.mesh.vertices.len();
                 ranges.push((current_offset, current_offset + len));
                 current_offset += len;
@@ -175,17 +175,10 @@ impl CpuRenderer {
             draw_list
                 .batches
                 .par_extend(
-                    frame
-                        .commands
+                    resolved_commands
                         .par_iter()
                         .zip(&ranges)
-                        .map(|(cmd, &(start, end))| {
-                            let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
-                            let material = self
-                                .materials
-                                .get(from_material_handle(cmd.material))
-                                .unwrap();
-
+                        .map(|(&(cmd, cpu_mesh, material), &(start, end))| {
                             let mvp = cmd.transform * view_proj;
                             let mesh = &cpu_mesh.mesh;
 
@@ -218,16 +211,7 @@ impl CpuRenderer {
 
         #[cfg(not(feature = "parallel"))]
         {
-            for cmd in &frame.commands {
-                let cpu_mesh = self
-                    .meshes
-                    .get(from_mesh_handle(cmd.mesh))
-                    .ok_or(RenderError::StaleHandle("mesh"))?;
-                let material = self
-                    .materials
-                    .get(from_material_handle(cmd.material))
-                    .ok_or(RenderError::StaleHandle("material"))?;
-
+            for (cmd, cpu_mesh, material) in resolved_commands {
                 let mvp = cmd.transform * view_proj;
                 let mesh = &cpu_mesh.mesh;
 
