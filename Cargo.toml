@@ -631,12 +631,10 @@ required-features = ["nova"]
 [[example]]
 name = "melt_demo"
 path = "examples/melt_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "black_hole_demo"
 path = "examples/black_hole_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "dither_demo"
@@ -716,7 +714,6 @@ required-features = ["nova"]
 [[example]]
 name = "starfield_demo"
 path = "examples/starfield_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "sdf_imprecise_flops"
@@ -766,7 +763,6 @@ required-features = ["nova"]
 [[example]]
 name = "selective_color_demo"
 path = "examples/selective_color_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "color_splash_bench"
@@ -776,7 +772,6 @@ required-features = ["nova"]
 [[example]]
 name = "mandelbrot_demo"
 path = "examples/mandelbrot_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "mandelbrot_bench"
