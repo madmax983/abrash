@@ -249,3 +249,8 @@
 **Concept:** Simulating falling sand physics directly on the Framebuffer using cellular automaton style updates.
 **Fate:** Implemented
 **Lesson:** Iterating from bottom-to-top avoids teleporting particles through multiple steps in a single frame. Randomizing horizontal processing direction prevents directional bias when sand grains fall diagonally.
+
+## [LED Matrix Filter]
+**Concept:** A post-processing effect that converts the image into an LED matrix display, grouping pixels into cells and drawing a glowing circular LED for each cell to simulate a jumbotron or pixel display.
+**Fate:** Implemented
+**Lesson:** Grouping pixels into cells and rendering geometric shapes (circles) based on the sampled center pixel effectively simulates hardware displays. Cloning the source framebuffer prevents read/write aliasing during parallel processing with Rayon.

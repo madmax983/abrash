@@ -24,54 +24,66 @@
 //! assert!(art.contains('@')); // White maps to dense characters
 //! ```
 
-use crate::framebuffer::Framebuffer;
-use crate::utils::pixel_luminance;
-use std::fmt::{self, Write as _};
+use std::fmt::{self, Write as FmtWrite};
 use std::fs::File;
-use std::io::{self, Write};
+use std::io::{self, BufWriter, Write};
 use std::path::Path;
 
-#[cfg(any(feature = "backend-tui", feature = "backend-wasm"))]
-use ratatui::{buffer::Buffer, layout::Rect, style::Color, widgets::Widget};
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::utils::pixel_luminance;
 
-/// Character set used for luminance mapping.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(any(feature = "backend-tui", feature = "backend-wasm"))]
+use ratatui::{
+    buffer::Buffer,
+    layout::Rect,
+    style::{Color, Style},
+    widgets::Widget,
+};
+
+/// Predefined character sets for ASCII conversion, ordered from darkest to lightest.
+#[derive(Debug, Clone, Copy)]
 pub enum AsciiCharset {
-    /// Standard ASCII gradient: ` .:-=+*#%@`
+    /// 10 characters, standard progression.
     Standard,
-    /// Block characters: ` ░▒▓█`
-    Blocks,
-    /// Minimal set: ` .:`
+    /// 70 characters, dense progression for more detail.
+    Detailed,
+    /// 3 characters, very minimal progression.
     Minimal,
-    /// Binary set: ` 1`
+    /// 2 characters, just black and white.
     Binary,
+    /// Unicode block elements for solid shapes.
+    Blocks,
 }
 
 impl AsciiCharset {
-    /// Returns the characters in the set, ordered from darkest to brightest.
+    /// Returns the character array for this set.
     #[must_use]
-    pub const fn chars(self) -> &'static [char] {
+    pub const fn chars(&self) -> &'static [char] {
         match self {
             Self::Standard => &[' ', '.', ':', '-', '=', '+', '*', '#', '%', '@'],
-            Self::Blocks => &[' ', '░', '▒', '▓', '█'],
+            Self::Detailed => &[
+                ' ', '.', '\'', '`', '^', '"', ',', ':', ';', 'I', 'l', '!', 'i', '>', '<', '~',
+                '+', '_', '-', '?', ']', '[', '}', '{', '1', ')', '(', '|', '\\', '/', 't', 'f',
+                'j', 'r', 'x', 'n', 'u', 'v', 'c', 'z', 'X', 'Y', 'U', 'J', 'C', 'L', 'Q', '0',
+                'O', 'Z', 'm', 'w', 'q', 'p', 'd', 'b', 'k', 'h', 'a', 'o', '*', '#', 'M', 'W',
+                '&', '8', '%', 'B', '@', '$',
+            ],
             Self::Minimal => &[' ', '.', ':'],
             Self::Binary => &[' ', '1'],
+            Self::Blocks => &[' ', '░', '▒', '▓', '█'],
         }
     }
 
-    /// Maps a luminance value (0-255) to a character in the set.
+    /// Maps a luminance value (0 to 255) to a character in this set.
     #[must_use]
-    pub fn map(self, luminance: u8) -> char {
+    pub fn map(&self, luminance: u8) -> char {
         let chars = self.chars();
-        let len = chars.len();
-        // Calculate index: (luminance * len) / 256
-        // Use u16 to prevent overflow before division
-        let index = (u16::from(luminance) * len as u16) >> 8;
-        chars[index.min((len - 1) as u16) as usize]
+        let idx = (luminance as usize * chars.len()) / 256;
+        chars[idx.clamp(0, chars.len() - 1)]
     }
 }
 
-/// Converter for rendering a [`Framebuffer`] as ASCII art.
+/// Converts a [`Framebuffer`] into an ASCII representation.
 pub struct AsciiConverter<'a> {
     framebuffer: &'a Framebuffer,
     charset: AsciiCharset,
@@ -87,10 +99,10 @@ impl<'a> AsciiConverter<'a> {
         }
     }
 
-    /// Converts the framebuffer to a string with ANSI color codes.
+    /// Converts the framebuffer to a colored String with ANSI escape codes.
     ///
-    /// This method generates a string where each character is prefixed with an ANSI
-    /// escape code for its color (RGB), resetting color at the end of each line.
+    /// The resulting string can be printed directly to an ANSI-compatible terminal
+    /// to display a colored ASCII representation of the framebuffer.
     ///
     /// # Examples
     ///
@@ -137,10 +149,16 @@ impl<'a> AsciiConverter<'a> {
     /// # Errors
     /// Returns an error if the file cannot be created or written to.
     pub fn export_ascii<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
-        let ascii_str = self.to_string();
+        let file = File::create(path)?;
+        let mut writer = BufWriter::new(file);
 
-        let mut file = File::create(path)?;
-        file.write_all(ascii_str.as_bytes())?;
+        let width = self.framebuffer.width();
+        for row in self.framebuffer.as_slice().chunks_exact(width as usize) {
+            for &pixel in row {
+                write!(writer, "{}", self.charset.map(pixel_luminance(pixel)))?;
+            }
+            writeln!(writer)?;
+        }
 
         Ok(())
     }
@@ -153,10 +171,20 @@ impl<'a> AsciiConverter<'a> {
     /// # Errors
     /// Returns an error if the file cannot be created or written to.
     pub fn export_ansi<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
-        let ansi_str = self.to_colored_string();
+        let file = File::create(path)?;
+        let mut writer = BufWriter::new(file);
 
-        let mut file = File::create(path)?;
-        file.write_all(ansi_str.as_bytes())?;
+        let width = self.framebuffer.width();
+        for row in self.framebuffer.as_slice().chunks_exact(width as usize) {
+            for &pixel in row {
+                let ch = self.charset.map(pixel_luminance(pixel));
+                let r = (pixel >> 16) & 0xFF;
+                let g = (pixel >> 8) & 0xFF;
+                let b = pixel & 0xFF;
+                write!(writer, "\x1b[38;2;{r};{g};{b}m{ch}")?;
+            }
+            writeln!(writer, "\x1b[0m")?;
+        }
 
         Ok(())
     }
@@ -165,17 +193,14 @@ impl<'a> AsciiConverter<'a> {
 impl fmt::Display for AsciiConverter<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let width = self.framebuffer.width();
-        let height = self.framebuffer.height();
-        // Estimate capacity: (width + 1) * height
-        let mut result = String::with_capacity(((width + 1) * height) as usize);
 
         for row in self.framebuffer.as_slice().chunks_exact(width as usize) {
             for &pixel in row {
-                result.push(self.charset.map(pixel_luminance(pixel)));
+                f.write_char(self.charset.map(pixel_luminance(pixel)))?;
             }
-            result.push('\n');
+            f.write_char('\n')?;
         }
-        write!(f, "{result}")
+        Ok(())
     }
 }
 

@@ -196,7 +196,7 @@ pub fn expo_in(t: f32) -> f32 {
     if t <= 0.0 {
         0.0
     } else {
-        (2.0_f32).powf(10.0 * t - 10.0)
+        (10.0 * t - 10.0).exp2()
     }
 }
 
@@ -207,7 +207,7 @@ pub fn expo_out(t: f32) -> f32 {
     if t >= 1.0 {
         1.0
     } else {
-        1.0 - (2.0_f32).powf(-10.0 * t)
+        1.0 - (-10.0 * t).exp2()
     }
 }
 
@@ -222,9 +222,9 @@ pub fn expo_in_out(t: f32) -> f32 {
         return 1.0;
     }
     if t < 0.5 {
-        0.5 * (2.0_f32).powf(20.0 * t - 10.0)
+        0.5 * (20.0 * t - 10.0).exp2()
     } else {
-        0.5 * (2.0 - (2.0_f32).powf(-20.0 * t + 10.0))
+        0.5 * (2.0 - (-20.0 * t + 10.0).exp2())
     }
 }
 
@@ -309,7 +309,7 @@ pub fn elastic_in(t: f32) -> f32 {
         return 1.0;
     }
     let c4 = TAU / 3.0;
-    -(2.0_f32).powf(10.0 * t - 10.0) * ((10.0 * t - 10.75) * c4).sin()
+    -(10.0 * t - 10.0).exp2() * ((10.0 * t - 10.75) * c4).sin()
 }
 
 /// Elastic ease-out — spring oscillation settling from 0.
@@ -326,7 +326,7 @@ pub fn elastic_out(t: f32) -> f32 {
         return 1.0;
     }
     let c4 = TAU / 3.0;
-    (2.0_f32).powf(-10.0 * t) * ((10.0 * t - 0.75) * c4).sin() + 1.0
+    (-10.0 * t).exp2() * ((10.0 * t - 0.75) * c4).sin() + 1.0
 }
 
 /// Elastic ease-in-out.
@@ -342,9 +342,9 @@ pub fn elastic_in_out(t: f32) -> f32 {
     }
     let c5 = TAU / 4.5;
     if t < 0.5 {
-        -0.5 * (2.0_f32).powf(20.0 * t - 10.0) * ((20.0 * t - 11.125) * c5).sin()
+        -0.5 * (20.0 * t - 10.0).exp2() * ((20.0 * t - 11.125) * c5).sin()
     } else {
-        0.5 * (2.0_f32).powf(-20.0 * t + 10.0) * ((20.0 * t - 11.125) * c5).sin() + 1.0
+        0.5 * (-20.0 * t + 10.0).exp2() * ((20.0 * t - 11.125) * c5).sin() + 1.0
     }
 }
 
