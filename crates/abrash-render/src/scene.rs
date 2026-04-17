@@ -275,6 +275,8 @@ impl Scene {
                 mvp.transform_points_uninit(&mesh.vertices, uninit_slice);
 
                 // SAFETY: We have initialized `mesh.vertices.len()` elements via `transform_points_uninit*`.
+                // These functions are panic-free, guaranteeing that `end_idx` elements are fully
+                // initialized before we update the vector's length.
                 unsafe {
                     draw_list.vertices.set_len(end_idx);
                 }

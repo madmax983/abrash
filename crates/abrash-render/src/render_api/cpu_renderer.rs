@@ -196,6 +196,8 @@ impl CpuRenderer {
                 );
 
             // SAFETY: All parallel segments initialized elements exactly up to `total_vertices`.
+            // `transform_points_uninit` is panic-free, and `par_extend` safely handles unwinding
+            // if any closure panics, so `set_len` will only be called if all slices are fully initialized.
             unsafe {
                 draw_list.vertices.set_len(total_vertices);
             }
@@ -224,6 +226,8 @@ impl CpuRenderer {
 
                 mvp.transform_points_uninit(&mesh.vertices, uninit_slice);
 
+                // SAFETY: `transform_points_uninit` is panic-free, guaranteeing that `end_idx`
+                // elements are fully initialized before we update the vector's length.
                 unsafe {
                     draw_list.vertices.set_len(end_idx);
                 }

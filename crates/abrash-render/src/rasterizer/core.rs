@@ -60,8 +60,8 @@ pub(crate) fn prepare_scanline<'a>(
     let mut xe = x_end;
 
     if xs < 0 {
-        let diff = -i64::from(xs) as f32;
-        z += diff * dz_dx;
+        let diff = -i64::from(xs);
+        z += (diff as f32) * dz_dx;
         xs = 0;
     }
 
