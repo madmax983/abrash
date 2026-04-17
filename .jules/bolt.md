@@ -372,6 +372,13 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Learning:** When optimizing filled circle rasterization (e.g., Bresenham's algorithm), drawing horizontal scanlines directly based on the decision variable (e.g., `d > 0`) eliminates the need for trailing state variables (like `last_y`) and redundant conditional checks. This reduces branching complexity in the hot loop while preventing horizontal overdraw.
 **Action:** Removed `last_y` and streamlined the `fill_circle` function, resulting in simpler code and slightly better performance.
 
+**Expand Bresenham's Decision Variable**
+**Learning:** When computing variables prone to integer overflow (like Bresenham's circle decision variable), expanding the calculation to a larger primitive type (e.g., `i64` from `i32`) eliminates the need for expensive `checked_mul` and `checked_sub` branching while preventing panics without corrupting the mathematical invariant.
+**Action:** Replace chained `.checked_mul().map_or_else()` branches with simple `i64` arithmetic (e.g., `let d = 3_i64 - 2_i64 * i64::from(radius)`) in hot rasterization loops.
+
+**Elide Bounds Check with get_unchecked_mut in Fill**
+**Learning:** In hot scanline rasterization loops, replacing standard slice fills with `unsafe { slice.get_unchecked_mut(start_idx..=end_idx).fill(color) }` elides implicit panic branches and improves throughput, as long as bounds constraints are strictly enforced prior to the call. However, this relies on `unsafe`, which is discouraged for minor gains.
+**Action:** Always prioritize safe code over `unsafe` micro-optimizations. Do not use `get_unchecked_mut` unless there is a proven critical bottleneck, and ensure boundary conditions are meticulously validated before access.
 **[Performance Optimization: f32::exp2() vs (2.0_f32).powf()]**
 **Learning:** Using `(2.0_f32).powf(x)` is ~10x slower than using `x.exp2()`, because `powf` invokes complex C-math library routines for arbitrary bases, whereas `exp2` maps directly to highly optimized hardware instructions for base-2 exponentials.
 **Action:** Replace `(2.0_f32).powf(x)` with `x.exp2()` across all mathematical curves, easing functions, and calculations to drastically reduce execution time without sacrificing safety or readability.
