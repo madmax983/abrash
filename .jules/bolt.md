@@ -374,3 +374,10 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## YYYY-MM-DD - Optimization of Vec::new to take in winit events
 **Learning:** Replaced events.borrow_mut().drain(..).collect() with std::mem::take(&mut *events.borrow_mut()).
 **Action:** Replaced dynamic heap allocation with constant-time pointer swap.
+
+**Explicit Vec::with_capacity vs ExactSizeIterator .collect() in Skeletal modules**
+**Learning:** Calling `.collect()` over ExactSizeIterators like `(0..N).map(...)` introduces unnecessary allocator overhead. Refactoring them to a pre-allocated vector with explicit `.extend()` eliminates implicit mapping allocation logic present in the standard library. This guarantees boundaries correctly when creating many `BoneAnimator` or local transform objects inside `Pose` creation for skeletal animations.
+**Action:** Replaced `.collect::<Vec<_>>()` chains in `Pose::from_bind` and `SkeletonAnimator::new` inside `crates/abrash-skeletal/src` with `Vec::with_capacity` and `.extend()` calls.
+[Eliminate O(N) heap allocations during ASCII generation and file export]
+**Learning:** `fmt::Display` and file export methods like `export_ascii` previously constructed entire text outputs in memory by allocating `String`s sized relative to the framebuffer (e.g., millions of characters) and appending them pixel-by-pixel.
+**Action:** Replaced massive string allocations with direct `f.write_char(...)` inside `fmt::Display`, and implemented streaming file writes using `BufWriter` for `export_ascii` and `export_ansi` to write data chunk-by-chunk without intermediate allocations.
