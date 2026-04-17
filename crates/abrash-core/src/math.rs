@@ -893,7 +893,7 @@ pub fn van_der_corput(mut bits: u32) -> f32 {
     bits as f32 * (1.0 / 4_294_967_296.0_f32)
 }
 
-/// Hammersley 2D point set — (i/N, van_der_corput(i)).
+/// Hammersley 2D point set — (i/N, `van_der_corput(i)`).
 ///
 /// Produces `total` stratified sample points in \[0,1)² with low discrepancy.
 /// Standard in PBR for importance-sampling the hemisphere and SSAO kernels.
@@ -7758,10 +7758,10 @@ pub fn octahedral_decode(v: Vec2) -> Vec3 {
 /// assert_eq!(morton_encode_2d(0, 1), 0b10);
 /// assert_eq!(morton_encode_2d(3, 3), 0b1111);
 /// ```
-pub fn morton_encode_2d(x: u32, y: u32) -> u32 {
+pub const fn morton_encode_2d(x: u32, y: u32) -> u32 {
     /// Spread a 16-bit value into even bit positions.
     #[inline(always)]
-    fn part1by1(mut n: u32) -> u32 {
+    const fn part1by1(mut n: u32) -> u32 {
         n &= 0x0000_FFFF;
         n = (n | (n << 8)) & 0x00FF_00FF;
         n = (n | (n << 4)) & 0x0F0F_0F0F;
@@ -7782,10 +7782,10 @@ pub fn morton_encode_2d(x: u32, y: u32) -> u32 {
 /// assert_eq!(morton_decode_2d(0b10), (0, 1));
 /// assert_eq!(morton_decode_2d(0b1111), (3, 3));
 /// ```
-pub fn morton_decode_2d(code: u32) -> (u32, u32) {
+pub const fn morton_decode_2d(code: u32) -> (u32, u32) {
     /// Compact even-bit positions back into a contiguous value.
     #[inline(always)]
-    fn compact1by1(mut n: u32) -> u32 {
+    const fn compact1by1(mut n: u32) -> u32 {
         n &= 0x5555_5555;
         n = (n | (n >> 1)) & 0x3333_3333;
         n = (n | (n >> 2)) & 0x0F0F_0F0F;
@@ -8278,7 +8278,7 @@ pub const fn prev_power_of_two(x: u32) -> u32 {
     if x == 0 {
         return 0;
     }
-    1 << (31 - x.leading_zeros())
+    1 << x.ilog2()
 }
 
 /// 5th-order ("Perlin's smootherstep") smooth interpolation.
@@ -8537,7 +8537,7 @@ mod tests_pass_19 {
 /// hash in ~3 instructions.
 ///
 /// Ideal for procedural generation, noise seeding, and GPU-style per-pixel
-/// random number generation.  Passes PractRand and BigCrush statistical tests.
+/// random number generation.  Passes `PractRand` and `BigCrush` statistical tests.
 ///
 /// # Examples
 ///
@@ -9799,7 +9799,7 @@ mod tests_pass_23 {
 
 // ── Pass 24: OKLab, Perlin noise, fBm, Worley, Porter-Duff, colour temp, GCD ─
 
-/// **OKLab** colour space (Björn Ottosson, 2020) — linear RGB → (L, a, b).
+/// **`OKLab`** colour space (Björn Ottosson, 2020) — linear RGB → (L, a, b).
 ///
 /// OKLab is perceptually uniform: equal distances correspond to equal perceived
 /// colour differences. Ideal for perceptual blending and palette operations.
@@ -9828,7 +9828,7 @@ pub fn linear_rgb_to_oklab(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
     )
 }
 
-/// Inverse of [`linear_rgb_to_oklab`] — OKLab (L, a, b) → linear RGB.
+/// Inverse of [`linear_rgb_to_oklab`] — `OKLab` (L, a, b) → linear RGB.
 ///
 /// # Examples
 ///
@@ -10198,9 +10198,9 @@ pub fn luminance_rec709(r: f32, g: f32, b: f32) -> f32 {
     0.2126 * r + 0.7152 * g + 0.0722 * b
 }
 
-/// **OKLab interpolation** — perceptually uniform colour blend.
+/// **`OKLab` interpolation** — perceptually uniform colour blend.
 ///
-/// Interpolates between two OKLab colours `(L0, a0, b0)` and `(L1, a1, b1)`
+/// Interpolates between two `OKLab` colours `(L0, a0, b0)` and `(L1, a1, b1)`
 /// by factor `t ∈ [0, 1]`, returning the interpolated `(L, a, b)`.
 ///
 /// Unlike sRGB lerp, this preserves perceived colour saturation through the
@@ -10220,7 +10220,7 @@ pub fn oklab_mix(l0: f32, a0: f32, b0: f32, l1: f32, a1: f32, b1: f32, t: f32) -
     (l0 + (l1 - l0) * t, a0 + (a1 - a0) * t, b0 + (b1 - b0) * t)
 }
 
-/// **OKLab hue rotation** — rotate the hue angle in the `(a, b)` plane.
+/// **`OKLab` hue rotation** — rotate the hue angle in the `(a, b)` plane.
 ///
 /// Preserves the lightness `L` and chroma magnitude `sqrt(a² + b²)` while
 /// shifting the hue by `angle_deg` degrees.
@@ -10907,7 +10907,7 @@ pub fn mitchell_netravali(x: f32, b: f32, c: f32) -> f32 {
     }
 }
 
-/// Convert OKLab `(L, a, b)` to OKLCh `(L, C, h)` — polar form.
+/// Convert `OKLab` `(L, a, b)` to `OKLCh` `(L, C, h)` — polar form.
 ///
 /// `C = sqrt(a² + b²)`, `h = atan2(b, a)` in degrees [0, 360).
 ///
@@ -10926,7 +10926,7 @@ pub fn oklab_to_oklch(l: f32, a: f32, b: f32) -> (f32, f32, f32) {
     (l, c, h)
 }
 
-/// Convert OKLCh `(L, C, h)` to OKLab `(L, a, b)` — Cartesian form.
+/// Convert `OKLCh` `(L, C, h)` to `OKLab` `(L, a, b)` — Cartesian form.
 ///
 /// `a = C * cos(h)`, `b = C * sin(h)` with `h` in degrees.
 ///
@@ -11376,7 +11376,7 @@ pub fn reflect(incident: Vec3, normal: Vec3) -> Vec3 {
 ///
 /// Returns `None` for total internal reflection (when `eta * sin_θ > 1`).
 ///
-/// * `eta` = n_incident / n_transmitted (e.g. 1.0/1.5 air→glass).
+/// * `eta` = `n_incident` / `n_transmitted` (e.g. 1.0/1.5 air→glass).
 ///
 /// # Examples
 /// ```
@@ -11785,8 +11785,8 @@ pub fn perlin_noise_3d(p: Vec3) -> f32 {
     fn grad3(hash: u32, dx: f32, dy: f32, dz: f32) -> f32 {
         // Perlin 2002 improved gradients — 12 midpoints of unit cube edges.
         match hash & 15 {
-            0 => dx + dy,
-            1 => -dx + dy,
+            0 | 12 => dx + dy,
+            1 | 13 => -dx + dy,
             2 => dx - dy,
             3 => -dx - dy,
             4 => dx + dz,
@@ -11794,14 +11794,11 @@ pub fn perlin_noise_3d(p: Vec3) -> f32 {
             6 => dx - dz,
             7 => -dx - dz,
             8 => dy + dz,
-            9 => -dy + dz,
+            9 | 14 => -dy + dz,
             10 => dy - dz,
-            11 => -dy - dz,
-            12 => dx + dy,
-            13 => -dx + dy,
-            14 => -dy + dz,
-            _ => -dy - dz,
+            11 | _ => -dy - dz,
         }
+
     }
     #[inline]
     fn fade(t: f32) -> f32 {
@@ -13057,7 +13054,7 @@ pub fn next_power_of_2(n: u32) -> u32 {
 #[must_use]
 #[inline]
 pub fn is_power_of_2(n: u32) -> bool {
-    n > 0 && (n & (n - 1)) == 0
+    n.is_power_of_two()
 }
 
 /// Ceiling integer log₂: smallest `k` such that `2^k ≥ n`.
@@ -13991,7 +13988,9 @@ pub fn sphere_vs_frustum(centre: Vec3, radius: f32, planes: &[[f32; 4]; 6]) -> b
     true
 }
 
-/// Test whether an AABB (`min`, `max`) intersects the frustum. Uses the
+/// Test whether an AABB (`min`, `max`) intersects the frustum.
+///
+/// Uses the
 /// p-vertex (positive-vertex) test: for each plane the "most positive" corner
 /// is tested; if that corner is outside the plane the AABB is fully outside.
 pub fn aabb_vs_frustum(min: Vec3, max: Vec3, planes: &[[f32; 4]; 6]) -> bool {
@@ -15260,7 +15259,7 @@ pub fn fit_plane_to_points(points: &[Vec3]) -> Option<(Vec3, Vec3)> {
     } else if norms[1] >= norms[2] {
         (1, if norms[0] >= norms[2] { 0 } else { 2 })
     } else {
-        (2, if norms[0] >= norms[1] { 0 } else { 1 })
+        (2, usize::from(norms[0] < norms[1]))
     };
     let raw = col[i0].cross(col[i1]);
     let len = raw.length();
@@ -15936,10 +15935,10 @@ pub fn morton_encode_3d(x: u32, y: u32, z: u32) -> u32 {
     // Spread 10 bits of each coordinate into every third bit position.
     let spread = |mut v: u32| -> u32 {
         v &= 0x0000_03ff;
-        v = (v | (v << 16)) & 0x030000ff;
-        v = (v | (v << 8)) & 0x0300f00f;
-        v = (v | (v << 4)) & 0x030c30c3;
-        v = (v | (v << 2)) & 0x09249249;
+        v = (v | (v << 16)) & 0x0300_00ff;
+        v = (v | (v << 8)) & 0x0300_f00f;
+        v = (v | (v << 4)) & 0x030c_30c3;
+        v = (v | (v << 2)) & 0x0924_9249;
         v
     };
     spread(x) | (spread(y) << 1) | (spread(z) << 2)
@@ -15948,10 +15947,10 @@ pub fn morton_encode_3d(x: u32, y: u32, z: u32) -> u32 {
 /// Decode a 30-bit 3D Morton code back into `(x, y, z)`.
 pub fn morton_decode_3d(code: u32) -> (u32, u32, u32) {
     let compact = |mut v: u32| -> u32 {
-        v &= 0x09249249;
-        v = (v | (v >> 2)) & 0x030c30c3;
-        v = (v | (v >> 4)) & 0x0300f00f;
-        v = (v | (v >> 8)) & 0x030000ff;
+        v &= 0x0924_9249;
+        v = (v | (v >> 2)) & 0x030c_30c3;
+        v = (v | (v >> 4)) & 0x0300_f00f;
+        v = (v | (v >> 8)) & 0x0300_00ff;
         v = (v | (v >> 16)) & 0x0000_03ff;
         v
     };
@@ -16377,7 +16376,7 @@ pub fn sample_triangle_uniform(u1: f32, u2: f32) -> (f32, f32, f32) {
 /// Shirley-Chiu concentric disk mapping: maps `(u, v) ∈ [-1,1]²` to unit disk.
 ///
 /// Low-distortion (preserves area relationships better than polar mapping).
-/// Use with stratified samples for soft shadows and DoF.
+/// Use with stratified samples for soft shadows and `DoF`.
 /// Returns `(x, y)` on the unit disk.
 pub fn concentric_disk_sample(u: f32, v: f32) -> (f32, f32) {
     use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
@@ -17093,6 +17092,8 @@ mod tests_pass_50 {
 
 /// Graham-scan convex hull of `points` (CCW order).
 ///
+/// # Panics
+/// Panics if `points` is empty.
 /// Returns the minimal convex polygon vertices; collinear boundary points are
 /// excluded.  Returns an empty `Vec` for fewer than 3 non-coincident points.
 pub fn convex_hull_2d(points: &[Vec2]) -> Vec<Vec2> {
@@ -17605,7 +17606,7 @@ pub fn capsule_vs_capsule(a0: Vec3, a1: Vec3, ra: f32, b0: Vec3, b1: Vec3, rb: f
 
 /// Returns `true` if a sphere overlaps a capsule.
 ///
-/// The capsule is defined by segment (cap_a, cap_b) and radius `cr`.
+/// The capsule is defined by segment (`cap_a`, `cap_b`) and radius `cr`.
 pub fn sphere_vs_capsule(center: Vec3, sr: f32, cap_a: Vec3, cap_b: Vec3, cr: f32) -> bool {
     let seg = Vec3::new(cap_b.x - cap_a.x, cap_b.y - cap_a.y, cap_b.z - cap_a.z);
     let len_sq = seg.x * seg.x + seg.y * seg.y + seg.z * seg.z;
@@ -18349,7 +18350,7 @@ pub fn lowbias32(mut x: u32) -> u32 {
     x
 }
 
-/// MurmurHash3 finalizer (fmix32) — excellent bit mixing for hash tables.
+/// `MurmurHash3` finalizer (fmix32) — excellent bit mixing for hash tables.
 #[inline]
 pub fn murmur3_fmix32(mut h: u32) -> u32 {
     h ^= h >> 16;
@@ -18384,13 +18385,13 @@ pub fn hash_to_unit_vec3(seed: u32) -> Vec3 {
 pub fn blackbody_linear_rgb(kelvin: f32) -> (f32, f32, f32) {
     let t = kelvin.clamp(1667.0, 25_000.0);
     // Kang 2002 — chromaticity x as function of T.
+    let ti = 1.0 / t;
     let x = if t < 4000.0 {
-        let ti = 1.0 / t;
         -0.266_123_9e9 * ti * ti * ti - 0.234_358_0e6 * ti * ti + 0.877_695_6e3 * ti + 0.179_910
     } else {
-        let ti = 1.0 / t;
         -3.025_846_9e9 * ti * ti * ti + 2.107_037_9e6 * ti * ti + 0.222_634_7e3 * ti + 0.240_390
     };
+
     // Chromaticity y from x.
     let y = if t < 4000.0 {
         -1.106_381_4 * x * x * x - 1.348_110_2 * x * x + 2.185_558_32 * x - 0.202_196_83
@@ -18953,9 +18954,9 @@ pub fn f32_to_f16(x: f32) -> u16 {
 
 /// Convert a 16-bit half-float (`f16`) bit pattern to `f32`.
 pub fn f16_to_f32(h: u16) -> f32 {
-    let sign = ((h >> 15) & 1) as u32;
-    let exp16 = ((h >> 10) & 0x1f) as i32;
-    let mant16 = (h & 0x03ff) as u32;
+    let sign = u32::from((h >> 15) & 1);
+    let exp16 = i32::from((h >> 10) & 0x1f);
+    let mant16 = u32::from(h & 0x03ff);
 
     let (exp32, mant32) = if exp16 == 0 {
         if mant16 == 0 {
@@ -19324,6 +19325,8 @@ pub fn quat_look_at(forward: Vec3, up: Vec3) -> Quat {
 
 /// Normalised linear blend of multiple quaternions (nlerp).
 ///
+/// # Panics
+/// Panics if `quats` and `weights` have different lengths.
 /// `quats` and `weights` must have the same length.  Weights need not sum to
 /// 1 — they are normalised internally.  All quaternions are driven to the same
 /// hemisphere as `quats[0]` before blending to avoid flipping artefacts.
