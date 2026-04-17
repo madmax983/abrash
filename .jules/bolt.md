@@ -371,6 +371,9 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## Optimize Circle Fill Routine
 **Learning:** When optimizing filled circle rasterization (e.g., Bresenham's algorithm), drawing horizontal scanlines directly based on the decision variable (e.g., `d > 0`) eliminates the need for trailing state variables (like `last_y`) and redundant conditional checks. This reduces branching complexity in the hot loop while preventing horizontal overdraw.
 **Action:** Removed `last_y` and streamlined the `fill_circle` function, resulting in simpler code and slightly better performance.
+## YYYY-MM-DD - Optimization of Vec::new to take in winit events
+**Learning:** Replaced events.borrow_mut().drain(..).collect() with std::mem::take(&mut *events.borrow_mut()).
+**Action:** Replaced dynamic heap allocation with constant-time pointer swap.
 
 **Explicit Vec::with_capacity vs ExactSizeIterator .collect() in Skeletal modules**
 **Learning:** Calling `.collect()` over ExactSizeIterators like `(0..N).map(...)` introduces unnecessary allocator overhead. Refactoring them to a pre-allocated vector with explicit `.extend()` eliminates implicit mapping allocation logic present in the standard library. This guarantees boundaries correctly when creating many `BoneAnimator` or local transform objects inside `Pose` creation for skeletal animations.
