@@ -75,6 +75,17 @@ impl Flock {
         }
     }
 
+    /// ⚡ Bolt: Create a new Flock with pre-allocated capacity for boids.
+    /// This eliminates heap reallocations when spawning initial boids.
+    #[must_use]
+    pub fn with_capacity(capacity: usize, config: FlockConfig) -> Self {
+        Self {
+            boids: Vec::with_capacity(capacity),
+            old_boids: Vec::with_capacity(capacity),
+            config,
+        }
+    }
+
     pub fn add_boid(&mut self, boid: Boid) {
         self.boids.push(boid);
     }
@@ -244,17 +255,20 @@ mod tests {
 
     #[test]
     fn test_separation() {
-        let mut flock = Flock::new(FlockConfig {
-            separation_weight: 1.0,
-            alignment_weight: 0.0,
-            cohesion_weight: 0.0,
-            bound_weight: 0.0,
-            perception_radius: 10.0,
-            separation_radius: 5.0,
-            max_speed: 10.0,
-            min_speed: 0.0,
-            bounds: Vec3::new(100.0, 100.0, 100.0),
-        });
+        let mut flock = Flock::with_capacity(
+            2,
+            FlockConfig {
+                separation_weight: 1.0,
+                alignment_weight: 0.0,
+                cohesion_weight: 0.0,
+                bound_weight: 0.0,
+                perception_radius: 10.0,
+                separation_radius: 5.0,
+                max_speed: 10.0,
+                min_speed: 0.0,
+                bounds: Vec3::new(100.0, 100.0, 100.0),
+            },
+        );
 
         flock.add_boid(Boid::new(
             Vec3::new(0.0, 0.0, 0.0),
@@ -275,17 +289,20 @@ mod tests {
 
     #[test]
     fn test_alignment() {
-        let mut flock = Flock::new(FlockConfig {
-            separation_weight: 0.0,
-            alignment_weight: 1.0,
-            cohesion_weight: 0.0,
-            bound_weight: 0.0,
-            perception_radius: 10.0,
-            separation_radius: 5.0,
-            max_speed: 10.0,
-            min_speed: 0.0,
-            bounds: Vec3::new(100.0, 100.0, 100.0),
-        });
+        let mut flock = Flock::with_capacity(
+            2,
+            FlockConfig {
+                separation_weight: 0.0,
+                alignment_weight: 1.0,
+                cohesion_weight: 0.0,
+                bound_weight: 0.0,
+                perception_radius: 10.0,
+                separation_radius: 5.0,
+                max_speed: 10.0,
+                min_speed: 0.0,
+                bounds: Vec3::new(100.0, 100.0, 100.0),
+            },
+        );
 
         flock.add_boid(Boid::new(
             Vec3::new(0.0, 0.0, 0.0),
@@ -306,17 +323,20 @@ mod tests {
 
     #[test]
     fn test_cohesion() {
-        let mut flock = Flock::new(FlockConfig {
-            separation_weight: 0.0,
-            alignment_weight: 0.0,
-            cohesion_weight: 1.0,
-            bound_weight: 0.0,
-            perception_radius: 10.0,
-            separation_radius: 5.0,
-            max_speed: 10.0,
-            min_speed: 0.0,
-            bounds: Vec3::new(100.0, 100.0, 100.0),
-        });
+        let mut flock = Flock::with_capacity(
+            2,
+            FlockConfig {
+                separation_weight: 0.0,
+                alignment_weight: 0.0,
+                cohesion_weight: 1.0,
+                bound_weight: 0.0,
+                perception_radius: 10.0,
+                separation_radius: 5.0,
+                max_speed: 10.0,
+                min_speed: 0.0,
+                bounds: Vec3::new(100.0, 100.0, 100.0),
+            },
+        );
 
         flock.add_boid(Boid::new(
             Vec3::new(0.0, 0.0, 0.0),
