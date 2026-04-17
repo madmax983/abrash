@@ -2,7 +2,7 @@
 //!
 //! Demonstrates the retro "plastic interlocking bricks" post-processing filter.
 
-use abrash::experimental::brickify::apply_brickify;
+use abrash_render::experimental::brickify::apply_brickify;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;

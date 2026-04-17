@@ -1,6 +1,6 @@
 #![cfg(feature = "backend-winit")]
 
-use abrash::experimental::digital_rain::DigitalRain;
+use abrash_render::experimental::digital_rain::DigitalRain;
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,

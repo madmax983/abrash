@@ -1,4 +1,4 @@
-use abrash::experimental::black_hole::apply_black_hole;
+use abrash_render::experimental::black_hole::apply_black_hole;
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,

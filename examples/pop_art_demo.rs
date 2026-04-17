@@ -1,7 +1,7 @@
 #![cfg(feature = "backend-winit")]
 //! Demonstration of the Nova Pop Art filter.
 
-use abrash::experimental::pop_art::{PopArtConfig, apply_pop_art};
+use abrash_render::experimental::pop_art::{PopArtConfig, apply_pop_art};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,

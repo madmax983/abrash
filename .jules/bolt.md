@@ -371,6 +371,9 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## Optimize Circle Fill Routine
 **Learning:** When optimizing filled circle rasterization (e.g., Bresenham's algorithm), drawing horizontal scanlines directly based on the decision variable (e.g., `d > 0`) eliminates the need for trailing state variables (like `last_y`) and redundant conditional checks. This reduces branching complexity in the hot loop while preventing horizontal overdraw.
 **Action:** Removed `last_y` and streamlined the `fill_circle` function, resulting in simpler code and slightly better performance.
+## Fast Unchecked Horizontal Fills
+**Learning:** In hot scanline rasterization loops (like filling rectangles or rounded rect sections), replacing standard per-pixel setting or loop-based slice fills with `unsafe { slice.get_unchecked_mut(start_idx..=end_idx).fill(color) }` (or even safe slice `.fill(color)` when bounds are guaranteed and elided by the compiler via prior assertions) eliminates hidden panic branches and bounds checking overhead.
+**Action:** When implementing new 2D primitives like `rounded_rect`, calculate total screen bounds (`is_on_screen`) first. If true, use optimized fast-paths with pre-calculated 1D memory indices to write directly into `fb.as_mut_slice()` instead of using the slower 2D bounds-checked `fb.set_pixel()` API, drastically reducing time-per-pixel (e.g. ~5us to ~1us).
 
 **Expand Bresenham's Decision Variable**
 **Learning:** When computing variables prone to integer overflow (like Bresenham's circle decision variable), expanding the calculation to a larger primitive type (e.g., `i64` from `i32`) eliminates the need for expensive `checked_mul` and `checked_sub` branching while preventing panics without corrupting the mathematical invariant.

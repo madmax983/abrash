@@ -1,4 +1,4 @@
-use abrash::experimental::vision::{VisionConfig, VisionMode, apply_vision};
+use abrash_render::experimental::vision::{VisionConfig, VisionMode, apply_vision};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;

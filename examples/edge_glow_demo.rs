@@ -1,5 +1,5 @@
 #[cfg(feature = "nova")]
-use abrash::experimental::edge_glow::{EdgeGlowConfig, apply_edge_glow};
+use abrash_render::experimental::edge_glow::{EdgeGlowConfig, apply_edge_glow};
 #[cfg(feature = "nova")]
 use abrash::framebuffer::Framebuffer;
 

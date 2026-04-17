@@ -800,4 +800,10 @@ imprecise_flops = "allow"
 
 [[example]]
 name = "fire_demo"
+path = "examples/fire_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "rect_bench"
+harness = false
 required-features = ["nova"]

@@ -1,6 +1,6 @@
 #![cfg(feature = "backend-winit")]
 
-use abrash::experimental::color_splash::{ColorSplashConfig, apply_color_splash};
+use abrash_render::experimental::color_splash::{ColorSplashConfig, apply_color_splash};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
 use abrash::platform::{

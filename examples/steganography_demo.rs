@@ -1,5 +1,5 @@
-use abrash::experimental::plasma::apply_plasma;
-use abrash::experimental::steganography::{decode_message, encode_message};
+use abrash_render::experimental::plasma::apply_plasma;
+use abrash_render::experimental::steganography::{decode_message, encode_message};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,

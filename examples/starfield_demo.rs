@@ -12,7 +12,7 @@ use abrash::platform::{
 use abrash::time::FixedTimestep;
 
 #[cfg(feature = "nova")]
-use abrash::experimental::starfield::Starfield;
+use abrash_render::experimental::starfield::Starfield;
 
 #[cfg(feature = "nova")]
 use crossterm::style::Stylize;

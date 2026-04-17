@@ -1,5 +1,5 @@
 #![cfg(feature = "backend-winit")]
-use abrash::experimental::slitscan::SlitScanFilter;
+use abrash_render::experimental::slitscan::SlitScanFilter;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;

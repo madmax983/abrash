@@ -4,8 +4,8 @@ use std::error::Error;
 
 #[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 mod demo {
-    use abrash::experimental::jelly::SoftBody;
-    use abrash::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene, render_sdf};
+    use abrash_render::experimental::jelly::SoftBody;
+    use abrash_render::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene, render_sdf};
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
     use abrash::mesh::Mesh;
@@ -132,8 +132,8 @@ mod demo {
 
 #[cfg(all(feature = "nova", feature = "backend-winit"))]
 mod winit_demo {
-    use abrash::experimental::jelly::SoftBody;
-    use abrash::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene, render_sdf};
+    use abrash_render::experimental::jelly::SoftBody;
+    use abrash_render::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene, render_sdf};
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
     use abrash::mesh::Mesh;

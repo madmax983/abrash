@@ -1,4 +1,4 @@
-use abrash::experimental::dither::{DitherConfig, DitherMode, apply_dither};
+use abrash_render::experimental::dither::{DitherConfig, DitherMode, apply_dither};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;

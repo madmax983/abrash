@@ -1,6 +1,6 @@
 #![cfg(feature = "backend-winit")]
 
-use abrash::experimental::fractal::render_mandelbrot;
+use abrash_render::experimental::fractal::render_mandelbrot;
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,

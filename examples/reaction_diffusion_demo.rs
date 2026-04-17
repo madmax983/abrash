@@ -9,7 +9,7 @@ use abrash::platform::{
 };
 use abrash_core::utils::XorShift32;
 
-use abrash::experimental::reaction_diffusion::ReactionDiffusion;
+use abrash_render::experimental::reaction_diffusion::ReactionDiffusion;
 
 struct ReactionDiffusionDemo {
     sim: ReactionDiffusion,
