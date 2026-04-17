@@ -1,21 +1,21 @@
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use abrash_core::framebuffer::Framebuffer;
 use abrash_render::experimental::fire::apply_fire;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-fn bench_fire(c: &mut Criterion) {
-    let mut group = c.benchmark_group("Fire Effect");
-    group.sample_size(100);
+fn fire_benchmark(c: &mut Criterion) {
+    let mut group = c.benchmark_group("fire_effect");
 
-    for &(width, height) in &[(320, 240), (640, 480)] {
+    // Test multiple resolutions
+    for (width, height) in [(320, 240), (640, 480)] {
         let mut fb = Framebuffer::new(width, height).unwrap();
-        let cooling_map = vec![0u8; (width * height) as usize];
+        let cooling_map = vec![0; (width * height) as usize];
 
-        // Seed some heat
+        // Seed the bottom row with heat for a realistic physical initialization
         for x in 0..width {
-            fb.set_pixel(x as i32, (height - 1) as i32, 0x00FF0000);
+            fb.as_mut_slice()[((height - 1) * width + x) as usize] = 0x00FFFFFF;
         }
 
-        group.bench_function(format!("{}x{}", width, height), |b| {
+        group.bench_function(format!("apply_fire {}x{}", width, height), |b| {
             b.iter(|| apply_fire(black_box(&mut fb), black_box(&cooling_map)))
         });
     }
@@ -23,5 +23,5 @@ fn bench_fire(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_fire);
+criterion_group!(benches, fire_benchmark);
 criterion_main!(benches);

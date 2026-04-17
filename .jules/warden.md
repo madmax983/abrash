@@ -12,3 +12,7 @@
 ## 2026-04-12 - [Denial of Service: Integer Overflow in Bresenham's Circle]
 **Threat:** The `draw_circle` and `fill_circle` algorithms blindly used unchecked math operations (`3 - 2 * radius`) for computing the decision variable. This allowed massive malicious `radius` inputs to overflow the `i32` integers, bypassing checks or triggering unhandled panics, leading to DoS. A previous PR introduced an artificial bound `< 16384` but used an early return rather than safely panicking, masking the vulnerability.
 **Defense:** Replaced the unchecked `3 - 2 * radius` math with `checked_mul` and `checked_sub` (using `map_or_else` to avoid branch lint warnings). Now the functions will safely and loudly panic with "Circle drawing integer overflow" on malicious boundaries rather than behaving unsoundly.
+
+**2024-04-17 - Mutable Aliasing via Raw Pointers**
+**Threat:** Deriving a raw pointer to read data from a buffer while simultaneously creating a mutable slice to the same buffer violates Rust's strict mutable aliasing rules and results in Undefined Behavior (UB), particularly dangerous during parallel execution where it introduces data races.
+**Defense:** Avoid using raw pointers to bypass borrow checker constraints around mutable slices. Redesign algorithms (e.g. sequential in-place directional loops) or correctly partition slices (e.g., `split_at_mut`) to satisfy safety rules.

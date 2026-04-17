@@ -792,3 +792,8 @@ required-features = ["nova"]
 name = "gamma_demo"
 path = "examples/gamma_demo.rs"
 imprecise_flops = "allow"
+
+[[bench]]
+name = "fire_bench"
+harness = false
+required-features = ["nova"]

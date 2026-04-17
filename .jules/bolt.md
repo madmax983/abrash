@@ -371,3 +371,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## Optimize Circle Fill Routine
 **Learning:** When optimizing filled circle rasterization (e.g., Bresenham's algorithm), drawing horizontal scanlines directly based on the decision variable (e.g., `d > 0`) eliminates the need for trailing state variables (like `last_y`) and redundant conditional checks. This reduces branching complexity in the hot loop while preventing horizontal overdraw.
 **Action:** Removed `last_y` and streamlined the `fill_circle` function, resulting in simpler code and slightly better performance.
+
+**Cellular Automata Zero-Copy Sequential Rendering**
+**Learning:** In cellular automata or grid simulations where a row's new state depends only on rows in a specific direction (e.g., rows below it), processing the grid sequentially in the safe direction (e.g., top-to-bottom) allows strictly in-place updates. This eliminates the need for double-buffering, thread-local storage, and O(N) memory copying, which often yields better performance for memory-bound operations than unsafe parallel execution.
+**Action:** Replace double-buffered parallel algorithms with sequential in-place loops when directional data dependency allows it, avoiding O(N) allocation and copying.
