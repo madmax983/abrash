@@ -1,10 +1,56 @@
 use abrash::experimental::pencil_sketch::{PencilSketchConfig, apply_pencil_sketch};
 use abrash_core::framebuffer::Framebuffer;
 use std::time::Instant;
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
+
+fn print_banner(width: u32, height: u32) {
+    println!("\n{}", "✏️  Pencil Sketch Demo".bold().cyan());
+    println!("{}", "======================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Resolution"),
+            Cell::new(format!("{width}x{height}")).fg(Color::Yellow),
+        ])
+        .add_row(vec![
+            Cell::new("Effect"),
+            Cell::new("Pencil Sketch").fg(Color::Green),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+}
+
+fn print_success(duration: std::time::Duration) {
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("✅ Status")
+                .fg(Color::Green)
+                .add_attribute(comfy_table::Attribute::Bold),
+            Cell::new("Details").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Success"),
+            Cell::new(format!("Effect applied in {:?}", duration)),
+        ]);
+
+    println!("\n{table}");
+}
 
 fn main() {
     let width = 800;
     let height = 600;
+    print_banner(width, height);
+
     let mut fb = Framebuffer::new(width, height).unwrap();
 
     // Fill with a scene (checkerboard and gradient)
@@ -31,11 +77,10 @@ fn main() {
 
     let config = PencilSketchConfig::default();
 
-    println!("Applying Pencil Sketch effect...");
+    println!("\n{}", "⏳ Applying Pencil Sketch effect...".yellow());
     let start = Instant::now();
     apply_pencil_sketch(&mut fb, &config);
     let duration = start.elapsed();
 
-    println!("Effect applied in {:?}", duration);
-    println!("Example complete.");
+    print_success(duration);
 }
