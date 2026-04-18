@@ -225,16 +225,12 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
     if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
         while y >= x {
-            draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
-            if x > 0 {
-                draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc - x, color);
-            }
+            draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
+            draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
 
             if d > 0 {
-                if y > x {
-                    draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
-                    draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
-                }
+                draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
+                draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc - x, color);
                 y -= 1;
                 d = d + 4 * i64::from(x - y) + 10;
             } else {
@@ -246,16 +242,12 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     } else {
         // Safe path: clip against screen bounds
         while y >= x {
-            draw_horizontal_line(fb, xc - y, xc + y, yc + x, color);
-            if x > 0 {
-                draw_horizontal_line(fb, xc - y, xc + y, yc - x, color);
-            }
+            draw_horizontal_line(fb, xc - x, xc + x, yc + y, color);
+            draw_horizontal_line(fb, xc - x, xc + x, yc - y, color);
 
             if d > 0 {
-                if y > x {
-                    draw_horizontal_line(fb, xc - x, xc + x, yc + y, color);
-                    draw_horizontal_line(fb, xc - x, xc + x, yc - y, color);
-                }
+                draw_horizontal_line(fb, xc - y, xc + y, yc + x, color);
+                draw_horizontal_line(fb, xc - y, xc + y, yc - x, color);
                 y -= 1;
                 d = d + 4 * i64::from(x - y) + 10;
             } else {
