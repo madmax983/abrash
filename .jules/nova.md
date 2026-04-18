@@ -18,3 +18,8 @@
 **Concept:** A post-processing effect that converts the image into an LED matrix display, grouping pixels into cells and drawing a glowing circular LED for each cell to simulate a jumbotron or pixel display.
 **Fate:** Implemented
 **Lesson:** Grouping pixels into cells and rendering geometric shapes (circles) based on the sampled center pixel effectively simulates hardware displays. Cloning the source framebuffer prevents read/write aliasing during parallel processing with Rayon.
+
+## [Spirograph Generator]
+**Concept:** A procedural generator for hypotrochoid and epitrochoid curves that creates spirograph patterns using parametric equations and Bresenham's line algorithm.
+**Fate:** Implemented
+**Lesson:** Simple math functions combined with 2D line drawing can quickly generate complex, beautiful geometric patterns.

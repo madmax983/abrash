@@ -817,3 +817,8 @@ required-features = ["nova"]
 name = "rect_bench"
 harness = false
 required-features = ["nova"]
+
+[[example]]
+name = "spirograph_demo"
+path = "examples/spirograph_demo.rs"
+required-features = ["nova"]
