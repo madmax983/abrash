@@ -827,3 +827,8 @@ required-features = ["nova"]
 name = "speed_lines_demo"
 path = "examples/speed_lines_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "joy_division_demo"
+path = "examples/joy_division_demo.rs"
+required-features = ["nova"]

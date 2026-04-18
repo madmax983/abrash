@@ -56,6 +56,7 @@ pub mod halftone;
 pub mod hologram;
 pub mod isosurface;
 pub mod jelly;
+pub mod joy_division;
 pub mod kaleidoscope;
 pub mod kuwahara;
 pub mod led_matrix;

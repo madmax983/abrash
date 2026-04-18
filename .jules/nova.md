@@ -23,3 +23,8 @@
 **Concept:** A procedural post-processing effect that simulates anime/comic style radial speed lines using a fast polar-coordinate procedural hash function.
 **Fate:** Implemented
 **Lesson:** Using simple (x, y) wrapping hashes combined with atan2 provides a fast and highly stylizable procedural generation method without the heavy overhead of full noise libraries.
+
+## [Joy Division Topology Filter]
+**Concept:** A post-processing effect that converts the screen into a series of horizontal waveform lines. It samples the luminance of the underlying framebuffer and displaces the horizontal lines upwards based on the brightness, creating a 3D-like topographical mountain effect using pure 2D rasterization, similar to the iconic album cover.
+**Fate:** Implemented
+**Lesson:** Iterating from top to bottom (back-to-front in terms of displacement) and filling the column below each displaced peak with the background color acts as an efficient painter's algorithm, perfectly masking the lines drawn in previous loop iterations.
