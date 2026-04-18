@@ -827,3 +827,7 @@ required-features = ["nova"]
 name = "speed_lines_demo"
 path = "examples/speed_lines_demo.rs"
 required-features = ["nova"]
+
+[[bench]]
+name = "powf_optimizations"
+harness = false
