@@ -15,8 +15,8 @@ fn bench_rects(c: &mut Criterion) {
                 black_box(200),
                 black_box(200),
                 black_box(color),
-            )
-        })
+            );
+        });
     });
 
     c.bench_function("fill_rect_100", |b| {
@@ -28,8 +28,8 @@ fn bench_rects(c: &mut Criterion) {
                 black_box(200),
                 black_box(200),
                 black_box(color),
-            )
-        })
+            );
+        });
     });
 
     c.bench_function("draw_rounded_rect_100", |b| {
@@ -42,8 +42,8 @@ fn bench_rects(c: &mut Criterion) {
                 black_box(200),
                 black_box(20),
                 black_box(color),
-            )
-        })
+            );
+        });
     });
 
     c.bench_function("fill_rounded_rect_100", |b| {
@@ -56,8 +56,8 @@ fn bench_rects(c: &mut Criterion) {
                 black_box(200),
                 black_box(20),
                 black_box(color),
-            )
-        })
+            );
+        });
     });
 }
 

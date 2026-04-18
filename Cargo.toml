@@ -817,3 +817,13 @@ required-features = ["nova"]
 name = "rect_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "speed_lines_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "speed_lines_demo"
+path = "examples/speed_lines_demo.rs"
+required-features = ["nova"]

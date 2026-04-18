@@ -18,3 +18,8 @@
 **Concept:** A post-processing effect that converts the image into an LED matrix display, grouping pixels into cells and drawing a glowing circular LED for each cell to simulate a jumbotron or pixel display.
 **Fate:** Implemented
 **Lesson:** Grouping pixels into cells and rendering geometric shapes (circles) based on the sampled center pixel effectively simulates hardware displays. Cloning the source framebuffer prevents read/write aliasing during parallel processing with Rayon.
+
+## [Speed Lines Filter]
+**Concept:** A procedural post-processing effect that simulates anime/comic style radial speed lines using a fast polar-coordinate procedural hash function.
+**Fate:** Implemented
+**Lesson:** Using simple (x, y) wrapping hashes combined with atan2 provides a fast and highly stylizable procedural generation method without the heavy overhead of full noise libraries.
