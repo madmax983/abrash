@@ -17,3 +17,8 @@
 **Bloat:** `Evaluable` as a trait with single implementations in `abrash-anim`, which caused dynamic dispatch (`Box<dyn Evaluable<T>>`) throughout the animation sequences, timelines and skeletal clip evaluators.
 **Cut:** Replaced `Evaluable` trait with an `enum Evaluable<T>` containing `Keyframe`, `Hold` and `Sequence`. All dynamically dispatched `Box<dyn Evaluable<T>>` occurrences were removed and replaced with concrete enum variants, achieving zero-cost abstractions and keeping memory flat.
 **Saved:** Removed the use of dynamic dispatch/`Box` completely across `abrash-anim` and `abrash-skeletal`.
+
+## [Reduction]
+**Bloat:** The `Lerp` trait in `benches/clipping_optimization.rs` was a "One-Time" trait.
+**Cut:** Deleted the single-use `Lerp` trait completely, making the legacy function accept an explicit lambda for interpolation just like the optimized version.
+**Saved:** Removed 15 lines of unneeded abstraction from the benchmark.
