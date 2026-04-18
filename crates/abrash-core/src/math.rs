@@ -14542,7 +14542,9 @@ pub fn beer_lambert(extinction: f32, distance: f32) -> f32 {
 pub fn henyey_greenstein(cos_theta: f32, g: f32) -> f32 {
     use std::f32::consts::PI;
     let g2 = g * g;
-    let denom = (1.0 + g2 - 2.0 * g * cos_theta).max(0.0).powf(1.5);
+    let base = (1.0 + g2 - 2.0 * g * cos_theta).max(0.0);
+    // ⚡ Bolt: Replace `.powf(1.5)` with `base * base.sqrt()` to elide the C-math library call and improve performance.
+    let denom = base * base.sqrt();
     (1.0 - g2) / (4.0 * PI * denom.max(1e-10))
 }
 
