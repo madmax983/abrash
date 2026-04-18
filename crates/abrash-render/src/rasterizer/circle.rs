@@ -109,27 +109,36 @@ fn draw_circle_points_unchecked(
     y: i32,
     color: u32,
 ) {
+    let width = fb.width() as usize;
+    let buf = fb.as_mut_slice();
+
+    // Safety: Caller guarantees that all these points are within bounds.
     unsafe {
-        fb.set_pixel_unchecked((xc + x) as usize, (yc + y) as usize, color);
+        let xc = xc as usize;
+        let yc = yc as usize;
+        let x = x as usize;
+        let y = y as usize;
+
+        *buf.get_unchecked_mut((yc + y) * width + (xc + x)) = color;
         if x != 0 {
-            fb.set_pixel_unchecked((xc - x) as usize, (yc + y) as usize, color);
+            *buf.get_unchecked_mut((yc + y) * width + (xc - x)) = color;
         }
         if y != 0 {
-            fb.set_pixel_unchecked((xc + x) as usize, (yc - y) as usize, color);
+            *buf.get_unchecked_mut((yc - y) * width + (xc + x)) = color;
         }
         if x != 0 && y != 0 {
-            fb.set_pixel_unchecked((xc - x) as usize, (yc - y) as usize, color);
+            *buf.get_unchecked_mut((yc - y) * width + (xc - x)) = color;
         }
         if x != y {
-            fb.set_pixel_unchecked((xc + y) as usize, (yc + x) as usize, color);
+            *buf.get_unchecked_mut((yc + x) * width + (xc + y)) = color;
             if y != 0 {
-                fb.set_pixel_unchecked((xc - y) as usize, (yc + x) as usize, color);
+                *buf.get_unchecked_mut((yc + x) * width + (xc - y)) = color;
             }
             if x != 0 {
-                fb.set_pixel_unchecked((xc + y) as usize, (yc - x) as usize, color);
+                *buf.get_unchecked_mut((yc - x) * width + (xc + y)) = color;
             }
             if x != 0 && y != 0 {
-                fb.set_pixel_unchecked((xc - y) as usize, (yc - x) as usize, color);
+                *buf.get_unchecked_mut((yc - x) * width + (xc - y)) = color;
             }
         }
     }
@@ -272,7 +281,10 @@ fn draw_horizontal_line_unchecked(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32
     let width = fb.width() as usize;
     let start_idx = (y as usize) * width + (x1 as usize);
     let end_idx = (y as usize) * width + (x2 as usize);
-    fb.as_mut_slice()[start_idx..=end_idx].fill(color);
+    // Safety: The caller guarantees that x1, x2, and y are within the framebuffer bounds.
+    unsafe {
+        fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx).fill(color);
+    }
 }
 
 #[inline(always)]

@@ -398,3 +398,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Thread-local Buffers with Rayon]
 **Learning:** When extracting a `thread_local!` buffer using `buf.take()` to bypass `!Send` `RefMut` compile errors around Rayon parallel closures, the buffer drops at the end of the scope, destroying its capacity and effectively reintroducing heap allocations.
 **Action:** Always return the extracted buffer back to the `RefCell` after the parallel operation using `buf.replace(src_pixels);` to preserve the pre-allocated capacity.
+
+**Fast Unchecked Horizontal Fills**
+**Learning:** In hot scanline rasterization loops (like filling rectangles or rounded rect sections), replacing standard per-pixel setting or loop-based slice fills with `unsafe { slice.get_unchecked_mut(start_idx..=end_idx).fill(color) }` (or even safe slice `.fill(color)` when bounds are guaranteed and elided by the compiler via prior assertions) eliminates hidden panic branches and bounds checking overhead.
+**Action:** When implementing new 2D primitives like `rounded_rect` or circles, calculate total screen bounds (`is_on_screen`) first. If true, use optimized fast-paths with pre-calculated 1D memory indices to write directly into `fb.as_mut_slice()` instead of using the slower 2D bounds-checked `fb.set_pixel()` API, drastically reducing time-per-pixel.
