@@ -109,26 +109,28 @@ fn draw_circle_points_unchecked(
     y: i32,
     color: u32,
 ) {
+    let x_not_zero = x != 0;
+    let y_not_zero = y != 0;
     unsafe {
         fb.set_pixel_unchecked((xc + x) as usize, (yc + y) as usize, color);
-        if x != 0 {
+        if x_not_zero {
             fb.set_pixel_unchecked((xc - x) as usize, (yc + y) as usize, color);
         }
-        if y != 0 {
+        if y_not_zero {
             fb.set_pixel_unchecked((xc + x) as usize, (yc - y) as usize, color);
         }
-        if x != 0 && y != 0 {
+        if x_not_zero && y_not_zero {
             fb.set_pixel_unchecked((xc - x) as usize, (yc - y) as usize, color);
         }
         if x != y {
             fb.set_pixel_unchecked((xc + y) as usize, (yc + x) as usize, color);
-            if y != 0 {
+            if y_not_zero {
                 fb.set_pixel_unchecked((xc - y) as usize, (yc + x) as usize, color);
             }
-            if x != 0 {
+            if x_not_zero {
                 fb.set_pixel_unchecked((xc + y) as usize, (yc - x) as usize, color);
             }
-            if x != 0 && y != 0 {
+            if x_not_zero && y_not_zero {
                 fb.set_pixel_unchecked((xc - y) as usize, (yc - x) as usize, color);
             }
         }
@@ -137,25 +139,27 @@ fn draw_circle_points_unchecked(
 
 #[inline(always)]
 fn draw_circle_points(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
+    let x_not_zero = x != 0;
+    let y_not_zero = y != 0;
     fb.set_pixel(xc + x, yc + y, color);
-    if x != 0 {
+    if x_not_zero {
         fb.set_pixel(xc - x, yc + y, color);
     }
-    if y != 0 {
+    if y_not_zero {
         fb.set_pixel(xc + x, yc - y, color);
     }
-    if x != 0 && y != 0 {
+    if x_not_zero && y_not_zero {
         fb.set_pixel(xc - x, yc - y, color);
     }
     if x != y {
         fb.set_pixel(xc + y, yc + x, color);
-        if y != 0 {
+        if y_not_zero {
             fb.set_pixel(xc - y, yc + x, color);
         }
-        if x != 0 {
+        if x_not_zero {
             fb.set_pixel(xc + y, yc - x, color);
         }
-        if x != 0 && y != 0 {
+        if x_not_zero && y_not_zero {
             fb.set_pixel(xc - y, yc - x, color);
         }
     }
@@ -225,11 +229,17 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
     if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
         while y >= x {
+            // Lines bounded by `y` are drawn at vertical offsets `yc +/- x`.
+            // Because `x` increments every loop, these vertical offsets change every loop,
+            // so we must draw them unconditionally to ensure every vertical line gets filled.
             draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
             if x > 0 {
                 draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc - x, color);
             }
 
+            // Lines bounded by `x` are drawn at vertical offsets `yc +/- y`.
+            // Because `y` only decrements occasionally, these vertical offsets remain the same
+            // for multiple loops. We only draw them when `y` is about to change (`d > 0`) to prevent overdraw.
             if d > 0 {
                 if y > x {
                     draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
@@ -246,11 +256,13 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     } else {
         // Safe path: clip against screen bounds
         while y >= x {
+            // Lines bounded by `y` must be drawn unconditionally.
             draw_horizontal_line(fb, xc - y, xc + y, yc + x, color);
             if x > 0 {
                 draw_horizontal_line(fb, xc - y, xc + y, yc - x, color);
             }
 
+            // Lines bounded by `x` are only drawn when `y` changes.
             if d > 0 {
                 if y > x {
                     draw_horizontal_line(fb, xc - x, xc + x, yc + y, color);
