@@ -272,7 +272,10 @@ fn draw_horizontal_line_unchecked(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32
     let width = fb.width() as usize;
     let start_idx = (y as usize) * width + (x1 as usize);
     let end_idx = (y as usize) * width + (x2 as usize);
-    fb.as_mut_slice()[start_idx..=end_idx].fill(color);
+    // ⚡ Bolt: Elide bounds check with get_unchecked_mut in Fill
+    unsafe {
+        fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx).fill(color);
+    }
 }
 
 #[inline(always)]
@@ -286,18 +289,18 @@ fn draw_horizontal_line(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32, color: u
     let max_x = x2.min(fb.width() as i32 - 1);
 
     if min_x <= max_x {
-        // We could use `set_pixel`, but for a horizontal line, direct slice access
-        // is much faster if we can safely calculate the offsets.
-        // It avoids repeated bounds checking.
         let width = fb.width() as usize;
         let y_offset = (y as usize) * width;
         let start_idx = y_offset + (min_x as usize);
         let end_idx = y_offset + (max_x as usize);
 
+        // ⚡ Bolt: Elide bounds check with get_unchecked_mut in Fill
         // This is safe because we clamped min_x, max_x, and y to valid ranges.
         // And we know end_idx >= start_idx.
         // We also know end_idx < fb.width() * fb.height().
-        fb.as_mut_slice()[start_idx..=end_idx].fill(color);
+        unsafe {
+            fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx).fill(color);
+        }
     }
 }
 
