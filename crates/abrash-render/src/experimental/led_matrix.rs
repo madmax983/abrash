@@ -9,6 +9,11 @@ use crate::framebuffer::Framebuffer;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
+use std::cell::RefCell;
+thread_local! {
+    static SOURCE_PIXELS: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+}
+
 /// Configuration for the LED Matrix post-processing filter.
 #[derive(Debug, Clone, Copy)]
 pub struct LedMatrixConfig {
@@ -54,7 +59,15 @@ pub fn apply_led_matrix(fb: &mut Framebuffer, config: &LedMatrixConfig) {
     let led_radius_sq = config.led_radius * config.led_radius;
 
     // Clone the source framebuffer because we are reading non-linearly
-    let src_pixels = fb.as_slice().to_vec();
+    // ⚡ Bolt: Eliminate per-frame heap allocation by using a thread-local static buffer.
+    let mut source_pixels = SOURCE_PIXELS.with(RefCell::take);
+    let size = width * height;
+    if source_pixels.len() < size {
+        source_pixels.resize(size, 0);
+    }
+    source_pixels[..size].copy_from_slice(fb.as_slice());
+
+    let src_pixels = &source_pixels[..size]; // reference to local
     let dest_pixels = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
@@ -98,6 +111,8 @@ pub fn apply_led_matrix(fb: &mut Framebuffer, config: &LedMatrixConfig) {
             }
         }
     });
+
+    SOURCE_PIXELS.with(|buf| buf.replace(source_pixels));
 }
 
 #[inline(always)]

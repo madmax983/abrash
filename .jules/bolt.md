@@ -398,3 +398,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Thread-local Buffers with Rayon]
 **Learning:** When extracting a `thread_local!` buffer using `buf.take()` to bypass `!Send` `RefMut` compile errors around Rayon parallel closures, the buffer drops at the end of the scope, destroying its capacity and effectively reintroducing heap allocations.
 **Action:** Always return the extracted buffer back to the `RefCell` after the parallel operation using `buf.replace(src_pixels);` to preserve the pre-allocated capacity.
+**[Thread-local Buffers with Rayon]**
+**Learning:** When extracting a `thread_local!` buffer using `buf.take()` to bypass `!Send` `RefMut` compile errors around Rayon parallel closures, the buffer drops at the end of the scope, destroying its capacity and effectively reintroducing heap allocations.
+**Action:** Always return the extracted buffer back to the `RefCell` after the parallel operation using `buf.replace(src_pixels);` to preserve the pre-allocated capacity.
