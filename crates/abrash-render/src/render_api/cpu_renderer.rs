@@ -123,21 +123,31 @@ impl CpuRenderer {
     pub fn extract_draw_list(&self, frame: &Frame) -> Result<DrawList, RenderError> {
         let view_proj = frame.camera.view * frame.camera.projection;
 
-        // Pre-calculate total required vertices to avoid dynamic reallocations
+        // ⚡ Bolt: Hoist handle resolution into a single sequential first pass.
+        // This populates pre-allocated `Vec`s of references, eliminating redundant
+        // bounds-checking, hashing, and cache-miss overhead in the parallel rendering loop.
         let mut total_vertices = 0;
+
+        #[cfg(feature = "parallel")]
+        let mut resolved_meshes = Vec::with_capacity(frame.commands.len());
+        #[cfg(feature = "parallel")]
+        let mut resolved_materials = Vec::with_capacity(frame.commands.len());
+
         for cmd in &frame.commands {
             let cpu_mesh = self
                 .meshes
                 .get(from_mesh_handle(cmd.mesh))
                 .ok_or(RenderError::StaleHandle("mesh"))?;
 
-            // Validate material handles sequentially to eliminate intermediate Result vectors later
-            if self
+            let material = self
                 .materials
                 .get(from_material_handle(cmd.material))
-                .is_none()
+                .ok_or(RenderError::StaleHandle("material"))?;
+
+            #[cfg(feature = "parallel")]
             {
-                return Err(RenderError::StaleHandle("material"));
+                resolved_meshes.push(cpu_mesh);
+                resolved_materials.push(material);
             }
 
             total_vertices += cpu_mesh.mesh.vertices.len();
@@ -159,9 +169,7 @@ impl CpuRenderer {
             // Calculate vertex ranges first to know where each mesh writes
             let mut ranges = Vec::with_capacity(frame.commands.len());
             let mut current_offset = 0;
-            for cmd in &frame.commands {
-                // Since we already checked handles above, unwraps here are safe
-                let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
+            for cpu_mesh in &resolved_meshes {
                 let len = cpu_mesh.mesh.vertices.len();
                 ranges.push((current_offset, current_offset + len));
                 current_offset += len;
@@ -172,43 +180,37 @@ impl CpuRenderer {
             let ptr = draw_list.vertices.as_mut_ptr() as usize; // Cast to usize to make it Send + Sync
 
             // Use par_extend to directly populate batches without an intermediate Vec allocation.
-            draw_list
-                .batches
-                .par_extend(
-                    frame
-                        .commands
-                        .par_iter()
-                        .zip(&ranges)
-                        .map(|(cmd, &(start, end))| {
-                            let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
-                            let material = self
-                                .materials
-                                .get(from_material_handle(cmd.material))
-                                .unwrap();
+            draw_list.batches.par_extend(
+                frame
+                    .commands
+                    .par_iter()
+                    .zip(&ranges)
+                    .zip(&resolved_meshes)
+                    .zip(&resolved_materials)
+                    .map(|(((cmd, &(start, end)), &cpu_mesh), &material)| {
+                        let mvp = cmd.transform * view_proj;
+                        let mesh = &cpu_mesh.mesh;
 
-                            let mvp = cmd.transform * view_proj;
-                            let mesh = &cpu_mesh.mesh;
+                        // SAFETY: `ranges` ensures disjoint segments of the allocated buffer.
+                        // The buffer is pre-allocated with `total_vertices` capacity.
+                        unsafe {
+                            let offset_ptr = (ptr as *mut (crate::math::Vec3, f32)).add(start);
+                            // We cast `offset_ptr` to `*mut std::mem::MaybeUninit` to pass into `transform_points_uninit`.
+                            let slice = std::slice::from_raw_parts_mut(
+                                offset_ptr
+                                    .cast::<std::mem::MaybeUninit<(crate::math::Vec3, f32)>>(),
+                                mesh.vertices.len(),
+                            );
+                            mvp.transform_points_uninit(&mesh.vertices, slice);
+                        }
 
-                            // SAFETY: `ranges` ensures disjoint segments of the allocated buffer.
-                            // The buffer is pre-allocated with `total_vertices` capacity.
-                            unsafe {
-                                let offset_ptr = (ptr as *mut (crate::math::Vec3, f32)).add(start);
-                                // We cast `offset_ptr` to `*mut std::mem::MaybeUninit` to pass into `transform_points_uninit`.
-                                let slice = std::slice::from_raw_parts_mut(
-                                    offset_ptr
-                                        .cast::<std::mem::MaybeUninit<(crate::math::Vec3, f32)>>(),
-                                    mesh.vertices.len(),
-                                );
-                                mvp.transform_points_uninit(&mesh.vertices, slice);
-                            }
-
-                            DrawBatch::new(
-                                start..end,
-                                std::sync::Arc::clone(&cpu_mesh.shared_indices),
-                                material.color,
-                            )
-                        }),
-                );
+                        DrawBatch::new(
+                            start..end,
+                            std::sync::Arc::clone(&cpu_mesh.shared_indices),
+                            material.color,
+                        )
+                    }),
+            );
 
             // SAFETY: All parallel segments initialized elements exactly up to `total_vertices`.
             unsafe {
@@ -219,14 +221,9 @@ impl CpuRenderer {
         #[cfg(not(feature = "parallel"))]
         {
             for cmd in &frame.commands {
-                let cpu_mesh = self
-                    .meshes
-                    .get(from_mesh_handle(cmd.mesh))
-                    .ok_or(RenderError::StaleHandle("mesh"))?;
-                let material = self
-                    .materials
-                    .get(from_material_handle(cmd.material))
-                    .ok_or(RenderError::StaleHandle("material"))?;
+                // Since we validated everything above, it is safe to unwrap handles during extraction.
+                let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
+                let material = self.materials.get(from_material_handle(cmd.material)).unwrap();
 
                 let mvp = cmd.transform * view_proj;
                 let mesh = &cpu_mesh.mesh;

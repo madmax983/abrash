@@ -16,7 +16,7 @@ fn main() {
 
             // Add gradient from left to right to test hatching
             let grad = (x as f32 / width as f32 * 255.0) as u32;
-            let mixed = (val + grad) / 2;
+            let mixed = u32::midpoint(val, grad);
 
             let color = 0xFF00_0000 | (mixed << 16) | (mixed << 8) | mixed;
             fb.set_pixel(x as i32, y as i32, color);
@@ -25,8 +25,8 @@ fn main() {
 
     // Draw some sharp lines to trigger edge detection
     for i in 0..100 {
-        fb.set_pixel(400 + i as i32, 300 + i as i32, 0xFF000000);
-        fb.set_pixel(400 - i as i32, 300 + i as i32, 0xFF000000);
+        fb.set_pixel(400 + i, 300 + i, 0xFF000000);
+        fb.set_pixel(400 - i, 300 + i, 0xFF000000);
     }
 
     let config = PencilSketchConfig::default();
@@ -36,6 +36,6 @@ fn main() {
     apply_pencil_sketch(&mut fb, &config);
     let duration = start.elapsed();
 
-    println!("Effect applied in {:?}", duration);
+    println!("Effect applied in {duration:?}");
     println!("Example complete.");
 }
