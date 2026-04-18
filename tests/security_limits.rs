@@ -41,4 +41,23 @@ mod tests {
             Some("Buffer dimensions too large (max i32::MAX)")
         );
     }
+    #[test]
+    fn test_buffer_size_overflow() {
+        // width and height are valid individually (<= i32::MAX)
+        // but their product exceeds u32::MAX.
+        // For example, 65536 * 65536 = 4,294,967,296 (> 4,294,967,295)
+        let width = 65536;
+        let height = 65536;
+
+        let fb_result = Framebuffer::new(width, height);
+        assert!(
+            fb_result.is_err(),
+            "Framebuffer should reject size > u32::MAX"
+        );
+        assert_eq!(fb_result.err(), Some("Buffer size overflow"));
+
+        let zb_result = ZBuffer::new(width, height);
+        assert!(zb_result.is_err(), "ZBuffer should reject size > u32::MAX");
+        assert_eq!(zb_result.err(), Some("Buffer size overflow"));
+    }
 }
