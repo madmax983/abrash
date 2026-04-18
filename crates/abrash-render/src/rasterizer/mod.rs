@@ -66,6 +66,7 @@ pub mod gouraud;
 pub mod line;
 pub mod pbr;
 pub mod phong;
+/// 2D Rectangle drawing and filling routines.
 pub mod rect;
 pub mod reflection;
 pub mod texture;
