@@ -1,3 +1,19 @@
+//! # 2D Rectangles 📏
+//!
+//! Provides routines for drawing and filling standard and rounded 2D rectangles
+//! directly into the framebuffer. These functions are often used for UI overlays
+//! or debug visualizations.
+//!
+//! ## Examples
+//!
+//! ```
+//! use abrash_core::framebuffer::Framebuffer;
+//! use abrash_render::rasterizer::rect::draw_rect;
+//!
+//! let mut fb = Framebuffer::new(100, 100).unwrap();
+//! draw_rect(&mut fb, 10, 10, 20, 20, 0xFFFFFFFF);
+//! ```
+
 use abrash_core::framebuffer::Framebuffer;
 use abrash_core::ivec::IVec2;
 
@@ -38,6 +54,28 @@ fn draw_horizontal_line_unchecked(fb: &mut Framebuffer, x0: i32, x1: i32, y: i32
     }
 }
 
+/// Draws the outline of a 2D rectangle.
+///
+/// The lines are drawn directly onto the framebuffer, skipping complex 3D rasterization.
+///
+/// ## Parameters
+///
+/// * `fb` - The target framebuffer.
+/// * `x` - The left X coordinate.
+/// * `y` - The top Y coordinate.
+/// * `width` - The width of the rectangle.
+/// * `height` - The height of the rectangle.
+/// * `color` - The 32-bit ARGB color value.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::rasterizer::rect::draw_rect;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// draw_rect(&mut fb, 10, 10, 20, 20, 0xFFFFFFFF);
+/// ```
 pub fn draw_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, color: u32) {
     if width == 0 || height == 0 {
         return;
@@ -56,10 +94,60 @@ pub fn draw_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, 
     draw_line_2d_local(fb, IVec2::new(right, y), IVec2::new(right, bottom), color);
 }
 
+/// Fills a solid 2D rectangle.
+///
+/// This delegates to the framebuffer's internal fast block clearing routine.
+///
+/// ## Parameters
+///
+/// * `fb` - The target framebuffer.
+/// * `x` - The left X coordinate.
+/// * `y` - The top Y coordinate.
+/// * `width` - The width of the rectangle.
+/// * `height` - The height of the rectangle.
+/// * `color` - The 32-bit ARGB color value.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::rasterizer::rect::fill_rect;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// fill_rect(&mut fb, 10, 10, 20, 20, 0xFFFFFFFF);
+/// ```
 pub fn fill_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, color: u32) {
     fb.clear_rect(x, y, width, height, color);
 }
 
+/// Draws the outline of a 2D rounded rectangle.
+///
+/// Combines straight edge lines and Bresenham's circle drawing algorithm
+/// to create the corners.
+///
+/// ## Parameters
+///
+/// * `fb` - The target framebuffer.
+/// * `x` - The left X coordinate.
+/// * `y` - The top Y coordinate.
+/// * `width` - The overall width of the rectangle.
+/// * `height` - The overall height of the rectangle.
+/// * `radius` - The corner radius. Clamped to half the smallest dimension.
+/// * `color` - The 32-bit ARGB color value.
+///
+/// ## Edge Cases
+///
+/// If `radius <= 0`, it degrades to a standard `draw_rect`.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::rasterizer::rect::draw_rounded_rect;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// draw_rounded_rect(&mut fb, 10, 10, 50, 50, 10, 0xFFFFFFFF);
+/// ```
 pub fn draw_rounded_rect(
     fb: &mut Framebuffer,
     x: i32,
@@ -167,6 +255,34 @@ pub fn draw_rounded_rect(
     }
 }
 
+/// Fills a solid 2D rounded rectangle.
+///
+/// Similar to `draw_rounded_rect`, it uses horizontal spans to fill
+/// the interior and corners efficiently.
+///
+/// ## Parameters
+///
+/// * `fb` - The target framebuffer.
+/// * `x` - The left X coordinate.
+/// * `y` - The top Y coordinate.
+/// * `width` - The overall width of the rectangle.
+/// * `height` - The overall height of the rectangle.
+/// * `radius` - The corner radius. Clamped to half the smallest dimension.
+/// * `color` - The 32-bit ARGB color value.
+///
+/// ## Edge Cases
+///
+/// If `radius <= 0`, it degrades to a standard `fill_rect`.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::rasterizer::rect::fill_rounded_rect;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// fill_rounded_rect(&mut fb, 10, 10, 50, 50, 10, 0xFFFFFFFF);
+/// ```
 pub fn fill_rounded_rect(
     fb: &mut Framebuffer,
     x: i32,
