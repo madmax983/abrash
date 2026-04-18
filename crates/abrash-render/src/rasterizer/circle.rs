@@ -100,6 +100,8 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     }
 }
 
+/// ⚡ Bolt: Cache `x != 0` and `y != 0` evaluations into boolean registers and nest conditionals
+/// to eliminate redundant conditional evaluations inside the tight scanline rasterization loop.
 #[inline(always)]
 fn draw_circle_points_unchecked(
     fb: &mut Framebuffer,
@@ -111,52 +113,61 @@ fn draw_circle_points_unchecked(
 ) {
     unsafe {
         fb.set_pixel_unchecked((xc + x) as usize, (yc + y) as usize, color);
-        if x != 0 {
+
+        let x_not_zero = x != 0;
+        let y_not_zero = y != 0;
+
+        if x_not_zero {
             fb.set_pixel_unchecked((xc - x) as usize, (yc + y) as usize, color);
         }
-        if y != 0 {
+        if y_not_zero {
             fb.set_pixel_unchecked((xc + x) as usize, (yc - y) as usize, color);
-        }
-        if x != 0 && y != 0 {
-            fb.set_pixel_unchecked((xc - x) as usize, (yc - y) as usize, color);
+            if x_not_zero {
+                fb.set_pixel_unchecked((xc - x) as usize, (yc - y) as usize, color);
+            }
         }
         if x != y {
             fb.set_pixel_unchecked((xc + y) as usize, (yc + x) as usize, color);
-            if y != 0 {
+            if y_not_zero {
                 fb.set_pixel_unchecked((xc - y) as usize, (yc + x) as usize, color);
             }
-            if x != 0 {
+            if x_not_zero {
                 fb.set_pixel_unchecked((xc + y) as usize, (yc - x) as usize, color);
-            }
-            if x != 0 && y != 0 {
-                fb.set_pixel_unchecked((xc - y) as usize, (yc - x) as usize, color);
+                if y_not_zero {
+                    fb.set_pixel_unchecked((xc - y) as usize, (yc - x) as usize, color);
+                }
             }
         }
     }
 }
 
+/// ⚡ Bolt: Cache conditionals into registers and nest.
 #[inline(always)]
 fn draw_circle_points(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
     fb.set_pixel(xc + x, yc + y, color);
-    if x != 0 {
+
+    let x_not_zero = x != 0;
+    let y_not_zero = y != 0;
+
+    if x_not_zero {
         fb.set_pixel(xc - x, yc + y, color);
     }
-    if y != 0 {
+    if y_not_zero {
         fb.set_pixel(xc + x, yc - y, color);
-    }
-    if x != 0 && y != 0 {
-        fb.set_pixel(xc - x, yc - y, color);
+        if x_not_zero {
+            fb.set_pixel(xc - x, yc - y, color);
+        }
     }
     if x != y {
         fb.set_pixel(xc + y, yc + x, color);
-        if y != 0 {
+        if y_not_zero {
             fb.set_pixel(xc - y, yc + x, color);
         }
-        if x != 0 {
+        if x_not_zero {
             fb.set_pixel(xc + y, yc - x, color);
-        }
-        if x != 0 && y != 0 {
-            fb.set_pixel(xc - y, yc - x, color);
+            if y_not_zero {
+                fb.set_pixel(xc - y, yc - x, color);
+            }
         }
     }
 }
@@ -225,20 +236,26 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
     if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
         while y >= x {
-            draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
-            if x > 0 {
-                draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc - x, color);
-            }
-
-            if d > 0 {
-                if y > x {
-                    draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
-                    draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
+            // SAFETY: The `min_x`, `max_x`, `min_y`, and `max_y` bounds checks above guarantee
+            // that the entire bounding box of the circle is fully within the framebuffer dimensions.
+            // Since Bresenham's algorithm only generates coordinates within this bounding box,
+            // `y` will be within `0..height` and `x1`, `x2` will be within `0..width`.
+            unsafe {
+                draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
+                if x > 0 {
+                    draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc - x, color);
                 }
-                y -= 1;
-                d = d + 4 * i64::from(x - y) + 10;
-            } else {
-                d = d + 4 * i64::from(x) + 6;
+
+                if d > 0 {
+                    if y > x {
+                        draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
+                        draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
+                    }
+                    y -= 1;
+                    d = d + 4 * i64::from(x - y) + 10;
+                } else {
+                    d = d + 4 * i64::from(x) + 6;
+                }
             }
 
             x += 1;
@@ -267,14 +284,33 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     }
 }
 
+/// ⚡ Bolt: Use unsafe `get_unchecked_mut` to elide hidden panic branches during fill operations
+/// since `start_idx` and `end_idx` are guaranteed to be within the pre-calculated bounds.
+///
+/// # Safety
+/// The caller must ensure that `y` is within `0..fb.height()` and that `x1` and `x2`
+/// are within `0..fb.width()`. Furthermore, `x1` must be less than or equal to `x2` to
+/// prevent creating an invalid slice range.
 #[inline(always)]
-fn draw_horizontal_line_unchecked(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32, color: u32) {
+unsafe fn draw_horizontal_line_unchecked(
+    fb: &mut Framebuffer,
+    x1: i32,
+    x2: i32,
+    y: i32,
+    color: u32,
+) {
     let width = fb.width() as usize;
     let start_idx = (y as usize) * width + (x1 as usize);
     let end_idx = (y as usize) * width + (x2 as usize);
-    fb.as_mut_slice()[start_idx..=end_idx].fill(color);
+    unsafe {
+        fb.as_mut_slice()
+            .get_unchecked_mut(start_idx..=end_idx)
+            .fill(color)
+    };
 }
 
+/// ⚡ Bolt: Use unsafe `get_unchecked_mut` to elide hidden panic branches during fill operations
+/// since `start_idx` and `end_idx` are guaranteed to be within the pre-calculated bounds.
 #[inline(always)]
 fn draw_horizontal_line(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32, color: u32) {
     // Quick bounds check for y
@@ -297,7 +333,11 @@ fn draw_horizontal_line(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32, color: u
         // This is safe because we clamped min_x, max_x, and y to valid ranges.
         // And we know end_idx >= start_idx.
         // We also know end_idx < fb.width() * fb.height().
-        fb.as_mut_slice()[start_idx..=end_idx].fill(color);
+        unsafe {
+            fb.as_mut_slice()
+                .get_unchecked_mut(start_idx..=end_idx)
+                .fill(color)
+        };
     }
 }
 
