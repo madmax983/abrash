@@ -422,9 +422,10 @@ pub struct PreparedGouraudTrianglesList {
 impl PreparedGouraudTrianglesList {
     /// Creates a new, empty list.
 
+    #[must_use]
     pub const fn new() -> Self {
         Self {
-            tris: unsafe { MaybeUninit::uninit().assume_init() },
+            tris: [const { MaybeUninit::uninit() }; 8],
             count: 0,
         }
     }
@@ -438,6 +439,7 @@ impl PreparedGouraudTrianglesList {
 
     /// Returns the number of triangles in the list.
 
+    #[must_use]
     pub const fn count(&self) -> usize {
         self.count
     }
@@ -485,9 +487,10 @@ pub struct PreparedTrianglesList {
 impl PreparedTrianglesList {
     /// Creates a new, empty list.
 
+    #[must_use]
     pub const fn new() -> Self {
         Self {
-            tris: unsafe { MaybeUninit::uninit().assume_init() },
+            tris: [const { MaybeUninit::uninit() }; 8],
             count: 0,
         }
     }
@@ -502,6 +505,7 @@ impl PreparedTrianglesList {
 
     /// Returns the number of triangles in the list.
 
+    #[must_use]
     pub const fn count(&self) -> usize {
         self.count
     }
@@ -525,11 +529,12 @@ impl rayon::iter::IntoParallelIterator for PreparedTrianglesList {
     type Iter = rayon::iter::Take<rayon::array::IntoIter<PreparedTriangle, 8>>;
 
     fn into_par_iter(self) -> Self::Iter {
-        let mut arr: [PreparedTriangle; 8] = unsafe { MaybeUninit::zeroed().assume_init() };
+        let mut arr: [MaybeUninit<PreparedTriangle>; 8] = [const { MaybeUninit::uninit() }; 8];
         for i in 0..self.count {
-            arr[i] = unsafe { self.tris[i].assume_init() };
+            arr[i].write(unsafe { self.tris[i].assume_init() });
         }
-        arr.into_par_iter().take(self.count)
+        let mut init_arr: [_; 8] = unsafe { std::ptr::read((&raw const arr).cast::<[_; 8]>()) };
+        init_arr.into_par_iter().take(self.count)
     }
 }
 
@@ -539,11 +544,13 @@ impl rayon::iter::IntoParallelIterator for PreparedTexturedTrianglesList {
     type Iter = rayon::iter::Take<rayon::array::IntoIter<PreparedTexturedTriangle, 8>>;
 
     fn into_par_iter(self) -> Self::Iter {
-        let mut arr: [PreparedTexturedTriangle; 8] = unsafe { MaybeUninit::zeroed().assume_init() };
+        let mut arr: [MaybeUninit<PreparedTexturedTriangle>; 8] =
+            [const { MaybeUninit::uninit() }; 8];
         for i in 0..self.count {
-            arr[i] = unsafe { self.tris[i].assume_init() };
+            arr[i].write(unsafe { self.tris[i].assume_init() });
         }
-        arr.into_par_iter().take(self.count)
+        let mut init_arr: [_; 8] = unsafe { std::ptr::read((&raw const arr).cast::<[_; 8]>()) };
+        init_arr.into_par_iter().take(self.count)
     }
 }
 
@@ -553,11 +560,13 @@ impl rayon::iter::IntoParallelIterator for PreparedGouraudTrianglesList {
     type Iter = rayon::iter::Take<rayon::array::IntoIter<PreparedGouraudTriangle, 8>>;
 
     fn into_par_iter(self) -> Self::Iter {
-        let mut arr: [PreparedGouraudTriangle; 8] = unsafe { MaybeUninit::zeroed().assume_init() };
+        let mut arr: [MaybeUninit<PreparedGouraudTriangle>; 8] =
+            [const { MaybeUninit::uninit() }; 8];
         for i in 0..self.count {
-            arr[i] = unsafe { self.tris[i].assume_init() };
+            arr[i].write(unsafe { self.tris[i].assume_init() });
         }
-        arr.into_par_iter().take(self.count)
+        let mut init_arr: [_; 8] = unsafe { std::ptr::read((&raw const arr).cast::<[_; 8]>()) };
+        init_arr.into_par_iter().take(self.count)
     }
 }
 
@@ -591,9 +600,10 @@ pub struct PreparedTexturedTrianglesList {
 impl PreparedTexturedTrianglesList {
     /// Creates a new, empty list.
 
+    #[must_use]
     pub const fn new() -> Self {
         Self {
-            tris: unsafe { MaybeUninit::uninit().assume_init() },
+            tris: [const { MaybeUninit::uninit() }; 8],
             count: 0,
         }
     }
@@ -608,6 +618,7 @@ impl PreparedTexturedTrianglesList {
 
     /// Returns the number of triangles in the list.
 
+    #[must_use]
     pub const fn count(&self) -> usize {
         self.count
     }
@@ -662,6 +673,7 @@ pub struct TileBins {
 impl TileBins {
     /// Initializes a new bin structure with a given number of tiles.
 
+    #[must_use]
     pub fn new(num_tiles: usize) -> Self {
         Self {
             heads: vec![u32::MAX; num_tiles],
@@ -698,6 +710,7 @@ impl TileBins {
 
     /// Iterates over the triangle indices in the given bin.
     #[inline]
+    #[must_use]
     pub fn iter(&self, tile_idx: usize) -> TileBinIter<'_> {
         TileBinIter {
             bins: self,
@@ -1651,6 +1664,7 @@ impl TileRenderer {
     ///
     /// Panics if width or height is zero.
 
+    #[must_use]
     pub fn new(width: u32, height: u32) -> Self {
         assert!(width > 0 && height > 0, "Dimensions must be positive");
         // WARDEN DEFENSE: Prevent integer overflow on expected_len before allocating arrays
@@ -1731,12 +1745,14 @@ impl TileRenderer {
 
     /// Returns the number of tiles in X direction.
 
+    #[must_use]
     pub const fn tiles_x(&self) -> u32 {
         self.tiles_x
     }
 
     /// Returns the number of tiles in Y direction.
 
+    #[must_use]
     pub const fn tiles_y(&self) -> u32 {
         self.tiles_y
     }

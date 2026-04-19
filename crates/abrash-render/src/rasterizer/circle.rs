@@ -274,7 +274,9 @@ fn draw_horizontal_line_unchecked(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32
     let end_idx = (y as usize) * width + (x2 as usize);
     // ⚡ Bolt: Elide bounds check with get_unchecked_mut in Fill
     unsafe {
-        fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx).fill(color);
+        fb.as_mut_slice()
+            .get_unchecked_mut(start_idx..=end_idx)
+            .fill(color);
     }
 }
 
@@ -299,7 +301,9 @@ fn draw_horizontal_line(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32, color: u
         // And we know end_idx >= start_idx.
         // We also know end_idx < fb.width() * fb.height().
         unsafe {
-            fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx).fill(color);
+            fb.as_mut_slice()
+                .get_unchecked_mut(start_idx..=end_idx)
+                .fill(color);
         }
     }
 }

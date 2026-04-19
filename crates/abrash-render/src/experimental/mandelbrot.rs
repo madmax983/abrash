@@ -44,7 +44,7 @@ fn map_iterations_to_color(iteration: u32, max_iterations: u32) -> u32 {
         0xFF_000000 // Black for inside the set
     } else {
         // Smooth coloring based on iterations
-        let t = iteration as f64 / max_iterations as f64;
+        let t = f64::from(iteration) / f64::from(max_iterations);
 
         // Use a simple continuous palette (similar to fire or plasma)
         let r = (9.0 * (1.0 - t) * t * t * t * 255.0) as u32;
@@ -56,8 +56,8 @@ fn map_iterations_to_color(iteration: u32, max_iterations: u32) -> u32 {
 }
 
 pub fn render_mandelbrot(fb: &mut Framebuffer, config: &MandelbrotConfig) {
-    let width = fb.width() as f64;
-    let height = fb.height() as f64;
+    let width = f64::from(fb.width());
+    let height = f64::from(fb.height());
 
     // Scale aspect ratio so we don't stretch the fractal
     let aspect_ratio = width / height;

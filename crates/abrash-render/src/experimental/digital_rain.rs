@@ -29,6 +29,7 @@ impl Default for DigitalRain {
 
 impl DigitalRain {
     /// Creates a new instance of the digital rain effect
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }

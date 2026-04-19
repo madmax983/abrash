@@ -11,7 +11,7 @@ use abrash_core::utils::pixel_luminance;
 use rayon::prelude::*;
 
 /// Configuration for the Color Splash filter.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ColorSplashConfig {
     /// The target color to preserve (in 0xAARRGGBB format, alpha is ignored).
     pub target_color: u32,
@@ -35,8 +35,8 @@ impl Default for ColorSplashConfig {
 /// Helper to lerp two 8-bit color channels.
 #[inline(always)]
 fn lerp_u8(a: u8, b: u8, t: f32) -> u8 {
-    let a_f = a as f32;
-    let b_f = b as f32;
+    let a_f = f32::from(a);
+    let b_f = f32::from(b);
     (a_f + (b_f - a_f) * t).clamp(0.0, 255.0) as u8
 }
 
@@ -70,8 +70,10 @@ pub fn apply_color_splash(fb: &mut Framebuffer, config: &ColorSplashConfig) {
         }
 
         let luma_u8 = pixel_luminance(p);
-        let grayscale_pixel =
-            (0xFF << 24) | ((luma_u8 as u32) << 16) | ((luma_u8 as u32) << 8) | (luma_u8 as u32);
+        let grayscale_pixel = (0xFF << 24)
+            | (u32::from(luma_u8) << 16)
+            | (u32::from(luma_u8) << 8)
+            | u32::from(luma_u8);
 
         if dist_sq >= total_tol_sq {
             // Full grayscale
@@ -88,7 +90,10 @@ pub fn apply_color_splash(fb: &mut Framebuffer, config: &ColorSplashConfig) {
             let out_g = lerp_u8(g as u8, luma_u8, t);
             let out_b = lerp_u8(b as u8, luma_u8, t);
 
-            *pixel = (0xFF << 24) | ((out_r as u32) << 16) | ((out_g as u32) << 8) | (out_b as u32);
+            *pixel = (0xFF << 24)
+                | (u32::from(out_r) << 16)
+                | (u32::from(out_g) << 8)
+                | u32::from(out_b);
         }
     };
 
@@ -144,12 +149,12 @@ mod tests {
         assert_eq!(pixels[0], 0xFF_FF_00_00);
 
         // Green should be grayscale. Luminance of green (0xFF) is roughly 0.587 * 255 = 150 (0x96)
-        let luma_g = pixel_luminance(0xFF_00_FF_00) as u32;
+        let luma_g = u32::from(pixel_luminance(0xFF_00_FF_00));
         let expected_g = (0xFF << 24) | (luma_g << 16) | (luma_g << 8) | luma_g;
         assert_eq!(pixels[1], expected_g);
 
         // Blue should be grayscale. Luminance of blue (0xFF) is roughly 0.114 * 255 = 29 (0x1D)
-        let luma_b = pixel_luminance(0xFF_00_00_FF) as u32;
+        let luma_b = u32::from(pixel_luminance(0xFF_00_00_FF));
         let expected_b = (0xFF << 24) | (luma_b << 16) | (luma_b << 8) | luma_b;
         assert_eq!(pixels[2], expected_b);
     }

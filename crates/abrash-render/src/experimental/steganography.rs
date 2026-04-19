@@ -74,6 +74,7 @@ pub fn encode_message(fb: &mut Framebuffer, message: &str) -> Result<(), &'stati
 /// Decodes a string message hidden in the given framebuffer.
 ///
 /// Returns `None` if the length is invalid or the data is not valid UTF-8.
+#[must_use]
 pub fn decode_message(fb: &Framebuffer) -> Option<String> {
     let pixels = fb.as_slice();
 
