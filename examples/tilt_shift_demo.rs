@@ -106,7 +106,7 @@ impl TiltShiftApp {
         let height = 600;
 
         let framebuffer = Framebuffer::new(width, height)
-            .map_err(|e| HostError::App(format!("Failed to create framebuffer: {e:?}")))?;
+            .map_err(|e| HostError::App(format!("Failed to create framebuffer: {e}")))?;
 
         Ok(Self {
             framebuffer,
