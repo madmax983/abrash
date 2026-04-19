@@ -1,8 +1,8 @@
 use abrash::experimental::pencil_sketch::{PencilSketchConfig, apply_pencil_sketch};
 use abrash_core::framebuffer::Framebuffer;
-use std::time::Instant;
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
+use std::time::Instant;
 
 fn print_banner(width: u32, height: u32) {
     println!("\n{}", "✏️  Pencil Sketch Demo".bold().cyan());
