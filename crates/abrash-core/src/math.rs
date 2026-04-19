@@ -17105,24 +17105,21 @@ pub fn convex_hull_2d(points: &[Vec2]) -> Vec<Vec2> {
         .iter()
         .enumerate()
         .min_by(|(_, a), (_, b)| {
-            a.y.partial_cmp(&b.y)
-                .unwrap()
-                .then(a.x.partial_cmp(&b.x).unwrap())
+            a.y.total_cmp(&b.y).then(a.x.total_cmp(&b.x))
         })
-        .map(|(i, _)| i)
-        .unwrap();
+        .map_or(0, |(i, _)| i);
     pts.swap(0, pivot_idx);
     let pivot = pts[0];
     // Sort remaining points by polar angle around pivot.
     pts[1..].sort_by(|a, b| {
         let angle_a = (a.y - pivot.y).atan2(a.x - pivot.x);
         let angle_b = (b.y - pivot.y).atan2(b.x - pivot.x);
-        let cmp = angle_a.partial_cmp(&angle_b).unwrap();
+        let cmp = angle_a.total_cmp(&angle_b);
         if cmp == std::cmp::Ordering::Equal {
             // Same angle: keep farthest from pivot.
             let da = (a.x - pivot.x).hypot(a.y - pivot.y);
             let db = (b.x - pivot.x).hypot(b.y - pivot.y);
-            da.partial_cmp(&db).unwrap()
+            da.total_cmp(&db)
         } else {
             cmp
         }
@@ -20098,5 +20095,30 @@ mod tests_nlerp_fix {
         let weights = vec![0.0, 0.0];
         let q = quat_nlerp_weighted(&quats, &weights);
         assert_eq!(q.w, 1.0);
+    }
+}
+
+#[cfg(test)]
+mod tests_sentry {
+    use super::*;
+    use std::f32::NAN;
+
+    #[test]
+    fn convex_hull_2d_nan_no_panic() {
+        let points = vec![
+            Vec2::new(1.0, 1.0),
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, NAN),
+            Vec2::new(2.0, 0.0),
+        ];
+        let hull = convex_hull_2d(&points);
+        assert!(hull.len() <= points.len());
+    }
+
+    #[test]
+    fn convex_hull_2d_empty_no_panic() {
+        let points: Vec<Vec2> = vec![];
+        let hull = convex_hull_2d(&points);
+        assert!(hull.is_empty());
     }
 }
