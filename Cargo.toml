@@ -72,6 +72,10 @@ harness = false
 [[bench]]
 name = "math_bench"
 harness = false
+[[bench]]
+name = "powf_bench"
+harness = false
+
 
 [[bench]]
 name = "tangent_space_bench"
