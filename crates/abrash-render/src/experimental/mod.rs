@@ -41,6 +41,7 @@ pub mod color_splash;
 pub mod crepuscular;
 pub mod crosshatch;
 pub mod crt;
+pub mod depth_fog;
 pub mod digital_rain;
 pub mod directional_blur;
 pub mod dither;

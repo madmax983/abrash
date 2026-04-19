@@ -23,3 +23,8 @@
 **Concept:** A procedural post-processing effect that simulates anime/comic style radial speed lines using a fast polar-coordinate procedural hash function.
 **Fate:** Implemented
 **Lesson:** Using simple (x, y) wrapping hashes combined with atan2 provides a fast and highly stylizable procedural generation method without the heavy overhead of full noise libraries.
+
+## [Depth Fog Filter]
+**Concept:** A post-processing effect that applies atmospheric distance fog to scenes by blending the rendered pixels with a fog color based on the depths stored in the Z-buffer.
+**Fate:** Implemented
+**Lesson:** By reading directly from the Z-buffer during the post-processing stage, realistic depth-based effects can be achieved independently of the vertex shading pass, keeping the rasterizer decoupled from atmospheric calculations while still yielding an immersive sense of scale.
