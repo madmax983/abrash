@@ -35,7 +35,7 @@ where
     // The number of surface cells is typically proportional to the surface area,
     // which scales as the 2/3 power of the total volume (total_cells).
     let total_cells = width * height * depth;
-    let estimated_vertices = (total_cells as f32).powf(0.666_666_7) as usize * 3;
+    let estimated_vertices = (total_cells as f32).cbrt().powi(2) as usize * 3;
     let estimated_indices = estimated_vertices * 2 / 3; // Rough estimate of triangles from vertices
 
     let mut vertices = Vec::with_capacity(estimated_vertices);

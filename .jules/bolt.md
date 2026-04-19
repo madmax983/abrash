@@ -401,3 +401,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Thread-local Buffers with Rayon]**
 **Learning:** When extracting a `thread_local!` buffer using `buf.take()` to bypass `!Send` `RefMut` compile errors around Rayon parallel closures, the buffer drops at the end of the scope, destroying its capacity and effectively reintroducing heap allocations.
 **Action:** Always return the extracted buffer back to the `RefCell` after the parallel operation using `buf.replace(src_pixels);` to preserve the pre-allocated capacity.
+
+**Hardware-Accelerated Fractional Powers**
+**Learning:** Fractional `f32::powf()` calls like `powf(1.5)` or `powf(0.6667)` are extremely slow because they invoke complex C-math library exponentiation routines.
+**Action:** Replace `powf(1.5)` with `x * x.sqrt()` and `powf(0.6667)` with `x.cbrt().powi(2)` on hot paths. These alternatives compile down to fast hardware instructions. Additionally, `.cbrt()` handles negative values correctly without returning `NaN`, whereas `powf(1.0/3.0)` does not.

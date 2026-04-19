@@ -1155,11 +1155,11 @@ pub fn parabola_2d(p: Vec2, k: f32) -> f32 {
     // Use the depressed cubic directly
     let q = k * (p.y - 0.5 * ik) / 3.0;
     let disc_sign = if p.x == 0.0 { 1.0 } else { p.x.signum() };
-    let r = (k * p.x * 0.5).powf(2.0_f32 / 3.0) * disc_sign;
+    let r = (k * p.x * 0.5).cbrt().powi(2) * disc_sign;
     // Approximate: use parametric nearest-point on y = k*x² → x_t = t, y_t = k*t²
     // Minimize ||p - (t, k*t²)||²; derivative: -2*(p.x-t) + 2*(p.y-k*t²)*(-2*k*t) = 0
     // 1 + 2k*(p.y-k*t²)*2k*t ... Newton 3-step
-    let mut t = (p.x * 0.5 / k).powf(1.0_f32 / 3.0).max(1e-6);
+    let mut t = (p.x * 0.5 / k).cbrt().max(1e-6);
     for _ in 0..5 {
         let kt2 = k * t * t;
         let f = 1.0 + 4.0 * k * k * t * t - 2.0 * k * p.y + 2.0 * k * kt2;
