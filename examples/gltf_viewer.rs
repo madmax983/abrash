@@ -304,6 +304,7 @@ fn show_error_and_exit(msg: &str) -> ! {
     std::process::exit(1);
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), HostError> {
     print_banner();
 

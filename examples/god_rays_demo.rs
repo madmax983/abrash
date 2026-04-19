@@ -53,6 +53,7 @@ mod app {
         println!("{controls}\n");
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         print_banner();
         let mut window = TuiWindow::new("God Rays Demo", WIDTH, HEIGHT)?;

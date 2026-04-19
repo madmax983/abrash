@@ -36,6 +36,8 @@ pub struct BorrowedRenderTarget<'a> {
 
 impl<'a> BorrowedRenderTarget<'a> {
     /// Create a borrowed render target from caller-owned slices.
+    /// # Errors
+    /// Returns an error if the lengths of `pixels` and `depths` do not match `width * height`.
     pub fn new(
         width: u32,
         height: u32,
@@ -76,28 +78,28 @@ impl<'a> BorrowedRenderTarget<'a> {
 
     /// Read-only access to the color buffer.
     #[must_use]
-    pub fn pixels(&self) -> &[u32] {
+    pub const fn pixels(&self) -> &[u32] {
         self.pixels
     }
 
     /// Mutable access to the color buffer.
-    pub fn pixels_mut(&mut self) -> &mut [u32] {
+    pub const fn pixels_mut(&mut self) -> &mut [u32] {
         self.pixels
     }
 
     /// Read-only access to the depth buffer.
     #[must_use]
-    pub fn depths(&self) -> &[f32] {
+    pub const fn depths(&self) -> &[f32] {
         self.depths
     }
 
     /// Mutable access to the depth buffer.
-    pub fn depths_mut(&mut self) -> &mut [f32] {
+    pub const fn depths_mut(&mut self) -> &mut [f32] {
         self.depths
     }
 
     /// Split the target into mutable pixel and depth slices.
-    pub fn split_mut(&mut self) -> (&mut [u32], &mut [f32]) {
+    pub const fn split_mut(&mut self) -> (&mut [u32], &mut [f32]) {
         (self.pixels, self.depths)
     }
 }

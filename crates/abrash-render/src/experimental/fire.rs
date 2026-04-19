@@ -72,7 +72,7 @@ pub fn apply_fire(fb: &mut Framebuffer, cooling_map: &[u8]) {
                 // Shift by 2 is equivalent to divide by 4, but significantly faster
                 let avg_heat = (h_center + h_left + h_right + h_below2) >> 2;
 
-                let cooling = cooling_map[y * width + x] as u32;
+                let cooling = u32::from(cooling_map[y * width + x]);
                 let new_heat = avg_heat.saturating_sub(cooling);
 
                 row[x] = (new_heat << 16) | (new_heat << 8) | new_heat; // greyscale for now

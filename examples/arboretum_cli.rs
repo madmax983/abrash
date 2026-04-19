@@ -42,6 +42,7 @@ mod app {
         iterations: u32,
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         let args = Args::parse();
 

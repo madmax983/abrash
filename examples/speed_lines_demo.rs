@@ -99,7 +99,7 @@ impl WindowApp for SpeedLinesApp {
 
     fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
         // Draw background
-        self.framebuffer.clear(0xFF101030); // Dark blue
+        self.framebuffer.clear(0xFF10_1030); // Dark blue
 
         // Render subject (a red circle)
         let cx = 400.0;
@@ -110,7 +110,7 @@ impl WindowApp for SpeedLinesApp {
                 let dx = x as f32 - cx;
                 let dy = y as f32 - cy;
                 if dx * dx + dy * dy < r2 {
-                    self.framebuffer.set_pixel(x, y, 0xFFFF0000); // Red
+                    self.framebuffer.set_pixel(x, y, 0xFFFF_0000); // Red
                 }
             }
         }
@@ -120,7 +120,7 @@ impl WindowApp for SpeedLinesApp {
             center_y: 0.5,
             inner_radius: 120.0,
             time: self.time,
-            line_color: 0xFFFFFFFF,
+            line_color: 0xFFFF_FFFF,
             density: 180,
             min_length: 50.0,
             max_length: 400.0,

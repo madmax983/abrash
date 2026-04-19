@@ -422,6 +422,7 @@ pub struct PreparedGouraudTrianglesList {
 impl PreparedGouraudTrianglesList {
     /// Creates a new, empty list.
 
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             tris: unsafe { MaybeUninit::uninit().assume_init() },
@@ -438,6 +439,7 @@ impl PreparedGouraudTrianglesList {
 
     /// Returns the number of triangles in the list.
 
+    #[must_use]
     pub const fn count(&self) -> usize {
         self.count
     }
@@ -485,6 +487,7 @@ pub struct PreparedTrianglesList {
 impl PreparedTrianglesList {
     /// Creates a new, empty list.
 
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             tris: unsafe { MaybeUninit::uninit().assume_init() },
@@ -502,6 +505,7 @@ impl PreparedTrianglesList {
 
     /// Returns the number of triangles in the list.
 
+    #[must_use]
     pub const fn count(&self) -> usize {
         self.count
     }
@@ -591,6 +595,7 @@ pub struct PreparedTexturedTrianglesList {
 impl PreparedTexturedTrianglesList {
     /// Creates a new, empty list.
 
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             tris: unsafe { MaybeUninit::uninit().assume_init() },
@@ -608,6 +613,7 @@ impl PreparedTexturedTrianglesList {
 
     /// Returns the number of triangles in the list.
 
+    #[must_use]
     pub const fn count(&self) -> usize {
         self.count
     }
@@ -662,6 +668,7 @@ pub struct TileBins {
 impl TileBins {
     /// Initializes a new bin structure with a given number of tiles.
 
+    #[must_use]
     pub fn new(num_tiles: usize) -> Self {
         Self {
             heads: vec![u32::MAX; num_tiles],
@@ -698,6 +705,7 @@ impl TileBins {
 
     /// Iterates over the triangle indices in the given bin.
     #[inline]
+    #[must_use]
     pub fn iter(&self, tile_idx: usize) -> TileBinIter<'_> {
         TileBinIter {
             bins: self,
@@ -1651,6 +1659,7 @@ impl TileRenderer {
     ///
     /// Panics if width or height is zero.
 
+    #[must_use]
     pub fn new(width: u32, height: u32) -> Self {
         assert!(width > 0 && height > 0, "Dimensions must be positive");
         // WARDEN DEFENSE: Prevent integer overflow on expected_len before allocating arrays
@@ -1731,12 +1740,14 @@ impl TileRenderer {
 
     /// Returns the number of tiles in X direction.
 
+    #[must_use]
     pub const fn tiles_x(&self) -> u32 {
         self.tiles_x
     }
 
     /// Returns the number of tiles in Y direction.
 
+    #[must_use]
     pub const fn tiles_y(&self) -> u32 {
         self.tiles_y
     }

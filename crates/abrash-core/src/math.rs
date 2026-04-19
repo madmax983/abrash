@@ -1337,7 +1337,7 @@ impl Vec2 {
     /// Component-wise absolute value.
     #[must_use]
     #[inline]
-    pub fn abs(self) -> Self {
+    pub const fn abs(self) -> Self {
         Self {
             x: self.x.abs(),
             y: self.y.abs(),
@@ -1347,7 +1347,7 @@ impl Vec2 {
     /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
     #[must_use]
     #[inline]
-    pub fn sign(self) -> Self {
+    pub const fn sign(self) -> Self {
         Self {
             x: self.x.signum(),
             y: self.y.signum(),
@@ -1357,7 +1357,7 @@ impl Vec2 {
     /// Component-wise floor (round toward negative infinity).
     #[must_use]
     #[inline]
-    pub fn floor(self) -> Self {
+    pub const fn floor(self) -> Self {
         Self {
             x: self.x.floor(),
             y: self.y.floor(),
@@ -1367,7 +1367,7 @@ impl Vec2 {
     /// Component-wise ceiling (round toward positive infinity).
     #[must_use]
     #[inline]
-    pub fn ceil(self) -> Self {
+    pub const fn ceil(self) -> Self {
         Self {
             x: self.x.ceil(),
             y: self.y.ceil(),
@@ -1377,7 +1377,7 @@ impl Vec2 {
     /// Component-wise round (round to nearest, ties to even).
     #[must_use]
     #[inline]
-    pub fn round(self) -> Self {
+    pub const fn round(self) -> Self {
         Self {
             x: self.x.round(),
             y: self.y.round(),
@@ -1430,14 +1430,14 @@ impl Vec2 {
     /// The smallest of the two components.
     #[must_use]
     #[inline]
-    pub fn min_component(self) -> f32 {
+    pub const fn min_component(self) -> f32 {
         self.x.min(self.y)
     }
 
     /// The largest of the two components.
     #[must_use]
     #[inline]
-    pub fn max_component(self) -> f32 {
+    pub const fn max_component(self) -> f32 {
         self.x.max(self.y)
     }
 
@@ -2230,7 +2230,7 @@ impl Vec3 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn min_component(self) -> f32 {
+    pub const fn min_component(self) -> f32 {
         self.x.min(self.y).min(self.z)
     }
 
@@ -2243,7 +2243,7 @@ impl Vec3 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn max_component(self) -> f32 {
+    pub const fn max_component(self) -> f32 {
         self.x.max(self.y).max(self.z)
     }
 
@@ -2429,7 +2429,7 @@ impl Vec3 {
     /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
     #[must_use]
     #[inline]
-    pub fn sign(self) -> Self {
+    pub const fn sign(self) -> Self {
         Self {
             x: self.x.signum(),
             y: self.y.signum(),
@@ -2440,7 +2440,7 @@ impl Vec3 {
     /// Component-wise floor (round toward negative infinity).
     #[must_use]
     #[inline]
-    pub fn floor(self) -> Self {
+    pub const fn floor(self) -> Self {
         Self {
             x: self.x.floor(),
             y: self.y.floor(),
@@ -2451,7 +2451,7 @@ impl Vec3 {
     /// Component-wise ceiling (round toward positive infinity).
     #[must_use]
     #[inline]
-    pub fn ceil(self) -> Self {
+    pub const fn ceil(self) -> Self {
         Self {
             x: self.x.ceil(),
             y: self.y.ceil(),
@@ -2462,7 +2462,7 @@ impl Vec3 {
     /// Component-wise round (round to nearest, ties to even).
     #[must_use]
     #[inline]
-    pub fn round(self) -> Self {
+    pub const fn round(self) -> Self {
         Self {
             x: self.x.round(),
             y: self.y.round(),
@@ -3030,7 +3030,7 @@ impl Mat4 {
     /// assert!((result.y - 2.0).abs() < 1e-5);
     /// ```
     #[must_use]
-    pub fn shear(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f32) -> Self {
+    pub const fn shear(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f32) -> Self {
         // Row-vector: v * M.  Column j of M is the destination for basis vector j.
         // Row 0 = X basis:   x → x + yx*y + zx*z
         // Row 1 = Y basis:   y → xy*x + y + zy*z
@@ -3861,7 +3861,7 @@ impl Mat4 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn row(&self, index: usize) -> Vec4 {
+    pub const fn row(&self, index: usize) -> Vec4 {
         Vec4::new(
             self.m[index][0],
             self.m[index][1],
@@ -5908,7 +5908,7 @@ impl Vec4 {
     /// Component-wise absolute value.
     #[must_use]
     #[inline]
-    pub fn abs(self) -> Self {
+    pub const fn abs(self) -> Self {
         Self {
             x: self.x.abs(),
             y: self.y.abs(),
@@ -5920,7 +5920,7 @@ impl Vec4 {
     /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
     #[must_use]
     #[inline]
-    pub fn sign(self) -> Self {
+    pub const fn sign(self) -> Self {
         Self {
             x: self.x.signum(),
             y: self.y.signum(),
@@ -5932,7 +5932,7 @@ impl Vec4 {
     /// Component-wise floor (round toward negative infinity).
     #[must_use]
     #[inline]
-    pub fn floor(self) -> Self {
+    pub const fn floor(self) -> Self {
         Self {
             x: self.x.floor(),
             y: self.y.floor(),
@@ -5944,7 +5944,7 @@ impl Vec4 {
     /// Component-wise ceiling (round toward positive infinity).
     #[must_use]
     #[inline]
-    pub fn ceil(self) -> Self {
+    pub const fn ceil(self) -> Self {
         Self {
             x: self.x.ceil(),
             y: self.y.ceil(),
@@ -5956,7 +5956,7 @@ impl Vec4 {
     /// Component-wise round (round to nearest, ties to even).
     #[must_use]
     #[inline]
-    pub fn round(self) -> Self {
+    pub const fn round(self) -> Self {
         Self {
             x: self.x.round(),
             y: self.y.round(),
@@ -5980,14 +5980,14 @@ impl Vec4 {
     /// Smallest of the four components.
     #[must_use]
     #[inline]
-    pub fn min_component(self) -> f32 {
+    pub const fn min_component(self) -> f32 {
         self.x.min(self.y).min(self.z).min(self.w)
     }
 
     /// Largest of the four components.
     #[must_use]
     #[inline]
-    pub fn max_component(self) -> f32 {
+    pub const fn max_component(self) -> f32 {
         self.x.max(self.y).max(self.z).max(self.w)
     }
 
@@ -7758,10 +7758,10 @@ pub fn octahedral_decode(v: Vec2) -> Vec3 {
 /// assert_eq!(morton_encode_2d(0, 1), 0b10);
 /// assert_eq!(morton_encode_2d(3, 3), 0b1111);
 /// ```
-pub fn morton_encode_2d(x: u32, y: u32) -> u32 {
+pub const fn morton_encode_2d(x: u32, y: u32) -> u32 {
     /// Spread a 16-bit value into even bit positions.
     #[inline(always)]
-    fn part1by1(mut n: u32) -> u32 {
+    const fn part1by1(mut n: u32) -> u32 {
         n &= 0x0000_FFFF;
         n = (n | (n << 8)) & 0x00FF_00FF;
         n = (n | (n << 4)) & 0x0F0F_0F0F;
@@ -7782,10 +7782,10 @@ pub fn morton_encode_2d(x: u32, y: u32) -> u32 {
 /// assert_eq!(morton_decode_2d(0b10), (0, 1));
 /// assert_eq!(morton_decode_2d(0b1111), (3, 3));
 /// ```
-pub fn morton_decode_2d(code: u32) -> (u32, u32) {
+pub const fn morton_decode_2d(code: u32) -> (u32, u32) {
     /// Compact even-bit positions back into a contiguous value.
     #[inline(always)]
-    fn compact1by1(mut n: u32) -> u32 {
+    const fn compact1by1(mut n: u32) -> u32 {
         n &= 0x5555_5555;
         n = (n | (n >> 1)) & 0x3333_3333;
         n = (n | (n >> 2)) & 0x0F0F_0F0F;
@@ -8278,7 +8278,7 @@ pub const fn prev_power_of_two(x: u32) -> u32 {
     if x == 0 {
         return 0;
     }
-    1 << (31 - x.leading_zeros())
+    1 << x.ilog2()
 }
 
 /// 5th-order ("Perlin's smootherstep") smooth interpolation.
@@ -8337,7 +8337,7 @@ pub fn smootherstep7(t: f32) -> f32 {
 /// assert_eq!(median3(5.0_f32, 1.0, 3.0), 3.0);
 /// assert_eq!(median3(2.0_f32, 2.0, 2.0), 2.0);
 /// ```
-pub fn median3(a: f32, b: f32, c: f32) -> f32 {
+pub const fn median3(a: f32, b: f32, c: f32) -> f32 {
     a.max(b).min(c).max(a.min(b))
 }
 
@@ -8627,7 +8627,7 @@ pub fn bayer8x8(x: u32, y: u32) -> f32 {
         [15, 47, 7, 39, 13, 45, 5, 37],
         [63, 31, 55, 23, 61, 29, 53, 21],
     ];
-    BAYER[(y & 7) as usize][(x & 7) as usize] as f32 / 64.0
+    f32::from(BAYER[(y & 7) as usize][(x & 7) as usize]) / 64.0
 }
 
 /// Convert a linear amplitude ratio to decibels: `20 * log10(|amplitude|)`.
@@ -8827,7 +8827,7 @@ mod tests_pass_20 {
 /// assert_eq!(min3(3.0_f32, 1.0, 2.0), 1.0);
 /// ```
 #[inline]
-pub fn min3(a: f32, b: f32, c: f32) -> f32 {
+pub const fn min3(a: f32, b: f32, c: f32) -> f32 {
     a.min(b).min(c)
 }
 
@@ -8840,7 +8840,7 @@ pub fn min3(a: f32, b: f32, c: f32) -> f32 {
 /// assert_eq!(max3(3.0_f32, 1.0, 2.0), 3.0);
 /// ```
 #[inline]
-pub fn max3(a: f32, b: f32, c: f32) -> f32 {
+pub const fn max3(a: f32, b: f32, c: f32) -> f32 {
     a.max(b).max(c)
 }
 
@@ -9870,7 +9870,7 @@ pub fn perlin_noise_2d(p: Vec2) -> f32 {
     fn grad2(hash: u32, dx: f32, dy: f32) -> f32 {
         // 8 unit gradients on the unit circle (octants)
         match hash & 7 {
-            0 => dx + dy,
+            0 | 12 => dx + dy,
             1 => dx - dy,
             2 => -dx + dy,
             3 => -dx - dy,
@@ -10063,7 +10063,7 @@ pub const fn gcd_u32(mut a: u32, mut b: u32) -> u32 {
 /// assert_eq!(lcm_u32(0, 5), 0);
 /// ```
 #[inline]
-pub fn lcm_u32(a: u32, b: u32) -> u32 {
+pub const fn lcm_u32(a: u32, b: u32) -> u32 {
     if a == 0 || b == 0 {
         0
     } else {
@@ -10583,7 +10583,7 @@ pub fn uncharted2_tonemap(x: f32) -> f32 {
 /// assert!((c - 0.282_094_8).abs() < 1e-5);
 /// ```
 #[inline]
-pub fn sh_y00() -> f32 {
+pub const fn sh_y00() -> f32 {
     0.282_094_79 // 1 / (2 * sqrt(π))
 }
 
@@ -11785,8 +11785,8 @@ pub fn perlin_noise_3d(p: Vec3) -> f32 {
     fn grad3(hash: u32, dx: f32, dy: f32, dz: f32) -> f32 {
         // Perlin 2002 improved gradients — 12 midpoints of unit cube edges.
         match hash & 15 {
-            0 => dx + dy,
-            1 => -dx + dy,
+            0 | 12 => dx + dy,
+            1 | 13 => -dx + dy,
             2 => dx - dy,
             3 => -dx - dy,
             4 => dx + dz,
@@ -11794,12 +11794,12 @@ pub fn perlin_noise_3d(p: Vec3) -> f32 {
             6 => dx - dz,
             7 => -dx - dz,
             8 => dy + dz,
-            9 => -dy + dz,
+            9 | 14 => -dy + dz,
             10 => dy - dz,
-            11 => -dy - dz,
-            12 => dx + dy,
-            13 => -dx + dy,
-            14 => -dy + dz,
+
+
+
+
             _ => -dy - dz,
         }
     }
@@ -13042,7 +13042,7 @@ pub fn blend_soft_light(a: f32, b: f32) -> f32 {
 /// ```
 #[must_use]
 #[inline]
-pub fn next_power_of_2(n: u32) -> u32 {
+pub const fn next_power_of_2(n: u32) -> u32 {
     if n == 0 { 1 } else { n.next_power_of_two() }
 }
 
@@ -13056,8 +13056,8 @@ pub fn next_power_of_2(n: u32) -> u32 {
 /// ```
 #[must_use]
 #[inline]
-pub fn is_power_of_2(n: u32) -> bool {
-    n > 0 && (n & (n - 1)) == 0
+pub const fn is_power_of_2(n: u32) -> bool {
+    n.is_power_of_two()
 }
 
 /// Ceiling integer log₂: smallest `k` such that `2^k ≥ n`.
@@ -13073,7 +13073,7 @@ pub fn is_power_of_2(n: u32) -> bool {
 /// ```
 #[must_use]
 #[inline]
-pub fn log2_ceil(n: u32) -> u32 {
+pub const fn log2_ceil(n: u32) -> u32 {
     if n <= 1 {
         return 0;
     }
@@ -13454,8 +13454,8 @@ pub fn unpack_unorm_4x8(packed: u32) -> (f32, f32, f32, f32) {
 #[must_use]
 #[inline]
 pub fn pack_snorm_2x16(x: f32, y: f32) -> u32 {
-    let xi = (x.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16 as u32;
-    let yi = (y.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16 as u32;
+    let xi = u32::from((x.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16);
+    let yi = u32::from((y.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16);
     xi | (yi << 16)
 }
 
@@ -13463,8 +13463,8 @@ pub fn pack_snorm_2x16(x: f32, y: f32) -> u32 {
 #[must_use]
 #[inline]
 pub fn unpack_snorm_2x16(packed: u32) -> (f32, f32) {
-    let x = ((packed & 0xFFFF) as i16 as f32 / 32_767.0).clamp(-1.0, 1.0);
-    let y = (((packed >> 16) & 0xFFFF) as i16 as f32 / 32_767.0).clamp(-1.0, 1.0);
+    let x = (f32::from((packed & 0xFFFF) as i16) / 32_767.0).clamp(-1.0, 1.0);
+    let y = (f32::from(((packed >> 16) & 0xFFFF) as i16) / 32_767.0).clamp(-1.0, 1.0);
     (x, y)
 }
 
@@ -13991,9 +13991,10 @@ pub fn sphere_vs_frustum(centre: Vec3, radius: f32, planes: &[[f32; 4]; 6]) -> b
     true
 }
 
-/// Test whether an AABB (`min`, `max`) intersects the frustum. Uses the
-/// p-vertex (positive-vertex) test: for each plane the "most positive" corner
-/// is tested; if that corner is outside the plane the AABB is fully outside.
+/// Test whether an AABB (`min`, `max`) intersects the frustum.
+///
+/// Uses the p-vertex (positive-vertex) test: for each plane the "most positive"
+/// corner is tested; if that corner is outside the plane the AABB is fully outside.
 pub fn aabb_vs_frustum(min: Vec3, max: Vec3, planes: &[[f32; 4]; 6]) -> bool {
     for p in planes {
         // p-vertex: choose the corner that maximises dot(p.xyz, corner)
@@ -14245,14 +14246,14 @@ pub fn wrap_angle(angle: f32) -> f32 {
 /// A second, distinct PCG-output-stage hash — uses a different multiplier than
 /// the `pcg_hash` const fn already in this module (which uses the Murmur3 final
 /// mix). This one uses the PCG-XSH-RR permutation from O'Neill 2014.
-pub fn pcg32_output(state: u32) -> u32 {
+pub const fn pcg32_output(state: u32) -> u32 {
     let s = state.wrapping_mul(747_796_405).wrapping_add(2_891_336_453);
     let w = ((s >> ((s >> 28).wrapping_add(4))) ^ s).wrapping_mul(277_803_737);
     (w >> 22) ^ w
 }
 
 /// 2D PCG hash: (u32, u32) → u32. Good spatial decorrelation.
-pub fn pcg32_hash_2d(x: u32, y: u32) -> u32 {
+pub const fn pcg32_hash_2d(x: u32, y: u32) -> u32 {
     pcg32_output(x.wrapping_add(pcg32_output(y)))
 }
 
@@ -15260,7 +15261,7 @@ pub fn fit_plane_to_points(points: &[Vec3]) -> Option<(Vec3, Vec3)> {
     } else if norms[1] >= norms[2] {
         (1, if norms[0] >= norms[2] { 0 } else { 2 })
     } else {
-        (2, if norms[0] >= norms[1] { 0 } else { 1 })
+        (2, usize::from(norms[0] < norms[1]))
     };
     let raw = col[i0].cross(col[i1]);
     let len = raw.length();
@@ -15936,10 +15937,10 @@ pub fn morton_encode_3d(x: u32, y: u32, z: u32) -> u32 {
     // Spread 10 bits of each coordinate into every third bit position.
     let spread = |mut v: u32| -> u32 {
         v &= 0x0000_03ff;
-        v = (v | (v << 16)) & 0x030000ff;
-        v = (v | (v << 8)) & 0x0300f00f;
-        v = (v | (v << 4)) & 0x030c30c3;
-        v = (v | (v << 2)) & 0x09249249;
+        v = (v | (v << 16)) & 0x0300_00ff;
+        v = (v | (v << 8)) & 0x0300_f00f;
+        v = (v | (v << 4)) & 0x030c_30c3;
+        v = (v | (v << 2)) & 0x0924_9249;
         v
     };
     spread(x) | (spread(y) << 1) | (spread(z) << 2)
@@ -15948,10 +15949,10 @@ pub fn morton_encode_3d(x: u32, y: u32, z: u32) -> u32 {
 /// Decode a 30-bit 3D Morton code back into `(x, y, z)`.
 pub fn morton_decode_3d(code: u32) -> (u32, u32, u32) {
     let compact = |mut v: u32| -> u32 {
-        v &= 0x09249249;
-        v = (v | (v >> 2)) & 0x030c30c3;
-        v = (v | (v >> 4)) & 0x0300f00f;
-        v = (v | (v >> 8)) & 0x030000ff;
+        v &= 0x0924_9249;
+        v = (v | (v >> 2)) & 0x030c_30c3;
+        v = (v | (v >> 4)) & 0x0300_f00f;
+        v = (v | (v >> 8)) & 0x0300_00ff;
         v = (v | (v >> 16)) & 0x0000_03ff;
         v
     };
@@ -15962,12 +15963,12 @@ pub fn morton_decode_3d(code: u32) -> (u32, u32, u32) {
 ///
 /// Adjacent Gray codes differ by exactly one bit — useful for rotary encoders,
 /// error-resilient counters, and Karnaugh maps.
-pub fn gray_code_encode(n: u32) -> u32 {
+pub const fn gray_code_encode(n: u32) -> u32 {
     n ^ (n >> 1)
 }
 
 /// Decode a Gray code back to binary.
-pub fn gray_code_decode(mut g: u32) -> u32 {
+pub const fn gray_code_decode(mut g: u32) -> u32 {
     // Each bit depends on all higher bits via XOR cascade.
     g ^= g >> 16;
     g ^= g >> 8;
@@ -15982,7 +15983,7 @@ pub fn gray_code_decode(mut g: u32) -> u32 {
 /// Multiplying by the closest integer to `2^32 / φ` spreads sequential
 /// integers uniformly across the u32 range. Ideal for hash-table probing
 /// and low-discrepancy index-to-bin mapping.
-pub fn fibonacci_hash_u32(n: u32) -> u32 {
+pub const fn fibonacci_hash_u32(n: u32) -> u32 {
     // 2^32 / φ ≈ 2654435769 (Knuth multiplicative hash)
     n.wrapping_mul(2_654_435_769)
 }
@@ -15991,7 +15992,7 @@ pub fn fibonacci_hash_u32(n: u32) -> u32 {
 ///
 /// Used to build the van der Corput low-discrepancy sequence:
 /// `corput(i) = reverse_bits_u32(i) as f32 / 2^32`.
-pub fn reverse_bits_u32(mut n: u32) -> u32 {
+pub const fn reverse_bits_u32(mut n: u32) -> u32 {
     n = ((n & 0xffff_0000) >> 16) | ((n & 0x0000_ffff) << 16);
     n = ((n & 0xff00_ff00) >> 8) | ((n & 0x00ff_00ff) << 8);
     n = ((n & 0xf0f0_f0f0) >> 4) | ((n & 0x0f0f_0f0f) << 4);
@@ -17095,6 +17096,8 @@ mod tests_pass_50 {
 ///
 /// Returns the minimal convex polygon vertices; collinear boundary points are
 /// excluded.  Returns an empty `Vec` for fewer than 3 non-coincident points.
+/// # Panics
+/// Panics if `points` is empty.
 pub fn convex_hull_2d(points: &[Vec2]) -> Vec<Vec2> {
     if points.len() < 3 {
         return points.to_vec();
@@ -18384,11 +18387,10 @@ pub fn hash_to_unit_vec3(seed: u32) -> Vec3 {
 pub fn blackbody_linear_rgb(kelvin: f32) -> (f32, f32, f32) {
     let t = kelvin.clamp(1667.0, 25_000.0);
     // Kang 2002 — chromaticity x as function of T.
+    let ti = 1.0 / t;
     let x = if t < 4000.0 {
-        let ti = 1.0 / t;
         -0.266_123_9e9 * ti * ti * ti - 0.234_358_0e6 * ti * ti + 0.877_695_6e3 * ti + 0.179_910
     } else {
-        let ti = 1.0 / t;
         -3.025_846_9e9 * ti * ti * ti + 2.107_037_9e6 * ti * ti + 0.222_634_7e3 * ti + 0.240_390
     };
     // Chromaticity y from x.

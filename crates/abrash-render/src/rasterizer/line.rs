@@ -51,8 +51,8 @@ pub fn draw_line_3d(
         let mut z = p0.z;
         let z_end = p1.z;
 
-        let dx_full = (x1 as i64 - x0 as i64).abs();
-        let dy_full = (y1 as i64 - y0 as i64).abs();
+        let dx_full = (i64::from(x1) - i64::from(x0)).abs();
+        let dy_full = (i64::from(y1) - i64::from(y0)).abs();
         if dx_full > 16384 || dy_full > 16384 {
             return; // Prevent extreme values from causing DoS / Infinite Loops
         }
@@ -60,7 +60,7 @@ pub fn draw_line_3d(
         let dy = -(dy_full as i32);
         let sx = if x0 < x1 { 1 } else { -1 };
         let sy = if y0 < y1 { 1 } else { -1 };
-        let mut err = (dx as i64) + (dy as i64);
+        let mut err = i64::from(dx) + i64::from(dy);
 
         // Calculate step size for Z interpolation
         // Total steps = max(|dx|, |dy|)
@@ -95,12 +95,12 @@ pub fn draw_line_3d(
                 break;
             }
             let e2 = 2 * err;
-            if e2 >= (dy as i64) {
-                err += dy as i64;
+            if e2 >= i64::from(dy) {
+                err += i64::from(dy);
                 x0 += sx;
             }
-            if e2 <= (dx as i64) {
-                err += dx as i64;
+            if e2 <= i64::from(dx) {
+                err += i64::from(dx);
                 y0 += sy;
             }
             z += dz;
@@ -139,6 +139,6 @@ mod tests {
         let v0 = (Vec3::new(10.0, 10.0, 1.0), 1.0);
         let v1 = (Vec3::new(90.0, 90.0, 1.0), 1.0);
 
-        draw_line_3d(&mut fb, &mut zb, v0, v1, 0xFFFFFFFF);
+        draw_line_3d(&mut fb, &mut zb, v0, v1, 0xFFFF_FFFF);
     }
 }

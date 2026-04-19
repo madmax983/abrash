@@ -240,6 +240,7 @@ impl WindowApp for DitherDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), AppError> {
     print_banner();
     run_windowed(DitherDemoApp::new().unwrap());

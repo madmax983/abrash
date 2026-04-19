@@ -42,6 +42,7 @@ mod winit_demo {
     const WIDTH: u32 = 400;
     const HEIGHT: u32 = 300;
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         run_windowed(RaytracerApp::new().unwrap());
         Ok(())
@@ -308,7 +309,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Mirror Cube (White/Bright)
     let mirror_transform = Mat4::translation(0.0, 0.0, 2.5) * Mat4::scale(0.5, 0.5, 0.5);
-    scene.add_object(SceneObject::new(cube_mesh, mirror_transform, 0xFFFFFFFF));
+    scene.add_object(SceneObject::new(cube_mesh, mirror_transform, 0xFFFF_FFFF));
 
     let mut timestep = FixedTimestep::new(60);
     let mut time = 0.0f32;

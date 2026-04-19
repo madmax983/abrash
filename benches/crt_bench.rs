@@ -1,26 +1,21 @@
-use abrash::experimental::crt::apply_crt;
-use abrash::framebuffer::Framebuffer;
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use abrash_core::framebuffer::Framebuffer;
+use abrash_render::experimental::crt::apply_crt;
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-fn benchmark_crt(c: &mut Criterion) {
-    let width = 1920;
-    let height = 1080;
-    let mut fb = Framebuffer::new(width, height).unwrap();
+fn bench_crt_filter(c: &mut Criterion) {
+    let mut group = c.benchmark_group("crt_filter");
 
-    // Fill with a gradient pattern
-    for y in 0..height {
-        for x in 0..width {
-            let color = 0xFF00_0000 | (x & 0xFF) << 16 | (y & 0xFF) << 8;
-            fb.set_pixel(x as i32, y as i32, color);
-        }
-    }
+    let mut fb = Framebuffer::new(800, 600).unwrap();
+    fb.clear(0xFFFF_FFFF);
 
-    c.bench_function("apply_crt 1080p (distortion=0.2)", |b| {
+    group.bench_function("crt_800x600", |b| {
         b.iter(|| {
             apply_crt(black_box(&mut fb), black_box(0.2));
         });
     });
+
+    group.finish();
 }
 
-criterion_group!(benches, benchmark_crt);
+criterion_group!(benches, bench_crt_filter);
 criterion_main!(benches);

@@ -1225,6 +1225,7 @@ pub fn bezier_sdf_2d(p: Vec2, a: Vec2, b: Vec2, c: Vec2) -> f32 {
     // dot(q'(t), q(t)-p) = 0 → cubic in t
     // Coefficients
     let c0 = ab.x * ap.x + ab.y * ap.y;
+    #[allow(clippy::suspicious_operation_groupings)]
     let c1 = (ey.x * ap.x + ey.y * ap.y) + (ab.x * ab.x + ab.y * ab.y);
     let c2 = 3.0 * (ey.x * ab.x + ey.y * ab.y);
     let c3 = ey.x * ey.x + ey.y * ey.y;

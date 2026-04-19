@@ -118,6 +118,7 @@ impl WindowApp for ReactionDiffusionDemo {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     run_windowed(ReactionDiffusionDemo::new());
     Ok(())

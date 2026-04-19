@@ -48,7 +48,7 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
         static SOURCE_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
     }
 
-    let mut src_pixels = SOURCE_PIXELS.with(|buf| buf.take());
+    let mut src_pixels = SOURCE_PIXELS.with(std::cell::RefCell::take);
     src_pixels.clear();
     src_pixels.extend_from_slice(fb.as_slice());
     let source_buffer = src_pixels.as_slice();
@@ -132,9 +132,9 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
                     let b_p = config.paper_color & 0xFF;
 
                     // Mix 50/50 for a lighter stroke effect for shading
-                    let r = (r_s + r_p) / 2;
-                    let g = (g_s + g_p) / 2;
-                    let b = (b_s + b_p) / 2;
+                    let r = u32::midpoint(r_s, r_p);
+                    let g = u32::midpoint(g_s, g_p);
+                    let b = u32::midpoint(b_s, b_p);
 
                     *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
                 } else {

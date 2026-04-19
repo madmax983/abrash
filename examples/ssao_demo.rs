@@ -296,6 +296,7 @@ impl WindowApp for SsaoDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), AppError> {
     print_banner();
     run_windowed(SsaoDemoApp::new().unwrap());

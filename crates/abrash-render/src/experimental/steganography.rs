@@ -11,6 +11,8 @@ use crate::framebuffer::Framebuffer;
 /// significant bits of the RGB channels.
 ///
 /// Returns an error if the framebuffer is not large enough to hold the message.
+/// # Errors
+/// Returns an error if the message is too long to fit in the framebuffer.
 pub fn encode_message(fb: &mut Framebuffer, message: &str) -> Result<(), &'static str> {
     let bytes = message.as_bytes();
     let len = bytes.len() as u32;
@@ -74,6 +76,7 @@ pub fn encode_message(fb: &mut Framebuffer, message: &str) -> Result<(), &'stati
 /// Decodes a string message hidden in the given framebuffer.
 ///
 /// Returns `None` if the length is invalid or the data is not valid UTF-8.
+#[must_use]
 pub fn decode_message(fb: &Framebuffer) -> Option<String> {
     let pixels = fb.as_slice();
 

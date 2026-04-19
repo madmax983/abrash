@@ -185,6 +185,7 @@ pub fn load_gltf(path: &Path) -> Result<GltfScene, GltfError> {
 // ---------------------------------------------------------------------------
 
 /// Extract all meshes (with optional skin data) from the document.
+#[allow(clippy::needless_pass_by_value)]
 fn extract_primitive(
     primitive: gltf::Primitive<'_>,
     buffers: &[gltf::buffer::Data],
