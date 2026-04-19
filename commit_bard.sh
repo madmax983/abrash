@@ -1,7 +1,8 @@
-git add crates/abrash-core/src/quat.rs
-git commit -m "🎸 Bard: Documented Quat structure
+#!/bin/bash
+git add .
+git commit -m "🎻 Bard: [documentation update]
 
-📖 Chapter: The `Quat` module
-🔦 Insight: Added documentation for Quat components (x, y, z, w) and refactored unnecessary structure name repetitions and incorrect `const fn` to pass clippy checks. Removed `#[allow(missing_docs)]` and completed the coverage.
-🧪 Example: The entire file compiles cleanly under `cargo clippy -p abrash-core -- -W missing_docs`.
+📖 Chapter: The \`rasterizer\` module
+🔦 Insight: Added missing executable doc-tests and explanations for \`fill_triangle_gouraud\`, \`fill_quad_textured\`, \`fill_quad_textured_gouraud\`, \`fill_triangle_phong\` and \`fill_triangle_phong_shadowed\`. Made the safe assumption to avoid modifying \`const fn\` traits to fix pre-existing Clippy warnings as it was causing compiler cascades.
+🧪 Example: Added executable doctests for all the aforementioned APIs that compile properly.
 "

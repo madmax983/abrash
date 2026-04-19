@@ -659,6 +659,36 @@ impl GouraudEdgeWalker {
 ///
 /// fill_triangle_gouraud(&mut fb, &mut zb, v0, v1, v2);
 /// ```
+/// Fill a 3D triangle with Gouraud Shading.
+///
+/// Gouraud shading calculates lighting at the vertices and interpolates the resulting
+/// colors across the triangle surface. This is faster than Phong shading but can result
+/// in less accurate highlights, especially for large polygons.
+///
+/// # Arguments
+///
+/// * `fb` - Target framebuffer.
+/// * `zb` - Target Z-buffer.
+/// * `v0`, `v1`, `v2` - Vertices defined as `((Position, W), Color)`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_core::zbuffer::ZBuffer;
+/// use abrash_core::math::Vec3;
+/// use abrash_render::rasterizer::fill_triangle_gouraud;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+///
+/// // Define a triangle with vertex colors (RGB)
+/// let v0 = ((Vec3::new(0.0, 5.0, 5.0), 5.0), Vec3::new(1.0, 0.0, 0.0)); // Red
+/// let v1 = ((Vec3::new(-5.0, -5.0, 5.0), 5.0), Vec3::new(0.0, 1.0, 0.0)); // Green
+/// let v2 = ((Vec3::new(5.0, -5.0, 5.0), 5.0), Vec3::new(0.0, 0.0, 1.0)); // Blue
+///
+/// fill_triangle_gouraud(&mut fb, &mut zb, v0, v1, v2);
+/// ```
 pub fn fill_triangle_gouraud(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
