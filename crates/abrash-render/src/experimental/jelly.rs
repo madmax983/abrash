@@ -302,6 +302,9 @@ impl SoftBody {
         for i in 0..self.spring_rest_lengths.len() {
             let idx_a = self.spring_indices_a[i];
             let idx_b = self.spring_indices_b[i];
+            if idx_a >= self.mesh.vertices.len() || idx_b >= self.mesh.vertices.len() {
+                continue;
+            }
             let rest_len = self.spring_rest_lengths[i];
 
             let p_a = self.mesh.vertices[idx_a];
@@ -702,6 +705,9 @@ impl SoftBody {
         for i in 0..self.spring_rest_lengths.len() {
             let idx_a = self.spring_indices_a[i];
             let idx_b = self.spring_indices_b[i];
+            if idx_a >= self.mesh.vertices.len() || idx_b >= self.mesh.vertices.len() {
+                continue;
+            }
             let rest_len = self.spring_rest_lengths[i];
 
             let p_a = self.mesh.vertices[idx_a];
