@@ -118,7 +118,8 @@ impl LSystem {
                 // Safe because we already verified all rules and the axiom are pure ASCII.
                 // Bolt Performance Optimization:
                 // Reconstruct string from raw bytes directly avoiding unicode character parsing overhead
-                String::from_utf8(current_bytes.clone()).map_err(|_| "L-System utf8 decoding error")
+                String::from_utf8(std::mem::take(current_bytes))
+                    .map_err(|_| "L-System utf8 decoding error")
             });
         }
 
