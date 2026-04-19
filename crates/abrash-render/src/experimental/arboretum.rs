@@ -175,7 +175,9 @@ impl LSystem {
                 }
 
                 // Remove unsafe by converting back to string securely, though the ascii check guarantees safety.
-                String::from_utf8(current_bytes.clone()).map_err(|e| e.to_string())
+                std::str::from_utf8(current_bytes)
+                    .map(|s| s.to_string())
+                    .map_err(|e| e.to_string())
             });
         }
 
