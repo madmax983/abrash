@@ -104,7 +104,7 @@ mod app {
                         .fg(comfy_table::Color::Red),
                 ])
                 .add_row(vec![
-                    comfy_table::Cell::new(format!("{err:?}")).fg(comfy_table::Color::Yellow),
+                    comfy_table::Cell::new(format!("{err}")).fg(comfy_table::Color::Yellow),
                 ]);
 
             eprintln!("\n{error_table}");

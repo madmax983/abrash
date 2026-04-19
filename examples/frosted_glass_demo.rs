@@ -70,10 +70,10 @@ impl FrostedGlassApp {
         let height = 600;
 
         let framebuffer = Framebuffer::new(width, height)
-            .map_err(|e| HostError::App(format!("Failed to create framebuffer: {e:?}")))?;
+            .map_err(|e| HostError::App(format!("Failed to create framebuffer: {e}")))?;
 
         let mut original_fb = Framebuffer::new(width, height)
-            .map_err(|e| HostError::App(format!("Failed to create original framebuffer: {e:?}")))?;
+            .map_err(|e| HostError::App(format!("Failed to create original framebuffer: {e}")))?;
 
         for y in 0..height {
             for x in 0..width {

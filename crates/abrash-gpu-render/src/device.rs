@@ -69,7 +69,7 @@ impl GpuDevice {
             compatible_surface,
             force_fallback_adapter: config.force_fallback,
         }))
-        .map_err(|e| format!("No suitable GPU adapter found: {e:?}"))?;
+        .map_err(|e| format!("No suitable GPU adapter found: {e}"))?;
 
         // Request RT features when ray-tracing feature is enabled and hardware supports it
         #[allow(unused_mut)]
