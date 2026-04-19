@@ -30,3 +30,7 @@
 **[DrawList Capacity Overflow]**
 **Learning:** Functions that pre-allocate massive vectors inside graphic pipelines (like `DrawList::with_capacity(..., usize::MAX, ...)`) will rightfully panic with a built-in rust `capacity overflow` if they are given absurd memory bounds (e.g., from an untrusted fuzzed command buffer length).
 **Action:** Always constrain maximum batch, vertex, or object counts (and correctly handle OOM via checked math) prior to dynamically allocating memory bounds from frame descriptions. Use `should_panic(expected = "capacity overflow")` tests to document exactly when boundaries are expected to burst.
+
+**[Total Ordering for Floats]
+**Learning:** Using `.partial_cmp().unwrap()` to sort floating-point numbers can panic when encountering `NaN` values, and `.unwrap_or(Ordering::Equal)` breaks the strict total ordering requirement of sorting algorithms. Using an unhandled `.unwrap()` at the end of a `min_by` or `max_by` call on iterators can also panic if the collection is empty.
+**Action:** Use `f32::total_cmp` (or `f64::total_cmp`) instead of `partial_cmp` to provide a robust total ordering when sorting or finding min/max values in float slices. Also, replace terminal `.unwrap()` calls on iterators with `.unwrap_or()` or `.map_or()` to handle empty collections safely without panics.
