@@ -371,7 +371,7 @@ mod tests {
         rng.shuffle(&mut v);
         // Same elements, different order
         let mut sorted = v.clone();
-        sorted.sort();
+        sorted.sort_unstable();
         assert_eq!(sorted, orig);
         assert_ne!(
             v, orig,

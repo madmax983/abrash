@@ -88,6 +88,7 @@ pub mod steganography;
 pub mod swirl;
 pub mod thermal;
 pub mod tilt_shift;
+pub mod topography;
 pub mod vhs;
 pub mod vision;
 pub mod volume;

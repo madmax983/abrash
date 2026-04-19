@@ -1337,7 +1337,7 @@ impl Vec2 {
     /// Component-wise absolute value.
     #[must_use]
     #[inline]
-    pub fn abs(self) -> Self {
+    pub const fn abs(self) -> Self {
         Self {
             x: self.x.abs(),
             y: self.y.abs(),
@@ -1347,7 +1347,7 @@ impl Vec2 {
     /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
     #[must_use]
     #[inline]
-    pub fn sign(self) -> Self {
+    pub const fn sign(self) -> Self {
         Self {
             x: self.x.signum(),
             y: self.y.signum(),
@@ -1357,7 +1357,7 @@ impl Vec2 {
     /// Component-wise floor (round toward negative infinity).
     #[must_use]
     #[inline]
-    pub fn floor(self) -> Self {
+    pub const fn floor(self) -> Self {
         Self {
             x: self.x.floor(),
             y: self.y.floor(),
@@ -1367,7 +1367,7 @@ impl Vec2 {
     /// Component-wise ceiling (round toward positive infinity).
     #[must_use]
     #[inline]
-    pub fn ceil(self) -> Self {
+    pub const fn ceil(self) -> Self {
         Self {
             x: self.x.ceil(),
             y: self.y.ceil(),
@@ -1377,7 +1377,7 @@ impl Vec2 {
     /// Component-wise round (round to nearest, ties to even).
     #[must_use]
     #[inline]
-    pub fn round(self) -> Self {
+    pub const fn round(self) -> Self {
         Self {
             x: self.x.round(),
             y: self.y.round(),
@@ -1430,14 +1430,14 @@ impl Vec2 {
     /// The smallest of the two components.
     #[must_use]
     #[inline]
-    pub fn min_component(self) -> f32 {
+    pub const fn min_component(self) -> f32 {
         self.x.min(self.y)
     }
 
     /// The largest of the two components.
     #[must_use]
     #[inline]
-    pub fn max_component(self) -> f32 {
+    pub const fn max_component(self) -> f32 {
         self.x.max(self.y)
     }
 
@@ -2230,7 +2230,7 @@ impl Vec3 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn min_component(self) -> f32 {
+    pub const fn min_component(self) -> f32 {
         self.x.min(self.y).min(self.z)
     }
 
@@ -2243,7 +2243,7 @@ impl Vec3 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn max_component(self) -> f32 {
+    pub const fn max_component(self) -> f32 {
         self.x.max(self.y).max(self.z)
     }
 
@@ -2429,7 +2429,7 @@ impl Vec3 {
     /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
     #[must_use]
     #[inline]
-    pub fn sign(self) -> Self {
+    pub const fn sign(self) -> Self {
         Self {
             x: self.x.signum(),
             y: self.y.signum(),
@@ -2440,7 +2440,7 @@ impl Vec3 {
     /// Component-wise floor (round toward negative infinity).
     #[must_use]
     #[inline]
-    pub fn floor(self) -> Self {
+    pub const fn floor(self) -> Self {
         Self {
             x: self.x.floor(),
             y: self.y.floor(),
@@ -2451,7 +2451,7 @@ impl Vec3 {
     /// Component-wise ceiling (round toward positive infinity).
     #[must_use]
     #[inline]
-    pub fn ceil(self) -> Self {
+    pub const fn ceil(self) -> Self {
         Self {
             x: self.x.ceil(),
             y: self.y.ceil(),
@@ -2462,7 +2462,7 @@ impl Vec3 {
     /// Component-wise round (round to nearest, ties to even).
     #[must_use]
     #[inline]
-    pub fn round(self) -> Self {
+    pub const fn round(self) -> Self {
         Self {
             x: self.x.round(),
             y: self.y.round(),
@@ -3030,7 +3030,7 @@ impl Mat4 {
     /// assert!((result.y - 2.0).abs() < 1e-5);
     /// ```
     #[must_use]
-    pub fn shear(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f32) -> Self {
+    pub const fn shear(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f32) -> Self {
         // Row-vector: v * M.  Column j of M is the destination for basis vector j.
         // Row 0 = X basis:   x → x + yx*y + zx*z
         // Row 1 = Y basis:   y → xy*x + y + zy*z
@@ -3861,7 +3861,7 @@ impl Mat4 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn row(&self, index: usize) -> Vec4 {
+    pub const fn row(&self, index: usize) -> Vec4 {
         Vec4::new(
             self.m[index][0],
             self.m[index][1],
@@ -5908,7 +5908,7 @@ impl Vec4 {
     /// Component-wise absolute value.
     #[must_use]
     #[inline]
-    pub fn abs(self) -> Self {
+    pub const fn abs(self) -> Self {
         Self {
             x: self.x.abs(),
             y: self.y.abs(),
@@ -5920,7 +5920,7 @@ impl Vec4 {
     /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
     #[must_use]
     #[inline]
-    pub fn sign(self) -> Self {
+    pub const fn sign(self) -> Self {
         Self {
             x: self.x.signum(),
             y: self.y.signum(),
@@ -5932,7 +5932,7 @@ impl Vec4 {
     /// Component-wise floor (round toward negative infinity).
     #[must_use]
     #[inline]
-    pub fn floor(self) -> Self {
+    pub const fn floor(self) -> Self {
         Self {
             x: self.x.floor(),
             y: self.y.floor(),
@@ -5944,7 +5944,7 @@ impl Vec4 {
     /// Component-wise ceiling (round toward positive infinity).
     #[must_use]
     #[inline]
-    pub fn ceil(self) -> Self {
+    pub const fn ceil(self) -> Self {
         Self {
             x: self.x.ceil(),
             y: self.y.ceil(),
@@ -5956,7 +5956,7 @@ impl Vec4 {
     /// Component-wise round (round to nearest, ties to even).
     #[must_use]
     #[inline]
-    pub fn round(self) -> Self {
+    pub const fn round(self) -> Self {
         Self {
             x: self.x.round(),
             y: self.y.round(),
@@ -5980,14 +5980,14 @@ impl Vec4 {
     /// Smallest of the four components.
     #[must_use]
     #[inline]
-    pub fn min_component(self) -> f32 {
+    pub const fn min_component(self) -> f32 {
         self.x.min(self.y).min(self.z).min(self.w)
     }
 
     /// Largest of the four components.
     #[must_use]
     #[inline]
-    pub fn max_component(self) -> f32 {
+    pub const fn max_component(self) -> f32 {
         self.x.max(self.y).max(self.z).max(self.w)
     }
 
@@ -7016,9 +7016,9 @@ mod tests_mat3 {
             Vec3::new(0.577, 0.577, 0.577).normalize(),
         ] {
             let (t, b) = basis_from_normal(n);
-            assert!(t.dot(n).abs() < 1e-4, "t⊥n failed for {:?}", n);
-            assert!(b.dot(n).abs() < 1e-4, "b⊥n failed for {:?}", n);
-            assert!(t.dot(b).abs() < 1e-4, "t⊥b failed for {:?}", n);
+            assert!(t.dot(n).abs() < 1e-4, "t⊥n failed for {n:?}");
+            assert!(b.dot(n).abs() < 1e-4, "b⊥n failed for {n:?}");
+            assert!(t.dot(b).abs() < 1e-4, "t⊥b failed for {n:?}");
             assert!((t.length() - 1.0).abs() < 1e-4);
             assert!((b.length() - 1.0).abs() < 1e-4);
         }
@@ -7758,10 +7758,10 @@ pub fn octahedral_decode(v: Vec2) -> Vec3 {
 /// assert_eq!(morton_encode_2d(0, 1), 0b10);
 /// assert_eq!(morton_encode_2d(3, 3), 0b1111);
 /// ```
-pub fn morton_encode_2d(x: u32, y: u32) -> u32 {
+pub const fn morton_encode_2d(x: u32, y: u32) -> u32 {
     /// Spread a 16-bit value into even bit positions.
     #[inline(always)]
-    fn part1by1(mut n: u32) -> u32 {
+    const fn part1by1(mut n: u32) -> u32 {
         n &= 0x0000_FFFF;
         n = (n | (n << 8)) & 0x00FF_00FF;
         n = (n | (n << 4)) & 0x0F0F_0F0F;
@@ -7782,10 +7782,10 @@ pub fn morton_encode_2d(x: u32, y: u32) -> u32 {
 /// assert_eq!(morton_decode_2d(0b10), (0, 1));
 /// assert_eq!(morton_decode_2d(0b1111), (3, 3));
 /// ```
-pub fn morton_decode_2d(code: u32) -> (u32, u32) {
+pub const fn morton_decode_2d(code: u32) -> (u32, u32) {
     /// Compact even-bit positions back into a contiguous value.
     #[inline(always)]
-    fn compact1by1(mut n: u32) -> u32 {
+    const fn compact1by1(mut n: u32) -> u32 {
         n &= 0x5555_5555;
         n = (n | (n >> 1)) & 0x3333_3333;
         n = (n | (n >> 2)) & 0x0F0F_0F0F;
@@ -7871,17 +7871,11 @@ mod tests_pass_17 {
             let (actual_sin, actual_cos) = fast_sin_cos(angle);
             assert!(
                 (actual_sin - expected_sin).abs() <= max_error,
-                "sin({}) expected {}, got {}",
-                angle,
-                expected_sin,
-                actual_sin
+                "sin({angle}) expected {expected_sin}, got {actual_sin}"
             );
             assert!(
                 (actual_cos - expected_cos).abs() <= max_error,
-                "cos({}) expected {}, got {}",
-                angle,
-                expected_cos,
-                actual_cos
+                "cos({angle}) expected {expected_cos}, got {actual_cos}"
             );
         }
     }
@@ -8105,9 +8099,9 @@ mod tests_pass_18 {
         let mut octants = [false; 8];
         for i in 0..n {
             let p = spherical_fibonacci(i, n);
-            let idx = ((p.x > 0.0) as usize)
-                | (((p.y > 0.0) as usize) << 1)
-                | (((p.z > 0.0) as usize) << 2);
+            let idx = usize::from(p.x > 0.0)
+                | (usize::from(p.y > 0.0) << 1)
+                | (usize::from(p.z > 0.0) << 2);
             octants[idx] = true;
         }
         assert!(octants.iter().all(|&v| v), "not all octants covered");
@@ -8278,7 +8272,7 @@ pub const fn prev_power_of_two(x: u32) -> u32 {
     if x == 0 {
         return 0;
     }
-    1 << (31 - x.leading_zeros())
+    1 << x.ilog2()
 }
 
 /// 5th-order ("Perlin's smootherstep") smooth interpolation.
@@ -8337,7 +8331,7 @@ pub fn smootherstep7(t: f32) -> f32 {
 /// assert_eq!(median3(5.0_f32, 1.0, 3.0), 3.0);
 /// assert_eq!(median3(2.0_f32, 2.0, 2.0), 2.0);
 /// ```
-pub fn median3(a: f32, b: f32, c: f32) -> f32 {
+pub const fn median3(a: f32, b: f32, c: f32) -> f32 {
     a.max(b).min(c).max(a.min(b))
 }
 
@@ -8627,7 +8621,7 @@ pub fn bayer8x8(x: u32, y: u32) -> f32 {
         [15, 47, 7, 39, 13, 45, 5, 37],
         [63, 31, 55, 23, 61, 29, 53, 21],
     ];
-    BAYER[(y & 7) as usize][(x & 7) as usize] as f32 / 64.0
+    f32::from(BAYER[(y & 7) as usize][(x & 7) as usize]) / 64.0
 }
 
 /// Convert a linear amplitude ratio to decibels: `20 * log10(|amplitude|)`.
@@ -8827,7 +8821,7 @@ mod tests_pass_20 {
 /// assert_eq!(min3(3.0_f32, 1.0, 2.0), 1.0);
 /// ```
 #[inline]
-pub fn min3(a: f32, b: f32, c: f32) -> f32 {
+pub const fn min3(a: f32, b: f32, c: f32) -> f32 {
     a.min(b).min(c)
 }
 
@@ -8840,7 +8834,7 @@ pub fn min3(a: f32, b: f32, c: f32) -> f32 {
 /// assert_eq!(max3(3.0_f32, 1.0, 2.0), 3.0);
 /// ```
 #[inline]
-pub fn max3(a: f32, b: f32, c: f32) -> f32 {
+pub const fn max3(a: f32, b: f32, c: f32) -> f32 {
     a.max(b).max(c)
 }
 
@@ -10063,7 +10057,7 @@ pub const fn gcd_u32(mut a: u32, mut b: u32) -> u32 {
 /// assert_eq!(lcm_u32(0, 5), 0);
 /// ```
 #[inline]
-pub fn lcm_u32(a: u32, b: u32) -> u32 {
+pub const fn lcm_u32(a: u32, b: u32) -> u32 {
     if a == 0 || b == 0 {
         0
     } else {
@@ -10583,7 +10577,7 @@ pub fn uncharted2_tonemap(x: f32) -> f32 {
 /// assert!((c - 0.282_094_8).abs() < 1e-5);
 /// ```
 #[inline]
-pub fn sh_y00() -> f32 {
+pub const fn sh_y00() -> f32 {
     0.282_094_79 // 1 / (2 * sqrt(π))
 }
 
@@ -13042,7 +13036,7 @@ pub fn blend_soft_light(a: f32, b: f32) -> f32 {
 /// ```
 #[must_use]
 #[inline]
-pub fn next_power_of_2(n: u32) -> u32 {
+pub const fn next_power_of_2(n: u32) -> u32 {
     if n == 0 { 1 } else { n.next_power_of_two() }
 }
 
@@ -13056,8 +13050,8 @@ pub fn next_power_of_2(n: u32) -> u32 {
 /// ```
 #[must_use]
 #[inline]
-pub fn is_power_of_2(n: u32) -> bool {
-    n > 0 && (n & (n - 1)) == 0
+pub const fn is_power_of_2(n: u32) -> bool {
+    n > 0 && n.is_power_of_two()
 }
 
 /// Ceiling integer log₂: smallest `k` such that `2^k ≥ n`.
@@ -13073,7 +13067,7 @@ pub fn is_power_of_2(n: u32) -> bool {
 /// ```
 #[must_use]
 #[inline]
-pub fn log2_ceil(n: u32) -> u32 {
+pub const fn log2_ceil(n: u32) -> u32 {
     if n <= 1 {
         return 0;
     }
@@ -13289,7 +13283,7 @@ mod tests_pass_34 {
     fn depth_midpoint_is_nonlinear() {
         // Non-linear: NDC=0.5 should NOT map to (near+far)/2.
         let z = depth_linearize(0.5, 1.0, 100.0);
-        let mid = (1.0_f32 + 100.0) / 2.0;
+        let mid = f32::midpoint(1.0_f32, 100.0);
         assert!(
             (z - mid).abs() > 0.5,
             "should be non-linear: {z} vs linear mid {mid}"
@@ -13454,8 +13448,8 @@ pub fn unpack_unorm_4x8(packed: u32) -> (f32, f32, f32, f32) {
 #[must_use]
 #[inline]
 pub fn pack_snorm_2x16(x: f32, y: f32) -> u32 {
-    let xi = (x.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16 as u32;
-    let yi = (y.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16 as u32;
+    let xi = u32::from((x.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16);
+    let yi = u32::from((y.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16);
     xi | (yi << 16)
 }
 
@@ -13463,8 +13457,8 @@ pub fn pack_snorm_2x16(x: f32, y: f32) -> u32 {
 #[must_use]
 #[inline]
 pub fn unpack_snorm_2x16(packed: u32) -> (f32, f32) {
-    let x = ((packed & 0xFFFF) as i16 as f32 / 32_767.0).clamp(-1.0, 1.0);
-    let y = (((packed >> 16) & 0xFFFF) as i16 as f32 / 32_767.0).clamp(-1.0, 1.0);
+    let x = (f32::from((packed & 0xFFFF) as i16) / 32_767.0).clamp(-1.0, 1.0);
+    let y = (f32::from(((packed >> 16) & 0xFFFF) as i16) / 32_767.0).clamp(-1.0, 1.0);
     (x, y)
 }
 
@@ -14245,14 +14239,14 @@ pub fn wrap_angle(angle: f32) -> f32 {
 /// A second, distinct PCG-output-stage hash — uses a different multiplier than
 /// the `pcg_hash` const fn already in this module (which uses the Murmur3 final
 /// mix). This one uses the PCG-XSH-RR permutation from O'Neill 2014.
-pub fn pcg32_output(state: u32) -> u32 {
+pub const fn pcg32_output(state: u32) -> u32 {
     let s = state.wrapping_mul(747_796_405).wrapping_add(2_891_336_453);
     let w = ((s >> ((s >> 28).wrapping_add(4))) ^ s).wrapping_mul(277_803_737);
     (w >> 22) ^ w
 }
 
 /// 2D PCG hash: (u32, u32) → u32. Good spatial decorrelation.
-pub fn pcg32_hash_2d(x: u32, y: u32) -> u32 {
+pub const fn pcg32_hash_2d(x: u32, y: u32) -> u32 {
     pcg32_output(x.wrapping_add(pcg32_output(y)))
 }
 
@@ -15076,7 +15070,7 @@ mod tests_pass_42 {
     fn bisect_sin_root() {
         // sin(x) = 0 near x = π
         use std::f32::consts::PI;
-        let (root, converged) = bisect(|x| x.sin(), 3.0, 3.5, 1e-6, 60);
+        let (root, converged) = bisect(f32::sin, 3.0, 3.5, 1e-6, 60);
         assert!(converged);
         assert!((root - PI).abs() < 1e-4, "root={root}");
     }
@@ -15262,7 +15256,7 @@ pub fn fit_plane_to_points(points: &[Vec3]) -> Option<(Vec3, Vec3)> {
     } else if norms[1] >= norms[2] {
         (1, if norms[0] >= norms[2] { 0 } else { 2 })
     } else {
-        (2, if norms[0] >= norms[1] { 0 } else { 1 })
+        (2, usize::from(norms[0] < norms[1]))
     };
     let raw = col[i0].cross(col[i1]);
     let len = raw.length();
@@ -15964,12 +15958,12 @@ pub fn morton_decode_3d(code: u32) -> (u32, u32, u32) {
 ///
 /// Adjacent Gray codes differ by exactly one bit — useful for rotary encoders,
 /// error-resilient counters, and Karnaugh maps.
-pub fn gray_code_encode(n: u32) -> u32 {
+pub const fn gray_code_encode(n: u32) -> u32 {
     n ^ (n >> 1)
 }
 
 /// Decode a Gray code back to binary.
-pub fn gray_code_decode(mut g: u32) -> u32 {
+pub const fn gray_code_decode(mut g: u32) -> u32 {
     // Each bit depends on all higher bits via XOR cascade.
     g ^= g >> 16;
     g ^= g >> 8;
@@ -15984,7 +15978,7 @@ pub fn gray_code_decode(mut g: u32) -> u32 {
 /// Multiplying by the closest integer to `2^32 / φ` spreads sequential
 /// integers uniformly across the u32 range. Ideal for hash-table probing
 /// and low-discrepancy index-to-bin mapping.
-pub fn fibonacci_hash_u32(n: u32) -> u32 {
+pub const fn fibonacci_hash_u32(n: u32) -> u32 {
     // 2^32 / φ ≈ 2654435769 (Knuth multiplicative hash)
     n.wrapping_mul(2_654_435_769)
 }
@@ -15993,7 +15987,7 @@ pub fn fibonacci_hash_u32(n: u32) -> u32 {
 ///
 /// Used to build the van der Corput low-discrepancy sequence:
 /// `corput(i) = reverse_bits_u32(i) as f32 / 2^32`.
-pub fn reverse_bits_u32(mut n: u32) -> u32 {
+pub const fn reverse_bits_u32(mut n: u32) -> u32 {
     n = ((n & 0xffff_0000) >> 16) | ((n & 0x0000_ffff) << 16);
     n = ((n & 0xff00_ff00) >> 8) | ((n & 0x00ff_00ff) << 8);
     n = ((n & 0xf0f0_f0f0) >> 4) | ((n & 0x0f0f_0f0f) << 4);
@@ -16070,7 +16064,7 @@ mod tests_pass_46 {
     fn gray_code_adjacent_one_bit_diff() {
         for n in 0u32..=254 {
             let diff = gray_code_encode(n) ^ gray_code_encode(n + 1);
-            assert!(diff.count_ones() == 1, "n={n} diff={diff:b}");
+            assert!(diff.is_power_of_two(), "n={n} diff={diff:b}");
         }
     }
 
@@ -16954,7 +16948,7 @@ mod tests_pass_50 {
     fn finite_diff_sin_derivative() {
         // d/dx sin(x) = cos(x); f32 precision limits us to ~1e-4
         let x = 1.0_f32;
-        let d = finite_diff_deriv(|x| x.sin(), x, 1e-3);
+        let d = finite_diff_deriv(f32::sin, x, 1e-3);
         assert!((d - x.cos()).abs() < 1e-3, "d={d} cos={}", x.cos());
     }
 
@@ -17106,9 +17100,7 @@ pub fn convex_hull_2d(points: &[Vec2]) -> Vec<Vec2> {
     let pivot_idx = pts
         .iter()
         .enumerate()
-        .min_by(|(_, a), (_, b)| {
-            a.y.total_cmp(&b.y).then(a.x.total_cmp(&b.x))
-        })
+        .min_by(|(_, a), (_, b)| a.y.total_cmp(&b.y).then(a.x.total_cmp(&b.x)))
         .map_or(0, |(i, _)| i);
     pts.swap(0, pivot_idx);
     let pivot = pts[0];
