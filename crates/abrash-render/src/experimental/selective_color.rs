@@ -46,7 +46,7 @@ pub fn apply_selective_color(fb: &mut Framebuffer, config: &SelectiveColorConfig
             p // Keep original color
         } else {
             // Apply desaturation based on the configuration
-            let luma = pixel_luminance(p) as f32 / 255.0;
+            let luma = f32::from(pixel_luminance(p)) / 255.0;
             let gray_color = Color::new(luma, luma, luma, color.a);
 
             // Lerp between the original color and grayscale based on desaturation

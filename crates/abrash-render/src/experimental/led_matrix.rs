@@ -19,7 +19,7 @@ thread_local! {
 pub struct LedMatrixConfig {
     /// The size of each LED cell in pixels.
     pub cell_size: usize,
-    /// The radius of the glowing LED within the cell. Should be <= cell_size / 2.
+    /// The radius of the glowing LED within the cell. Should be <= `cell_size` / 2.
     pub led_radius: f32,
     /// How much to darken the background (0.0 = black, 1.0 = original color).
     pub background_darken: f32,
