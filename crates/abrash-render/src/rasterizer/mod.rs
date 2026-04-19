@@ -97,3 +97,6 @@ pub use self::tile::{
 // Re-export internal helpers for experimental modules
 pub(crate) use self::core::{EdgeWalker, is_backface, sort_by_y};
 pub(crate) use self::texture::{PerspectiveTextureEdgeWalker, RECIPROCAL_TABLE};
+
+#[cfg(test)]
+pub mod texture_havoc_test;
