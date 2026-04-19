@@ -684,6 +684,10 @@ name = "circle_oob_bench"
 harness = false
 
 [[bench]]
+name = "ellipse_bench"
+harness = false
+
+[[bench]]
 name = "mode7_bench"
 harness = false
 required-features = ["nova"]
