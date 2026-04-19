@@ -15,5 +15,6 @@ fn test_havoc_arboretum_oom() {
     // This is exactly the limit of the string expansion (100MB), so it will succeed.
     // However, when `generate_mesh` interprets the string, it pushes 100,000,000 Turtles.
     // 100M * 56 bytes = 5.6 GB allocation -> OOM / Crash
-    let _ = lsys.generate_mesh(8);
+    let res = lsys.generate_mesh(8);
+    assert!(res.is_err(), "Expected an error to prevent OOM");
 }
