@@ -1158,6 +1158,46 @@ fn draw_scanline_phong_shadowed(
 }
 
 /// Fill a 3D triangle with Phong Shading and Shadow Mapping.
+///
+/// # Arguments
+///
+/// * `fb` - Target framebuffer.
+/// * `zb` - Target Z-buffer.
+/// * `v0`, `v1`, `v2` - Vertices defined as `((ClipPos, W), Normal, WorldPos)`.
+/// * `base_color` - The base color of the triangle.
+/// * `light_dir` - Direction of the light source.
+/// * `light_color` - Color and intensity of the directional light.
+/// * `ambient` - Ambient light color added to the result.
+/// * `shadow_map` - The shadow map generated from the light's perspective.
+/// * `light_view_proj` - The View-Projection matrix used to render the shadow map.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_core::zbuffer::ZBuffer;
+/// use abrash_core::math::{Mat4, Vec3};
+/// use abrash_render::rasterizer::phong::fill_triangle_phong_shadowed;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+/// let shadow_map = ZBuffer::new(100, 100).unwrap();
+///
+/// let normal = Vec3::new(0.0, 0.0, 1.0);
+/// let v0 = ((Vec3::new(0.0, 5.0, 5.0), 5.0), normal, Vec3::new(0.0, 5.0, 0.0));
+/// let v1 = ((Vec3::new(-5.0, -5.0, 5.0), 5.0), normal, Vec3::new(-5.0, -5.0, 0.0));
+/// let v2 = ((Vec3::new(5.0, -5.0, 5.0), 5.0), normal, Vec3::new(5.0, -5.0, 0.0));
+///
+/// let light_dir = Vec3::new(1.0, -1.0, 1.0).normalize();
+/// let light_view_proj = Mat4::identity();
+///
+/// fill_triangle_phong_shadowed(
+///     &mut fb, &mut zb, v0, v1, v2,
+///     Vec3::new(1.0, 0.0, 0.0), // Red
+///     light_dir, Vec3::new(1.0, 1.0, 1.0), Vec3::new(0.1, 0.1, 0.1),
+///     &shadow_map, light_view_proj
+/// );
+/// ```
 #[allow(clippy::too_many_arguments)]
 pub fn fill_triangle_phong_shadowed(
     fb: &mut Framebuffer,
@@ -1856,6 +1896,44 @@ fn draw_scanline_phong(
 }
 
 /// Fill a 3D triangle with Phong Shading.
+///
+/// Interpolates normals across the triangle and calculates lighting per-pixel,
+/// resulting in smoother highlights than Gouraud shading.
+///
+/// # Arguments
+///
+/// * `fb` - Target framebuffer.
+/// * `zb` - Target Z-buffer.
+/// * `v0`, `v1`, `v2` - Vertices defined as `((ClipPos, W), Normal)`.
+/// * `base_color` - The base color of the triangle.
+/// * `light_dir` - Direction of the light source.
+/// * `light_color` - Color and intensity of the directional light.
+/// * `ambient` - Ambient light color added to the result.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_core::zbuffer::ZBuffer;
+/// use abrash_core::math::Vec3;
+/// use abrash_render::rasterizer::phong::fill_triangle_phong;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+///
+/// let normal = Vec3::new(0.0, 0.0, 1.0);
+/// let v0 = ((Vec3::new(0.0, 5.0, 5.0), 5.0), normal);
+/// let v1 = ((Vec3::new(-5.0, -5.0, 5.0), 5.0), normal);
+/// let v2 = ((Vec3::new(5.0, -5.0, 5.0), 5.0), normal);
+///
+/// let light_dir = Vec3::new(1.0, -1.0, 1.0).normalize();
+///
+/// fill_triangle_phong(
+///     &mut fb, &mut zb, v0, v1, v2,
+///     Vec3::new(1.0, 0.0, 0.0), // Red base color
+///     light_dir, Vec3::new(1.0, 1.0, 1.0), Vec3::new(0.1, 0.1, 0.1)
+/// );
+/// ```
 #[allow(clippy::too_many_arguments)]
 pub fn fill_triangle_phong(
     fb: &mut Framebuffer,

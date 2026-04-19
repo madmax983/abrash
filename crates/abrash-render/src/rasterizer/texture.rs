@@ -1772,6 +1772,36 @@ pub fn fill_triangle_textured(
 /// Fill a textured quad with Gouraud shading.
 ///
 /// Optimized for quads that are fully within the view frustum.
+///
+/// # Arguments
+///
+/// *   `fb` - Target framebuffer.
+/// *   `zb` - Target Z-buffer.
+/// *   `v0`, `v1`, `v2`, `v3` - Vertices defined as `((Position, W), Color, UV)`.
+///     The quad is assumed to be composed of two triangles: `(v0, v1, v2)` and `(v0, v2, v3)`.
+/// *   `texture` - The texture to map onto the quad.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_core::zbuffer::ZBuffer;
+/// use abrash_core::math::{Vec2, Vec3};
+/// use abrash_core::texture::Texture;
+/// use abrash_render::rasterizer::texture::fill_quad_textured_gouraud;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+/// let texture = Texture::new(32, 32).unwrap();
+///
+/// let color = Vec3::new(1.0, 1.0, 1.0);
+/// let v0 = ((Vec3::new(-5.0, 5.0, 5.0), 5.0), color, Vec2::new(0.0, 0.0));
+/// let v1 = ((Vec3::new(-5.0, -5.0, 5.0), 5.0), color, Vec2::new(0.0, 1.0));
+/// let v2 = ((Vec3::new(5.0, -5.0, 5.0), 5.0), color, Vec2::new(1.0, 1.0));
+/// let v3 = ((Vec3::new(5.0, 5.0, 5.0), 5.0), color, Vec2::new(1.0, 0.0));
+///
+/// fill_quad_textured_gouraud(&mut fb, &mut zb, v0, v1, v2, v3, &texture);
+/// ```
 #[allow(clippy::too_many_arguments)]
 pub fn fill_quad_textured_gouraud(
     fb: &mut Framebuffer,
@@ -2117,8 +2147,32 @@ fn fill_projected_triangle_textured_with_gradients(
 ///
 /// # Arguments
 ///
+/// *   `fb` - Target framebuffer.
+/// *   `zb` - Target Z-buffer.
 /// *   `v0`, `v1`, `v2`, `v3` - Vertices defined as `((Position, W), UV)`.
 ///     The quad is assumed to be composed of two triangles: `(v0, v1, v2)` and `(v0, v2, v3)`.
+/// *   `texture` - The texture to map onto the quad.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_core::zbuffer::ZBuffer;
+/// use abrash_core::math::{Vec2, Vec3};
+/// use abrash_core::texture::Texture;
+/// use abrash_render::rasterizer::texture::fill_quad_textured;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+/// let texture = Texture::new(32, 32).unwrap();
+///
+/// let v0 = ((Vec3::new(-5.0, 5.0, 5.0), 5.0), Vec2::new(0.0, 0.0));
+/// let v1 = ((Vec3::new(-5.0, -5.0, 5.0), 5.0), Vec2::new(0.0, 1.0));
+/// let v2 = ((Vec3::new(5.0, -5.0, 5.0), 5.0), Vec2::new(1.0, 1.0));
+/// let v3 = ((Vec3::new(5.0, 5.0, 5.0), 5.0), Vec2::new(1.0, 0.0));
+///
+/// fill_quad_textured(&mut fb, &mut zb, v0, v1, v2, v3, &texture);
+/// ```
 pub fn fill_quad_textured(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
