@@ -401,3 +401,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Thread-local Buffers with Rayon]**
 **Learning:** When extracting a `thread_local!` buffer using `buf.take()` to bypass `!Send` `RefMut` compile errors around Rayon parallel closures, the buffer drops at the end of the scope, destroying its capacity and effectively reintroducing heap allocations.
 **Action:** Always return the extracted buffer back to the `RefCell` after the parallel operation using `buf.replace(src_pixels);` to preserve the pre-allocated capacity.
+## [Bypass Redundant UTF-8 Validation]
+**Learning:** Bypassing UTF-8 validation using `unsafe { String::from_utf8_unchecked(bytes.clone()) }` on a pre-validated buffer is an effective zero-cost abstraction only when the validation cost is significant. Previously it was identified that if allocations dominate, the gain is negligible, but for long strings, skipping O(N) validation is a measurable zero-cost improvement.
+**Action:** When extracting large strings from byte buffers where the bytes are already known to be ASCII (e.g. from an `is_ascii()` check or generated purely from ASCII rules), use `String::from_utf8_unchecked` to completely eliminate redundant UTF-8 validation overhead.
