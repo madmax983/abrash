@@ -477,6 +477,10 @@ required-features = ["nova"]
 name = "cylinder_bench"
 harness = false
 
+[[bench]]
+name = "cone_bench"
+harness = false
+
 [[example]]
 name = "chromatic_aberration_demo"
 path = "examples/chromatic_aberration_demo.rs"
