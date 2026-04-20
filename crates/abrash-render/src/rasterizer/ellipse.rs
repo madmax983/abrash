@@ -1,3 +1,15 @@
+//! # Ellipse Rasterization 📐
+//!
+//! This module provides highly optimized routines for drawing and filling ellipses
+//! on a 2D [`Framebuffer`].
+//!
+//! Under the hood, these functions implement the Midpoint Ellipse Algorithm.
+//! To maximize performance, they automatically detect when the ellipse is fully
+//! contained within the screen bounds and switch to an ultra-fast, unsafe-backed
+//! path that avoids redundant bounds checks on every pixel.
+//!
+//! If you just need a circle, consider using the functions in the [`crate::rasterizer::circle`] module instead.
+
 use crate::framebuffer::Framebuffer;
 
 #[inline(always)]
@@ -40,6 +52,43 @@ fn draw_ellipse_points_unchecked(
     }
 }
 
+/// Draws the outline of an ellipse onto the provided [`Framebuffer`].
+///
+/// This uses the Midpoint Ellipse Algorithm. If the ellipse lies completely within
+/// the framebuffer's bounds, a fast-path without bounds-checking is used.
+///
+/// ## Parameters
+///
+/// * `fb` - A mutable reference to the destination `Framebuffer`.
+/// * `xc` - The X coordinate of the ellipse's center.
+/// * `yc` - The Y coordinate of the ellipse's center.
+/// * `rx` - The horizontal radius. Must be positive and `<= 16384`.
+/// * `ry` - The vertical radius. Must be positive and `<= 16384`.
+/// * `color` - The 32-bit ARGB color to draw.
+///
+/// ## Performance
+///
+/// ⚡⚡⚡ (Fast) - This function falls back to a fast-path if it determines
+/// that the entire ellipse fits on the screen, skipping all per-pixel bounds checks.
+///
+/// ## Panics
+///
+/// This function will not panic. Invalid bounds or coordinates will gracefully
+/// be ignored or clamped.
+///
+/// ## Examples
+///
+/// ```rust
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::rasterizer::ellipse::draw_ellipse;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// fb.clear(0xFF00_0000);
+///
+/// // Draw a white outline of an ellipse centered at (50, 50)
+/// // with horizontal radius 30 and vertical radius 15.
+/// draw_ellipse(&mut fb, 50, 50, 30, 15, 0xFFFF_FFFF);
+/// ```
 pub fn draw_ellipse(fb: &mut Framebuffer, xc: i32, yc: i32, rx: i32, ry: i32, color: u32) {
     if rx <= 0 || ry <= 0 || rx > 16384 || ry > 16384 {
         return;
@@ -166,6 +215,42 @@ fn draw_horizontal_line_unchecked(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32
     fb.as_mut_slice()[start_idx..=end_idx].fill(color);
 }
 
+/// Draws a solid, filled ellipse onto the provided [`Framebuffer`].
+///
+/// Instead of plotting individual pixels, this method operates on horizontal scanlines,
+/// allowing it to use efficient `fill` operations on memory spans. Like the outline
+/// function, it supports a bounds-free fast-path if the ellipse is fully on-screen.
+///
+/// ## Parameters
+///
+/// * `fb` - A mutable reference to the destination `Framebuffer`.
+/// * `xc` - The X coordinate of the ellipse's center.
+/// * `yc` - The Y coordinate of the ellipse's center.
+/// * `rx` - The horizontal radius. Must be positive and `<= 16384`.
+/// * `ry` - The vertical radius. Must be positive and `<= 16384`.
+/// * `color` - The 32-bit ARGB color to fill the shape with.
+///
+/// ## Performance
+///
+/// ⚡⚡⚡⚡ (Very Fast) - Operates by drawing continuous horizontal memory spans rather
+/// than plotting individual points, drastically reducing overhead.
+///
+/// ## Panics
+///
+/// This function will not panic. Invalid inputs are handled safely.
+///
+/// ## Examples
+///
+/// ```rust
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::rasterizer::ellipse::fill_ellipse;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// fb.clear(0xFF00_0000);
+///
+/// // Draw a solid red ellipse in the center.
+/// fill_ellipse(&mut fb, 50, 50, 40, 20, 0xFFFF_0000);
+/// ```
 pub fn fill_ellipse(fb: &mut Framebuffer, xc: i32, yc: i32, rx: i32, ry: i32, color: u32) {
     if rx <= 0 || ry <= 0 || rx > 16384 || ry > 16384 {
         return;
