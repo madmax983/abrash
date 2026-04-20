@@ -15,7 +15,14 @@ fn draw_ellipse_points(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, c
 }
 
 #[inline(always)]
-fn draw_ellipse_points_unchecked(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
+fn draw_ellipse_points_unchecked(
+    fb: &mut Framebuffer,
+    xc: i32,
+    yc: i32,
+    x: i32,
+    y: i32,
+    color: u32,
+) {
     let w = fb.width() as usize;
     let slice = fb.as_mut_slice();
 
@@ -75,7 +82,8 @@ pub fn draw_ellipse(fb: &mut Framebuffer, xc: i32, yc: i32, rx: i32, ry: i32, co
         }
 
         // Region 2
-        let mut p2 = ry_sq * i64::from(x) * i64::from(x) + ry_sq * i64::from(x)
+        let mut p2 = ry_sq * i64::from(x) * i64::from(x)
+            + ry_sq * i64::from(x)
             + rx_sq * i64::from(y - 1) * i64::from(y - 1)
             - rx_sq * ry_sq;
 
@@ -111,7 +119,8 @@ pub fn draw_ellipse(fb: &mut Framebuffer, xc: i32, yc: i32, rx: i32, ry: i32, co
         }
 
         // Region 2
-        let mut p2 = ry_sq * i64::from(x) * i64::from(x) + ry_sq * i64::from(x)
+        let mut p2 = ry_sq * i64::from(x) * i64::from(x)
+            + ry_sq * i64::from(x)
             + rx_sq * i64::from(y - 1) * i64::from(y - 1)
             - rx_sq * ry_sq;
 
@@ -205,7 +214,8 @@ pub fn fill_ellipse(fb: &mut Framebuffer, xc: i32, yc: i32, rx: i32, ry: i32, co
         }
 
         // Region 2
-        let mut p2 = ry_sq * i64::from(x) * i64::from(x) + ry_sq * i64::from(x)
+        let mut p2 = ry_sq * i64::from(x) * i64::from(x)
+            + ry_sq * i64::from(x)
             + rx_sq * i64::from(y - 1) * i64::from(y - 1)
             - rx_sq * ry_sq;
 
@@ -250,7 +260,8 @@ pub fn fill_ellipse(fb: &mut Framebuffer, xc: i32, yc: i32, rx: i32, ry: i32, co
         }
 
         // Region 2
-        let mut p2 = ry_sq * i64::from(x) * i64::from(x) + ry_sq * i64::from(x)
+        let mut p2 = ry_sq * i64::from(x) * i64::from(x)
+            + ry_sq * i64::from(x)
             + rx_sq * i64::from(y - 1) * i64::from(y - 1)
             - rx_sq * ry_sq;
 

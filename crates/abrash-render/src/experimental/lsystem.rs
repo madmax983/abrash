@@ -119,7 +119,7 @@ impl LSystem {
                 // Bolt Performance Optimization:
                 // Reconstruct string from raw bytes directly avoiding unicode character parsing overhead
                 std::str::from_utf8(current_bytes)
-                    .map(|s| s.to_string())
+                    .map(std::string::ToString::to_string)
                     .map_err(|_| "L-System utf8 decoding error")
             });
         }

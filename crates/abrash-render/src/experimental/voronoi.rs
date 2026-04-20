@@ -117,7 +117,9 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                     // ⚡ Bolt: Fast approximation of powf(1/3) using cbrt
                     (dx * dx * dx + dy * dy * dy).cbrt()
                 } else if (metric - 4.0).abs() < f32::EPSILON {
-                    let x2 = dx * dx; let y2 = dy * dy; (x2 * x2 + y2 * y2).sqrt().sqrt()
+                    let x2 = dx * dx;
+                    let y2 = dy * dy;
+                    x2.hypot(y2).sqrt()
                 } else {
                     // General case
                     (dx.powf(metric) + dy.powf(metric)).powf(1.0 / metric)

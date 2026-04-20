@@ -28,3 +28,8 @@
 **Concept:** A post-processing effect that applies atmospheric distance fog to scenes by blending the rendered pixels with a fog color based on the depths stored in the Z-buffer.
 **Fate:** Implemented
 **Lesson:** By reading directly from the Z-buffer during the post-processing stage, realistic depth-based effects can be achieved independently of the vertex shading pass, keeping the rasterizer decoupled from atmospheric calculations while still yielding an immersive sense of scale.
+
+## [Topography Filter]
+**Concept:** A post-processing effect that converts an image into horizontal waveforms based on pixel luminance, simulating a 3D topographical map or the iconic 'Joy Division - Unknown Pleasures' aesthetic.
+**Fate:** Implemented
+**Lesson:** Iterating from top-to-bottom (back-to-front) and masking out the area below the displaced scanlines using a painter's algorithm effectively creates layered depth and occlusion without the need for a z-buffer. Squaring the luminance mapping helps create sharper peaks.
