@@ -401,3 +401,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Thread-local Buffers with Rayon]**
 **Learning:** When extracting a `thread_local!` buffer using `buf.take()` to bypass `!Send` `RefMut` compile errors around Rayon parallel closures, the buffer drops at the end of the scope, destroying its capacity and effectively reintroducing heap allocations.
 **Action:** Always return the extracted buffer back to the `RefCell` after the parallel operation using `buf.replace(src_pixels);` to preserve the pre-allocated capacity.
+
+**Pre-calculating Squared Thresholds**
+**Learning:** In hot pixel processing loops (like edge detection or distance fields), calculating the exact magnitude using `sqrt()` for every pixel is a severe bottleneck.
+**Action:** Pre-calculate a squared threshold outside the loop (using a larger integer type like `u64` to prevent overflow) and compare it against the squared magnitude (e.g., `gx*gx + gy*gy`). This safely elides the expensive `sqrt()` and floating-point cast operations for the vast majority of non-edge pixels.

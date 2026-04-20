@@ -70,6 +70,9 @@ pub fn apply_neon_outline(fb: &mut Framebuffer, config: &NeonOutlineConfig) {
         #[cfg(not(feature = "parallel"))]
         let row_iter = dest_pixels.chunks_exact_mut(width).enumerate();
 
+        // ⚡ Bolt: Pre-calculate the squared threshold outside the loop (cast to u64 to prevent overflow)
+        let threshold_sq = (config.threshold as u64) * (config.threshold as u64);
+
         row_iter.for_each(|(y, row)| {
             for (x, pixel_out) in row.iter_mut().enumerate() {
                 // Keep the border pixels as dark background or original
@@ -106,9 +109,20 @@ pub fn apply_neon_outline(fb: &mut Framebuffer, config: &NeonOutlineConfig) {
                 let gx = (tr + 2 * cr + br) - (tl + 2 * cl + bl);
                 let gy = (bl + 2 * bc + br) - (tl + 2 * tc + tr);
 
-                let magnitude = ((gx * gx + gy * gy) as f32).sqrt() as u32;
+                let magnitude_sq = (gx * gx + gy * gy) as u64;
 
-                if magnitude > config.threshold {
+                if magnitude_sq > threshold_sq {
+                    // ⚡ Bolt: Only compute the expensive float cast and sqrt when passing the edge threshold.
+                    let magnitude = (magnitude_sq as f32).sqrt() as u32;
+
+                    // ⚡ Bolt: Due to integer truncation, magnitude_sq > threshold_sq might be true
+                    // while magnitude <= threshold. We must cleanly fallback to background blend here to avoid dark halos.
+                    if magnitude <= config.threshold {
+                        let original = src_pixels[y * width + x];
+                        *pixel_out = blend_color(0xFF_000000, original, config.background_blend);
+                        return;
+                    }
+
                     // Normalize gx and gy to find the edge direction
                     let abs_gx = gx.abs() as f32;
                     let abs_gy = gy.abs() as f32;
@@ -120,8 +134,12 @@ pub fn apply_neon_outline(fb: &mut Framebuffer, config: &NeonOutlineConfig) {
                     let vertical_weight = abs_gx / total_g;
                     let horizontal_weight = abs_gy / total_g;
 
+                    // ⚡ Bolt: Only compute the expensive float cast and sqrt when passing the edge threshold.
+                    let magnitude = (magnitude_sq as f32).sqrt() as u32;
+
                     // The intensity of the glow depends on how far past the threshold we are
-                    let intensity = ((magnitude - config.threshold) as f32 / 100.0).clamp(0.0, 1.0);
+                    let intensity = ((magnitude.saturating_sub(config.threshold)) as f32 / 100.0)
+                        .clamp(0.0, 1.0);
 
                     let color = blend_neon(
                         config.color_horizontal,

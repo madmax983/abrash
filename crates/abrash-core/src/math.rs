@@ -17106,9 +17106,7 @@ pub fn convex_hull_2d(points: &[Vec2]) -> Vec<Vec2> {
     let pivot_idx = pts
         .iter()
         .enumerate()
-        .min_by(|(_, a), (_, b)| {
-            a.y.total_cmp(&b.y).then(a.x.total_cmp(&b.x))
-        })
+        .min_by(|(_, a), (_, b)| a.y.total_cmp(&b.y).then(a.x.total_cmp(&b.x)))
         .map_or(0, |(i, _)| i);
     pts.swap(0, pivot_idx);
     let pivot = pts[0];
