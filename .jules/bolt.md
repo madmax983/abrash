@@ -1,3 +1,7 @@
+**[O(1) Array Lookups vs O(N) Vec::contains]**
+**Learning:** In algorithms like topological sorting, checking if an element has been processed using `Vec::contains` inside a loop results in an O(N^2) bottleneck. Replacing this with a pre-allocated boolean vector (`vec![false; N]`) for O(1) lookups provides massive speedups (e.g., 10x) for large datasets.
+**Action:** Replace `!sorted.contains(&i)` with an O(1) boolean vector lookup when iterating over elements.
+
 **[Eliminate bounds check panics with min/max chaining]**
 **Learning:** Replacing `.clamp(min, max)` with `.max(min).min(max)` on integers provides zero performance benefit, as LLVM optimizes both to the exact same assembly instructions. Furthermore, this anti-pattern triggers the `clippy::manual_clamp` lint.
 **Action:** Do not replace `clamp` with `.max(min).min(max)` on integers for performance.
