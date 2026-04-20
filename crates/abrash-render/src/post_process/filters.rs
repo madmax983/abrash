@@ -45,13 +45,25 @@ pub fn apply_gamma_correction(fb: &mut Framebuffer, gamma: f32) {
     let pixels = fb.as_mut_slice();
     let inv_gamma = 1.0 / gamma;
 
-    // Precompute a 256-element Look-Up Table (LUT)
-    let mut lut = [0u32; 256];
-    for (i, entry) in lut.iter_mut().enumerate() {
-        let normalized = (i as f32) / 255.0;
-        let corrected = (255.0 * normalized.powf(inv_gamma)) as u32;
-        *entry = corrected.clamp(0, 255);
+    // ⚡ Bolt: Cache the 256-element Look-Up Table (LUT) per thread to avoid 256
+    // calls to `powf` every frame. Gamma is generally a static or rarely-changed
+    // value, making it an ideal candidate for caching.
+    thread_local! {
+        static CACHED_GAMMA_LUT: std::cell::RefCell<(f32, [u32; 256])> = const { std::cell::RefCell::new((-1.0, [0u32; 256])) };
     }
+
+    let lut = CACHED_GAMMA_LUT.with(|cache| {
+        let mut c = cache.borrow_mut();
+        if (c.0 - gamma).abs() > f32::EPSILON {
+            c.0 = gamma;
+            for (i, entry) in c.1.iter_mut().enumerate() {
+                let normalized = (i as f32) / 255.0;
+                let corrected = (255.0 * normalized.powf(inv_gamma)) as u32;
+                *entry = corrected.clamp(0, 255);
+            }
+        }
+        c.1
+    });
 
     // Apply LUT to all pixels
     for pixel in pixels.iter_mut() {
@@ -752,12 +764,26 @@ fn apply_color_adjust_scalar(pixels: &mut [u32], brightness: i32, contrast: f32)
     // the adjusted and clamped values for all 256 possible inputs.
     // This removes 3 multiplications, 6 additions/subtractions, and 3 clamp operations
     // from the inner loop per pixel, significantly reducing CPU cycles on large framebuffers.
-    let mut lut = [0u32; 256];
-    for (i, entry) in lut.iter_mut().enumerate() {
-        let val = i as i32;
-        let new_val = (((val - 128) * contrast_fixed) >> 8) + 128 + brightness;
-        *entry = new_val.clamp(0, 255) as u32;
+    //
+    // ⚡ Bolt: Cache the 256-element Look-Up Table (LUT) per thread to avoid redundant
+    // calculations every frame. Brightness and contrast are generally static.
+    thread_local! {
+        static CACHED_COLOR_ADJUST_LUT: std::cell::RefCell<(i32, f32, [u32; 256])> = const { std::cell::RefCell::new((-1, -1.0, [0u32; 256])) };
     }
+
+    let lut = CACHED_COLOR_ADJUST_LUT.with(|cache| {
+        let mut c = cache.borrow_mut();
+        if c.0 != brightness || (c.1 - contrast).abs() > f32::EPSILON {
+            c.0 = brightness;
+            c.1 = contrast;
+            for (i, entry) in c.2.iter_mut().enumerate() {
+                let val = i as i32;
+                let new_val = (((val - 128) * contrast_fixed) >> 8) + 128 + brightness;
+                *entry = new_val.clamp(0, 255) as u32;
+            }
+        }
+        c.2
+    });
 
     for pixel in pixels.iter_mut() {
         let p = *pixel;
