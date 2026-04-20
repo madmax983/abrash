@@ -82,6 +82,7 @@ pub mod sdf;
 pub mod selective_color;
 pub mod sharpen;
 pub mod slitscan;
+pub mod sonar;
 pub mod speed_lines;
 pub mod starfield;
 pub mod steganography;

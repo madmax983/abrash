@@ -33,3 +33,8 @@
 **Concept:** A post-processing effect that converts an image into horizontal waveforms based on pixel luminance, simulating a 3D topographical map or the iconic 'Joy Division - Unknown Pleasures' aesthetic.
 **Fate:** Implemented
 **Lesson:** Iterating from top-to-bottom (back-to-front) and masking out the area below the displaced scanlines using a painter's algorithm effectively creates layered depth and occlusion without the need for a z-buffer. Squaring the luminance mapping helps create sharper peaks.
+
+## [Sonar / Echolocation Filter]
+**Concept:** A post-processing effect that visualizes depth as sweeping sonar waves radiating from the camera over time, mapped directly from the Z-Buffer values.
+**Fate:** Implemented
+**Lesson:** Using simple math like scaling and trigonometric functions (sine) on depth values creates an extremely convincing procedural mapping for sonar waves. Darkening geometry based on its distance effectively merges the geometry into a solid background, creating an eerie atmosphere completely in screen-space.
