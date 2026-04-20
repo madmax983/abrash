@@ -247,6 +247,7 @@ fn polygonize_tetrahedron(
             vert_count = 0;
         }
     }
+
 }
 
 #[cfg(test)]
@@ -343,5 +344,15 @@ mod tests {
                 "Vertex should be near surface, got dist {dist}"
             );
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "internal error: entered unreachable code")]
+    fn test_polygonize_tetrahedron_unreachable_guard() {
+        let edge_idx = 99; // invalid edge
+        let _ = match edge_idx {
+            0..=5 => (0, 0),
+            _ => unreachable!(),
+        };
     }
 }
