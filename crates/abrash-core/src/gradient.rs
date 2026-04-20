@@ -149,15 +149,19 @@ impl Gradient {
     /// # Panics
     ///
     /// Panics if `n == 0`.
+    ///
+    /// ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
+    /// This prevents intermediate allocator resizing chains because `ExactSizeIterator` optimizations
+    /// for complex iterator mapping can sometimes fail to inline optimally in the frontend.
     #[must_use]
     pub fn sample_n(&self, n: usize) -> Vec<Color> {
         assert!(n > 0, "sample_n requires n >= 1");
         if n == 1 {
             return vec![self.sample(0.5)];
         }
-        (0..n)
-            .map(|i| self.sample(i as f32 / (n - 1) as f32))
-            .collect()
+        let mut samples = Vec::with_capacity(n);
+        samples.extend((0..n).map(|i| self.sample(i as f32 / (n - 1) as f32)));
+        samples
     }
 
     /// Return a new gradient with an additional stop inserted.

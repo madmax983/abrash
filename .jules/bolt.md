@@ -9,3 +9,6 @@
 **[Workspace vs Child Crate Dependencies]**
 **Learning:** Inherited workspace dependencies (like `foldhash`) cannot be used inside individual child crates without explicitly adding them to that specific crate's `Cargo.toml`. If a rule forbids modifying `Cargo.toml` without instruction, optimizing via such dependencies is blocked and must be avoided.
 **Action:** Evaluate dependencies within the exact scope of the sub-crate `Cargo.toml` rather than the workspace root `Cargo.toml` when determining if a crate can be used.
+## [Prevent Allocator Resizing Chains in Iterator Maps]
+**Learning:** Replacing `.collect::<Vec<_>>().` with `Vec::with_capacity(n)` followed by `.extend(...)` prevents intermediate allocator resizing chains. This is particularly effective when `ExactSizeIterator` optimizations for complex iterator mapping fail to inline optimally in the frontend.
+**Action:** Use `Vec::with_capacity` and `extend` instead of `.collect()` for known-size iterators doing complex maps.

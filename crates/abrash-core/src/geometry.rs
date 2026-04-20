@@ -256,8 +256,16 @@ impl Cylinder {
     pub fn to_aabb(&self) -> AABB {
         let half_h = self.height * 0.5;
         AABB::new(
-            Vec3::new(self.center.x - self.radius, self.center.y - half_h, self.center.z - self.radius),
-            Vec3::new(self.center.x + self.radius, self.center.y + half_h, self.center.z + self.radius),
+            Vec3::new(
+                self.center.x - self.radius,
+                self.center.y - half_h,
+                self.center.z - self.radius,
+            ),
+            Vec3::new(
+                self.center.x + self.radius,
+                self.center.y + half_h,
+                self.center.z + self.radius,
+            ),
         )
     }
 }
