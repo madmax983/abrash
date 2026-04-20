@@ -593,6 +593,16 @@ name = "tilt_shift_demo"
 path = "examples/tilt_shift_demo.rs"
 required-features = ["nova"]
 
+[[bench]]
+name = "sonar_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "sonar_demo"
+path = "examples/sonar_demo.rs"
+required-features = ["nova"]
+
 [[example]]
 name = "halftone_demo"
 path = "examples/halftone_demo.rs"
