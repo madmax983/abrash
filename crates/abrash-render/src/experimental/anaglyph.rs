@@ -159,7 +159,8 @@ fn process_row(
             normalized_shift = normalized_shift.clamp(-1.0, 1.0);
 
             #[allow(clippy::cast_possible_truncation)]
-            let shift = (normalized_shift * config.max_offset as f32).round() as i32;
+            // ⚡ Bolt: Replace f32::round() with fast integer casting
+            let shift = (((normalized_shift * config.max_offset as f32) + 16384.5) as i32 as f32 - 16384.0) as i32;
 
             if (src_x as i32 + shift) == x_i32 {
                 // This src_x shifts its red to x
@@ -205,7 +206,8 @@ fn process_row(
             } else {
                 let mut ns = 1.0 - (my_d / config.focal_depth);
                 ns = ns.clamp(-1.0, 1.0);
-                (ns * config.max_offset as f32).round() as i32
+                // ⚡ Bolt: Replace f32::round() with fast integer casting
+                (((ns * config.max_offset as f32) + 16384.5) as i32 as f32 - 16384.0) as i32
             };
 
             if my_shift != 0 {

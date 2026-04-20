@@ -105,7 +105,9 @@ fn apply_ordered_dither(fb: &mut Framebuffer, depth: u8, matrix: &[u8], size: us
     for i in 0..size * size {
         let bayer_val = f32::from(matrix[i]);
         let offset = (bayer_val - (size * size) as f32 * 0.5) * matrix_scale;
-        offset_table[i] = offset.round() as i32;
+        // ⚡ Bolt: Replace f32::round() with fast integer casting
+        // The coordinates are shifted by 16384.0 to ensure they are always positive
+        offset_table[i] = ((offset + 16384.5) as i32 as f32 - 16384.0) as i32;
     }
 
     for (y, row) in pixels.chunks_exact_mut(width).take(height).enumerate() {
@@ -180,9 +182,10 @@ fn apply_floyd_steinberg(fb: &mut Framebuffer, depth: u8) {
             let b_old = curr_row[idx + 2];
 
             // Offset by 128 to match LUT mapping
-            let r_new = quantize_lut[(r_old.round() as i32 + 128).clamp(0, 511) as usize];
-            let g_new = quantize_lut[(g_old.round() as i32 + 128).clamp(0, 511) as usize];
-            let b_new = quantize_lut[(b_old.round() as i32 + 128).clamp(0, 511) as usize];
+            // ⚡ Bolt: Replace f32::round() with fast integer casting
+            let r_new = quantize_lut[(((r_old + 16384.5) as i32 as f32 - 16384.0) as i32 + 128).clamp(0, 511) as usize];
+            let g_new = quantize_lut[(((g_old + 16384.5) as i32 as f32 - 16384.0) as i32 + 128).clamp(0, 511) as usize];
+            let b_new = quantize_lut[(((b_old + 16384.5) as i32 as f32 - 16384.0) as i32 + 128).clamp(0, 511) as usize];
 
             let p_idx = row_offset + x;
             pixels[p_idx] = (pixels[p_idx] & 0xFF00_0000)
@@ -223,8 +226,9 @@ fn quantize(val: f32, depth: u8) -> u8 {
     let levels = (1 << depth) - 1;
     let step = 255.0 / levels as f32;
 
-    let level = (val / step).round();
-    (level * step).round() as u8
+    // ⚡ Bolt: Replace f32::round() with fast integer casting
+    let level = ((val / step) + 16384.5) as i32 as f32 - 16384.0;
+    (((level * step) + 16384.5) as i32 as f32 - 16384.0) as u8
 }
 
 #[cfg(test)]

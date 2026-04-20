@@ -120,7 +120,8 @@ fn process_row(
             d = 1.0 - d; // Closer objects (smaller d) get larger shift
 
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            let s = (d * config.max_shift as f32).round() as u32;
+            // ⚡ Bolt: Replace f32::round() with fast integer casting
+            let s = (((d * config.max_shift as f32) + 16384.5) as i32 as f32 - 16384.0) as u32;
             s.min(config.pattern_width - 1)
         };
 
