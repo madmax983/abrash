@@ -15,32 +15,39 @@ impl Default for PosterizeConfig {
 }
 
 /// Applies a posterize effect to the given framebuffer in-place.
+///
+/// ⚡ **Bolt**: Pre-calculating the quantized values into a 256-element Look-Up Table (LUT)
+/// elides costly floating-point divisions and `f32::round()` operations from the hot
+/// per-pixel inner loop. Additionally, masking the alpha channel instead of shifting
+/// extracts it efficiently.
 pub fn apply_posterize(fb: &mut Framebuffer, config: &PosterizeConfig) {
     let levels = config.levels.max(2.0); // Minimum of 2 levels
     let levels_minus_1 = levels - 1.0;
+
+    // Precalculate LUT
+    let mut lut = [0u32; 256];
+    for (i, val) in lut.iter_mut().enumerate() {
+        let quantized =
+            ((i as f32 / 255.0 * levels_minus_1).round() / levels_minus_1 * 255.0) as u32;
+        *val = quantized.min(255);
+    }
 
     // Use chunks_exact_mut to eliminate bounds checking and option unwrapping
     let width = fb.width() as usize;
     for row in fb.as_mut_slice().chunks_exact_mut(width) {
         for pixel in row.iter_mut() {
             let p = *pixel;
-            // Extract channels
-            let a = (p >> 24) & 0xFF;
-            let r = ((p >> 16) & 0xFF) as f32;
-            let g = ((p >> 8) & 0xFF) as f32;
-            let b = (p & 0xFF) as f32;
+            // ⚡ Bolt: Fast alpha mask preservation
+            let a = p & 0xFF00_0000;
+            let r = ((p >> 16) & 0xFF) as usize;
+            let g = ((p >> 8) & 0xFF) as usize;
+            let b = (p & 0xFF) as usize;
 
-            // Posterize each channel
-            let new_r = ((r / 255.0 * levels_minus_1).round() / levels_minus_1 * 255.0) as u32;
-            let new_g = ((g / 255.0 * levels_minus_1).round() / levels_minus_1 * 255.0) as u32;
-            let new_b = ((b / 255.0 * levels_minus_1).round() / levels_minus_1 * 255.0) as u32;
+            let new_r = lut[r];
+            let new_g = lut[g];
+            let new_b = lut[b];
 
-            // Clamp to prevent overflow on precision errors
-            let new_r = new_r.min(255);
-            let new_g = new_g.min(255);
-            let new_b = new_b.min(255);
-
-            *pixel = (a << 24) | (new_r << 16) | (new_g << 8) | new_b;
+            *pixel = a | (new_r << 16) | (new_g << 8) | new_b;
         }
     }
 }
@@ -60,15 +67,6 @@ mod tests {
         let config = PosterizeConfig { levels: 2.0 };
         apply_posterize(&mut fb, &config);
 
-        // With 2 levels (0 and 255)
-        // 128 / 255 * 1.0 = 0.5019... -> round to 1.0 -> 1.0 / 1.0 * 255.0 = 255
-        // 112 / 255 * 1.0 = 0.439... -> round to 0.0 -> 0.0 / 1.0 * 255.0 = 0
-        // Oh, wait, 128 and 112 might round to different levels with levels=2.0.
-        // Let's use colors that will snap to the same level.
-        // If levels = 4 (0, 85, 170, 255):
-        // 110/255 * 3 = 1.29 -> round = 1 -> 85
-        // 120/255 * 3 = 1.41 -> round = 1 -> 85
-
         fb.set_pixel(0, 0, 0xFF6E6E6E); // 110
         fb.set_pixel(1, 0, 0xFF787878); // 120
 
@@ -80,5 +78,21 @@ mod tests {
 
         assert_eq!(p1, p2, "Pixels should be quantized to the same level");
         assert_eq!(p1, 0xFF555555, "Should be quantized to exactly 85 (0x55)"); // 85 is 0x55
+    }
+
+    #[test]
+    fn test_apply_posterize_preserves_alpha() {
+        let mut fb = Framebuffer::new(1, 1).unwrap();
+        fb.set_pixel(0, 0, 0x80123456); // Alpha is 0x80 (128)
+
+        let config = PosterizeConfig { levels: 2.0 };
+        apply_posterize(&mut fb, &config);
+
+        let p1 = fb.get_pixel(0, 0).unwrap();
+        assert_eq!(
+            p1 & 0xFF00_0000,
+            0x8000_0000,
+            "Alpha channel should be preserved exactly"
+        );
     }
 }
