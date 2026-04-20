@@ -222,12 +222,6 @@ where
     let event_loop_result = event_loop.run(move |event, event_loop_target| {
         event_loop_target.set_control_flow(ControlFlow::Poll);
 
-        let context = WindowContext {
-            event_loop: event_loop_target,
-            window: window_for_loop.clone(),
-            dt_seconds: 0.0,
-        };
-
         match event {
             Event::WindowEvent { event, window_id } if window_id == window_for_loop.id() => {
                 match event {
@@ -236,8 +230,9 @@ where
                         if size.width != 0 && size.height != 0 {
                             if let Err(error) = app.resize(
                                 WindowContext {
+                                    event_loop: event_loop_target,
+                                    window: window_for_loop.clone(),
                                     dt_seconds: 0.0,
-                                    ..context.clone()
                                 },
                                 size.width,
                                 size.height,
@@ -250,8 +245,9 @@ where
                     WindowEvent::RedrawRequested => {
                         let dt_seconds = clock.tick();
                         let redraw_context = WindowContext {
+                            event_loop: event_loop_target,
+                            window: window_for_loop.clone(),
                             dt_seconds,
-                            ..context.clone()
                         };
                         if let Err(error) = app.update(redraw_context.clone()) {
                             *error_slot.borrow_mut() = Some(HostError::App(error.to_string()));
@@ -262,6 +258,11 @@ where
                         }
                     }
                     other => {
+                        let context = WindowContext {
+                            event_loop: event_loop_target,
+                            window: window_for_loop.clone(),
+                            dt_seconds: 0.0,
+                        };
                         if let Err(error) = app.input(context, &other) {
                             *error_slot.borrow_mut() = Some(HostError::App(error.to_string()));
                             event_loop_target.exit();
