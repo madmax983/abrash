@@ -36,6 +36,7 @@ pub struct BorrowedRenderTarget<'a> {
 
 impl<'a> BorrowedRenderTarget<'a> {
     /// Create a borrowed render target from caller-owned slices.
+    #[allow(clippy::missing_errors_doc)]
     pub fn new(
         width: u32,
         height: u32,

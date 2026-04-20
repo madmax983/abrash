@@ -62,6 +62,7 @@ mod winit_demo {
     };
     use std::io;
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn run(width: u32, height: u32) -> Result<(), Box<dyn std::error::Error>> {
         run_windowed(EdgeGlowApp::new(width, height).unwrap());
         Ok(())

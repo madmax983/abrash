@@ -9864,7 +9864,7 @@ pub fn perlin_noise_2d(p: Vec2) -> f32 {
     fn grad2(hash: u32, dx: f32, dy: f32) -> f32 {
         // 8 unit gradients on the unit circle (octants)
         match hash & 7 {
-            0 => dx + dy,
+            0 | 12 => dx + dy,
             1 => dx - dy,
             2 => -dx + dy,
             3 => -dx - dy,
@@ -11779,8 +11779,8 @@ pub fn perlin_noise_3d(p: Vec3) -> f32 {
     fn grad3(hash: u32, dx: f32, dy: f32, dz: f32) -> f32 {
         // Perlin 2002 improved gradients — 12 midpoints of unit cube edges.
         match hash & 15 {
-            0 => dx + dy,
-            1 => -dx + dy,
+            0 | 12 => dx + dy,
+            1 | 13 => -dx + dy,
             2 => dx - dy,
             3 => -dx - dy,
             4 => dx + dz,
@@ -11788,12 +11788,9 @@ pub fn perlin_noise_3d(p: Vec3) -> f32 {
             6 => dx - dz,
             7 => -dx - dz,
             8 => dy + dz,
-            9 => -dy + dz,
+            9 | 14 => -dy + dz,
             10 => dy - dz,
-            11 => -dy - dz,
-            12 => dx + dy,
-            13 => -dx + dy,
-            14 => -dy + dz,
+
             _ => -dy - dz,
         }
     }
@@ -13985,8 +13982,9 @@ pub fn sphere_vs_frustum(centre: Vec3, radius: f32, planes: &[[f32; 4]; 6]) -> b
     true
 }
 
-/// Test whether an AABB (`min`, `max`) intersects the frustum. Uses the
-/// p-vertex (positive-vertex) test: for each plane the "most positive" corner
+/// Test whether an AABB (`min`, `max`) intersects the frustum.
+///
+/// Uses the p-vertex (positive-vertex) test: for each plane the "most positive" corner
 /// is tested; if that corner is outside the plane the AABB is fully outside.
 pub fn aabb_vs_frustum(min: Vec3, max: Vec3, planes: &[[f32; 4]; 6]) -> bool {
     for p in planes {
@@ -15932,10 +15930,10 @@ pub fn morton_encode_3d(x: u32, y: u32, z: u32) -> u32 {
     // Spread 10 bits of each coordinate into every third bit position.
     let spread = |mut v: u32| -> u32 {
         v &= 0x0000_03ff;
-        v = (v | (v << 16)) & 0x030000ff;
-        v = (v | (v << 8)) & 0x0300f00f;
-        v = (v | (v << 4)) & 0x030c30c3;
-        v = (v | (v << 2)) & 0x09249249;
+        v = (v | (v << 16)) & 0x0300_00ff;
+        v = (v | (v << 8)) & 0x0300_f00f;
+        v = (v | (v << 4)) & 0x030c_30c3;
+        v = (v | (v << 2)) & 0x0924_9249;
         v
     };
     spread(x) | (spread(y) << 1) | (spread(z) << 2)
@@ -15944,10 +15942,10 @@ pub fn morton_encode_3d(x: u32, y: u32, z: u32) -> u32 {
 /// Decode a 30-bit 3D Morton code back into `(x, y, z)`.
 pub fn morton_decode_3d(code: u32) -> (u32, u32, u32) {
     let compact = |mut v: u32| -> u32 {
-        v &= 0x09249249;
-        v = (v | (v >> 2)) & 0x030c30c3;
-        v = (v | (v >> 4)) & 0x0300f00f;
-        v = (v | (v >> 8)) & 0x030000ff;
+        v &= 0x0924_9249;
+        v = (v | (v >> 2)) & 0x030c_30c3;
+        v = (v | (v >> 4)) & 0x0300_f00f;
+        v = (v | (v >> 8)) & 0x0300_00ff;
         v = (v | (v >> 16)) & 0x0000_03ff;
         v
     };
@@ -18375,6 +18373,7 @@ pub fn hash_to_unit_vec3(seed: u32) -> Vec3 {
 pub fn blackbody_linear_rgb(kelvin: f32) -> (f32, f32, f32) {
     let t = kelvin.clamp(1667.0, 25_000.0);
     // Kang 2002 — chromaticity x as function of T.
+    #[allow(clippy::branches_sharing_code)]
     let x = if t < 4000.0 {
         let ti = 1.0 / t;
         -0.266_123_9e9 * ti * ti * ti - 0.234_358_0e6 * ti * ti + 0.877_695_6e3 * ti + 0.179_910

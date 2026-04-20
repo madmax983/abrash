@@ -17,3 +17,12 @@
 **Bloat:** `Evaluable` as a trait with single implementations in `abrash-anim`, which caused dynamic dispatch (`Box<dyn Evaluable<T>>`) throughout the animation sequences, timelines and skeletal clip evaluators.
 **Cut:** Replaced `Evaluable` trait with an `enum Evaluable<T>` containing `Keyframe`, `Hold` and `Sequence`. All dynamically dispatched `Box<dyn Evaluable<T>>` occurrences were removed and replaced with concrete enum variants, achieving zero-cost abstractions and keeping memory flat.
 **Saved:** Removed the use of dynamic dispatch/`Box` completely across `abrash-anim` and `abrash-skeletal`.
+## [Reduction]
+**Bloat:** Impossible match states in 2D and 3D perlin noise gradient calculation (`hash & 7` returning 12, 13, 14).
+**Cut:** Eliminated mathematically unreachable arms entirely, flattening the pattern logic and fulfilling the clippy `match_same_arms` warning without introducing dead code paths.
+**Saved:** Multiple lines of logical slop inside hot math paths.
+
+## [Reduction]
+**Bloat:** Boilerplate Result wrapping (`Result<(), Box<dyn Error>>`) and nested Ok(()) returns on functions and main entry points where errors are never intrinsically generated or handled.
+**Cut:** Flattened return types to `()` on examples and testing endpoints, excising generic Result noise.
+**Saved:** Reduced cognitive load and verbose syntax from dozens of `main` definitions and demo initializations.

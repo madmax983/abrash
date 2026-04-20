@@ -86,6 +86,7 @@ impl RenderTarget {
 
     /// Borrow the underlying buffers as a borrowed render target.
     #[must_use]
+    #[allow(clippy::missing_panics_doc)]
     pub fn borrow_mut(&mut self) -> BorrowedRenderTarget<'_> {
         BorrowedRenderTarget::new(
             self.width(),

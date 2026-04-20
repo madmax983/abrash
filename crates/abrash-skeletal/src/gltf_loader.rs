@@ -186,7 +186,7 @@ pub fn load_gltf(path: &Path) -> Result<GltfScene, GltfError> {
 
 /// Extract all meshes (with optional skin data) from the document.
 fn extract_primitive(
-    primitive: gltf::Primitive<'_>,
+    primitive: &gltf::Primitive<'_>,
     buffers: &[gltf::buffer::Data],
 ) -> Option<SkinnedMesh> {
     let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
@@ -279,7 +279,7 @@ fn extract_meshes(document: &gltf::Document, buffers: &[gltf::buffer::Data]) -> 
 
     for mesh in document.meshes() {
         for primitive in mesh.primitives() {
-            if let Some(skinned_mesh) = extract_primitive(primitive, buffers) {
+            if let Some(skinned_mesh) = extract_primitive(&primitive, buffers) {
                 result.push(skinned_mesh);
             }
         }

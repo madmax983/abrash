@@ -11,6 +11,7 @@ use crate::framebuffer::Framebuffer;
 /// significant bits of the RGB channels.
 ///
 /// Returns an error if the framebuffer is not large enough to hold the message.
+#[allow(clippy::missing_errors_doc)]
 pub fn encode_message(fb: &mut Framebuffer, message: &str) -> Result<(), &'static str> {
     let bytes = message.as_bytes();
     let len = bytes.len() as u32;
