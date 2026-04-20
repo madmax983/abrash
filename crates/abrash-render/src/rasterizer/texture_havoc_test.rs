@@ -25,3 +25,27 @@ fn havoc_texture_overflow_simd() {
         );
     }
 }
+
+#[test]
+#[ignore = "👹 Havoc: Trigger out of bounds access by mismatched buffer lengths"]
+fn havoc_texture_simd_buffer_mismatch() {
+    let mut fb = vec![0u32; 64];
+    // Intentionally smaller zb buffer. Since SIMD iterates based on fb.len(),
+    // it will read past the end of zb.
+    let mut zb = vec![100.0f32; 8];
+    let mut tex = Texture::new(2, 2).unwrap();
+    tex.set_pixel(0, 0, 0xFFFFFFFF);
+
+    let z = 1.0;
+    let dz_dx = 0.0;
+    let u_fix = 0;
+    let v_fix = 0;
+    let du_fix = 0;
+    let dv_fix = 0;
+
+    unsafe {
+        draw_span_nearest_simd(
+            &mut fb, &mut zb, &tex, z, dz_dx, u_fix, v_fix, du_fix, dv_fix,
+        );
+    }
+}
