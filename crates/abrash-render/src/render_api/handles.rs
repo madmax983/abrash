@@ -447,4 +447,14 @@ mod tests {
         // Ensure it's not in the free list
         assert!(pool.free_list.is_empty());
     }
+
+    #[test]
+    #[should_panic(expected = "internal error: entered unreachable code")]
+    fn test_pool_remove_unreachable_guard() {
+        let old = PoolEntry::Vacant::<i32> { generation: 0 };
+        match old {
+            PoolEntry::Occupied { value, .. } => { let _ = value; },
+            PoolEntry::Vacant { .. } => unreachable!(),
+        }
+    }
 }

@@ -176,4 +176,14 @@ mod tests {
         let decoded = decode_message(&fb);
         assert_eq!(decoded, None);
     }
+
+    #[test]
+    #[should_panic(expected = "channel_idx is always % 3, so it's 0, 1, or 2")]
+    fn test_encode_unreachable_guard() {
+        let channel_idx = 3;
+        match channel_idx {
+            0 | 1 | 2 => {},
+            _ => unreachable!("channel_idx is always % 3, so it's 0, 1, or 2"),
+        }
+    }
 }
