@@ -59,8 +59,11 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
             let lum = (lum_i as f32 / 254.0).min(1.0);
 
             // Find the center of the nearest halftone cell in the rotated space.
-            let cx = rx_scaled.round() * dot_size;
-            let cy = ry_scaled.round() * dot_size;
+            // ⚡ Bolt: Replace f32::round() with fast integer casting
+            // The coordinates are shifted by 16384.0 to ensure they are always positive
+            // within any reasonable framebuffer dimensions, allowing a simple `+ 0.5` cast.
+            let cx = ((rx_scaled + 16384.5) as i32 as f32 - 16384.0) * dot_size;
+            let cy = ((ry_scaled + 16384.5) as i32 as f32 - 16384.0) * dot_size;
 
             let dx = rx - cx;
             let dy = ry - cy;
