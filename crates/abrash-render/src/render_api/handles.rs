@@ -453,7 +453,9 @@ mod tests {
     fn test_pool_remove_unreachable_guard() {
         let old = PoolEntry::Vacant::<i32> { generation: 0 };
         match old {
-            PoolEntry::Occupied { value, .. } => { let _ = value; },
+            PoolEntry::Occupied { value, .. } => {
+                let _ = value;
+            }
             PoolEntry::Vacant { .. } => unreachable!(),
         }
     }
