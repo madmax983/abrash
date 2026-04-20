@@ -142,6 +142,126 @@ impl Ray {
 ///
 /// used for coarse intersection tests before checking individual triangles.
 ///
+/// A mathematical Cylinder defined by a center, radius, and height (oriented along the Y axis for simplicity).
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Cylinder {
+    /// The center of the cylinder.
+    pub center: Vec3,
+    /// The radius of the cylinder.
+    pub radius: f32,
+    /// The total height of the cylinder.
+    pub height: f32,
+}
+
+impl Cylinder {
+    /// Creates a new Cylinder from a center point, radius, and total height.
+    #[inline]
+    #[must_use]
+    pub fn from_radius_height(center: Vec3, radius: f32, height: f32) -> Self {
+        Self {
+            center,
+            radius,
+            height,
+        }
+    }
+
+    /// Checks if a point is inside the cylinder.
+    #[inline]
+    #[must_use]
+    pub fn contains_point(&self, point: Vec3) -> bool {
+        let dy = (point.y - self.center.y).abs();
+        if dy > self.height * 0.5 {
+            return false;
+        }
+        let dx = point.x - self.center.x;
+        let dz = point.z - self.center.z;
+        (dx * dx + dz * dz) <= (self.radius * self.radius)
+    }
+
+    /// Computes the intersection of a ray with the cylinder.
+    /// Returns the distance `t` along the ray to the intersection point, or `None`.
+    #[inline]
+    #[must_use]
+    pub fn intersects_ray(&self, ray: &Ray) -> Option<f32> {
+        let half_h = self.height * 0.5;
+        let oc = ray.origin - self.center;
+
+        let a = ray.direction.x * ray.direction.x + ray.direction.z * ray.direction.z;
+        let half_b = oc.x * ray.direction.x + oc.z * ray.direction.z;
+        let c = oc.x * oc.x + oc.z * oc.z - self.radius * self.radius;
+
+        let mut t_closest = f32::INFINITY;
+
+        if a.abs() > 1e-6 {
+            let discriminant = half_b * half_b - a * c;
+            if discriminant >= 0.0 {
+                let sqrt_d = discriminant.sqrt();
+                let inv_a = 1.0 / a;
+                let t1 = (-half_b - sqrt_d) * inv_a;
+
+                if t1 > 0.0 {
+                    let y1 = oc.y + t1 * ray.direction.y;
+                    if y1.abs() <= half_h {
+                        t_closest = t1;
+                    }
+                }
+
+                if t_closest == f32::INFINITY {
+                    let t2 = (-half_b + sqrt_d) * inv_a;
+                    if t2 > 0.0 {
+                        let y2 = oc.y + t2 * ray.direction.y;
+                        if y2.abs() <= half_h {
+                            t_closest = t2;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check caps
+        if ray.direction.y.abs() > 1e-6 {
+            let inv_dy = 1.0 / ray.direction.y;
+            let radius_sq = self.radius * self.radius;
+
+            let t_top = (half_h - oc.y) * inv_dy;
+            if t_top > 0.0 && t_top < t_closest {
+                let px = oc.x + t_top * ray.direction.x;
+                let pz = oc.z + t_top * ray.direction.z;
+                if px * px + pz * pz <= radius_sq {
+                    t_closest = t_top;
+                }
+            }
+
+            let t_bottom = (-half_h - oc.y) * inv_dy;
+            if t_bottom > 0.0 && t_bottom < t_closest {
+                let px = oc.x + t_bottom * ray.direction.x;
+                let pz = oc.z + t_bottom * ray.direction.z;
+                if px * px + pz * pz <= radius_sq {
+                    t_closest = t_bottom;
+                }
+            }
+        }
+
+        if t_closest < f32::INFINITY {
+            Some(t_closest)
+        } else {
+            None
+        }
+    }
+
+    /// Returns the Axis-Aligned Bounding Box for this cylinder.
+    #[inline]
+    #[must_use]
+    pub fn to_aabb(&self) -> AABB {
+        let half_h = self.height * 0.5;
+        AABB::new(
+            Vec3::new(self.center.x - self.radius, self.center.y - half_h, self.center.z - self.radius),
+            Vec3::new(self.center.x + self.radius, self.center.y + half_h, self.center.z + self.radius),
+        )
+    }
+}
+
 /// # Examples
 ///
 /// ```
@@ -3027,5 +3147,35 @@ mod tests {
         let aabb = AABB::new(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
         let seg = Segment::new(Vec3::new(2.0, 2.0, 0.0), Vec3::new(3.0, 3.0, 0.0));
         assert!(!seg.intersects_aabb(&aabb));
+    }
+
+    #[test]
+    fn test_cylinder_contains() {
+        let cyl = Cylinder::from_radius_height(Vec3::ZERO, 2.0, 4.0);
+        assert!(cyl.contains_point(Vec3::new(1.0, 1.0, 0.0))); // Inside
+        assert!(!cyl.contains_point(Vec3::new(3.0, 0.0, 0.0))); // Outside radius
+        assert!(!cyl.contains_point(Vec3::new(0.0, 3.0, 0.0))); // Outside height
+    }
+
+    #[test]
+    fn test_cylinder_intersects_ray() {
+        let cyl = Cylinder::from_radius_height(Vec3::ZERO, 2.0, 4.0);
+        let ray_hit = Ray::new(Vec3::new(5.0, 0.0, 0.0), Vec3::new(-1.0, 0.0, 0.0));
+        assert!(cyl.intersects_ray(&ray_hit).is_some());
+
+        let ray_miss = Ray::new(Vec3::new(5.0, 5.0, 0.0), Vec3::new(-1.0, 0.0, 0.0));
+        assert!(cyl.intersects_ray(&ray_miss).is_none());
+    }
+
+    #[test]
+    fn test_cylinder_to_aabb() {
+        let cyl = Cylinder::from_radius_height(Vec3::new(1.0, 1.0, 1.0), 2.0, 4.0);
+        let aabb = cyl.to_aabb();
+        assert!((aabb.min.x - (-1.0)).abs() < 1e-4);
+        assert!((aabb.min.y - (-1.0)).abs() < 1e-4);
+        assert!((aabb.min.z - (-1.0)).abs() < 1e-4);
+        assert!((aabb.max.x - 3.0).abs() < 1e-4);
+        assert!((aabb.max.y - 3.0).abs() < 1e-4);
+        assert!((aabb.max.z - 3.0).abs() < 1e-4);
     }
 }

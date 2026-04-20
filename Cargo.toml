@@ -473,6 +473,10 @@ name = "emboss_bench"
 harness = false
 required-features = ["nova"]
 
+[[bench]]
+name = "cylinder_bench"
+harness = false
+
 [[example]]
 name = "chromatic_aberration_demo"
 path = "examples/chromatic_aberration_demo.rs"
