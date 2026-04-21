@@ -20,3 +20,6 @@
 ## [Prevent Allocator Resizing Chains in Iterator Maps]
 **Learning:** Replacing `.collect::<Vec<_>>().` with `Vec::with_capacity(n)` followed by `.extend(...)` prevents intermediate allocator resizing chains. This is particularly effective when `ExactSizeIterator` optimizations for complex iterator mapping fail to inline optimally in the frontend.
 **Action:** Use `Vec::with_capacity` and `extend` instead of `.collect()` for known-size iterators doing complex maps.
+**[Eliding Sqrt in Neon Outline Filter]**
+**Learning:** In edge-detection filters (like Sobel in `neon_outline`), calculating the exact magnitude using `sqrt()` for every pixel is a severe bottleneck.
+**Action:** Pre-calculate a squared threshold outside the loop (using `u64` to prevent overflow) and compare it against the squared magnitude (`gx*gx + gy*gy`). This safely elides the expensive `sqrt()` and floating-point cast operations for the vast majority of non-edge pixels.
