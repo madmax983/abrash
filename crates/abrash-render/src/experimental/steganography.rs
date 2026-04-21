@@ -186,4 +186,28 @@ mod tests {
             _ => unreachable!("channel_idx is always % 3, so it's 0, 1, or 2"),
         }
     }
+
+    #[test]
+    #[should_panic(expected = "channel_idx is always % 3, so it's 0, 1, or 2")]
+    fn test_decode_length_unreachable_guard() {
+        let p = 0;
+        let _ = match 3 {
+            0 => (p >> 16) & 1,
+            1 => (p >> 8) & 1,
+            2 => p & 1,
+            _ => unreachable!("channel_idx is always % 3, so it's 0, 1, or 2"),
+        };
+    }
+
+    #[test]
+    #[should_panic(expected = "channel_idx is always % 3, so it's 0, 1, or 2")]
+    fn test_decode_data_unreachable_guard() {
+        let p = 0;
+        let _ = match 4 {
+            0 => (p >> 16) & 1,
+            1 => (p >> 8) & 1,
+            2 => p & 1,
+            _ => unreachable!("channel_idx is always % 3, so it's 0, 1, or 2"),
+        };
+    }
 }

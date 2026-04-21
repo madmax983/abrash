@@ -37,6 +37,3 @@
 **[Simulating Unreachable Guards in Tests]**
 **Learning:** To verify internal `unreachable!()` or panic safety guards that protect against mathematically impossible paths or state corruption (such as invalid enum matching or invalid state transitions), write unit tests within the same module (`#[cfg(test)] mod tests`). Since normal API usage cannot trigger these paths, you must directly simulate the illegal condition by isolating the exact matching logic or manually overriding state, and then assert the guard triggers correctly using `#[should_panic(expected = "...")]`.
 **Action:** When a guard is "unreachable" via public methods, isolate the specific `match` or state check block into the test body and manually force the illegal value to verify the `unreachable!()` panic executes with the correct message.
-
-**[Validating Expect Guards on Allocation Dimensions]**
-**Learning:** Calculations that multiply dimensions (like `width * height`) to determine allocation size can easily overflow `usize`, leading to panics via `.expect("... overflow")` or implicitly during allocation. These guards are critical for security and stability but are often untested because they require absurdly large inputs (like `u32::MAX`).

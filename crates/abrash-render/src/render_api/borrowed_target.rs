@@ -36,6 +36,10 @@ pub struct BorrowedRenderTarget<'a> {
 
 impl<'a> BorrowedRenderTarget<'a> {
     /// Create a borrowed render target from caller-owned slices.
+    ///
+    /// # Errors
+    /// Returns an error if the dimensions result in a capacity overflow or if the
+    /// provided pixel and depth slices do not exactly match the requested dimensions.
     pub fn new(
         width: u32,
         height: u32,
