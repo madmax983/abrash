@@ -38,3 +38,7 @@
 **Concept:** A post-processing effect that visualizes depth as sweeping sonar waves radiating from the camera over time, mapped directly from the Z-Buffer values.
 **Fate:** Implemented
 **Lesson:** Using simple math like scaling and trigonometric functions (sine) on depth values creates an extremely convincing procedural mapping for sonar waves. Darkening geometry based on its distance effectively merges the geometry into a solid background, creating an eerie atmosphere completely in screen-space.
+## [Droste Effect Filter]
+**Concept:** A recursive picture-in-picture post-processing effect based on the Droste effect. It maps an image to itself either continuously via an Escher-like log-polar spiral or in concentric rings.
+**Fate:** Implemented
+**Lesson:** Complex conformal mappings like the Escher spiral can be achieved purely in screen space using log-polar coordinate transformations and modulo math to wrap infinite planes back into a fundamental annulus. Floating point precision at the exact center must be handled carefully (checking for r == 0.0) to avoid math panics with natural log (ln(0)).

@@ -86,6 +86,8 @@ impl RenderTarget {
 
     /// Borrow the underlying buffers as a borrowed render target.
     #[must_use]
+    /// # Panics
+    /// Panics if the internal framebuffer and zbuffer dimensions get out of sync.
     pub fn borrow_mut(&mut self) -> BorrowedRenderTarget<'_> {
         BorrowedRenderTarget::new(
             self.width(),

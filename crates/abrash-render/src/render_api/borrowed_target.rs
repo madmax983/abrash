@@ -36,6 +36,8 @@ pub struct BorrowedRenderTarget<'a> {
 
 impl<'a> BorrowedRenderTarget<'a> {
     /// Create a borrowed render target from caller-owned slices.
+    /// # Errors
+    /// Returns an error if the size of `pixels` or `depths` does not match `width * height`.
     pub fn new(
         width: u32,
         height: u32,

@@ -850,3 +850,13 @@ required-features = ["nova"]
 name = "topography_demo"
 path = "examples/topography_demo.rs"
 required-features = ["nova"]
+
+[[bench]]
+name = "droste_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "droste_demo"
+path = "examples/droste_demo.rs"
+required-features = ["nova"]

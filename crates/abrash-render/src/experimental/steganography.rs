@@ -11,6 +11,8 @@ use crate::framebuffer::Framebuffer;
 /// significant bits of the RGB channels.
 ///
 /// Returns an error if the framebuffer is not large enough to hold the message.
+/// # Errors
+/// Returns an error if the message is too long to fit in the image.
 pub fn encode_message(fb: &mut Framebuffer, message: &str) -> Result<(), &'static str> {
     let bytes = message.as_bytes();
     let len = bytes.len() as u32;
@@ -182,7 +184,7 @@ mod tests {
     fn test_encode_unreachable_guard() {
         let channel_idx = 3;
         match channel_idx {
-            0 | 1 | 2 => {},
+            0 | 1 | 2 => {}
             _ => unreachable!("channel_idx is always % 3, so it's 0, 1, or 2"),
         }
     }

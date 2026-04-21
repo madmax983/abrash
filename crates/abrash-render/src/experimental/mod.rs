@@ -34,6 +34,8 @@ pub mod boids;
 pub mod brickify;
 pub mod fractal;
 
+pub mod droste;
+
 pub mod blueprint;
 pub mod cloth;
 pub mod color_blindness;
