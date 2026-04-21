@@ -158,7 +158,7 @@ impl Cylinder {
     /// Creates a new Cylinder from a center point, radius, and total height.
     #[inline]
     #[must_use]
-    pub fn from_radius_height(center: Vec3, radius: f32, height: f32) -> Self {
+    pub const fn from_radius_height(center: Vec3, radius: f32, height: f32) -> Self {
         Self {
             center,
             radius,
@@ -256,8 +256,16 @@ impl Cylinder {
     pub fn to_aabb(&self) -> AABB {
         let half_h = self.height * 0.5;
         AABB::new(
-            Vec3::new(self.center.x - self.radius, self.center.y - half_h, self.center.z - self.radius),
-            Vec3::new(self.center.x + self.radius, self.center.y + half_h, self.center.z + self.radius),
+            Vec3::new(
+                self.center.x - self.radius,
+                self.center.y - half_h,
+                self.center.z - self.radius,
+            ),
+            Vec3::new(
+                self.center.x + self.radius,
+                self.center.y + half_h,
+                self.center.z + self.radius,
+            ),
         )
     }
 }
