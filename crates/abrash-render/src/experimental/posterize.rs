@@ -30,10 +30,12 @@ pub fn apply_posterize(fb: &mut Framebuffer, config: &PosterizeConfig) {
             let g = ((p >> 8) & 0xFF) as f32;
             let b = (p & 0xFF) as f32;
 
-            // Posterize each channel
-            let new_r = ((r / 255.0 * levels_minus_1).round() / levels_minus_1 * 255.0) as u32;
-            let new_g = ((g / 255.0 * levels_minus_1).round() / levels_minus_1 * 255.0) as u32;
-            let new_b = ((b / 255.0 * levels_minus_1).round() / levels_minus_1 * 255.0) as u32;
+            // ⚡ Bolt: Replace f32::round() with fast integer casting
+            // The color values are shifted to ensure they are always positive,
+            // allowing a simple `+ 0.5` cast.
+            let new_r = ((((r / 255.0 * levels_minus_1) + 16384.5) as i32 as f32 - 16384.0) / levels_minus_1 * 255.0) as u32;
+            let new_g = ((((g / 255.0 * levels_minus_1) + 16384.5) as i32 as f32 - 16384.0) / levels_minus_1 * 255.0) as u32;
+            let new_b = ((((b / 255.0 * levels_minus_1) + 16384.5) as i32 as f32 - 16384.0) / levels_minus_1 * 255.0) as u32;
 
             // Clamp to prevent overflow on precision errors
             let new_r = new_r.min(255);
