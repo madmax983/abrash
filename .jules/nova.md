@@ -43,3 +43,8 @@
 **Concept:** A mathematical renderer that simulates a mechanical harmonograph using damped pendulums to draw complex Lissajous curves and geometric patterns directly onto the 2D framebuffer.
 **Fate:** Implemented
 **Lesson:** Using a combination of simple trigonometric functions (sine) mapped to exponentially decaying amplitudes (damping) creates beautiful procedural curves. Bresenham's line algorithm effectively rasterizes these continuous math functions without requiring float-to-int pixel interpolation artifacts if sampled frequently enough (small step sizes).
+
+## [Synthwave Retro Filter]
+**Concept:** A post-processing effect that completely overwrites the framebuffer with a stylized 80s retrowave/synthwave scene, featuring a moving perspective grid and a retro sun with horizontal cutouts.
+**Fate:** Implemented
+**Lesson:** Using simple coordinate mapping and modulo math combined with a time parameter makes it incredibly easy to create dynamic procedural scenes entirely in screen space. Rayon parallelization handles full-screen writes extremely fast.
