@@ -1,0 +1,11 @@
+--- crates/abrash-render/src/scene.rs
++++ crates/abrash-render/src/scene.rs
+@@ -176,8 +176,6 @@
+         }
+     }
+
+-    /// ⚡ Bolt: Create a new scene with pre-allocated capacity for objects.
+-    /// This eliminates heap reallocations when registering initial scene assets.
+     #[must_use]
+     pub fn with_capacity(camera: Camera, capacity: usize) -> Self {
+         Self {

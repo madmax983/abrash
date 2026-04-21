@@ -21,7 +21,7 @@ impl<T: Animatable> Hold<T> {
 
 impl<T: Animatable + Send + Sync> Hold<T> {
     pub fn evaluate(&self, _phase: f32) -> Sample<T> {
-        Sample::at_rest(self.value.clone())
+        Sample::at_rest(self.value)
     }
 
     pub fn natural_duration(&self) -> f32 {

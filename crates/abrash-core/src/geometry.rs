@@ -158,7 +158,7 @@ impl Cylinder {
     /// Creates a new Cylinder from a center point, radius, and total height.
     #[inline]
     #[must_use]
-    pub fn from_radius_height(center: Vec3, radius: f32, height: f32) -> Self {
+    pub const fn from_radius_height(center: Vec3, radius: f32, height: f32) -> Self {
         Self {
             center,
             radius,

@@ -7,7 +7,7 @@ use crate::transform::Transform;
 /// A type that supports interpolation, arithmetic, and distance for animation.
 ///
 /// Implement this for any type you want to animate with `abrash-anim`.
-pub trait Animatable: Clone + 'static {
+pub trait Animatable: Copy + 'static {
     /// Interpolate between `self` and `other`.
     /// `t` is clamped to 0.0-1.0. At t=0 returns self, at t=1 returns other.
     #[must_use]

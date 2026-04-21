@@ -9,3 +9,7 @@
 **[Workspace vs Child Crate Dependencies]**
 **Learning:** Inherited workspace dependencies (like `foldhash`) cannot be used inside individual child crates without explicitly adding them to that specific crate's `Cargo.toml`. If a rule forbids modifying `Cargo.toml` without instruction, optimizing via such dependencies is blocked and must be avoided.
 **Action:** Evaluate dependencies within the exact scope of the sub-crate `Cargo.toml` rather than the workspace root `Cargo.toml` when determining if a crate can be used.
+
+**[Animatable: Clone to Copy]**
+**Learning:** By requiring `Copy` on the `Animatable` trait instead of just `Clone`, we eliminate all `.clone()` heap allocation overhead within the animation `Timeline` and `Hold` components, turning the animation evaluation loop into a zero-allocation stack operation. Since `f32`, `Vec3`, `Quat`, etc., all naturally support `Copy`, this requires no compromises in our specific use-cases.
+**Action:** Always favor `Copy` for small, fixed-size mathematical and geometric types used in high-frequency animation logic to strictly prevent any internal system from falling back to `Clone`.

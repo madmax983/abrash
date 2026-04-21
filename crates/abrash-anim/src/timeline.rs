@@ -99,7 +99,7 @@ impl<T: Animatable + Send + Sync + 'static> Timeline<T> {
     /// Once completed, subsequent ticks return the final sample unchanged.
     pub fn tick(&mut self, delta_secs: f32) -> Sample<T> {
         if let TimelineState::Completed { final_sample } = &self.state {
-            return final_sample.clone();
+            return *final_sample;
         }
 
         let sample = {
@@ -114,7 +114,7 @@ impl<T: Animatable + Send + Sync + 'static> Timeline<T> {
                     if self.clock.is_finished(&self.playback) {
                         let final_sample = self.root.evaluate(1.0);
                         self.state = TimelineState::Completed {
-                            final_sample: final_sample.clone(),
+                            final_sample,
                         };
                         final_sample
                     } else {
@@ -125,7 +125,7 @@ impl<T: Animatable + Send + Sync + 'static> Timeline<T> {
             }
         };
 
-        self.last_sample = sample.clone();
+        self.last_sample = sample;
         sample
     }
 

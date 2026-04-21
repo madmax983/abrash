@@ -1,0 +1,65 @@
+--- crates/abrash-core/src/animatable.rs
++++ crates/abrash-core/src/animatable.rs
+@@ -7,7 +7,7 @@
+ /// A type that supports interpolation, arithmetic, and distance for animation.
+ ///
+ /// Implement this for any type you want to animate with `abrash-anim`.
+-pub trait Animatable: Clone + 'static {
++pub trait Animatable: Copy + 'static {
+     /// Interpolate between `self` and `other`.
+     /// `t` is clamped to 0.0-1.0. At t=0 returns self, at t=1 returns other.
+     #[must_use]
+--- crates/abrash-anim/src/hold.rs
++++ crates/abrash-anim/src/hold.rs
+@@ -21,7 +21,7 @@
+
+ impl<T: Animatable + Send + Sync> Hold<T> {
+     pub fn evaluate(&self, _phase: f32) -> Sample<T> {
+-        Sample::at_rest(self.value.clone())
++        Sample::at_rest(self.value)
+     }
+
+     pub fn natural_duration(&self) -> f32 {
+--- crates/abrash-anim/src/timeline.rs
++++ crates/abrash-anim/src/timeline.rs
+@@ -99,7 +99,7 @@
+     /// Once completed, subsequent ticks return the final sample unchanged.
+     pub fn tick(&mut self, delta_secs: f32) -> Sample<T> {
+         if let TimelineState::Completed { final_sample } = &self.state {
+-            return final_sample.clone();
++            return *final_sample;
+         }
+
+         let sample = {
+@@ -114,7 +114,7 @@
+                     if self.clock.is_finished(&self.playback) {
+                         let final_sample = self.root.evaluate(1.0);
+                         self.state = TimelineState::Completed {
+-                            final_sample: final_sample.clone(),
++                            final_sample,
+                         };
+                         final_sample
+                     } else {
+@@ -125,14 +125,14 @@
+             }
+         };
+
+-        self.last_sample = sample.clone();
++        self.last_sample = sample;
+         sample
+     }
+
+     /// Whether the animation has finished (no more ticks will change the value).
+     #[must_use]
+     pub const fn is_completed(&self) -> bool {
+         matches!(self.state, TimelineState::Completed { .. })
+     }
+
+     /// The most recently evaluated value.
+     #[must_use]
+     pub fn current_value(&self) -> T {
+-        self.last_sample.value.clone()
++        self.last_sample.value
+     }
+
+     /// Reset the timeline to the beginning.
