@@ -9,8 +9,8 @@ fn bench_duotone(c: &mut Criterion) {
         b.iter(|| {
             apply_duotone(
                 black_box(&mut fb),
-                black_box(0xFFFF0000),
-                black_box(0xFF0000FF),
+                black_box(0xFFFF_0000),
+                black_box(0xFF00_00FF),
             );
         });
     });
