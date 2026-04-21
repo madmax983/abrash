@@ -85,6 +85,10 @@ impl RenderTarget {
     }
 
     /// Borrow the underlying buffers as a borrowed render target.
+    ///
+    /// # Panics
+    /// Panics if the internal framebuffer and zbuffer slices do not match the expected
+    /// width and height (should be mathematically impossible).
     #[must_use]
     pub fn borrow_mut(&mut self) -> BorrowedRenderTarget<'_> {
         BorrowedRenderTarget::new(

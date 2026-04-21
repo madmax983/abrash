@@ -117,7 +117,11 @@ struct PyramidLevel {
 
 impl PyramidLevel {
     fn new(width: u32, height: u32) -> Self {
-        let size = (width * height) as usize;
+        let _ = (width as usize)
+            .checked_mul(height as usize)
+            .and_then(|a| a.checked_mul(4))
+            .expect("Hi-Z dimensions overflow");
+        let size = (width as usize) * (height as usize);
         Self {
             width,
             height,
@@ -264,9 +268,11 @@ impl HiZBuffer {
     pub fn build_pyramid_from_depths(&mut self, width: u32, height: u32, depths: &[f32]) {
         assert_eq!(width, self.width);
         assert_eq!(height, self.height);
-        let expected_len = (width as usize)
+        let _ = (width as usize)
             .checked_mul(height as usize)
+            .and_then(|a| a.checked_mul(4))
             .expect("Hi-Z dimensions overflow");
+        let expected_len = (width as usize) * (height as usize);
         assert!(
             depths.len() >= expected_len,
             "Depth slice too small for Hi-Z pyramid build"
@@ -582,6 +588,12 @@ impl HiZBuffer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[should_panic(expected = "Hi-Z dimensions overflow")]
+    fn test_hiz_dimensions_overflow() {
+        let _ = HiZBuffer::new(u32::MAX, u32::MAX);
+    }
 
     #[test]
     fn test_level_count_computation() {
