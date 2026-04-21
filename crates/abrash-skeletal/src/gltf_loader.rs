@@ -136,7 +136,9 @@ pub fn rgb_to_argb(r: u8, g: u8, b: u8) -> u32 {
 #[must_use]
 pub fn transpose_col_major_to_mat4(col_major: &[[f32; 4]; 4]) -> Mat4 {
     let mut m = [[0.0_f32; 4]; 4];
-    for row in 0..4 {
+    #[allow(clippy::needless_range_loop)]
+        #[allow(clippy::needless_range_loop)]
+        for row in 0..4 {
         for col in 0..4 {
             m[row][col] = col_major[col][row];
         }
@@ -186,7 +188,7 @@ pub fn load_gltf(path: &Path) -> Result<GltfScene, GltfError> {
 
 /// Extract all meshes (with optional skin data) from the document.
 fn extract_primitive(
-    primitive: gltf::Primitive<'_>,
+    primitive: &gltf::Primitive<'_>,
     buffers: &[gltf::buffer::Data],
 ) -> Option<SkinnedMesh> {
     let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
@@ -194,7 +196,11 @@ fn extract_primitive(
     // Positions (required for a valid mesh)
     let positions: Vec<Vec3> = reader
         .read_positions()
-        .map(|iter| iter.map(|p| Vec3::new(p[0], p[1], p[2])).collect())
+        .map(|iter| {
+            let mut vecs = Vec::with_capacity(iter.len());
+            vecs.extend(iter.map(|p| Vec3::new(p[0], p[1], p[2])));
+            vecs
+        })
         .unwrap_or_default();
 
     if positions.is_empty() {
@@ -204,19 +210,32 @@ fn extract_primitive(
     // Normals (optional)
     let normals: Vec<Vec3> = reader
         .read_normals()
-        .map(|iter| iter.map(|n| Vec3::new(n[0], n[1], n[2])).collect())
+        .map(|iter| {
+            let mut vecs = Vec::with_capacity(iter.len());
+            vecs.extend(iter.map(|n| Vec3::new(n[0], n[1], n[2])));
+            vecs
+        })
         .unwrap_or_default();
 
     // Texture coordinates (optional)
     let uvs: Vec<Vec2> = reader
         .read_tex_coords(0)
-        .map(|iter| iter.into_f32().map(|uv| Vec2::new(uv[0], uv[1])).collect())
+        .map(|iter| {
+            let iter = iter.into_f32();
+            let mut vecs = Vec::with_capacity(iter.len());
+            vecs.extend(iter.map(|uv| Vec2::new(uv[0], uv[1])));
+            vecs
+        })
         .unwrap_or_default();
 
     // Tangents (optional)
     let tangents: Vec<Vec4> = reader
         .read_tangents()
-        .map(|iter| iter.map(|t| Vec4::new(t[0], t[1], t[2], t[3])).collect())
+        .map(|iter| {
+            let mut vecs = Vec::with_capacity(iter.len());
+            vecs.extend(iter.map(|t| Vec4::new(t[0], t[1], t[2], t[3])));
+            vecs
+        })
         .unwrap_or_default();
 
     // Indices (triangulated)
@@ -240,13 +259,23 @@ fn extract_primitive(
     // Joint indices (optional — only present on skinned meshes)
     let joint_indices: Vec<[u16; 4]> = reader
         .read_joints(0)
-        .map(|iter| iter.into_u16().collect())
+        .map(|iter| {
+            let iter = iter.into_u16();
+            let mut vecs = Vec::with_capacity(iter.len());
+            vecs.extend(iter);
+            vecs
+        })
         .unwrap_or_default();
 
     // Weights (optional)
     let weights: Vec<[f32; 4]> = reader
         .read_weights(0)
-        .map(|iter| iter.into_f32().collect())
+        .map(|iter| {
+            let iter = iter.into_f32();
+            let mut vecs = Vec::with_capacity(iter.len());
+            vecs.extend(iter);
+            vecs
+        })
         .unwrap_or_default();
 
     let mesh = Mesh {
@@ -279,7 +308,7 @@ fn extract_meshes(document: &gltf::Document, buffers: &[gltf::buffer::Data]) -> 
 
     for mesh in document.meshes() {
         for primitive in mesh.primitives() {
-            if let Some(skinned_mesh) = extract_primitive(primitive, buffers) {
+            if let Some(skinned_mesh) = extract_primitive(&primitive, buffers) {
                 result.push(skinned_mesh);
             }
         }
@@ -734,6 +763,8 @@ mod tests {
         ];
         let result = transpose_col_major_to_mat4(&col_major);
         let identity = Mat4::identity();
+        #[allow(clippy::needless_range_loop)]
+        #[allow(clippy::needless_range_loop)]
         for row in 0..4 {
             for col in 0..4 {
                 assert!(
@@ -769,6 +800,8 @@ mod tests {
             [9.0, 10.0, 11.0, 12.0],
             [13.0, 14.0, 15.0, 16.0],
         ];
+        #[allow(clippy::needless_range_loop)]
+        #[allow(clippy::needless_range_loop)]
         for row in 0..4 {
             for col in 0..4 {
                 assert!(
@@ -813,6 +846,8 @@ mod tests {
         let first = transpose_col_major_to_mat4(&original);
         // Transpose again: treat the row-major Mat4.m as if it were column-major
         let second = transpose_col_major_to_mat4(&first.m);
+        #[allow(clippy::needless_range_loop)]
+        #[allow(clippy::needless_range_loop)]
         for row in 0..4 {
             for col in 0..4 {
                 assert!(
