@@ -215,11 +215,15 @@ impl CatmullRom {
     }
 
     /// Sample the spline uniformly into `n` points (including endpoints).
+    ///
+    /// ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
+    /// This prevents intermediate allocator resizing chains because `ExactSizeIterator` optimizations
+    /// for complex iterator mapping can sometimes fail to inline optimally in the frontend.
     #[must_use]
     pub fn sample(&self, n: usize) -> Vec<Vec3> {
-        (0..n)
-            .map(|i| self.evaluate(i as f32 / (n - 1).max(1) as f32))
-            .collect()
+        let mut samples = Vec::with_capacity(n);
+        samples.extend((0..n).map(|i| self.evaluate(i as f32 / (n - 1).max(1) as f32)));
+        samples
     }
 
     /// Approximate total arc length with `samples` linear segments.

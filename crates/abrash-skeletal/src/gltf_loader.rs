@@ -185,6 +185,7 @@ pub fn load_gltf(path: &Path) -> Result<GltfScene, GltfError> {
 // ---------------------------------------------------------------------------
 
 /// Extract all meshes (with optional skin data) from the document.
+#[allow(clippy::needless_pass_by_value)]
 fn extract_primitive(
     primitive: gltf::Primitive<'_>,
     buffers: &[gltf::buffer::Data],
@@ -448,9 +449,13 @@ fn topological_sort_joints(joints: &[ProvisionalJointData]) -> Vec<usize> {
         }
     }
 
+    // ⚡ Bolt: Use a boolean vector for O(1) lookups during orphan resolution,
+    // avoiding the O(N^2) behavior of `!sorted.contains(&i)`.
+    let mut is_sorted = vec![false; n];
     let mut sorted = Vec::with_capacity(n);
     while let Some(idx) = queue.pop() {
         sorted.push(idx);
+        is_sorted[idx] = true;
         for &child in &children[idx] {
             in_degree[child] -= 1;
             if in_degree[child] == 0 {
@@ -461,8 +466,8 @@ fn topological_sort_joints(joints: &[ProvisionalJointData]) -> Vec<usize> {
 
     // If there are orphaned joints (cycles or missing parents), append them
     if sorted.len() < n {
-        for i in 0..n {
-            if !sorted.contains(&i) {
+        for (i, &sorted_flag) in is_sorted.iter().enumerate().take(n) {
+            if !sorted_flag {
                 sorted.push(i);
             }
         }
@@ -769,6 +774,7 @@ mod tests {
             [9.0, 10.0, 11.0, 12.0],
             [13.0, 14.0, 15.0, 16.0],
         ];
+        #[allow(clippy::needless_range_loop)]
         for row in 0..4 {
             for col in 0..4 {
                 assert!(
@@ -813,6 +819,7 @@ mod tests {
         let first = transpose_col_major_to_mat4(&original);
         // Transpose again: treat the row-major Mat4.m as if it were column-major
         let second = transpose_col_major_to_mat4(&first.m);
+        #[allow(clippy::needless_range_loop)]
         for row in 0..4 {
             for col in 0..4 {
                 assert!(
