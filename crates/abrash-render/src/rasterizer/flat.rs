@@ -78,6 +78,18 @@ unsafe fn draw_scanline_flat_simd(
 }
 
 /// Draw a single scanline for flat shading with Z-buffering
+///
+/// # Arguments
+///
+/// * `fb` - Target framebuffer.
+/// * `zb` - Target Z-buffer.
+/// * `y` - The Y coordinate of the scanline.
+/// * `x_start` - The starting X coordinate.
+/// * `x_end` - The ending X coordinate (exclusive).
+/// * `z_start` - The initial Z-depth at `x_start`.
+/// * `dz_dx` - The change in Z-depth per pixel.
+/// * `color` - The 0xAARRGGBB color to fill.
+///
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
 pub fn draw_scanline_flat(

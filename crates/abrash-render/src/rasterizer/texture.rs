@@ -52,6 +52,18 @@ use super::core::blend_swar_simd;
 ///
 /// These gradients are calculated once per triangle and used to step the
 /// edge walkers and scanline interpolators.
+///
+/// # Arguments
+///
+/// * `fb` - Target framebuffer.
+/// * `zb` - Target Z-buffer.
+/// * `texture` - The texture to sample from.
+/// * `y` - The Y coordinate of the scanline.
+/// * `x_start` - The starting X coordinate.
+/// * `x_end` - The ending X coordinate (exclusive).
+/// * `start` - The perspective span start state (z, q, u, v).
+/// * `gradients` - The perspective gradients for the triangle.
+///
 #[derive(Clone, Copy)]
 pub struct PerspectiveTextureGradients {
     /// Change in depth (Z) per X pixel.

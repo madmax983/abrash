@@ -288,6 +288,19 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
 }
 
 /// Draw a single scanline for Gouraud shading (Wrapper for API compatibility)
+///
+/// # Arguments
+///
+/// * `fb` - Target framebuffer.
+/// * `zb` - Target Z-buffer.
+/// * `y` - The Y coordinate of the scanline.
+/// * `x_start` - The starting X coordinate.
+/// * `x_end` - The ending X coordinate (exclusive).
+/// * `z_start` - The initial Z-depth at `x_start`.
+/// * `c_start` - The initial color at `x_start` in 16.16 fixed-point format (R, G, B).
+/// * `dz_dx` - The change in Z-depth per pixel.
+/// * `dc_dx` - The change in color (R, G, B) per pixel in 16.16 fixed-point format.
+///
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
 pub fn draw_scanline_gouraud(
@@ -315,6 +328,10 @@ pub fn draw_scanline_gouraud(
 }
 
 /// Draw a single scanline for Gouraud shading (Optimized i32 version)
+///
+/// # Panics
+///
+/// Panics if the internal Framebuffer and `ZBuffer` dimensions or slice sizes do not match.
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
 pub fn draw_scanline_gouraud_i32(
