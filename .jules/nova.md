@@ -38,3 +38,8 @@
 **Concept:** A post-processing effect that visualizes depth as sweeping sonar waves radiating from the camera over time, mapped directly from the Z-Buffer values.
 **Fate:** Implemented
 **Lesson:** Using simple math like scaling and trigonometric functions (sine) on depth values creates an extremely convincing procedural mapping for sonar waves. Darkening geometry based on its distance effectively merges the geometry into a solid background, creating an eerie atmosphere completely in screen-space.
+
+## [Harmonograph Generator]
+**Concept:** A mathematical renderer that simulates a mechanical harmonograph using damped pendulums to draw complex Lissajous curves and geometric patterns directly onto the 2D framebuffer.
+**Fate:** Implemented
+**Lesson:** Using a combination of simple trigonometric functions (sine) mapped to exponentially decaying amplitudes (damping) creates beautiful procedural curves. Bresenham's line algorithm effectively rasterizes these continuous math functions without requiring float-to-int pixel interpolation artifacts if sampled frequently enough (small step sizes).
