@@ -192,32 +192,46 @@ fn extract_primitive(
     let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
 
     // Positions (required for a valid mesh)
-    let positions: Vec<Vec3> = reader
-        .read_positions()
-        .map(|iter| iter.map(|p| Vec3::new(p[0], p[1], p[2])).collect())
-        .unwrap_or_default();
+    let positions: Vec<Vec3> = if let Some(iter) = reader.read_positions() {
+        // ⚡ Bolt: Use `extend` with `with_capacity` to prevent dynamic reallocation on `.collect::<Vec<_>>()`.
+        let mut p: Vec<Vec3> = Vec::with_capacity(iter.size_hint().0);
+        p.extend(iter.map(|p| Vec3::new(p[0], p[1], p[2])));
+        p
+    } else {
+        Vec::new()
+    };
 
     if positions.is_empty() {
         return None;
     }
 
     // Normals (optional)
-    let normals: Vec<Vec3> = reader
-        .read_normals()
-        .map(|iter| iter.map(|n| Vec3::new(n[0], n[1], n[2])).collect())
-        .unwrap_or_default();
+    let normals: Vec<Vec3> = if let Some(iter) = reader.read_normals() {
+        let mut p: Vec<Vec3> = Vec::with_capacity(iter.size_hint().0);
+        p.extend(iter.map(|n| Vec3::new(n[0], n[1], n[2])));
+        p
+    } else {
+        Vec::new()
+    };
 
     // Texture coordinates (optional)
-    let uvs: Vec<Vec2> = reader
-        .read_tex_coords(0)
-        .map(|iter| iter.into_f32().map(|uv| Vec2::new(uv[0], uv[1])).collect())
-        .unwrap_or_default();
+    let uvs: Vec<Vec2> = if let Some(iter) = reader.read_tex_coords(0) {
+        let iter = iter.into_f32();
+        let mut p: Vec<Vec2> = Vec::with_capacity(iter.size_hint().0);
+        p.extend(iter.map(|uv| Vec2::new(uv[0], uv[1])));
+        p
+    } else {
+        Vec::new()
+    };
 
     // Tangents (optional)
-    let tangents: Vec<Vec4> = reader
-        .read_tangents()
-        .map(|iter| iter.map(|t| Vec4::new(t[0], t[1], t[2], t[3])).collect())
-        .unwrap_or_default();
+    let tangents: Vec<Vec4> = if let Some(iter) = reader.read_tangents() {
+        let mut p: Vec<Vec4> = Vec::with_capacity(iter.size_hint().0);
+        p.extend(iter.map(|t| Vec4::new(t[0], t[1], t[2], t[3])));
+        p
+    } else {
+        Vec::new()
+    };
 
     // Indices (triangulated)
     let indices: Vec<[usize; 3]> = reader
@@ -238,16 +252,24 @@ fn extract_primitive(
     let vertex_count = positions.len();
 
     // Joint indices (optional — only present on skinned meshes)
-    let joint_indices: Vec<[u16; 4]> = reader
-        .read_joints(0)
-        .map(|iter| iter.into_u16().collect())
-        .unwrap_or_default();
+    let joint_indices: Vec<[u16; 4]> = if let Some(iter) = reader.read_joints(0) {
+        let iter = iter.into_u16();
+        let mut p: Vec<[u16; 4]> = Vec::with_capacity(iter.size_hint().0);
+        p.extend(iter);
+        p
+    } else {
+        Vec::new()
+    };
 
     // Weights (optional)
-    let weights: Vec<[f32; 4]> = reader
-        .read_weights(0)
-        .map(|iter| iter.into_f32().collect())
-        .unwrap_or_default();
+    let weights: Vec<[f32; 4]> = if let Some(iter) = reader.read_weights(0) {
+        let iter = iter.into_f32();
+        let mut p: Vec<[f32; 4]> = Vec::with_capacity(iter.size_hint().0);
+        p.extend(iter);
+        p
+    } else {
+        Vec::new()
+    };
 
     let mesh = Mesh {
         vertices: positions,
@@ -301,7 +323,10 @@ fn extract_skeleton(
         return (None, node_to_joint);
     };
 
-    let joint_nodes: Vec<gltf::Node<'_>> = skin.joints().collect();
+    // ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()` to avoid intermediate allocations.
+    let joints_iter = skin.joints();
+    let mut joint_nodes: Vec<gltf::Node<'_>> = Vec::with_capacity(joints_iter.size_hint().0);
+    joint_nodes.extend(joints_iter);
     let joint_count = joint_nodes.len();
 
     if joint_count == 0 {
@@ -325,7 +350,11 @@ fn extract_skeleton(
         .read_inverse_bind_matrices()
         .map_or_else(
             || vec![Mat4::identity(); joint_count],
-            |iter| iter.map(|m| transpose_col_major_to_mat4(&m)).collect(),
+            |iter| {
+                let mut p: Vec<Mat4> = Vec::with_capacity(iter.size_hint().0);
+                p.extend(iter.map(|m| transpose_col_major_to_mat4(&m)));
+                p
+            },
         );
 
     // Collect provisional joint data
@@ -512,9 +541,10 @@ fn extract_clips(
             let Some(timestamps) = reader.read_inputs() else {
                 continue;
             };
-            let timestamps: Vec<f32> = timestamps.collect();
+            let mut timestamps_vec: Vec<f32> = Vec::with_capacity(timestamps.size_hint().0);
+            timestamps_vec.extend(timestamps);
 
-            if let Some(&last) = timestamps.last() {
+            if let Some(&last) = timestamps_vec.last() {
                 max_time = max_time.max(last);
             }
 
@@ -525,18 +555,21 @@ fn extract_clips(
 
             let (target, values) = match outputs {
                 gltf::animation::util::ReadOutputs::Translations(iter) => {
-                    let vals: Vec<Vec3> = iter.map(|t| Vec3::new(t[0], t[1], t[2])).collect();
+                    let mut vals: Vec<Vec3> = Vec::with_capacity(iter.size_hint().0);
+                    vals.extend(iter.map(|t| Vec3::new(t[0], t[1], t[2])));
                     (ChannelTarget::Translation, ChannelValues::Translation(vals))
                 }
                 gltf::animation::util::ReadOutputs::Rotations(iter) => {
-                    let vals: Vec<Quat> = iter
+                    let iter = iter
                         .into_f32()
-                        .map(|r| Quat::new(r[0], r[1], r[2], r[3]).normalize())
-                        .collect();
+                        .map(|r| Quat::new(r[0], r[1], r[2], r[3]).normalize());
+                    let mut vals: Vec<Quat> = Vec::with_capacity(iter.size_hint().0);
+                    vals.extend(iter);
                     (ChannelTarget::Rotation, ChannelValues::Rotation(vals))
                 }
                 gltf::animation::util::ReadOutputs::Scales(iter) => {
-                    let vals: Vec<Vec3> = iter.map(|s| Vec3::new(s[0], s[1], s[2])).collect();
+                    let mut vals: Vec<Vec3> = Vec::with_capacity(iter.size_hint().0);
+                    vals.extend(iter.map(|s| Vec3::new(s[0], s[1], s[2])));
                     (ChannelTarget::Scale, ChannelValues::Scale(vals))
                 }
                 gltf::animation::util::ReadOutputs::MorphTargetWeights(_) => {
@@ -546,12 +579,12 @@ fn extract_clips(
             };
 
             // Only include channels with at least 2 keyframes (required by AnimationChannel)
-            if timestamps.len() >= 2 {
+            if timestamps_vec.len() >= 2 {
                 #[allow(clippy::cast_possible_truncation)]
                 channels.push(AnimationChannel {
                     joint: JointId(joint_idx as u16),
                     target,
-                    timestamps,
+                    timestamps: timestamps_vec,
                     values,
                 });
             }
