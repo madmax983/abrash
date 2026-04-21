@@ -143,8 +143,124 @@ impl Ray {
 /// used for coarse intersection tests before checking individual triangles.
 ///
 /// A mathematical Cylinder defined by a center, radius, and height (oriented along the Y axis for simplicity).
+/// A mathematical Cone defined by a base center, radius, and height (oriented along the Y axis, apex at +y).
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Cone {
+    /// The center of the cone's base.
+    pub base_center: Vec3,
+    /// The radius of the cone's base.
+    pub radius: f32,
+    /// The height of the cone (from base to apex).
+    pub height: f32,
+}
+
+impl Cone {
+    /// Creates a new Cone from a base center, radius, and height.
+    #[inline]
+    #[must_use]
+    pub const fn from_radius_height(base_center: Vec3, radius: f32, height: f32) -> Self {
+        Self {
+            base_center,
+            radius,
+            height,
+        }
+    }
+
+    /// Checks if a point is inside the cone.
+    #[inline]
+    #[must_use]
+    pub fn contains_point(&self, point: Vec3) -> bool {
+        let dy = point.y - self.base_center.y;
+        if dy < 0.0 || dy > self.height {
+            return false;
+        }
+        let dx = point.x - self.base_center.x;
+        let dz = point.z - self.base_center.z;
+        let r = self.radius * (1.0 - dy / self.height);
+        (dx * dx + dz * dz) <= (r * r)
+    }
+
+    /// Computes the intersection of a ray with the cone.
+    /// Returns the distance `t` along the ray to the intersection point, or `None`.
+    #[inline]
+    #[must_use]
+    pub fn intersects_ray(&self, ray: &Ray) -> Option<f32> {
+        let oc = ray.origin - self.base_center;
+
+        // Cone equation: x^2 + z^2 = r^2 * (1 - y/h)^2
+        // Let k = r / h. Then x^2 + z^2 = k^2 * (h - y)^2
+        // Substitute ray equation: P(t) = O + tD
+        let k = self.radius / self.height;
+        let k_sq = k * k;
+
+        // Hoist ray direction properties
+        let dx = ray.direction.x;
+        let dy = ray.direction.y;
+        let dz = ray.direction.z;
+        let ox = oc.x;
+        let oy = oc.y;
+        let oz = oc.z;
+
+        let oy_minus_h = oy - self.height;
+        let k_sq_dy = k_sq * dy;
+
+        // a = Dx^2 + Dz^2 - k^2 * Dy^2
+        let a = dx * dx + dz * dz - k_sq_dy * dy;
+        // b = 2 * (OxDx + OzDz - k^2 * Dy * (Oy - h)) -> half_b
+        let half_b = ox * dx + oz * dz - k_sq_dy * oy_minus_h;
+        // c = Ox^2 + Oz^2 - k^2 * (Oy - h)^2
+        let c = ox * ox + oz * oz - k_sq * oy_minus_h * oy_minus_h;
+
+        let mut t_closest = f32::INFINITY;
+
+        // Intersect sides
+        if a.abs() > 1e-6 {
+            let discriminant = half_b * half_b - a * c;
+            if discriminant >= 0.0 {
+                let sqrt_d = discriminant.sqrt();
+                let inv_a = 1.0 / a;
+                let t1 = (-half_b - sqrt_d) * inv_a;
+
+                if t1 > 0.0 {
+                    let y_hit = oy + t1 * dy;
+                    if y_hit >= 0.0 && y_hit <= self.height {
+                        t_closest = t1;
+                    }
+                }
+
+                if t_closest == f32::INFINITY {
+                    let t2 = (-half_b + sqrt_d) * inv_a;
+                    if t2 > 0.0 {
+                        let y_hit = oy + t2 * dy;
+                        if y_hit >= 0.0 && y_hit <= self.height {
+                            t_closest = t2;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Intersect base (at y = 0 relative to base_center)
+        if dy.abs() > 1e-6 {
+            let t_base = -oy / dy;
+            if t_base > 0.0 && t_base < t_closest {
+                let px = ox + t_base * dx;
+                let pz = oz + t_base * dz;
+                if (px * px + pz * pz) <= self.radius * self.radius {
+                    t_closest = t_base;
+                }
+            }
+        }
+
+        if t_closest < f32::INFINITY {
+            Some(t_closest)
+        } else {
+            None
+        }
+    }
+}
+
 pub struct Cylinder {
     /// The center of the cylinder.
     pub center: Vec3,
@@ -158,7 +274,7 @@ impl Cylinder {
     /// Creates a new Cylinder from a center point, radius, and total height.
     #[inline]
     #[must_use]
-    pub fn from_radius_height(center: Vec3, radius: f32, height: f32) -> Self {
+    pub const fn from_radius_height(center: Vec3, radius: f32, height: f32) -> Self {
         Self {
             center,
             radius,
@@ -3155,6 +3271,38 @@ mod tests {
         let aabb = AABB::new(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
         let seg = Segment::new(Vec3::new(2.0, 2.0, 0.0), Vec3::new(3.0, 3.0, 0.0));
         assert!(!seg.intersects_aabb(&aabb));
+    }
+
+    #[test]
+    fn test_cone_contains() {
+        let cone = Cone::from_radius_height(Vec3::ZERO, 2.0, 4.0);
+        // Base is at y=0, apex is at y=4
+        // At y=0, radius=2
+        // At y=2, radius=1
+        // At y=4, radius=0
+        assert!(cone.contains_point(Vec3::new(1.0, 1.0, 0.0))); // Inside
+        assert!(!cone.contains_point(Vec3::new(3.0, 0.0, 0.0))); // Outside radius at base
+        assert!(!cone.contains_point(Vec3::new(0.0, 5.0, 0.0))); // Above apex
+        assert!(!cone.contains_point(Vec3::new(0.0, -1.0, 0.0))); // Below base
+        assert!(cone.contains_point(Vec3::new(0.9, 2.0, 0.0))); // Inside half-way up
+        assert!(!cone.contains_point(Vec3::new(1.1, 2.0, 0.0))); // Outside half-way up
+    }
+
+    #[test]
+    fn test_cone_intersects_ray() {
+        let cone = Cone::from_radius_height(Vec3::ZERO, 2.0, 4.0);
+
+        // Ray hitting the side
+        let ray_hit = Ray::new(Vec3::new(5.0, 2.0, 0.0), Vec3::new(-1.0, 0.0, 0.0));
+        assert!(cone.intersects_ray(&ray_hit).is_some());
+
+        // Ray missing the side (too high)
+        let ray_miss = Ray::new(Vec3::new(5.0, 5.0, 0.0), Vec3::new(-1.0, 0.0, 0.0));
+        assert!(cone.intersects_ray(&ray_miss).is_none());
+
+        // Ray hitting the base
+        let ray_base = Ray::new(Vec3::new(0.0, -2.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
+        assert!(cone.intersects_ray(&ray_base).is_some());
     }
 
     #[test]
