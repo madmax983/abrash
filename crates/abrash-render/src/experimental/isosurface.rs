@@ -247,7 +247,6 @@ fn polygonize_tetrahedron(
             vert_count = 0;
         }
     }
-
 }
 
 #[cfg(test)]
