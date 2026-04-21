@@ -19,16 +19,6 @@ pub fn apply_posterize(fb: &mut Framebuffer, config: &PosterizeConfig) {
     let levels = config.levels.max(2.0); // Minimum of 2 levels
     let levels_minus_1 = levels - 1.0;
 
-    // ⚡ Bolt: Cache LUT for expensive floating point operations in hot loop
-    let mut lut = [0u32; 256];
-    let factor_1 = levels_minus_1 / 255.0;
-    let factor_2 = 255.0 / levels_minus_1;
-    for (i, val) in lut.iter_mut().enumerate() {
-        let v = i as f32;
-        let new_v = ((v * factor_1).round() * factor_2) as u32;
-        *val = new_v.min(255);
-    }
-
     // Use chunks_exact_mut to eliminate bounds checking and option unwrapping
     let width = fb.width() as usize;
     for row in fb.as_mut_slice().chunks_exact_mut(width) {
@@ -36,14 +26,19 @@ pub fn apply_posterize(fb: &mut Framebuffer, config: &PosterizeConfig) {
             let p = *pixel;
             // Extract channels
             let a = (p >> 24) & 0xFF;
-            let r = ((p >> 16) & 0xFF) as usize;
-            let g = ((p >> 8) & 0xFF) as usize;
-            let b = (p & 0xFF) as usize;
+            let r = ((p >> 16) & 0xFF) as f32;
+            let g = ((p >> 8) & 0xFF) as f32;
+            let b = (p & 0xFF) as f32;
 
             // Posterize each channel
-            let new_r = lut[r];
-            let new_g = lut[g];
-            let new_b = lut[b];
+            let new_r = ((r / 255.0 * levels_minus_1).round() / levels_minus_1 * 255.0) as u32;
+            let new_g = ((g / 255.0 * levels_minus_1).round() / levels_minus_1 * 255.0) as u32;
+            let new_b = ((b / 255.0 * levels_minus_1).round() / levels_minus_1 * 255.0) as u32;
+
+            // Clamp to prevent overflow on precision errors
+            let new_r = new_r.min(255);
+            let new_g = new_g.min(255);
+            let new_b = new_b.min(255);
 
             *pixel = (a << 24) | (new_r << 16) | (new_g << 8) | new_b;
         }

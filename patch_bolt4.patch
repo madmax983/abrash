@@ -1,0 +1,13 @@
+--- .jules/bolt.md
++++ .jules/bolt.md
+@@ -5,8 +5,8 @@
+
+
+ **[Cache expensive Mathematical Look-Up Tables]**
+-**Learning:** In algorithms like posterization, computing `((val / 255.0 * factor).round() / factor * 255.0) as u32` inside a per-pixel loop is a major bottleneck due to floating-point divisions and `.round()` calls. Precalculating a 256-element Look-Up Table (LUT) maps the 8-bit channel (0..=255) to its posterized value in O(1) time without thread-locals.
+-**Action:** Use fixed-size stack arrays (`[u32; 256]`) for per-channel LUTs to bypass floating-point math in tight per-pixel loops.
++**Learning:** When processing 8-bit color channels, precomputing a 256-element Look-Up Table (LUT) array (e.g., `[u32; 256]`) directly inside the function effectively eliminates expensive floating-point operations (like division and `f32::round()`) from the hot per-pixel loop without the overhead of thread-local storage.
++**Action:** Use fixed-size stack arrays (`[u32; 256]`) for per-channel LUTs when appropriate to bypass floating-point math in tight per-pixel loops.
+
+ **[Eliminate bounds check panics with min/max chaining]**
+ **Learning:** Replacing `.clamp(min, max)` with `.max(min).min(max)` on integers provides zero performance benefit, as LLVM optimizes both to the exact same assembly instructions. Furthermore, this anti-pattern triggers the `clippy::manual_clamp` lint.

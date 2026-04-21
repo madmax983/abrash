@@ -1,0 +1,12 @@
+--- crates/abrash-render/src/render_api/cpu_renderer.rs
++++ crates/abrash-render/src/render_api/cpu_renderer.rs
+@@ -321,8 +321,8 @@
+     pub fn create_mesh(&mut self, mesh: &Mesh) -> Result<MeshHandle, RenderError> {
+         validate_mesh_indices(mesh)?;
+         let shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
+         Ok(to_mesh_handle(self.meshes.insert(CpuMesh {
+-            mesh: mesh.clone(),
++            mesh: mesh.clone(),
+             shared_indices,
+         })))
+     }

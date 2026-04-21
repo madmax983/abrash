@@ -1,0 +1,10 @@
+--- .jules/bolt.md
++++ .jules/bolt.md
+@@ -1,7 +1,6 @@
+ **[Cache expensive Mathematical Look-Up Tables]**
+ **Learning:** In post-processing filters, precomputing mathematical Look-Up Tables (LUTs) using expensive operations like `f32::powf` on every frame call is a major bottleneck. Caching these LUTs per-thread (e.g., using `thread_local!` and `std::cell::RefCell`) for mostly-static parameters like gamma or contrast eliminates per-frame recalculations and provides significant speedups without modifying function signatures.
+ **Action:** Use `thread_local!` and `std::cell::RefCell` to cache static configurations in rendering filters to eliminate unnecessary loop calculations.
+-
+
+ **[Cache expensive Mathematical Look-Up Tables]**
+ **Learning:** In algorithms like posterization, computing `((val / 255.0 * factor).round() / factor * 255.0) as u32` inside a per-pixel loop is a major bottleneck due to floating-point divisions and `.round()` calls. Precalculating a 256-element Look-Up Table (LUT) maps the 8-bit channel (0..=255) to its posterized value in O(1) time without thread-locals.

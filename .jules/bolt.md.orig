@@ -4,7 +4,7 @@
 
 **[Cache expensive Mathematical Look-Up Tables]**
 **Learning:** When processing 8-bit color channels, precomputing a 256-element Look-Up Table (LUT) array (e.g., `[u32; 256]`) directly inside the function effectively eliminates expensive floating-point operations (like division and `f32::round()`) from the hot per-pixel loop without the overhead of thread-local storage.
-**Action:** Use fixed-size stack arrays (`[u32; 256]`) for per-channel LUTs to bypass floating-point math in tight per-pixel loops.
+**Action:** Use fixed-size stack arrays (`[u32; 256]`) for per-channel LUTs when appropriate to bypass floating-point math in tight per-pixel loops.
 
 **[Eliminate bounds check panics with min/max chaining]**
 **Learning:** Replacing `.clamp(min, max)` with `.max(min).min(max)` on integers provides zero performance benefit, as LLVM optimizes both to the exact same assembly instructions. Furthermore, this anti-pattern triggers the `clippy::manual_clamp` lint.
