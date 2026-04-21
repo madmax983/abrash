@@ -156,8 +156,10 @@ impl CpuRenderer {
         {
             use rayon::prelude::*;
 
-            // Calculate vertex ranges first to know where each mesh writes
-            let mut ranges = Vec::with_capacity(frame.commands.len());
+            // ⚡ Bolt: Use SmallVec to calculate vertex ranges, eliding a dynamic per-frame heap
+            // allocation on the hot parallel rendering path for scenes with up to 128 commands.
+            let mut ranges: smallvec::SmallVec<[(usize, usize); 128]> =
+                smallvec::SmallVec::with_capacity(frame.commands.len());
             let mut current_offset = 0;
             for cmd in &frame.commands {
                 // Since we already checked handles above, unwraps here are safe
@@ -178,7 +180,7 @@ impl CpuRenderer {
                     frame
                         .commands
                         .par_iter()
-                        .zip(&ranges)
+                        .zip(ranges.as_slice())
                         .map(|(cmd, &(start, end))| {
                             let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
                             let material = self
