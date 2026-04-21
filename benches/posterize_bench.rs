@@ -24,6 +24,14 @@ fn bench_posterize(c: &mut Criterion) {
             apply_posterize(black_box(&mut fb), black_box(&config));
         });
     });
+
+    // Also benchmark a smaller block for more granular analysis
+    let mut small_fb = Framebuffer::new(128, 128).unwrap();
+    c.bench_function("apply_posterize_128x128", |b| {
+        b.iter(|| {
+            apply_posterize(black_box(&mut small_fb), black_box(&config));
+        });
+    });
 }
 
 criterion_group!(benches, bench_posterize);

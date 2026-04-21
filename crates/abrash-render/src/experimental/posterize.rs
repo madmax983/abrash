@@ -19,28 +19,26 @@ pub fn apply_posterize(fb: &mut Framebuffer, config: &PosterizeConfig) {
     let levels = config.levels.max(2.0); // Minimum of 2 levels
     let levels_minus_1 = levels - 1.0;
 
+    // ⚡ Bolt: Precomputing a 256-element Look-Up Table (LUT) eliminates expensive floating-point
+    // operations (.round(), division, clamping) from the hot per-pixel loop.
+    let mut lut = [0u32; 256];
+    for i in 0..=255 {
+        let v = i as f32;
+        let new_v = ((v / 255.0 * levels_minus_1).round() / levels_minus_1 * 255.0) as u32;
+        lut[i] = new_v.min(255);
+    }
+
     // Use chunks_exact_mut to eliminate bounds checking and option unwrapping
     let width = fb.width() as usize;
     for row in fb.as_mut_slice().chunks_exact_mut(width) {
         for pixel in row.iter_mut() {
             let p = *pixel;
-            // Extract channels
-            let a = (p >> 24) & 0xFF;
-            let r = ((p >> 16) & 0xFF) as f32;
-            let g = ((p >> 8) & 0xFF) as f32;
-            let b = (p & 0xFF) as f32;
+            let a = p & 0xFF00_0000;
+            let new_r = lut[((p >> 16) & 0xFF) as usize];
+            let new_g = lut[((p >> 8) & 0xFF) as usize];
+            let new_b = lut[(p & 0xFF) as usize];
 
-            // Posterize each channel
-            let new_r = ((r / 255.0 * levels_minus_1).round() / levels_minus_1 * 255.0) as u32;
-            let new_g = ((g / 255.0 * levels_minus_1).round() / levels_minus_1 * 255.0) as u32;
-            let new_b = ((b / 255.0 * levels_minus_1).round() / levels_minus_1 * 255.0) as u32;
-
-            // Clamp to prevent overflow on precision errors
-            let new_r = new_r.min(255);
-            let new_g = new_g.min(255);
-            let new_b = new_b.min(255);
-
-            *pixel = (a << 24) | (new_r << 16) | (new_g << 8) | new_b;
+            *pixel = a | (new_r << 16) | (new_g << 8) | new_b;
         }
     }
 }
@@ -81,4 +79,22 @@ mod tests {
         assert_eq!(p1, p2, "Pixels should be quantized to the same level");
         assert_eq!(p1, 0xFF555555, "Should be quantized to exactly 85 (0x55)"); // 85 is 0x55
     }
+}
+
+#[test]
+fn test_apply_posterize_alpha_preservation() {
+    let mut fb = Framebuffer::new(1, 1).unwrap();
+    // Set a pixel with 50% alpha (0x80)
+    fb.set_pixel(0, 0, 0x80FF8080);
+
+    let config = PosterizeConfig { levels: 4.0 };
+    apply_posterize(&mut fb, &config);
+
+    let p1 = fb.get_pixel(0, 0).unwrap();
+    // Check that alpha is preserved exactly
+    assert_eq!(
+        p1 & 0xFF00_0000,
+        0x8000_0000,
+        "Alpha channel should be preserved exactly without modification"
+    );
 }
