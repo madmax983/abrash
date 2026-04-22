@@ -672,9 +672,9 @@ fn extract_textures(images: &[gltf::image::Data]) -> Result<Vec<Texture>, GltfEr
 
 /// Extract PBR materials from the document.
 fn extract_materials(document: &gltf::Document) -> Vec<GltfMaterial> {
-    let mut materials = Vec::with_capacity(document.materials().len());
-    for material in document.materials() {
-        materials.push({
+    document
+        .materials()
+        .map(|material| {
             let pbr = material.pbr_metallic_roughness();
             let base_color_tex = pbr
                 .base_color_texture()
@@ -691,9 +691,8 @@ fn extract_materials(document: &gltf::Document) -> Vec<GltfMaterial> {
                 roughness_factor: pbr.roughness_factor(),
                 normal_texture: normal_tex,
             }
-        });
-    }
-    materials
+        })
+        .collect()
 }
 
 // ---------------------------------------------------------------------------

@@ -20,3 +20,17 @@
 ## [Prevent Allocator Resizing Chains in Iterator Maps]
 **Learning:** Replacing `.collect::<Vec<_>>().` with `Vec::with_capacity(n)` followed by `.extend(...)` prevents intermediate allocator resizing chains. This is particularly effective when `ExactSizeIterator` optimizations for complex iterator mapping fail to inline optimally in the frontend.
 **Action:** Use `Vec::with_capacity` and `extend` instead of `.collect()` for known-size iterators doing complex maps.
+## std::mem::take Reusable Buffer Performance Regression
+**Learning:** Using  to extract a  or  from a reusable buffer (like  storage) destroys the capacity of the stored buffer, forcing costly heap reallocations on subsequent uses and causing massive performance regressions (e.g., >90% slowdown).
+**Action:** Instead, extract the result via  and use  to retain the buffer's capacity for future iterations.
+
+## .collect() is Optimized
+**Learning:** In Rust,  already optimally leverages  and internal traits (like  or ) to pre-allocate memory. Manually replacing  with  followed by  or a  loop is an anti-pattern that achieves no performance gain and degrades code readability.
+**Action:** Rely on  when transforming iterators into vectors unless profiling strictly proves an unoptimized iterator path.
+## std::mem::take Reusable Buffer Performance Regression
+**Learning:** Using `std::mem::take()` to extract a `String` or `Vec` from a reusable buffer (like `thread_local!` storage) destroys the capacity of the stored buffer, forcing costly heap reallocations on subsequent uses and causing massive performance regressions (e.g., >90% slowdown).
+**Action:** Instead, extract the result via `.clone()` and use `.clear()` to retain the buffer's capacity for future iterations.
+
+## .collect() is Optimized
+**Learning:** In Rust, `Iterator::collect::<Vec<_>>()` already optimally leverages `size_hint()` and internal traits (like `TrustedLen` or `ExactSizeIterator`) to pre-allocate memory. Manually replacing `.collect()` with `Vec::with_capacity(iter.size_hint().0)` followed by `.extend()` or a `for` loop is an anti-pattern that achieves no performance gain and degrades code readability.
+**Action:** Rely on `.collect()` when transforming iterators into vectors unless profiling strictly proves an unoptimized iterator path.

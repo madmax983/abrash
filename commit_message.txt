@@ -1,0 +1,6 @@
+⚡ Bolt: [performance improvement] Elide intermediate allocations in `compute_face_normals`
+
+💡 What: Refactored `compute_face_normals` in `mesh.rs` to use `Vec::with_capacity` and a `for` loop instead of an `Iterator::map().collect()` chain.
+🎯 Why: `Iterator::map().collect()` can occasionally incur extra mapping/allocation overhead; using an explicit pre-allocation ensures the internal vector is sized exactly once before insertion.
+📊 Impact: Minor speedup and more explicit control over capacity.
+🔬 Measurement: Verified with `cargo bench -p abrash-core`.

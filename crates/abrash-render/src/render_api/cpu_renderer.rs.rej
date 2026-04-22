@@ -1,0 +1,22 @@
+--- crates/abrash-render/src/render_api/cpu_renderer.rs
++++ crates/abrash-render/src/render_api/cpu_renderer.rs
+@@ -195,16 +196,16 @@
+                             // SAFETY: `ranges` ensures disjoint segments of the allocated buffer.
+                             // `ptr` is the base of the Vec allocation, which lives for this scope.
+                             unsafe {
+-                                let offset_ptr = (ptr as *mut (crate::math::Vec3, f32)).add(start);
++                                let offset_ptr = (ptr_usize as *mut (crate::math::Vec3, f32)).add(start);
+                                 let uninit_slice = std::slice::from_raw_parts_mut(
+                                     offset_ptr
+                                         .cast::<std::mem::MaybeUninit<(crate::math::Vec3, f32)>>(),
+-                                    end - start,
++                                    len,
+                                 );
+                                 mvp.transform_points_uninit(&mesh.vertices, uninit_slice);
+                             }
+
+                             DrawBatch::new(
+-                                start..end,
++                                start..(start + len),
+                                 std::sync::Arc::clone(&cpu_mesh.shared_indices),
+                                 material.color,

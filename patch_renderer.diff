@@ -1,0 +1,54 @@
+--- crates/abrash-render/src/render_api/cpu_renderer.rs
++++ crates/abrash-render/src/render_api/cpu_renderer.rs
+@@ -165,15 +165,16 @@
+                 // Since we already checked handles above, unwraps here are safe
+                 let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
+                 let len = cpu_mesh.mesh.vertices.len();
+-                ranges.push((current_offset, current_offset + len));
++                ranges.push((current_offset, len));
+                 current_offset += len;
+             }
+
+             // Safety: We ensure `ranges` accurately bounds writes to disjoint sections
+             // of the pre-allocated buffer exactly `total_vertices` in length.
+-            let ptr = draw_list.vertices.as_mut_ptr() as usize; // Cast to usize to make it Send + Sync
++            let ptr = draw_list.vertices.as_mut_ptr();
++            let ptr_usize = ptr as usize; // Cast to usize to make it Send + Sync
+
+             // Use par_extend to directly populate batches without an intermediate Vec allocation.
+             draw_list
+                 .batches
+                 .par_extend(
+@@ -181,9 +182,9 @@
+                         .commands
+                         .par_iter()
+                         .zip(ranges.as_slice())
+-                        .map(|(cmd, &(start, end))| {
++                        .map(|(cmd, &(start, len))| {
+                             let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
+                             let material = self
+                                 .materials
+                                 .get(from_material_handle(cmd.material))
+                                 .unwrap();
+@@ -193,17 +194,17 @@
+                             // SAFETY: `ranges` ensures disjoint segments of the allocated buffer.
+                             // The buffer is pre-allocated with `total_vertices` capacity.
+                             unsafe {
+-                                let offset_ptr = (ptr as *mut (crate::math::Vec3, f32)).add(start);
++                                let offset_ptr = (ptr_usize as *mut (crate::math::Vec3, f32)).add(start);
+                                 // We cast `offset_ptr` to `*mut std::mem::MaybeUninit` to pass into `transform_points_uninit`.
+                                 let slice = std::slice::from_raw_parts_mut(
+                                     offset_ptr
+                                         .cast::<std::mem::MaybeUninit<(crate::math::Vec3, f32)>>(),
+-                                    mesh.vertices.len(),
++                                    len,
+                                 );
+                                 mvp.transform_points_uninit(&mesh.vertices, slice);
+                             }
+
+                             DrawBatch::new(
+-                                start..end,
++                                start..(start + len),
+                                 std::sync::Arc::clone(&cpu_mesh.shared_indices),
+                                 material.color,
+                             )

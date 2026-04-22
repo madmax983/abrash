@@ -1,0 +1,21 @@
+--- crates/abrash-skeletal/src/animator.rs
++++ crates/abrash-skeletal/src/animator.rs
+@@ -44,7 +44,6 @@
+     pub fn new(skeleton: Skeleton, clip: &AnimationClip, playback: PlaybackMode) -> Self {
+         let joint_count = skeleton.joint_count();
+         let bind_pose = Pose::from_bind(&skeleton);
+-        let current_pose = bind_pose.clone();
+
+         // Initialize all bones with no animation
+         // ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
+@@ -86,8 +85,8 @@
+         Self {
+             skeleton,
+             bone_animators,
+-            bind_pose,
+-            current_pose,
++            current_pose: bind_pose.clone(),
++            bind_pose,
+             playback,
+         }
+     }
