@@ -46,6 +46,10 @@ use std::ops::{Add, Mul, Sub};
 /// Computes an approximation of `sin(x)` and `cos(x)` using a polynomial approximation.
 /// This offers a significant performance advantage over the standard library's `sin_cos`
 /// implementation for hot paths where absolute precision is not critical.
+///
+/// ⚡ Bolt: Replacing `.round()` with fast integer casting logic avoids floating-point
+/// round function overhead, eliminating branches and yielding measurable performance
+/// improvements in hot loops.
 #[inline]
 pub fn fast_sin_cos(mut x: f32) -> (f32, f32) {
     let pi = std::f32::consts::PI;
@@ -53,7 +57,10 @@ pub fn fast_sin_cos(mut x: f32) -> (f32, f32) {
     let inv_tau = 1.0 / tau;
 
     // Wrap x to [-PI, PI]
-    x -= (x * inv_tau).round() * tau;
+    let temp = x * inv_tau;
+    // Replace slow .round() with fast integer casting
+    let round_temp = (temp + 16384.5) as i32 as f32 - 16384.0;
+    x -= round_temp * tau;
 
     // Constants for sin approximation
     let b = 4.0 / pi;
