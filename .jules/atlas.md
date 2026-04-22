@@ -97,3 +97,11 @@
 3.  **Update Callers:** Updated `draw_scanline_textured_perspective`, `draw_scanline_textured_gouraud`, and tile rasterizer logic to construct and pass the new state and step structs.
 
 **Stability:** Improved clarity and lowered argument count below the cognitive limit. High cohesion is achieved by grouping related interpolation state variables together, making the low-level rendering API significantly cleaner and easier to maintain.
+
+## [Unified Experimental Error Handling]
+**Tangle:** Inconsistent error handling (mixing `String` and `&'static str`) across `experimental` modules like `lsystem`, `arboretum`, `jelly`, and `steganography`, creating an unpredictable API. Additionally, unreadable numeric literals were triggering `clippy` warnings, and the lack of `# Errors` documentation broke formatting standards.
+
+**Blueprint:**
+1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
+2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors. Addressed `clippy` warnings by adding `# Errors` documentation and formatting unreadable numeric literals.
+3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
