@@ -484,18 +484,18 @@ impl Mesh {
     /// Computes and returns the face normals for each triangle in the mesh.
     #[must_use]
     pub fn compute_face_normals(&self) -> Vec<Vec3> {
-        self.indices
-            .iter()
-            .map(|&[i0, i1, i2]| {
-                let v0 = self.vertices[i0];
-                let v1 = self.vertices[i1];
-                let v2 = self.vertices[i2];
+        // ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
+        let mut normals = Vec::with_capacity(self.indices.len());
+        normals.extend(self.indices.iter().map(|&[i0, i1, i2]| {
+            let v0 = self.vertices[i0];
+            let v1 = self.vertices[i1];
+            let v2 = self.vertices[i2];
 
-                let edge1 = v1 - v0;
-                let edge2 = v2 - v0;
-                edge1.cross(edge2).normalize()
-            })
-            .collect()
+            let edge1 = v1 - v0;
+            let edge2 = v2 - v0;
+            edge1.cross(edge2).normalize()
+        }));
+        normals
     }
 
     /// Calculates the bounding sphere of the mesh.
