@@ -217,8 +217,18 @@ impl Scene {
     /// The culling step still uses thread-local scratch buffers to stay allocation-free.
     #[must_use]
     pub fn extract(&self) -> DrawList {
+        let mut draw_list = DrawList::new(FrameCamera::new(self.camera.view, self.camera.proj));
+        self.extract_into(&mut draw_list);
+        draw_list
+    }
+
+    /// Extract the scene into an existing [`DrawList`], avoiding reallocation if the list
+    /// is reused across frames.
+    pub fn extract_into(&self, draw_list: &mut DrawList) {
         let view_proj = self.camera.view * self.camera.proj;
         let camera = FrameCamera::new(self.camera.view, self.camera.proj);
+
+        draw_list.clear(camera);
 
         RENDER_CONTEXT.with(|ctx_cell| {
             let mut ctx_guard = ctx_cell.borrow_mut();
@@ -254,7 +264,8 @@ impl Scene {
                     (count + 1, verts + obj.mesh.vertices.len())
                 });
 
-            let mut draw_list = DrawList::with_capacity(camera, visible_count, total_vertices, 0);
+            draw_list.vertices.reserve(total_vertices);
+            draw_list.batches.reserve(visible_count);
 
             // ⚡ Bolt: Eliminate implicit bounds-checks during push by pre-allocating exact capacities for dynamic vectors
             draw_list.batches.reserve_exact(visible_count);
@@ -293,9 +304,7 @@ impl Scene {
                     obj.color,
                 ));
             }
-
-            draw_list
-        })
+        });
     }
 
     /// Render the scene using the provided renderer.
@@ -309,17 +318,24 @@ impl Scene {
     /// *   **Culling**: Objects completely outside the frustum are skipped entirely.
     /// *   **Batching**: Vertex transformations use thread-local scratch buffers.
     pub fn render(&self, renderer: &mut TileRenderer, fb: &mut Framebuffer, zb: &mut ZBuffer) {
-        let draw_list = self.extract();
-
-        renderer.begin_frame();
-        for batch in &draw_list.batches {
-            renderer.submit_mesh(
-                &batch.indices,
-                &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
-                batch.color,
-            );
+        thread_local! {
+            static SCENE_DRAW_LIST: std::cell::RefCell<DrawList> = std::cell::RefCell::new(DrawList::new(FrameCamera::new(crate::math::Mat4::identity(), crate::math::Mat4::identity())));
         }
-        renderer.end_frame(fb, zb);
+
+        SCENE_DRAW_LIST.with(|dl_cell| {
+            let mut draw_list = dl_cell.borrow_mut();
+            self.extract_into(&mut draw_list);
+
+            renderer.begin_frame();
+            for batch in &draw_list.batches {
+                renderer.submit_mesh(
+                    &batch.indices,
+                    &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
+                    batch.color,
+                );
+            }
+            renderer.end_frame(fb, zb);
+        });
     }
 }
 

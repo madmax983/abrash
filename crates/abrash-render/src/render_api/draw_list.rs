@@ -141,6 +141,15 @@ impl DrawList {
         self.batches.push(batch);
     }
 
+    /// Clears the draw list while retaining its allocated capacity.
+    pub fn clear(&mut self, camera: FrameCamera) {
+        self.camera = camera;
+        self.lights.clear();
+        self.vertices.clear();
+        self.batches.clear();
+        self.clear_color = Some(0xFF00_0000);
+    }
+
     /// Total number of triangles across all batches.
     #[must_use]
     pub fn triangle_count(&self) -> usize {
@@ -181,6 +190,18 @@ mod tests {
         dl.push(batch);
         assert_eq!(dl.batches.len(), 1);
         assert_eq!(dl.triangle_count(), 1);
+    }
+
+    #[test]
+    fn test_draw_list_clear() {
+        let cam = test_camera();
+        let mut dl = DrawList::new(cam);
+        dl.vertices.push((Vec3::ZERO, 1.0));
+        dl.push(DrawBatch::new(0..1, std::sync::Arc::new([[0, 1, 2]]), 0xFF000000));
+
+        dl.clear(cam);
+        assert_eq!(dl.vertices.len(), 0);
+        assert_eq!(dl.batches.len(), 0);
     }
 
     #[test]
