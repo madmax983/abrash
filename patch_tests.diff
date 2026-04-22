@@ -1,0 +1,40 @@
+--- crates/abrash-render/src/render_api/draw_list.rs
++++ crates/abrash-render/src/render_api/draw_list.rs
+@@ -197,4 +197,36 @@
+         assert_eq!(batch.indices.len(), 1);
+         assert_eq!(batch.color, 0xFFFF_FFFF);
+     }
++
++    #[test]
++    fn test_draw_list_cache() {
++        let mut dl = DrawList::with_capacity(test_camera(), 10, 20, 5);
++
++        // The capacity should be >= what we requested
++        assert!(dl.batches.capacity() >= 10);
++        assert!(dl.vertices.capacity() >= 20);
++        assert!(dl.lights.capacity() >= 5);
++
++        // Push some dummy data to increase the size
++        dl.vertices.push((Vec3::ZERO, 1.0));
++        dl.batches.push(DrawBatch::new(0..1, vec![[0, 0, 0]].into(), 0));
++
++        let cap_v = dl.vertices.capacity();
++        let cap_b = dl.batches.capacity();
++        let cap_l = dl.lights.capacity();
++
++        // Clear the draw list, which returns the vectors to the cache
++        dl.clear();
++
++        // Now request a new draw list with the SAME or SMALLER capacity
++        let dl2 = DrawList::with_capacity(test_camera(), 10, 20, 5);
++
++        // It should have reused the vectors from the cache, so the capacity
++        // should be exactly the same as what we returned.
++        assert_eq!(dl2.vertices.capacity(), cap_v);
++        assert_eq!(dl2.batches.capacity(), cap_b);
++        assert_eq!(dl2.lights.capacity(), cap_l);
++        // The vectors should be empty
++        assert!(dl2.vertices.is_empty());
++        assert!(dl2.batches.is_empty());
++    }
+ }

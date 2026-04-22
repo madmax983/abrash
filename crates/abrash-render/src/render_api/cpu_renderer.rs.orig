@@ -409,7 +409,6 @@ impl CpuRenderer {
     ) -> Result<(), RenderError> {
         let draw_list = self.extract_draw_list(frame)?;
         self.execute_draw_list_into(&draw_list, target);
-        draw_list.clear();
         Ok(())
     }
 

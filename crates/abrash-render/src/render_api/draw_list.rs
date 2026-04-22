@@ -105,6 +105,12 @@ pub struct DrawList {
     pub clear_color: Option<u32>,
 }
 
+
+thread_local! {
+    static DRAW_LIST_CACHE: std::cell::RefCell<(Vec<(Vec3, f32)>, Vec<DrawBatch>, Vec<Light>)> =
+        std::cell::RefCell::new((Vec::new(), Vec::new(), Vec::new()));
+}
+
 impl DrawList {
     /// Create an empty draw list for the given camera.
     #[must_use]
@@ -127,13 +133,45 @@ impl DrawList {
         num_vertices: usize,
         num_lights: usize,
     ) -> Self {
+        let (mut vertices, mut batches, mut lights) = DRAW_LIST_CACHE.with(|cache| {
+            let mut cache = cache.borrow_mut();
+            (
+                std::mem::take(&mut cache.0),
+                std::mem::take(&mut cache.1),
+                std::mem::take(&mut cache.2),
+            )
+        });
+
+        vertices.reserve(num_vertices);
+        batches.reserve(num_commands);
+        lights.reserve(num_lights);
+
         Self {
             camera,
-            lights: Vec::with_capacity(num_lights),
-            vertices: Vec::with_capacity(num_vertices),
-            batches: Vec::with_capacity(num_commands),
+            lights,
+            vertices,
+            batches,
             clear_color: Some(0xFF00_0000),
         }
+    }
+
+    /// Recycles internal vectors back into the thread-local cache.
+    pub fn clear(mut self) {
+        DRAW_LIST_CACHE.with(|cache| {
+            let mut cache = cache.borrow_mut();
+            if self.vertices.capacity() >= cache.0.capacity() {
+                self.vertices.clear();
+                cache.0 = std::mem::take(&mut self.vertices);
+            }
+            if self.batches.capacity() >= cache.1.capacity() {
+                self.batches.clear();
+                cache.1 = std::mem::take(&mut self.batches);
+            }
+            if self.lights.capacity() >= cache.2.capacity() {
+                self.lights.clear();
+                cache.2 = std::mem::take(&mut self.lights);
+            }
+        });
     }
 
     /// Append a draw batch.

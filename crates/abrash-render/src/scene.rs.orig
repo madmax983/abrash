@@ -312,8 +312,6 @@ impl Scene {
             );
         }
         renderer.end_frame(fb, zb);
-
-        draw_list.clear();
     }
 }
 
