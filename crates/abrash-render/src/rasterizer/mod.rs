@@ -102,3 +102,9 @@ pub(crate) use self::texture::{PerspectiveTextureEdgeWalker, RECIPROCAL_TABLE};
 
 #[cfg(test)]
 pub mod texture_havoc_test;
+
+#[cfg(test)]
+mod gouraud_havoc_test;
+
+#[cfg(test)]
+mod havoc_proptests;
