@@ -160,7 +160,8 @@ fn process_row(
 
             #[allow(clippy::cast_possible_truncation)]
             // ⚡ Bolt: Replace f32::round() with fast integer casting
-            let shift = (((normalized_shift * config.max_offset as f32) + 16384.5) as i32 as f32 - 16384.0) as i32;
+            let shift = (((normalized_shift * config.max_offset as f32) + 16384.5) as i32 as f32
+                - 16384.0) as i32;
 
             if (src_x as i32 + shift) == x_i32 {
                 // This src_x shifts its red to x

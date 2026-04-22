@@ -43,3 +43,8 @@
 **Concept:** A mathematical renderer that simulates a mechanical harmonograph using damped pendulums to draw complex Lissajous curves and geometric patterns directly onto the 2D framebuffer.
 **Fate:** Implemented
 **Lesson:** Using a combination of simple trigonometric functions (sine) mapped to exponentially decaying amplitudes (damping) creates beautiful procedural curves. Bresenham's line algorithm effectively rasterizes these continuous math functions without requiring float-to-int pixel interpolation artifacts if sampled frequently enough (small step sizes).
+
+## [Synthwave Grid Filter]
+**Concept:** A post-processing effect that renders an animated, pseudo-3D perspective grid typical of 80s synthwave/retrowave aesthetics. It uses screen-space Y coordinates mapped to depth to create moving horizontal and vertical lines converging towards a vanishing point.
+**Fate:** Implemented
+**Lesson:** Mapping 2D Y-coordinates to inverse Z depth combined with modulo arithmetic creates an incredibly fast and convincing procedural perspective grid entirely in screen space, completely avoiding the need for 3D geometry transformations or matrix multiplications. Using `fract()` efficiently simulates infinitely moving and converging lines.
