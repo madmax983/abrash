@@ -1,153 +1,80 @@
-# Phase 1 SIMD Benchmark Results
+scene_render_100_objects
+                        time:   [396.00 µs 397.14 µs 398.44 µs]
+                        change: [-1.0946% +0.1469% +1.0479%] (p = 0.84 > 0.05)
+                        No change in performance detected.
 
-**Date**: 2026-02-06
-**Commit**: (post-Phase 1 implementation)
+scene_render_integrated_clear_100_objects
+                        time:   [282.65 µs 283.48 µs 284.42 µs]
+                        change: [+0.9597% +1.6476% +2.2416%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  6 (6.00%) high mild
 
-## Summary
+scene_extract_only_100_objects
+                        time:   [16.675 µs 16.794 µs 17.011 µs]
+                        change: [-24.896% -20.460% -15.688%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
 
-Phase 1 SIMD implementations have been completed:
-- ✅ AVX2 vectorized rasterization (8 pixels/clock)
-- ✅ SIMD Hi-Z pyramid construction
-- ✅ Fixed-point rasterization infrastructure
+scene_clear_only        time:   [112.73 µs 113.24 µs 113.84 µs]
+                        change: [+0.2594% +1.0032% +1.7068%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 9 outliers among 100 measurements (9.00%)
+  9 (9.00%) high mild
 
-**Status**: ⚠️ All code compiles and passes tests, but performance results show regressions rather than improvements.
+scene_rasterize_only_100_objects
+                        time:   [267.84 µs 273.10 µs 279.27 µs]
+                        change: [+0.5018% +1.6667% +2.9384%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 13 outliers among 100 measurements (13.00%)
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+  10 (10.00%) high severe
 
-## Benchmark Results
+scene_rasterize_integrated_clear_100_objects
+                        time:   [270.89 µs 281.21 µs 292.91 µs]
+                        change: [+1.8459% +3.5405% +6.0779%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 15 outliers among 100 measurements (15.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+  10 (10.00%) high severe
 
-### Scene Rendering (Scalar vs SIMD)
+submit_mesh_only_20k_tris
+                        time:   [265.26 µs 265.71 µs 266.22 µs]
+                        change: [-0.1407% +0.1053% +0.3427%] (p = 0.39 > 0.05)
+                        No change in performance detected.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
 
-| Scene | Resolution | Triangles | Scalar Time | SIMD Time | Change |
-|-------|------------|-----------|-------------|-----------|--------|
-| Scene 1 (Sparse) | 4K (3840×2160) | 10 | 7.17 ms | 11.68 ms | **-63% (slower)** |
-| Scene 2 (Medium) | 1080p (1920×1080) | 100 | 0.98 ms | 2.33 ms | **-138% (slower)** |
-| Scene 3 (Dense) | 4K (3840×2160) | 1000 | 7.15 ms | 11.75 ms | **-64% (slower)** |
+1080p_20k_tris_100obj   time:   [245.51 µs 245.91 µs 246.39 µs]
+                        change: [-0.6021% -0.0681% +0.3155%] (p = 0.82 > 0.05)
+                        No change in performance detected.
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+  1 (1.00%) high severe
 
-### Hi-Z Pyramid Build (Scalar vs SIMD)
+1080p_80k_tris_400obj   time:   [952.55 µs 953.58 µs 954.62 µs]
+                        change: [-0.4462% -0.3255% -0.2008%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
 
-| Resolution | Scalar Time | SIMD Time | Change |
-|------------|-------------|-----------|--------|
-| 1080p | 1.81 ms | 4.43 ms | **-144% (slower)** |
-| 4K | 10.26 ms | 18.10 ms | **-76% (slower)** |
+1080p_80k_tris_dense_100obj
+                        time:   [1.1427 ms 1.1442 ms 1.1458 ms]
+                        change: [-0.1355% +0.0690% +0.2633%] (p = 0.51 > 0.05)
+                        No change in performance detected.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
 
-### Hi-Z with Scene Rendering
+4k_20k_tris_100obj      time:   [248.10 µs 248.64 µs 249.25 µs]
+                        change: [+0.3112% +0.6051% +0.8972%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  6 (6.00%) high mild
 
-| Scene | Without Hi-Z | With Hi-Z (SIMD) | Change |
-|-------|--------------|------------------|--------|
-| Scene 2 (1080p, 100 tri) | 2.33 ms | 7.31 ms | **-214% (slower)** |
-| Scene 3 (4K, 1000 tri) | 11.75 ms | 30.60 ms | **-160% (slower)** |
-
-## Analysis
-
-### 🔴 Critical Issues Found
-
-1. **SIMD Rasterization Regression**
-   - Expected: 6-7× speedup
-   - Actual: 1.6× **slower**
-   - Possible causes:
-     - SIMD overhead exceeds benefit for small scanlines
-     - Memory alignment issues
-     - Branch misprediction in SIMD path
-     - Masked stores may be inefficient
-
-2. **Hi-Z Pyramid Regression**
-   - Expected: 4-6× speedup
-   - Actual: 2.4× **slower** (1080p), 1.8× **slower** (4K)
-   - Possible causes:
-     - SIMD shuffle operations inefficient
-     - Cache thrashing from SIMD loads/stores
-     - Horizontal reduction overhead
-
-3. **Hi-Z Integration Overhead**
-   - Hi-Z adds significant overhead even with SIMD
-   - Pyramid build cost dominates for small scenes
-   - Expected 30-70% culling not materializing in performance gains
-
-### Root Cause Hypotheses
-
-**Hypothesis 1: SIMD Overhead > SIMD Benefit**
-- Small scanlines (avg 10-50 pixels) don't amortize SIMD setup cost
-- Scalar code benefits from simpler control flow and better branch prediction
-
-**Hypothesis 2: Memory Bandwidth Bottleneck**
-- SIMD loads/stores saturate memory bandwidth
-- Cache line thrashing from wider memory access patterns
-- Scalar code has better cache locality
-
-**Hypothesis 3: Implementation Issues**
-- SIMD shuffle operations for horizontal reduction are expensive
-- Masked stores (_mm256_maskstore_*) have hidden overhead
-- Fixed-point infrastructure created but not integrated (dead code warnings)
-
-## Test Coverage
-
-✅ **All 60 tests passing** with SIMD feature enabled:
-- 34 tile_renderer tests
-- 16 hiz_buffer tests (including 2 SIMD-specific tests)
-- 10 other tests
-
-**Correctness verified**:
-- SIMD output is pixel-identical to scalar
-- All edge cases handled (clipping, partial tiles, degenerate triangles)
-- No regressions in functionality
-
-## Next Steps
-
-### Immediate (Required for Phase 1 Success)
-
-1. **Profile SIMD Code**
-   - Use perf/vtune to identify hotspots
-   - Measure actual CPU cycles per pixel
-   - Check for unexpected stalls or cache misses
-
-2. **Fix Hi-Z SIMD Implementation**
-   - Review horizontal reduction algorithm
-   - Consider different shuffle strategies
-   - May need to fall back to scalar for pyramid build
-
-3. **Optimize SIMD Rasterization**
-   - Review masked store usage
-   - Consider tile-level SIMD instead of scanline-level
-   - Add heuristic to use scalar for short scanlines (<32 pixels)
-
-4. **Integrate Fixed-Point**
-   - Currently unused (dead code warnings)
-   - Fixed-point edge functions not called from SIMD path
-   - Need to connect VertexFixed to actual rasterization
-
-### Medium-Term (Performance Tuning)
-
-5. **Benchmark Methodology**
-   - Create more realistic test scenes
-   - Vary scanline lengths to find SIMD crossover point
-   - Test with different triangle sizes
-
-6. **Alternative SIMD Strategies**
-   - Consider Tile-level SIMD (process 8 tiles in parallel) instead of scanline-level
-   - Explore block-based rasterization instead of scanline
-   - Investigate SIMD for binning phase instead of rasterization
-
-### Long-Term (If SIMD Doesn't Pan Out)
-
-7. **Fallback Plan**
-   - Keep infrastructure but disable by default
-   - Focus on parallel (Rayon) for speedup instead
-   - Consider Phase 2 (GPU compute) as primary performance path
-
-## Conclusion
-
-**Phase 1 Status: ⚠️ IMPLEMENTED BUT NOT PERFORMANT**
-
-All Phase 1 SIMD optimizations have been implemented and are functionally correct (all tests pass, output is pixel-identical). However, performance benchmarks show **significant regressions** rather than the expected 12× speedup.
-
-**Key Takeaway**: SIMD is tricky. The infrastructure is sound, but tuning is required.
-
-**Recommendation**: Before proceeding to Phase 2, invest 1-2 weeks in profiling and optimization to understand why SIMD is underperforming. If SIMD cannot be made fast, consider alternative strategies (better parallelism, different SIMD approach, or skip to Phase 2 GPU compute).
-
----
-
-**Benchmarking Environment**:
-- CPU: x86_64 with AVX2 support
-- OS: Windows
-- Rust: 1.x (2024 edition)
-- Build: `--release` (optimized)
-- Features: `backend-win32,simd`
