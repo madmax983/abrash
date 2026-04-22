@@ -131,10 +131,10 @@ pub fn draw_ellipse(fb: &mut Framebuffer, xc: i32, yc: i32, rx: i32, ry: i32, co
         }
 
         // Region 2
-        let mut p2 = ry_sq * i64::from(x) * i64::from(x)
-            + ry_sq * i64::from(x)
-            + rx_sq * i64::from(y - 1) * i64::from(y - 1)
-            - rx_sq * ry_sq;
+        // ⚡ Bolt: Hoist type conversions and algebraically simplify to reduce operations
+        let x_i64 = i64::from(x);
+        let y_minus_1 = i64::from(y - 1);
+        let mut p2 = ry_sq * x_i64 * (x_i64 + 1) + rx_sq * (y_minus_1 * y_minus_1 - ry_sq);
 
         while y > 0 {
             y -= 1;
@@ -168,10 +168,10 @@ pub fn draw_ellipse(fb: &mut Framebuffer, xc: i32, yc: i32, rx: i32, ry: i32, co
         }
 
         // Region 2
-        let mut p2 = ry_sq * i64::from(x) * i64::from(x)
-            + ry_sq * i64::from(x)
-            + rx_sq * i64::from(y - 1) * i64::from(y - 1)
-            - rx_sq * ry_sq;
+        // ⚡ Bolt: Hoist type conversions and algebraically simplify to reduce operations
+        let x_i64 = i64::from(x);
+        let y_minus_1 = i64::from(y - 1);
+        let mut p2 = ry_sq * x_i64 * (x_i64 + 1) + rx_sq * (y_minus_1 * y_minus_1 - ry_sq);
 
         while y > 0 {
             y -= 1;
@@ -299,10 +299,10 @@ pub fn fill_ellipse(fb: &mut Framebuffer, xc: i32, yc: i32, rx: i32, ry: i32, co
         }
 
         // Region 2
-        let mut p2 = ry_sq * i64::from(x) * i64::from(x)
-            + ry_sq * i64::from(x)
-            + rx_sq * i64::from(y - 1) * i64::from(y - 1)
-            - rx_sq * ry_sq;
+        // ⚡ Bolt: Hoist type conversions and algebraically simplify to reduce operations
+        let x_i64 = i64::from(x);
+        let y_minus_1 = i64::from(y - 1);
+        let mut p2 = ry_sq * x_i64 * (x_i64 + 1) + rx_sq * (y_minus_1 * y_minus_1 - ry_sq);
 
         while y > 0 {
             y -= 1;
@@ -345,10 +345,10 @@ pub fn fill_ellipse(fb: &mut Framebuffer, xc: i32, yc: i32, rx: i32, ry: i32, co
         }
 
         // Region 2
-        let mut p2 = ry_sq * i64::from(x) * i64::from(x)
-            + ry_sq * i64::from(x)
-            + rx_sq * i64::from(y - 1) * i64::from(y - 1)
-            - rx_sq * ry_sq;
+        // ⚡ Bolt: Hoist type conversions and algebraically simplify to reduce operations
+        let x_i64 = i64::from(x);
+        let y_minus_1 = i64::from(y - 1);
+        let mut p2 = ry_sq * x_i64 * (x_i64 + 1) + rx_sq * (y_minus_1 * y_minus_1 - ry_sq);
 
         while y > 0 {
             y -= 1;

@@ -20,6 +20,9 @@
 ## [Prevent Allocator Resizing Chains in Iterator Maps]
 **Learning:** Replacing `.collect::<Vec<_>>().` with `Vec::with_capacity(n)` followed by `.extend(...)` prevents intermediate allocator resizing chains. This is particularly effective when `ExactSizeIterator` optimizations for complex iterator mapping fail to inline optimally in the frontend.
 **Action:** Use `Vec::with_capacity` and `extend` instead of `.collect()` for known-size iterators doing complex maps.
+**[Ellipse algebraic simplification]
+**Learning:** In the setup for Region 2 of Bresenham's ellipse algorithm, simplifying the decision variable mathematically (e.g., `ry_sq * x * (x + 1) + rx_sq * ((y - 1)^2 - ry_sq)`) and hoisting type conversions eliminates redundant operations.
+**Action:** Applied algebraic simplification to the `p2` initialization in `ellipse.rs`, reducing per-ellipse math operations without altering behavior.
 **[Eliding Sqrt in Neon Outline Filter]**
 **Learning:** In edge-detection filters (like Sobel in `neon_outline`), calculating the exact magnitude using `sqrt()` for every pixel is a severe bottleneck.
 **Action:** Pre-calculate a squared threshold outside the loop (using `u64` to prevent overflow) and compare it against the squared magnitude (`gx*gx + gy*gy`). This safely elides the expensive `sqrt()` and floating-point cast operations for the vast majority of non-edge pixels.
