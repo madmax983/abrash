@@ -229,32 +229,40 @@ impl Scene {
 
             let num_objects = self.objects.len();
             world_aabbs.clear();
-            world_aabbs.reserve(num_objects);
             cull_results.clear();
             cull_results.resize(num_objects, false);
 
-            for obj in &self.objects {
-                world_aabbs.push(obj.local_aabb.transform(&obj.transform));
-            }
+            // ⚡ Bolt: Use `extend` to eliminate bounds checking in the hot loop when updating Thread-Local AABB buffers.
+            world_aabbs.extend(
+                self.objects
+                    .iter()
+                    .map(|obj| obj.local_aabb.transform(&obj.transform)),
+            );
 
             self.camera
                 .frustum
                 .cull_aabbs_prealloc(world_aabbs, cull_results);
 
             // Pre-calculate visible objects and total required vertices to avoid dynamic reallocations
-            let mut total_vertices = 0;
-            let mut visible_count = 0;
-            for (i, obj) in self.objects.iter().enumerate() {
-                if cull_results[i] {
-                    total_vertices += obj.mesh.vertices.len();
-                    visible_count += 1;
-                }
-            }
+            // ⚡ Bolt: Zip iterator avoids bounds checking on cull_results lookup inside hot culling loops
+            let (visible_count, total_vertices) = self
+                .objects
+                .iter()
+                .zip(cull_results.iter())
+                .filter(|&(_, &culled)| culled)
+                .fold((0, 0), |(count, verts), (obj, _)| {
+                    (count + 1, verts + obj.mesh.vertices.len())
+                });
 
             let mut draw_list = DrawList::with_capacity(camera, visible_count, total_vertices, 0);
 
-            for (i, obj) in self.objects.iter().enumerate() {
-                if !cull_results[i] {
+            // ⚡ Bolt: Eliminate implicit bounds-checks during push by pre-allocating exact capacities for dynamic vectors
+            draw_list.batches.reserve_exact(visible_count);
+            draw_list.vertices.reserve_exact(total_vertices);
+
+            // ⚡ Bolt: Zip iterator completely avoids bounds checking on cull_results inside the transform loop
+            for (obj, &is_visible) in self.objects.iter().zip(cull_results.iter()) {
+                if !is_visible {
                     continue;
                 }
 
