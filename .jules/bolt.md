@@ -20,6 +20,12 @@
 ## [Prevent Allocator Resizing Chains in Iterator Maps]
 **Learning:** Replacing `.collect::<Vec<_>>().` with `Vec::with_capacity(n)` followed by `.extend(...)` prevents intermediate allocator resizing chains. This is particularly effective when `ExactSizeIterator` optimizations for complex iterator mapping fail to inline optimally in the frontend.
 **Action:** Use `Vec::with_capacity` and `extend` instead of `.collect()` for known-size iterators doing complex maps.
+## [Voronoi Distance Calculation]
+**Learning:** In distance-based algorithms like Voronoi diagrams, evaluating configuration branches (e.g., determining which metric to use) inside nested per-pixel and per-seed loops is highly inefficient. Furthermore, computing expensive square roots per-seed is unnecessary when simply finding the minimum distance.
+**Action:** Hoist conditional checks for  out of the inner loop and into variables (, etc.). For Euclidean distance, defer the  operation until after the loop by directly comparing squared distances (), which yields a ~69% speedup.
+## [Voronoi Distance Calculation]
+**Learning:** In distance-based algorithms like Voronoi diagrams, evaluating configuration branches (e.g., determining which metric to use) inside nested per-pixel and per-seed loops is highly inefficient. Furthermore, computing expensive square roots per-seed is unnecessary when simply finding the minimum distance.
+**Action:** Hoist conditional checks for `metric` out of the inner loop and into variables (`is_euclidean`, etc.). For Euclidean distance, defer the `sqrt()` operation until after the loop by directly comparing squared distances (`dx*dx + dy*dy`), which yields a ~69% speedup.
 **[Ellipse algebraic simplification]
 **Learning:** In the setup for Region 2 of Bresenham's ellipse algorithm, simplifying the decision variable mathematically (e.g., `ry_sq * x * (x + 1) + rx_sq * ((y - 1)^2 - ry_sq)`) and hoisting type conversions eliminates redundant operations.
 **Action:** Applied algebraic simplification to the `p2` initialization in `ellipse.rs`, reducing per-ellipse math operations without altering behavior.
