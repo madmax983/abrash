@@ -131,7 +131,7 @@ fn bench_rasterize_only(c: &mut Criterion) {
             for batch in &draw_list.batches {
                 renderer.submit_mesh(
                     &batch.indices,
-                    &draw_list.vertices[batch.vertex_range.clone()],
+                    &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
                     batch.color,
                 );
             }
@@ -153,7 +153,7 @@ fn bench_submit_only(c: &mut Criterion) {
             for batch in &draw_list.batches {
                 renderer.submit_mesh(
                     &batch.indices,
-                    &draw_list.vertices[batch.vertex_range.clone()],
+                    &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
                     batch.color,
                 );
             }
@@ -194,7 +194,7 @@ fn bench_rasterize_integrated_clear(c: &mut Criterion) {
             for batch in &draw_list.batches {
                 renderer.submit_mesh(
                     &batch.indices,
-                    &draw_list.vertices[batch.vertex_range.clone()],
+                    &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
                     batch.color,
                 );
             }
