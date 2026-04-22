@@ -26,3 +26,9 @@
 ## [Voronoi Distance Calculation]
 **Learning:** In distance-based algorithms like Voronoi diagrams, evaluating configuration branches (e.g., determining which metric to use) inside nested per-pixel and per-seed loops is highly inefficient. Furthermore, computing expensive square roots per-seed is unnecessary when simply finding the minimum distance.
 **Action:** Hoist conditional checks for `metric` out of the inner loop and into variables (`is_euclidean`, etc.). For Euclidean distance, defer the `sqrt()` operation until after the loop by directly comparing squared distances (`dx*dx + dy*dy`), which yields a ~69% speedup.
+**[Ellipse algebraic simplification]
+**Learning:** In the setup for Region 2 of Bresenham's ellipse algorithm, simplifying the decision variable mathematically (e.g., `ry_sq * x * (x + 1) + rx_sq * ((y - 1)^2 - ry_sq)`) and hoisting type conversions eliminates redundant operations.
+**Action:** Applied algebraic simplification to the `p2` initialization in `ellipse.rs`, reducing per-ellipse math operations without altering behavior.
+**[Eliding Sqrt in Neon Outline Filter]**
+**Learning:** In edge-detection filters (like Sobel in `neon_outline`), calculating the exact magnitude using `sqrt()` for every pixel is a severe bottleneck.
+**Action:** Pre-calculate a squared threshold outside the loop (using `u64` to prevent overflow) and compare it against the squared magnitude (`gx*gx + gy*gy`). This safely elides the expensive `sqrt()` and floating-point cast operations for the vast majority of non-edge pixels.
