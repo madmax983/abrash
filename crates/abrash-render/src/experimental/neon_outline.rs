@@ -53,6 +53,10 @@ pub fn apply_neon_outline(fb: &mut Framebuffer, config: &NeonOutlineConfig) {
         return;
     }
 
+    // ⚡ Bolt Optimization: Pre-calculating the squared threshold allows us to elide
+    // the expensive `sqrt()` operation for the vast majority of non-edge pixels.
+    let threshold_sq = u64::from(config.threshold) * u64::from(config.threshold);
+
     NEON_BUFFER.with(|buf| {
         let mut src_fb_vec = buf.borrow_mut();
         let size = width * height;
@@ -106,9 +110,10 @@ pub fn apply_neon_outline(fb: &mut Framebuffer, config: &NeonOutlineConfig) {
                 let gx = (tr + 2 * cr + br) - (tl + 2 * cl + bl);
                 let gy = (bl + 2 * bc + br) - (tl + 2 * tc + tr);
 
-                let magnitude = ((gx * gx + gy * gy) as f32).sqrt() as u32;
+                let magnitude_sq = (gx * gx + gy * gy) as u64;
 
-                if magnitude > config.threshold {
+                if magnitude_sq > threshold_sq {
+                    let magnitude = (magnitude_sq as f32).sqrt() as u32;
                     // Normalize gx and gy to find the edge direction
                     let abs_gx = gx.abs() as f32;
                     let abs_gy = gy.abs() as f32;
