@@ -20,3 +20,6 @@
 ## [Prevent Allocator Resizing Chains in Iterator Maps]
 **Learning:** Replacing `.collect::<Vec<_>>().` with `Vec::with_capacity(n)` followed by `.extend(...)` prevents intermediate allocator resizing chains. This is particularly effective when `ExactSizeIterator` optimizations for complex iterator mapping fail to inline optimally in the frontend.
 **Action:** Use `Vec::with_capacity` and `extend` instead of `.collect()` for known-size iterators doing complex maps.
+## 2024-04-22 - [TileRenderer set_clear_color removal optimization]
+**Learning:** Adding `set_clear_color` into `TileRenderer` and then resetting it after clears in `CpuRenderer` creates performance regressions, especially in `scene_render_integrated_clear_100_objects`. The `CpuRenderer` relies heavily on tight inner loops, and modifying global clear colors each frame defeats certain tile-clearing optimizations.
+**Action:** Reverting the `set_clear_color` addition and the usage of `clone()` during vertex range slicing (which allocated per batch) yielded measurable performance improvements in the `submit_mesh_only_20k_tris` and `4k_20k_tris_100obj` benchmarks.
