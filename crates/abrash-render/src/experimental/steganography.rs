@@ -10,6 +10,7 @@ use crate::framebuffer::Framebuffer;
 /// Hides the message length (4 bytes) and the message data in the least
 /// significant bits of the RGB channels.
 ///
+/// # Errors
 /// Returns an error if the framebuffer is not large enough to hold the message.
 pub fn encode_message(fb: &mut Framebuffer, message: &str) -> Result<(), &'static str> {
     let bytes = message.as_bytes();

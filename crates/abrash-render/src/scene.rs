@@ -244,8 +244,8 @@ impl Scene {
             // Pre-calculate visible objects and total required vertices to avoid dynamic reallocations
             let mut total_vertices = 0;
             let mut visible_count = 0;
-            for (i, obj) in self.objects.iter().enumerate() {
-                if cull_results[i] {
+            for (obj, &is_visible) in self.objects.iter().zip(cull_results.iter()) {
+                if is_visible {
                     total_vertices += obj.mesh.vertices.len();
                     visible_count += 1;
                 }
@@ -253,8 +253,8 @@ impl Scene {
 
             let mut draw_list = DrawList::with_capacity(camera, visible_count, total_vertices, 0);
 
-            for (i, obj) in self.objects.iter().enumerate() {
-                if !cull_results[i] {
+            for (obj, &is_visible) in self.objects.iter().zip(cull_results.iter()) {
+                if !is_visible {
                     continue;
                 }
 
