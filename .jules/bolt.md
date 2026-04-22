@@ -20,3 +20,6 @@
 ## [Prevent Allocator Resizing Chains in Iterator Maps]
 **Learning:** Replacing `.collect::<Vec<_>>().` with `Vec::with_capacity(n)` followed by `.extend(...)` prevents intermediate allocator resizing chains. This is particularly effective when `ExactSizeIterator` optimizations for complex iterator mapping fail to inline optimally in the frontend.
 **Action:** Use `Vec::with_capacity` and `extend` instead of `.collect()` for known-size iterators doing complex maps.
+## [fast_sin_cos optimization]
+**Learning:** Floating-point `.round()` operations in hot inner loops are slow. Replacing them with fast integer casting logic (e.g., shifting values to be positive, casting to `i32`, then back to `f32` like `((val + 16384.5) as i32 as f32 - 16384.0)`) avoids branching and yields measurable performance improvements.
+**Action:** Replaced `.round()` with fast integer casting logic in `fast_sin_cos` function inside `abrash-core/src/math.rs`.
