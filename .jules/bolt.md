@@ -38,3 +38,6 @@
 **[Eliding Sqrt in Neon Outline Filter]**
 **Learning:** In edge-detection filters (like Sobel in `neon_outline`), calculating the exact magnitude using `sqrt()` for every pixel is a severe bottleneck.
 **Action:** Pre-calculate a squared threshold outside the loop (using `u64` to prevent overflow) and compare it against the squared magnitude (`gx*gx + gy*gy`). This safely elides the expensive `sqrt()` and floating-point cast operations for the vast majority of non-edge pixels.
+## 2024-04-22 - [Optimized DCT algorithms]
+**Learning:** In nested iterative mathematical functions (like IDCT/DCT), replacing chained `.map().collect()` calls with imperative `for` loops combined with `Vec::with_capacity` enables the explicit hoisting of inner-loop invariants (e.g., scaling factors). This yields measurable performance improvements without requiring `unsafe`.
+**Action:** Refactored `dct_ii` and `idct_ii` to use `Vec::with_capacity` and hoisted invariant multiplication terms out of the inner tight loops.

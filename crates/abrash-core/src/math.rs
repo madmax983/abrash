@@ -18657,15 +18657,17 @@ pub fn dct_ii(signal: &[f32]) -> Vec<f32> {
         return Vec::new();
     }
     let scale = std::f32::consts::PI / (2 * big_n) as f32;
-    (0..big_n)
-        .map(|k| {
-            signal
-                .iter()
-                .enumerate()
-                .map(|(n, &x)| x * (scale * k as f32 * (2 * n + 1) as f32).cos())
-                .sum()
-        })
-        .collect()
+    let mut result = Vec::with_capacity(big_n);
+    for k in 0..big_n {
+        let k_scale = scale * k as f32;
+        let mut sum = 0.0;
+        for (n, &x) in signal.iter().enumerate() {
+            // ⚡ Bolt: Hoist the `k_scale` multiplier to eliminate redundant multiplications
+            sum += x * (k_scale * (2 * n + 1) as f32).cos();
+        }
+        result.push(sum);
+    }
+    result
 }
 
 /// Inverse DCT-II (IDCT-II = scaled DCT-III), O(n²) naive implementation.
@@ -18679,18 +18681,18 @@ pub fn idct_ii(coeffs: &[f32]) -> Vec<f32> {
     }
     let inv_n = 1.0 / big_n as f32;
     let scale = std::f32::consts::PI / (2 * big_n) as f32;
-    (0..big_n)
-        .map(|n| {
-            let dc = coeffs[0] * inv_n;
-            let ac: f32 = coeffs[1..]
-                .iter()
-                .enumerate()
-                .map(|(k, &x)| x * (scale * (k + 1) as f32 * (2 * n + 1) as f32).cos())
-                .sum::<f32>()
-                * (2.0 * inv_n);
-            dc + ac
-        })
-        .collect()
+    let mut result = Vec::with_capacity(big_n);
+    let dc = coeffs[0] * inv_n;
+    for n in 0..big_n {
+        // ⚡ Bolt: Hoist the `n_scale` invariant out of the inner AC loop
+        let n_scale = scale * (2 * n + 1) as f32;
+        let mut ac = 0.0;
+        for (k, &x) in coeffs[1..].iter().enumerate() {
+            ac += x * (n_scale * (k + 1) as f32).cos();
+        }
+        result.push(dc + ac * (2.0 * inv_n));
+    }
+    result
 }
 
 /// Estimate the surface normal at point `p` for an arbitrary SDF via central

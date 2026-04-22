@@ -864,3 +864,7 @@ required-features = ["nova"]
 name = "neon_outline_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "dct_bench"
+harness = false
