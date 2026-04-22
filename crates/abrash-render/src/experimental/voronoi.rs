@@ -94,49 +94,72 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
     #[cfg(not(feature = "parallel"))]
     let chunk_iter = dest.chunks_exact_mut(width);
 
+    // ⚡ Bolt: Hoist metric conditional evaluation outside of per-pixel nested loops
+    let is_manhattan = (metric - 1.0).abs() < f32::EPSILON;
+    let is_euclidean = (metric - 2.0).abs() < f32::EPSILON;
+    let is_cubed = (metric - 3.0).abs() < f32::EPSILON;
+    let is_quad = (metric - 4.0).abs() < f32::EPSILON;
+
+    let check_borders = config.border_thickness > 0.0;
+    let inv_metric = 1.0 / metric;
+
     chunk_iter.enumerate().for_each(|(y, row)| {
         let fy = y as f32;
         for (x, pixel) in row.iter_mut().enumerate() {
             let fx = x as f32;
 
-            let mut min_dist = f32::MAX;
-            let mut second_min_dist = f32::MAX;
+            let mut min_dist_sq = f32::MAX;
+            let mut second_min_dist_sq = f32::MAX;
             let mut closest_idx = 0;
 
             for (i, seed) in seeds.iter().enumerate() {
                 let dx = (fx - seed.x).abs();
                 let dy = (fy - seed.y).abs();
 
-                // Calculate Minkowski distance.
-                // Fast paths for Euclidean (metric == 2) and Manhattan (metric == 1).
-                let dist = if (metric - 2.0).abs() < f32::EPSILON {
-                    (dx.mul_add(dx, dy * dy)).sqrt()
-                } else if (metric - 1.0).abs() < f32::EPSILON {
+                // ⚡ Bolt: Defer expensive math (sqrt/powf) by comparing raw metrics directly
+                let dist_sq = if is_euclidean {
+                    dx.mul_add(dx, dy * dy)
+                } else if is_manhattan {
                     dx + dy
-                } else if (metric - 3.0).abs() < f32::EPSILON {
-                    // ⚡ Bolt: Fast approximation of powf(1/3) using cbrt
-                    (dx * dx * dx + dy * dy * dy).cbrt()
-                } else if (metric - 4.0).abs() < f32::EPSILON {
+                } else if is_cubed {
+                    // ⚡ Bolt: Fast approximation of powf(1/3) using cbrt (we will do cbrt later)
+                    dx * dx * dx + dy * dy * dy
+                } else if is_quad {
                     let x2 = dx * dx;
                     let y2 = dy * dy;
-                    x2.hypot(y2).sqrt()
+                    x2 * x2 + y2 * y2
                 } else {
-                    // General case
-                    (dx.powf(metric) + dy.powf(metric)).powf(1.0 / metric)
+                    dx.powf(metric) + dy.powf(metric)
                 };
 
-                if dist < min_dist {
-                    second_min_dist = min_dist;
-                    min_dist = dist;
+                if dist_sq < min_dist_sq {
+                    second_min_dist_sq = min_dist_sq;
+                    min_dist_sq = dist_sq;
                     closest_idx = i;
-                } else if dist < second_min_dist {
-                    second_min_dist = dist;
+                } else if dist_sq < second_min_dist_sq {
+                    second_min_dist_sq = dist_sq;
                 }
             }
 
             // Check if we are on a border (if border thickness is configured)
-            if config.border_thickness > 0.0 {
+            if check_borders {
                 // Determine border thickness based on distance difference.
+                // ⚡ Bolt: Only apply expensive math to the closest points when borders are enabled
+                let (min_dist, second_min_dist) = if is_euclidean {
+                    (min_dist_sq.sqrt(), second_min_dist_sq.sqrt())
+                } else if is_manhattan {
+                    (min_dist_sq, second_min_dist_sq)
+                } else if is_cubed {
+                    (min_dist_sq.cbrt(), second_min_dist_sq.cbrt())
+                } else if is_quad {
+                    (min_dist_sq.sqrt().sqrt(), second_min_dist_sq.sqrt().sqrt())
+                } else {
+                    (
+                        min_dist_sq.powf(inv_metric),
+                        second_min_dist_sq.powf(inv_metric),
+                    )
+                };
+
                 let diff = (second_min_dist - min_dist).abs();
                 if diff <= config.border_thickness {
                     *pixel = config.border_color;

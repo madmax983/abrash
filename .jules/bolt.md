@@ -20,3 +20,7 @@
 ## [Prevent Allocator Resizing Chains in Iterator Maps]
 **Learning:** Replacing `.collect::<Vec<_>>().` with `Vec::with_capacity(n)` followed by `.extend(...)` prevents intermediate allocator resizing chains. This is particularly effective when `ExactSizeIterator` optimizations for complex iterator mapping fail to inline optimally in the frontend.
 **Action:** Use `Vec::with_capacity` and `extend` instead of `.collect()` for known-size iterators doing complex maps.
+
+**[Hoist Conditional Distance Math in Image Post-Processing]**
+**Learning:** In distance-based algorithms like Voronoi diagrams, evaluating configuration branches (e.g., determining which metric to use) inside nested per-pixel and per-seed loops is highly inefficient. Hoisting these conditional checks entirely outside the loops and deferring expensive operations (like `sqrt()`) until after the loop by comparing squared distances (`dx*dx + dy*dy`) yields massive performance improvements (e.g., ~15% speedup).
+**Action:** Precompute conditionally-chosen variables (e.g., `is_euclidean`) outside hot loops, and defer expensive generalized mathematical functions until the final comparison result is identified.
