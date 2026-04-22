@@ -197,7 +197,11 @@ mod tests {
         let cam = test_camera();
         let mut dl = DrawList::new(cam);
         dl.vertices.push((Vec3::ZERO, 1.0));
-        dl.push(DrawBatch::new(0..1, std::sync::Arc::new([[0, 1, 2]]), 0xFF000000));
+        dl.push(DrawBatch::new(
+            0..1,
+            std::sync::Arc::new([[0, 1, 2]]),
+            0xFF000000,
+        ));
 
         dl.clear(cam);
         assert_eq!(dl.vertices.len(), 0);
