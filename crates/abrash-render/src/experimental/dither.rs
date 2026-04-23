@@ -183,9 +183,12 @@ fn apply_floyd_steinberg(fb: &mut Framebuffer, depth: u8) {
 
             // Offset by 128 to match LUT mapping
             // ⚡ Bolt: Replace f32::round() with fast integer casting
-            let r_new = quantize_lut[(((r_old + 16384.5) as i32 as f32 - 16384.0) as i32 + 128).clamp(0, 511) as usize];
-            let g_new = quantize_lut[(((g_old + 16384.5) as i32 as f32 - 16384.0) as i32 + 128).clamp(0, 511) as usize];
-            let b_new = quantize_lut[(((b_old + 16384.5) as i32 as f32 - 16384.0) as i32 + 128).clamp(0, 511) as usize];
+            let r_new = quantize_lut
+                [(((r_old + 16384.5) as i32 as f32 - 16384.0) as i32 + 128).clamp(0, 511) as usize];
+            let g_new = quantize_lut
+                [(((g_old + 16384.5) as i32 as f32 - 16384.0) as i32 + 128).clamp(0, 511) as usize];
+            let b_new = quantize_lut
+                [(((b_old + 16384.5) as i32 as f32 - 16384.0) as i32 + 128).clamp(0, 511) as usize];
 
             let p_idx = row_offset + x;
             pixels[p_idx] = (pixels[p_idx] & 0xFF00_0000)
