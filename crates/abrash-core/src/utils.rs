@@ -8,6 +8,16 @@
 /// - Fast, non-cryptographic RNG.
 /// - Deterministic (same seed produces same sequence).
 /// - 32-bit state.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::utils::XorShift32;
+///
+/// let mut rng = XorShift32::new(12345);
+/// let val = rng.next_f32();
+/// assert!(val >= 0.0 && val < 1.0);
+/// ```
 #[derive(Debug, Clone, Copy)]
 pub struct XorShift32 {
     state: u32,
@@ -51,6 +61,15 @@ impl XorShift32 {
 /// `Y = 0.299*R + 0.587*G + 0.114*B`
 ///
 /// Approximated as: `Y = (77*R + 150*G + 29*B) >> 8`
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::utils::pixel_luminance;
+///
+/// let white_luma = pixel_luminance(0xFFFFFFFF);
+/// assert_eq!(white_luma, 255);
+/// ```
 #[inline(always)]
 #[must_use]
 pub const fn pixel_luminance(pixel: u32) -> u8 {

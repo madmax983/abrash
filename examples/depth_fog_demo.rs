@@ -214,7 +214,7 @@ mod app {
     pub fn run() {
         print_banner();
         let app = DepthFogApp::new().expect("Failed to initialize app");
-        let _ = run_windowed(app);
+        let () = run_windowed(app);
     }
 }
 
