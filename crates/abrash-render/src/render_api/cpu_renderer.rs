@@ -132,7 +132,11 @@ impl CpuRenderer {
     /// # Errors
     /// Returns an error if any handle in the frame is stale.
     #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
-    pub fn extract_draw_list_into(&self, frame: &Frame, draw_list: &mut DrawList) -> Result<(), RenderError> {
+    pub fn extract_draw_list_into(
+        &self,
+        frame: &Frame,
+        draw_list: &mut DrawList,
+    ) -> Result<(), RenderError> {
         draw_list.clear(frame.camera);
 
         let view_proj = frame.camera.view * frame.camera.projection;

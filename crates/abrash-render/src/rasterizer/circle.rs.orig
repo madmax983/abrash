@@ -109,29 +109,27 @@ fn draw_circle_points_unchecked(
     y: i32,
     color: u32,
 ) {
-    let w = fb.width() as usize;
-    let slice = fb.as_mut_slice();
     unsafe {
-        *slice.get_unchecked_mut(((yc + y) as usize) * w + ((xc + x) as usize)) = color;
+        fb.set_pixel_unchecked((xc + x) as usize, (yc + y) as usize, color);
         if x != 0 {
-            *slice.get_unchecked_mut(((yc + y) as usize) * w + ((xc - x) as usize)) = color;
+            fb.set_pixel_unchecked((xc - x) as usize, (yc + y) as usize, color);
         }
         if y != 0 {
-            *slice.get_unchecked_mut(((yc - y) as usize) * w + ((xc + x) as usize)) = color;
+            fb.set_pixel_unchecked((xc + x) as usize, (yc - y) as usize, color);
         }
         if x != 0 && y != 0 {
-            *slice.get_unchecked_mut(((yc - y) as usize) * w + ((xc - x) as usize)) = color;
+            fb.set_pixel_unchecked((xc - x) as usize, (yc - y) as usize, color);
         }
         if x != y {
-            *slice.get_unchecked_mut(((yc + x) as usize) * w + ((xc + y) as usize)) = color;
+            fb.set_pixel_unchecked((xc + y) as usize, (yc + x) as usize, color);
             if y != 0 {
-                *slice.get_unchecked_mut(((yc + x) as usize) * w + ((xc - y) as usize)) = color;
+                fb.set_pixel_unchecked((xc - y) as usize, (yc + x) as usize, color);
             }
             if x != 0 {
-                *slice.get_unchecked_mut(((yc - x) as usize) * w + ((xc + y) as usize)) = color;
+                fb.set_pixel_unchecked((xc + y) as usize, (yc - x) as usize, color);
             }
             if x != 0 && y != 0 {
-                *slice.get_unchecked_mut(((yc - x) as usize) * w + ((xc - y) as usize)) = color;
+                fb.set_pixel_unchecked((xc - y) as usize, (yc - x) as usize, color);
             }
         }
     }
