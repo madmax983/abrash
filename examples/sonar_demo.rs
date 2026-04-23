@@ -195,7 +195,7 @@ impl WindowApp for SonarDemoApp {
         config.wave_speed = 3.0;
         config.wave_color = 0xFF_00_FF_AA;
 
-        apply_sonar(&mut self.framebuffer, &mut self.zbuffer, &config);
+        apply_sonar(&mut self.framebuffer, &self.zbuffer, &config);
 
         self.present()
     }

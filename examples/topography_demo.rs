@@ -108,7 +108,7 @@ impl WindowApp for TopographyDemoApp {
                 let dx = x as f32 - cx;
                 let dy = y as f32 - cy;
 
-                let dist = (dx * dx + dy * dy).sqrt();
+                let dist = dx.hypot(dy);
 
                 // Moving rings
                 let mut val = (dist * 0.1 - t * 2.0).sin();
