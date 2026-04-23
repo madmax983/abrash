@@ -41,3 +41,7 @@
 **[Eliding Bounds Checks on Rasterization Fast Paths]**
 **Learning:** In primitive rasterizers (like `circle` and `ellipse`), fast-paths are executed only after determining the primitive's bounding box is entirely within the framebuffer. However, the inner `draw_horizontal_line_unchecked` still pays a bounds-checking penalty using standard slice assignment `slice[start..=end].fill(color)`. Replacing this with `unsafe { slice.get_unchecked_mut(start..=end).fill(color) }` provides a measurable speedup (e.g. ~10-15% improvement).
 **Action:** Use `get_unchecked_mut` inside functions explicitly suffixed with `_unchecked` that have pre-verified geometric boundaries.
+
+**[Enum Swap Redundancy]**
+**Learning:** Using `std::mem::replace` multiple times in nested enum matches inside hot paths creates unnecessary temporary values and stack shuffling, even if logically safe.
+**Action:** Extract generation states outside the match block first, then do a single `std::mem::replace` with the computed state, significantly accelerating tight resource-reclamation loops.
