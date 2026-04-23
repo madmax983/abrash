@@ -13,7 +13,7 @@ fn voronoi_benchmark(c: &mut Criterion) {
         }
     }
 
-    let config = VoronoiConfig {
+    let config_with_borders = VoronoiConfig {
         num_seeds: 200,
         use_image_color: true,
         metric: 2.0, // Euclidean
@@ -22,9 +22,24 @@ fn voronoi_benchmark(c: &mut Criterion) {
         border_color: 0xFF00_0000,
     };
 
-    c.bench_function("voronoi 800x600 200 seeds", |b| {
+    let config_no_borders = VoronoiConfig {
+        num_seeds: 200,
+        use_image_color: true,
+        metric: 2.0, // Euclidean
+        seed: 42,
+        border_thickness: 0.0,
+        border_color: 0xFF00_0000,
+    };
+
+    c.bench_function("voronoi 800x600 200 seeds (with borders)", |b| {
         b.iter(|| {
-            apply_voronoi(black_box(&mut fb), black_box(&config));
+            apply_voronoi(black_box(&mut fb), black_box(&config_with_borders));
+        });
+    });
+
+    c.bench_function("voronoi 800x600 200 seeds (no borders)", |b| {
+        b.iter(|| {
+            apply_voronoi(black_box(&mut fb), black_box(&config_no_borders));
         });
     });
 }
