@@ -4,7 +4,7 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_rects(c: &mut Criterion) {
     let mut fb = Framebuffer::new(800, 600).unwrap();
-    let color = 0xFFFFFFFF;
+    let color = 0xFFFF_FFFF;
 
     c.bench_function("draw_rect_100", |b| {
         b.iter(|| {

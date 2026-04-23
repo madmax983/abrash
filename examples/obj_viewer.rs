@@ -208,6 +208,7 @@ mod winit_demo {
     };
     use std::io;
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn run(
         mesh: Mesh,
         normals: Vec<Vec3>,

@@ -71,8 +71,8 @@ fn main() {
 
     // Draw some sharp lines to trigger edge detection
     for i in 0..100 {
-        fb.set_pixel(400 + i, 300 + i, 0xFF000000);
-        fb.set_pixel(400 - i, 300 + i, 0xFF000000);
+        fb.set_pixel(400 + i, 300 + i, 0xFF00_0000);
+        fb.set_pixel(400 - i, 300 + i, 0xFF00_0000);
     }
 
     let config = PencilSketchConfig::default();

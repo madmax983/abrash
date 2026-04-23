@@ -34,7 +34,7 @@ thread_local! {
 /// use `abrash_core::framebuffer::Framebuffer`;
 /// use abrash_render::post_process::filters::apply_gamma_correction;
 ///
-/// let mut fb = Framebuffer::new(1, 1).unwrap();
+/// `let mut fb = Framebuffer::new(1, 1).unwrap();`
 /// fb.set_pixel(0, 0, 0xFF808080); // Mid-gray (128)
 /// apply_gamma_correction(&mut fb, 2.2);
 /// // With gamma 2.2, mid-gray becomes roughly 186.
@@ -95,7 +95,7 @@ pub fn apply_gamma_correction(fb: &mut Framebuffer, gamma: f32) {
 /// use `abrash_core::framebuffer::Framebuffer`;
 /// use abrash_render::post_process::filters::apply_grayscale;
 ///
-/// let mut fb = Framebuffer::new(1, 1).unwrap();
+/// `let mut fb = Framebuffer::new(1, 1).unwrap();`
 /// fb.set_pixel(0, 0, 0xFFFF0000); // Red
 /// apply_grayscale(&mut fb);
 /// // Red component is 255. 77*255/256 = 76.
@@ -230,7 +230,7 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 /// use `abrash_core::framebuffer::Framebuffer`;
 /// use abrash_render::post_process::filters::apply_invert;
 ///
-/// let mut fb = Framebuffer::new(1, 1).unwrap();
+/// `let mut fb = Framebuffer::new(1, 1).unwrap();`
 /// fb.set_pixel(0, 0, 0xFF000000); // Black
 /// apply_invert(&mut fb);
 ///
@@ -246,10 +246,10 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 /// use `abrash_core::framebuffer::Framebuffer`;
 /// use `abrash_render::post_process::filters::apply_solarize`;
 ///
-/// let mut fb = Framebuffer::new(1, 1).unwrap();
-/// fb.clear(0xFFC0_C0C0); // Light Gray (192)
-/// apply_solarize(&mut fb, 127);
-/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFF3F_3F3F);
+/// `let mut fb = Framebuffer::new(1, 1).unwrap();`
+/// `fb.clear(0xFFC0_C0C0);` // Light Gray (192)
+/// `apply_solarize(&mut fb, 127);`
+/// `assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFF3F_3F3F);`
 /// ```
 pub fn apply_solarize(fb: &mut Framebuffer, threshold: u8) {
     let pixels = fb.as_mut_slice();
@@ -319,7 +319,7 @@ pub fn apply_invert(fb: &mut Framebuffer) {
 /// use `abrash_core::framebuffer::Framebuffer`;
 /// use abrash_render::post_process::filters::apply_sepia;
 ///
-/// let mut fb = Framebuffer::new(1, 1).unwrap();
+/// `let mut fb = Framebuffer::new(1, 1).unwrap();`
 /// fb.set_pixel(0, 0, 0xFFFFFFFF); // White
 /// apply_sepia(&mut fb);
 /// // Result is tinted yellowish-brown.
@@ -664,7 +664,7 @@ impl Default for ColorAdjustConfig {
 /// use `abrash_core::framebuffer::Framebuffer`;
 /// use abrash_render::post_process::filters::{apply_color_adjust, ColorAdjustConfig};
 ///
-/// let mut fb = Framebuffer::new(1, 1).unwrap();
+/// `let mut fb = Framebuffer::new(1, 1).unwrap();`
 /// fb.set_pixel(0, 0, 0xFF808080); // Mid Gray (128)
 ///
 /// // Increase brightness by 20, keep contrast neutral

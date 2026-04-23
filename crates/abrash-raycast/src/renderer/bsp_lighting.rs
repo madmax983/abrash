@@ -51,23 +51,27 @@ impl BspTextureCache {
 
     /// Get a single column of wall texture data (palette-indexed, top to bottom).
     /// Returns palette indices, one per texel row.  Tiles vertically.
+    #[must_use]
     pub fn wall_column(&self, _texture_id: u16, _col: usize) -> &[u8] {
         &self.wall_column_data
     }
 
     /// Get a 64x64 flat texture (4096 bytes, palette-indexed, row-major).
-    pub fn flat_data(&self, _texture_id: u16) -> &[u8; 4096] {
+    #[must_use]
+    pub const fn flat_data(&self, _texture_id: u16) -> &[u8; 4096] {
         &self.flat
     }
 
     /// Get a 256-byte colormap row.  index 0 = bright, 31 = darkest.
+    #[must_use]
     pub fn colormap(&self, index: u8) -> &[u8; 256] {
         let index = index.min(31) as usize;
         &self.colormap_data[index]
     }
 
     /// Look up palette entry (palette index -> 0xAARRGGBB).
-    pub fn palette_argb(&self, palette_idx: u8) -> u32 {
+    #[must_use]
+    pub const fn palette_argb(&self, palette_idx: u8) -> u32 {
         self.palette[palette_idx as usize]
     }
 }

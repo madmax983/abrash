@@ -58,6 +58,7 @@ fn main() {
 }
 
 #[cfg(feature = "nova")]
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), HostError> {
     print_banner();
     run_windowed(SelectiveColorApp::new().unwrap());
@@ -79,6 +80,7 @@ struct SelectiveColorApp {
 
 #[cfg(feature = "nova")]
 impl SelectiveColorApp {
+    #[allow(clippy::unnecessary_wraps)]
     fn new() -> Result<Self, HostError> {
         let mesh = Mesh::cube(1.0);
         let _ = mesh.compute_face_normals();
@@ -140,7 +142,7 @@ impl WindowApp for SelectiveColorApp {
     }
 
     fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        self.fb.clear(0xFF111111); // Dark grey background
+        self.fb.clear(0xFF11_1111); // Dark grey background
         self.zb.clear();
 
         let aspect = WIDTH as f32 / HEIGHT as f32;

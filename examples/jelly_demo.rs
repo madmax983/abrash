@@ -14,6 +14,7 @@ mod demo {
     use abrash_render::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene, render_sdf};
     use std::time::Instant;
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         let width = 800;
         let height = 600;
@@ -147,6 +148,7 @@ mod winit_demo {
     const WIDTH: u32 = 800;
     const HEIGHT: u32 = 600;
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         run_windowed(JellyApp::new().unwrap());
         Ok(())

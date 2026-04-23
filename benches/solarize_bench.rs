@@ -4,7 +4,7 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn apply_solarize_branchless(fb: &mut Framebuffer, threshold: u8) {
     let pixels = fb.as_mut_slice();
-    let th = threshold as i32;
+    let th = i32::from(threshold);
     for pixel in pixels.iter_mut() {
         let p = *pixel;
         let a = p & 0xFF00_0000;
@@ -27,12 +27,13 @@ pub fn apply_solarize_simd_avx2(pixels: &mut [u32], threshold: u8) {
             let len = pixels.len();
             let simd_len = len & !7;
             unsafe {
-                use std::arch::x86_64::*;
-                let th_val = _mm256_set1_epi8((threshold as i8).wrapping_sub(128)); // Offset by 128 for signed compare
-                let mask_255 = _mm256_set1_epi8(-1); // 0xFF
-                let mask_rgb = _mm256_set1_epi32(0x00FFFFFF);
+                use std::arch::x86_64::{__m256i, _mm256_and_si256, _mm256_cmpgt_epi8, _mm256_loadu_si256, _mm256_set1_epi32, _mm256_set1_epi8, _mm256_storeu_si256, _mm256_sub_epi8, _mm256_xor_si256};
+                let th_val = _mm256_set1_epi8((threshold.wrapping_sub(128)) as i8); // Offset by 128 for signed compare
+                let _mask_255 = _mm256_set1_epi8(-1); // 0xFF
+                let mask_rgb = _mm256_set1_epi32(0x00FF_FFFF);
 
-                let mut ptr = pixels.as_mut_ptr() as *mut __m256i;
+                #[allow(clippy::cast_ptr_alignment)]
+                let mut ptr = pixels.as_mut_ptr().cast::<__m256i>();
                 for _ in 0..(simd_len / 8) {
                     let p = _mm256_loadu_si256(ptr);
 
@@ -53,7 +54,7 @@ pub fn apply_solarize_simd_avx2(pixels: &mut [u32], threshold: u8) {
 
             // Tail
             let tail_slice = &mut pixels[simd_len..];
-            let th = threshold as i32;
+            let th = i32::from(threshold);
             for pixel in tail_slice.iter_mut() {
                 let p = *pixel;
                 let a = p & 0xFF00_0000;
@@ -72,7 +73,7 @@ pub fn apply_solarize_simd_avx2(pixels: &mut [u32], threshold: u8) {
     }
 
     // Fallback
-    let th = threshold as i32;
+    let th = i32::from(threshold);
     for pixel in pixels.iter_mut() {
         let p = *pixel;
         let a = p & 0xFF00_0000;
@@ -97,19 +98,19 @@ fn benchmark_solarize(c: &mut Criterion) {
     c.bench_function("solarize", |b| {
         b.iter(|| {
             apply_solarize(black_box(&mut fb), black_box(127));
-        })
+        });
     });
 
     c.bench_function("solarize_branchless", |b| {
         b.iter(|| {
             apply_solarize_branchless(black_box(&mut fb), black_box(127));
-        })
+        });
     });
 
     c.bench_function("solarize_simd_avx2", |b| {
         b.iter(|| {
             apply_solarize_simd_avx2(black_box(fb.as_mut_slice()), black_box(127));
-        })
+        });
     });
 }
 
