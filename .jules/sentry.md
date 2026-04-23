@@ -40,3 +40,7 @@
 
 **[Validating Expect Guards on Allocation Dimensions]**
 **Learning:** Calculations that multiply dimensions (like `width * height`) to determine allocation size can easily overflow `usize`, leading to panics via `.expect("... overflow")` or implicitly during allocation. These guards are critical for security and stability but are often untested because they require absurdly large inputs (like `u32::MAX`).
+
+**[Validating Expect Guards on Allocation Dimensions]**
+**Learning:** Calculations that multiply dimensions (like `width * height`) to determine allocation size can easily overflow `usize`, leading to panics via `.expect("... overflow")` or implicitly during allocation. These guards are critical for security and stability but are often untested because they require absurdly large inputs (like `u32::MAX`).
+**Action:** Always write a corresponding `#[should_panic]` test for bounds checking logic covering allocation counts by testing the explicit limits (e.g., `u32::MAX`).

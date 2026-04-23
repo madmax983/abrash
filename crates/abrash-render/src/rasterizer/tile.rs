@@ -1674,7 +1674,7 @@ impl TileRenderer {
 
         let tiles_x = width.div_ceil(TILE_SIZE);
         let tiles_y = height.div_ceil(TILE_SIZE);
-        let tile_count = (tiles_x * tiles_y) as usize;
+        let tile_count = tiles_x.checked_mul(tiles_y).expect("TileRenderer dimensions overflow") as usize;
         #[cfg(not(feature = "parallel"))]
         let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
 
@@ -4055,6 +4055,12 @@ mod tests {
     use crate::zbuffer::ZBuffer;
 
     // --- Step 1: Infrastructure + prepare ---
+
+    #[test]
+    #[should_panic(expected = "TileRenderer dimensions overflow")]
+    fn new_panics_on_dimensions_overflow() {
+        let _ = TileRenderer::new(u32::MAX, u32::MAX);
+    }
 
     #[test]
     fn new_creates_correct_tile_grid_exact_multiple() {
