@@ -6,7 +6,7 @@ use crate::mesh::Mesh;
 use crate::rasterizer::TileRenderer;
 use crate::render_api::borrowed_target::BorrowedRenderTarget;
 use crate::render_api::draw_list::{DrawBatch, DrawList};
-use crate::render_api::frame::Frame;
+use crate::render_api::frame::{Frame, FrameCamera};
 use crate::render_api::handles::{Handle, MaterialHandle, MeshHandle, ResourcePool, TextureHandle};
 use crate::render_api::material::Material;
 use crate::render_api::target::RenderTarget;
@@ -121,6 +121,24 @@ impl CpuRenderer {
     /// independently of this renderer's internal pools.
     #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
     pub fn extract_draw_list(&self, frame: &Frame) -> Result<DrawList, RenderError> {
+        let mut draw_list = DrawList::new(frame.camera);
+        self.extract_draw_list_into(frame, &mut draw_list)?;
+        Ok(draw_list)
+    }
+
+    /// Extract a [`Frame`] into an existing [`DrawList`], avoiding reallocation if the list
+    /// is reused across frames.
+    ///
+    /// # Errors
+    /// Returns an error if any handle in the frame is stale.
+    #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+    pub fn extract_draw_list_into(
+        &self,
+        frame: &Frame,
+        draw_list: &mut DrawList,
+    ) -> Result<(), RenderError> {
+        draw_list.clear(frame.camera);
+
         let view_proj = frame.camera.view * frame.camera.projection;
 
         // Pre-calculate total required vertices to avoid dynamic reallocations
@@ -143,12 +161,10 @@ impl CpuRenderer {
             total_vertices += cpu_mesh.mesh.vertices.len();
         }
 
-        let mut draw_list = DrawList::with_capacity(
-            frame.camera,
-            frame.commands.len(),
-            total_vertices,
-            frame.lights.len(),
-        );
+        draw_list.vertices.reserve(total_vertices);
+        draw_list.batches.reserve(frame.commands.len());
+        draw_list.lights.reserve(frame.lights.len());
+
         draw_list.clear_color = frame.clear_color;
         draw_list.lights.clone_from(&frame.lights);
 
@@ -249,7 +265,7 @@ impl CpuRenderer {
             }
         }
 
-        Ok(draw_list)
+        Ok(())
     }
 
     fn execute_draw_list_owned(&mut self, draw_list: &DrawList, target: &mut RenderTarget) {
@@ -403,9 +419,16 @@ impl CpuRenderer {
         frame: &Frame,
         target: &mut BorrowedRenderTarget<'_>,
     ) -> Result<(), RenderError> {
-        let draw_list = self.extract_draw_list(frame)?;
-        self.execute_draw_list_into(&draw_list, target);
-        Ok(())
+        thread_local! {
+            static CPU_RENDERER_DRAW_LIST: std::cell::RefCell<DrawList> = std::cell::RefCell::new(DrawList::new(FrameCamera::new(crate::math::Mat4::identity(), crate::math::Mat4::identity())));
+        }
+
+        CPU_RENDERER_DRAW_LIST.with(|dl_cell| {
+            let mut dl = dl_cell.borrow_mut();
+            self.extract_draw_list_into(frame, &mut dl)?;
+            self.execute_draw_list_into(&dl, target);
+            Ok(())
+        })
     }
 
     /// Render a frame into the render target.
@@ -419,9 +442,16 @@ impl CpuRenderer {
         frame: &Frame,
         target: &mut RenderTarget,
     ) -> Result<(), RenderError> {
-        let draw_list = self.extract_draw_list(frame)?;
-        self.execute_draw_list_owned(&draw_list, target);
-        Ok(())
+        thread_local! {
+            static CPU_RENDERER_DRAW_LIST: std::cell::RefCell<DrawList> = std::cell::RefCell::new(DrawList::new(FrameCamera::new(crate::math::Mat4::identity(), crate::math::Mat4::identity())));
+        }
+
+        CPU_RENDERER_DRAW_LIST.with(|dl_cell| {
+            let mut dl = dl_cell.borrow_mut();
+            self.extract_draw_list_into(frame, &mut dl)?;
+            self.execute_draw_list_owned(&dl, target);
+            Ok(())
+        })
     }
 
     /// Release a mesh resource.
