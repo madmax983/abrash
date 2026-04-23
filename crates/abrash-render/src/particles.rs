@@ -16,6 +16,16 @@ use crate::utils::XorShift32;
 use crate::zbuffer::ZBuffer;
 
 /// A single particle in the system.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec3;
+/// use abrash_render::particles::Particle;
+///
+/// let p = Particle::new(Vec3::ZERO, Vec3::new(0.0, 1.0, 0.0), 5.0, 2.0, 0xFFFFFFFF);
+/// assert_eq!(p.life, 5.0);
+/// ```
 #[derive(Clone, Copy, Debug)]
 pub struct Particle {
     /// The current 3D position of the particle.
@@ -120,6 +130,19 @@ mod tests {
 }
 
 /// A particle emitter and manager.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec3;
+/// use abrash_render::particles::ParticleSystem;
+/// use abrash_core::texture::Texture;
+///
+/// let tex = Texture::new(8, 8).unwrap();
+/// let mut sys = ParticleSystem::new(100, tex);
+/// sys.position = Vec3::new(0.0, 5.0, 0.0);
+/// sys.update(0.16); // step physics
+/// ```
 pub struct ParticleSystem {
     /// The active particles in the system.
     pub particles: Vec<Particle>,

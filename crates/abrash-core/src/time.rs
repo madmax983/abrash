@@ -8,6 +8,16 @@ use std::time::{Duration, Instant};
 use web_time::{Duration, Instant};
 
 /// Fixed timestep game loop helper
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::time::FixedTimestep;
+///
+/// let mut timer = FixedTimestep::new(60); // 60 FPS
+/// let steps = timer.update();
+/// // Perform `steps` logic ticks...
+/// ```
 pub struct FixedTimestep {
     target_dt: Duration,
     accumulator: Duration,
