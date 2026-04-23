@@ -13,7 +13,7 @@ fn bench_harmonograph(c: &mut Criterion) {
         b.iter(|| {
             fb.clear(0xFF000000);
             h.render(black_box(&mut fb));
-        })
+        });
     });
 
     group.finish();

@@ -12,7 +12,7 @@ fn bench_cylinder_intersects_ray(c: &mut Criterion) {
     );
 
     group.bench_function("intersects_ray", |b| {
-        b.iter(|| black_box(cylinder.intersects_ray(black_box(&ray))))
+        b.iter(|| black_box(cylinder.intersects_ray(black_box(&ray))));
     });
 
     group.finish();

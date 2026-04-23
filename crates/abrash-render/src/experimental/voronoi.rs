@@ -99,22 +99,20 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
     let is_sqrt = (metric - 4.0).abs() < f32::EPSILON;
     let inv_metric = 1.0 / metric;
 
-    chunk_iter.enumerate().for_each(|(y, row)| {
-        let fy = y as f32;
-        for (x, pixel) in row.iter_mut().enumerate() {
-            let fx = x as f32;
-
-            let mut min_dist = f32::MAX;
-            let mut second_min_dist = f32::MAX;
-            let mut closest_idx = 0;
-
-            if is_euclidean {
-                // When we only care about distance comparisons, we don't strictly need sqrt.
-                // However, we do need the actual distance if border_thickness is used and we compute
-                // (second_min_dist - min_dist). We'll optimize by skipping sqrt in the loop
-                // and applying it to the mins at the end.
+    // ⚡ Bolt: In distance-based algorithms like Voronoi diagrams, evaluating configuration
+    // branches (e.g., determining which metric to use) inside nested per-pixel and per-seed
+    // loops is highly inefficient. Hoisting these conditional checks entirely outside the
+    // loops and deferring expensive operations (like `sqrt()`) until after the loop by
+    // comparing squared distances (`dx*dx + dy*dy`) yields massive performance improvements.
+    if is_euclidean {
+        chunk_iter.enumerate().for_each(|(y, row)| {
+            let fy = y as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let fx = x as f32;
                 let mut min_dist_sq = f32::MAX;
                 let mut second_min_dist_sq = f32::MAX;
+                let mut closest_idx = 0;
+
                 for (i, seed) in seeds.iter().enumerate() {
                     let dx = fx - seed.x;
                     let dy = fy - seed.y;
@@ -127,9 +125,28 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         second_min_dist_sq = dist_sq;
                     }
                 }
-                min_dist = min_dist_sq.sqrt();
-                second_min_dist = second_min_dist_sq.sqrt();
-            } else if is_manhattan {
+
+                if config.border_thickness > 0.0 {
+                    let min_dist = min_dist_sq.sqrt();
+                    let second_min_dist = second_min_dist_sq.sqrt();
+                    let diff = (second_min_dist - min_dist).abs();
+                    if diff <= config.border_thickness {
+                        *pixel = config.border_color;
+                        continue;
+                    }
+                }
+                *pixel = seed_colors[closest_idx];
+            }
+        });
+    } else if is_manhattan {
+        chunk_iter.enumerate().for_each(|(y, row)| {
+            let fy = y as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let fx = x as f32;
+                let mut min_dist = f32::MAX;
+                let mut second_min_dist = f32::MAX;
+                let mut closest_idx = 0;
+
                 for (i, seed) in seeds.iter().enumerate() {
                     let dx = (fx - seed.x).abs();
                     let dy = (fy - seed.y).abs();
@@ -142,26 +159,30 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         second_min_dist = dist;
                     }
                 }
-            } else {
+
+                if config.border_thickness > 0.0 {
+                    let diff = (second_min_dist - min_dist).abs();
+                    if diff <= config.border_thickness {
+                        *pixel = config.border_color;
+                        continue;
+                    }
+                }
+                *pixel = seed_colors[closest_idx];
+            }
+        });
+    } else if is_cbrt {
+        chunk_iter.enumerate().for_each(|(y, row)| {
+            let fy = y as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let fx = x as f32;
+                let mut min_dist = f32::MAX;
+                let mut second_min_dist = f32::MAX;
+                let mut closest_idx = 0;
+
                 for (i, seed) in seeds.iter().enumerate() {
                     let dx = (fx - seed.x).abs();
                     let dy = (fy - seed.y).abs();
-
-                    // Calculate Minkowski distance.
-                    // ⚡ Bolt: Hoist metric checks outside the inner loop to prevent
-                    // repeating branch evaluation per seed per pixel.
-                    let dist = if is_cbrt {
-                        // ⚡ Bolt: Fast approximation of powf(1/3) using cbrt
-                        (dx * dx * dx + dy * dy * dy).cbrt()
-                    } else if is_sqrt {
-                        let x2 = dx * dx;
-                        let y2 = dy * dy;
-                        x2.hypot(y2).sqrt()
-                    } else {
-                        // General case
-                        (dx.powf(metric) + dy.powf(metric)).powf(inv_metric)
-                    };
-
+                    let dist = (dx * dx * dx + dy * dy * dy).cbrt();
                     if dist < min_dist {
                         second_min_dist = min_dist;
                         min_dist = dist;
@@ -170,22 +191,84 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         second_min_dist = dist;
                     }
                 }
-            }
 
-            // Check if we are on a border (if border thickness is configured)
-            if config.border_thickness > 0.0 {
-                // Determine border thickness based on distance difference.
-                let diff = (second_min_dist - min_dist).abs();
-                if diff <= config.border_thickness {
-                    *pixel = config.border_color;
-                    continue;
+                if config.border_thickness > 0.0 {
+                    let diff = (second_min_dist - min_dist).abs();
+                    if diff <= config.border_thickness {
+                        *pixel = config.border_color;
+                        continue;
+                    }
                 }
+                *pixel = seed_colors[closest_idx];
             }
+        });
+    } else if is_sqrt {
+        chunk_iter.enumerate().for_each(|(y, row)| {
+            let fy = y as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let fx = x as f32;
+                let mut min_dist = f32::MAX;
+                let mut second_min_dist = f32::MAX;
+                let mut closest_idx = 0;
 
-            // Assign color of closest seed
-            *pixel = seed_colors[closest_idx];
-        }
-    });
+                for (i, seed) in seeds.iter().enumerate() {
+                    let dx = (fx - seed.x).abs();
+                    let dy = (fy - seed.y).abs();
+                    let x2 = dx * dx;
+                    let y2 = dy * dy;
+                    let dist = x2.hypot(y2).sqrt();
+                    if dist < min_dist {
+                        second_min_dist = min_dist;
+                        min_dist = dist;
+                        closest_idx = i;
+                    } else if dist < second_min_dist {
+                        second_min_dist = dist;
+                    }
+                }
+
+                if config.border_thickness > 0.0 {
+                    let diff = (second_min_dist - min_dist).abs();
+                    if diff <= config.border_thickness {
+                        *pixel = config.border_color;
+                        continue;
+                    }
+                }
+                *pixel = seed_colors[closest_idx];
+            }
+        });
+    } else {
+        chunk_iter.enumerate().for_each(|(y, row)| {
+            let fy = y as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let fx = x as f32;
+                let mut min_dist = f32::MAX;
+                let mut second_min_dist = f32::MAX;
+                let mut closest_idx = 0;
+
+                for (i, seed) in seeds.iter().enumerate() {
+                    let dx = (fx - seed.x).abs();
+                    let dy = (fy - seed.y).abs();
+                    let dist = (dx.powf(metric) + dy.powf(metric)).powf(inv_metric);
+                    if dist < min_dist {
+                        second_min_dist = min_dist;
+                        min_dist = dist;
+                        closest_idx = i;
+                    } else if dist < second_min_dist {
+                        second_min_dist = dist;
+                    }
+                }
+
+                if config.border_thickness > 0.0 {
+                    let diff = (second_min_dist - min_dist).abs();
+                    if diff <= config.border_thickness {
+                        *pixel = config.border_color;
+                        continue;
+                    }
+                }
+                *pixel = seed_colors[closest_idx];
+            }
+        });
+    }
 }
 
 #[cfg(test)]
