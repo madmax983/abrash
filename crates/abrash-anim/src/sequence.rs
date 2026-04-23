@@ -26,7 +26,10 @@ impl<T: Animatable + Send + Sync> Sequence<T> {
             "Sequence requires at least one segment"
         );
 
-        let total_duration: f32 = segments.iter().map(|s| s.natural_duration()).sum();
+        let total_duration: f32 = segments
+            .iter()
+            .map(crate::evaluable::Evaluable::natural_duration)
+            .sum();
         let mut boundaries = Vec::with_capacity(segments.len());
         let mut cursor = 0.0_f32;
 
@@ -49,6 +52,7 @@ impl<T: Animatable + Send + Sync> Sequence<T> {
 }
 
 impl<T: Animatable + Send + Sync> Sequence<T> {
+    #[must_use]
     pub fn evaluate(&self, phase: f32) -> Sample<T> {
         let phase = phase.clamp(0.0, 1.0);
 
@@ -69,14 +73,15 @@ impl<T: Animatable + Send + Sync> Sequence<T> {
         )
     }
 
-    pub fn natural_duration(&self) -> f32 {
+    #[must_use]
+    pub const fn natural_duration(&self) -> f32 {
         self.total_duration
     }
 }
 
 // Safety: `Evaluable` trait requires `Send + Sync`, so all boxed segments are `Send + Sync`.
-unsafe impl<T: Animatable> Send for Sequence<T> {}
-unsafe impl<T: Animatable> Sync for Sequence<T> {}
+unsafe impl<T: Animatable + Send> Send for Sequence<T> {}
+unsafe impl<T: Animatable + Sync> Sync for Sequence<T> {}
 
 #[cfg(test)]
 mod tests {

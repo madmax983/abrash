@@ -193,46 +193,38 @@ fn extract_primitive(
     let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
 
     // Positions (required for a valid mesh)
-    let positions: Vec<Vec3> = if let Some(iter) = reader.read_positions() {
+    let positions: Vec<Vec3> = reader.read_positions().map_or_else(Vec::new, |iter| {
         // ⚡ Bolt: Use `extend` with `with_capacity` to prevent dynamic reallocation on `.collect::<Vec<_>>()`.
         let mut p: Vec<Vec3> = Vec::with_capacity(iter.size_hint().0);
         p.extend(iter.map(|p| Vec3::new(p[0], p[1], p[2])));
         p
-    } else {
-        Vec::new()
-    };
+    });
 
     if positions.is_empty() {
         return None;
     }
 
     // Normals (optional)
-    let normals: Vec<Vec3> = if let Some(iter) = reader.read_normals() {
+    let normals: Vec<Vec3> = reader.read_normals().map_or_else(Vec::new, |iter| {
         let mut p: Vec<Vec3> = Vec::with_capacity(iter.size_hint().0);
         p.extend(iter.map(|n| Vec3::new(n[0], n[1], n[2])));
         p
-    } else {
-        Vec::new()
-    };
+    });
 
     // Texture coordinates (optional)
-    let uvs: Vec<Vec2> = if let Some(iter) = reader.read_tex_coords(0) {
+    let uvs: Vec<Vec2> = reader.read_tex_coords(0).map_or_else(Vec::new, |iter| {
         let iter = iter.into_f32();
         let mut p: Vec<Vec2> = Vec::with_capacity(iter.size_hint().0);
         p.extend(iter.map(|uv| Vec2::new(uv[0], uv[1])));
         p
-    } else {
-        Vec::new()
-    };
+    });
 
     // Tangents (optional)
-    let tangents: Vec<Vec4> = if let Some(iter) = reader.read_tangents() {
+    let tangents: Vec<Vec4> = reader.read_tangents().map_or_else(Vec::new, |iter| {
         let mut p: Vec<Vec4> = Vec::with_capacity(iter.size_hint().0);
         p.extend(iter.map(|t| Vec4::new(t[0], t[1], t[2], t[3])));
         p
-    } else {
-        Vec::new()
-    };
+    });
 
     // Indices (triangulated)
     let indices: Vec<[usize; 3]> = reader
@@ -253,24 +245,20 @@ fn extract_primitive(
     let vertex_count = positions.len();
 
     // Joint indices (optional — only present on skinned meshes)
-    let joint_indices: Vec<[u16; 4]> = if let Some(iter) = reader.read_joints(0) {
+    let joint_indices: Vec<[u16; 4]> = reader.read_joints(0).map_or_else(Vec::new, |iter| {
         let iter = iter.into_u16();
         let mut p: Vec<[u16; 4]> = Vec::with_capacity(iter.size_hint().0);
         p.extend(iter);
         p
-    } else {
-        Vec::new()
-    };
+    });
 
     // Weights (optional)
-    let weights: Vec<[f32; 4]> = if let Some(iter) = reader.read_weights(0) {
+    let weights: Vec<[f32; 4]> = reader.read_weights(0).map_or_else(Vec::new, |iter| {
         let iter = iter.into_f32();
         let mut p: Vec<[f32; 4]> = Vec::with_capacity(iter.size_hint().0);
         p.extend(iter);
         p
-    } else {
-        Vec::new()
-    };
+    });
 
     let mesh = Mesh {
         vertices: positions,

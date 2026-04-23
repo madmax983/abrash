@@ -24,7 +24,8 @@ impl<T: Animatable + Send + Sync> Hold<T> {
         Sample::at_rest(self.value.clone())
     }
 
-    pub fn natural_duration(&self) -> f32 {
+    #[must_use]
+    pub const fn natural_duration(&self) -> f32 {
         self.duration
     }
 }

@@ -166,6 +166,7 @@ pub trait WindowApp {
 
 use comfy_table::{Cell, Color, Table, presets};
 
+#[allow(clippy::needless_pass_by_value)]
 fn print_host_error_and_exit(err: HostError) -> ! {
     let mut table = Table::new();
     table

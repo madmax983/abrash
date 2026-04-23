@@ -44,7 +44,8 @@ impl<T: Animatable + Send + Sync> Keyframe<T> {
         Sample::new(value, velocity)
     }
 
-    pub fn natural_duration(&self) -> f32 {
+    #[must_use]
+    pub const fn natural_duration(&self) -> f32 {
         self.duration
     }
 }

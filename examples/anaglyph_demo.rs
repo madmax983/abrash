@@ -229,6 +229,7 @@ impl WindowApp for AnaglyphDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), AppError> {
     print_banner();
     run_windowed(AnaglyphDemoApp::new().unwrap());

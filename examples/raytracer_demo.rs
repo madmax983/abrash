@@ -42,6 +42,7 @@ mod winit_demo {
     const WIDTH: u32 = 400;
     const HEIGHT: u32 = 300;
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         run_windowed(RaytracerApp::new().unwrap());
         Ok(())
