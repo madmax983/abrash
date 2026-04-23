@@ -194,10 +194,7 @@ fn extract_primitive(
 
     // Positions (required for a valid mesh)
     let positions: Vec<Vec3> = if let Some(iter) = reader.read_positions() {
-        // ⚡ Bolt: Use `extend` with `with_capacity` to prevent dynamic reallocation on `.collect::<Vec<_>>()`.
-        let mut p: Vec<Vec3> = Vec::with_capacity(iter.size_hint().0);
-        p.extend(iter.map(|p| Vec3::new(p[0], p[1], p[2])));
-        p
+        iter.map(|p| Vec3::new(p[0], p[1], p[2])).collect()
     } else {
         Vec::new()
     };
@@ -208,9 +205,7 @@ fn extract_primitive(
 
     // Normals (optional)
     let normals: Vec<Vec3> = if let Some(iter) = reader.read_normals() {
-        let mut p: Vec<Vec3> = Vec::with_capacity(iter.size_hint().0);
-        p.extend(iter.map(|n| Vec3::new(n[0], n[1], n[2])));
-        p
+        iter.map(|n| Vec3::new(n[0], n[1], n[2])).collect()
     } else {
         Vec::new()
     };
@@ -218,18 +213,14 @@ fn extract_primitive(
     // Texture coordinates (optional)
     let uvs: Vec<Vec2> = if let Some(iter) = reader.read_tex_coords(0) {
         let iter = iter.into_f32();
-        let mut p: Vec<Vec2> = Vec::with_capacity(iter.size_hint().0);
-        p.extend(iter.map(|uv| Vec2::new(uv[0], uv[1])));
-        p
+        iter.map(|uv| Vec2::new(uv[0], uv[1])).collect()
     } else {
         Vec::new()
     };
 
     // Tangents (optional)
     let tangents: Vec<Vec4> = if let Some(iter) = reader.read_tangents() {
-        let mut p: Vec<Vec4> = Vec::with_capacity(iter.size_hint().0);
-        p.extend(iter.map(|t| Vec4::new(t[0], t[1], t[2], t[3])));
-        p
+        iter.map(|t| Vec4::new(t[0], t[1], t[2], t[3])).collect()
     } else {
         Vec::new()
     };
@@ -255,9 +246,7 @@ fn extract_primitive(
     // Joint indices (optional — only present on skinned meshes)
     let joint_indices: Vec<[u16; 4]> = if let Some(iter) = reader.read_joints(0) {
         let iter = iter.into_u16();
-        let mut p: Vec<[u16; 4]> = Vec::with_capacity(iter.size_hint().0);
-        p.extend(iter);
-        p
+        iter.collect()
     } else {
         Vec::new()
     };
@@ -265,9 +254,7 @@ fn extract_primitive(
     // Weights (optional)
     let weights: Vec<[f32; 4]> = if let Some(iter) = reader.read_weights(0) {
         let iter = iter.into_f32();
-        let mut p: Vec<[f32; 4]> = Vec::with_capacity(iter.size_hint().0);
-        p.extend(iter);
-        p
+        iter.collect()
     } else {
         Vec::new()
     };
@@ -351,11 +338,7 @@ fn extract_skeleton(
         .read_inverse_bind_matrices()
         .map_or_else(
             || vec![Mat4::identity(); joint_count],
-            |iter| {
-                let mut p: Vec<Mat4> = Vec::with_capacity(iter.size_hint().0);
-                p.extend(iter.map(|m| transpose_col_major_to_mat4(&m)));
-                p
-            },
+            |iter| iter.map(|m| transpose_col_major_to_mat4(&m)).collect(),
         );
 
     // Collect provisional joint data
@@ -560,21 +543,18 @@ fn extract_clips(
 
             let (target, values) = match outputs {
                 gltf::animation::util::ReadOutputs::Translations(iter) => {
-                    let mut vals: Vec<Vec3> = Vec::with_capacity(iter.size_hint().0);
-                    vals.extend(iter.map(|t| Vec3::new(t[0], t[1], t[2])));
+                    let vals: Vec<Vec3> = iter.map(|t| Vec3::new(t[0], t[1], t[2])).collect();
                     (ChannelTarget::Translation, ChannelValues::Translation(vals))
                 }
                 gltf::animation::util::ReadOutputs::Rotations(iter) => {
                     let iter = iter
                         .into_f32()
                         .map(|r| Quat::new(r[0], r[1], r[2], r[3]).normalize());
-                    let mut vals: Vec<Quat> = Vec::with_capacity(iter.size_hint().0);
-                    vals.extend(iter);
+                    let vals: Vec<Quat> = iter.collect();
                     (ChannelTarget::Rotation, ChannelValues::Rotation(vals))
                 }
                 gltf::animation::util::ReadOutputs::Scales(iter) => {
-                    let mut vals: Vec<Vec3> = Vec::with_capacity(iter.size_hint().0);
-                    vals.extend(iter.map(|s| Vec3::new(s[0], s[1], s[2])));
+                    let vals: Vec<Vec3> = iter.map(|s| Vec3::new(s[0], s[1], s[2])).collect();
                     (ChannelTarget::Scale, ChannelValues::Scale(vals))
                 }
                 gltf::animation::util::ReadOutputs::MorphTargetWeights(_) => {

@@ -17,9 +17,9 @@
 **[Elide per-frame object allocation for Rendering]**
 **Learning:** Re-allocating the `DrawList` array containing transformed geometry vertices and draw calls incurs massive dynamic heap allocation penalties each frame when rendering hundreds of objects. By utilizing `thread_local!` `RefCell` storage to cache and reclaim the intermediate buffers between frames in `CpuRenderer` and `Scene`, we eliminate the per-frame allocations entirely, resulting in measurable performance improvements in `scene_render`.
 **Action:** Cache intermediate rendering vectors via `thread_local!` and reuse them rather than constructing a new `DrawList::with_capacity` dynamically on every `extract_draw_list` call.
-## [Prevent Allocator Resizing Chains in Iterator Maps]
-**Learning:** Replacing `.collect::<Vec<_>>().` with `Vec::with_capacity(n)` followed by `.extend(...)` prevents intermediate allocator resizing chains. This is particularly effective when `ExactSizeIterator` optimizations for complex iterator mapping fail to inline optimally in the frontend.
-**Action:** Use `Vec::with_capacity` and `extend` instead of `.collect()` for known-size iterators doing complex maps.
+## [Iterator Size Hints and Collect]
+**Learning:** In Rust, `Iterator::collect::<Vec<_>>()` already optimally leverages `size_hint()` and internal traits (like `TrustedLen` or `ExactSizeIterator`) to pre-allocate memory. Manually replacing `.collect()` with `Vec::with_capacity(iter.size_hint().0)` followed by `.extend()` is an anti-pattern that achieves no performance gain and degrades code readability.
+**Action:** Do not replace `.collect()` with manual capacity and extend calls when consuming iterators.
 ## 2024-04-22 - [TileRenderer set_clear_color removal optimization]
 **Learning:** Adding `set_clear_color` into `TileRenderer` and then resetting it after clears in `CpuRenderer` creates performance regressions, especially in `scene_render_integrated_clear_100_objects`. The `CpuRenderer` relies heavily on tight inner loops, and modifying global clear colors each frame defeats certain tile-clearing optimizations.
 **Action:** Reverting the `set_clear_color` addition and the usage of `clone()` during vertex range slicing (which allocated per batch) yielded measurable performance improvements in the `submit_mesh_only_20k_tris` and `4k_20k_tris_100obj` benchmarks.

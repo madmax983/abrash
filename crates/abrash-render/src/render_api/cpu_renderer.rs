@@ -132,7 +132,11 @@ impl CpuRenderer {
     /// # Errors
     /// Returns an error if any handle in the frame is stale.
     #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
-    pub fn extract_draw_list_into(&self, frame: &Frame, draw_list: &mut DrawList) -> Result<(), RenderError> {
+    pub fn extract_draw_list_into(
+        &self,
+        frame: &Frame,
+        draw_list: &mut DrawList,
+    ) -> Result<(), RenderError> {
         draw_list.clear(frame.camera);
 
         let view_proj = frame.camera.view * frame.camera.projection;
@@ -162,7 +166,11 @@ impl CpuRenderer {
         draw_list.lights.reserve(frame.lights.len());
 
         draw_list.clear_color = frame.clear_color;
-        draw_list.lights.clone_from(&frame.lights);
+
+        // ⚡ Bolt: Use `clear()` instead of `clone_from` or `std::mem::take` to retain
+        // the capacity of the lights vector, eliminating heap allocations for identical frames.
+        draw_list.lights.clear();
+        draw_list.lights.extend_from_slice(&frame.lights);
 
         #[cfg(feature = "parallel")]
         {
