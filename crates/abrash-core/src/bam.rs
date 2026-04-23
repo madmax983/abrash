@@ -104,6 +104,20 @@ const SINE_TABLE: [Fixed16_16; FINE_TABLE_SIZE] = {
 /// - `0x4000_0000` -- North (90 degrees)
 /// - `0x8000_0000` -- West (180 degrees)
 /// - `0xC000_0000` -- South (270 degrees)
+/// Binary Angle Measure (BAM) -- full-circle `u32` angle type.
+///
+/// The full circle is `u32::MAX + 1` (2^32). All arithmetic is naturally
+/// modular via `u32` wrapping, so there is no "angle clamping" needed.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::bam::{Bam, ANG90};
+///
+/// let angle = Bam::ZERO;
+/// let turned = angle + ANG90;
+/// assert_eq!(turned, ANG90);
+/// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Bam(pub u32);
 

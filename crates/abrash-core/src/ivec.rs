@@ -297,6 +297,16 @@ impl std::fmt::Display for IVec2 {
 // ── IVec3 ─────────────────────────────────────────────────────────────────────
 
 /// A 3D integer vector — voxel coordinates, 3D grid cells, color components.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::ivec::IVec3;
+///
+/// let a = IVec3::new(1, 2, 3);
+/// let b = IVec3::new(4, 5, 6);
+/// assert_eq!(a + b, IVec3::new(5, 7, 9));
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct IVec3 {
     /// The X (width/horizontal) Cartesian component in 3D grid space.
