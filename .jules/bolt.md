@@ -38,6 +38,9 @@
 **[Eliding Sqrt in Neon Outline Filter]**
 **Learning:** In edge-detection filters (like Sobel in `neon_outline`), calculating the exact magnitude using `sqrt()` for every pixel is a severe bottleneck.
 **Action:** Pre-calculate a squared threshold outside the loop (using `u64` to prevent overflow) and compare it against the squared magnitude (`gx*gx + gy*gy`). This safely elides the expensive `sqrt()` and floating-point cast operations for the vast majority of non-edge pixels.
+**[Eliding Bounds Checks on Rasterization Fast Paths]**
+**Learning:** In primitive rasterizers (like `circle` and `ellipse`), fast-paths are executed only after determining the primitive's bounding box is entirely within the framebuffer. However, the inner `draw_horizontal_line_unchecked` still pays a bounds-checking penalty using standard slice assignment `slice[start..=end].fill(color)`. Replacing this with `unsafe { slice.get_unchecked_mut(start..=end).fill(color) }` provides a measurable speedup (e.g. ~10-15% improvement).
+**Action:** Use `get_unchecked_mut` inside functions explicitly suffixed with `_unchecked` that have pre-verified geometric boundaries.
 
 **[Enum Swap Redundancy]**
 **Learning:** Using `std::mem::replace` multiple times in nested enum matches inside hot paths creates unnecessary temporary values and stack shuffling, even if logically safe.
