@@ -36,7 +36,7 @@ impl Default for SpeedLinesConfig {
         Self {
             center_x: 0.5,
             center_y: 0.5,
-            line_color: 0xFFFFFFFF,
+            line_color: 0xFFFF_FFFF,
             time: 0.0,
             inner_radius: 100.0,
             density: 360,
@@ -50,8 +50,8 @@ impl Default for SpeedLinesConfig {
 #[inline(always)]
 fn hash_2d(x: u32, y: u32) -> f32 {
     let mut state = x
-        .wrapping_mul(747796405)
-        .wrapping_add(y.wrapping_mul(283927953));
+        .wrapping_mul(747_796_405)
+        .wrapping_add(y.wrapping_mul(283_927_953));
     let mut rng = XorShift32::new(state);
     let r = rng.next_u32();
     // Normalize to 0.0 .. 1.0
@@ -147,7 +147,7 @@ pub fn apply_speed_lines(fb: &mut Framebuffer, config: &SpeedLinesConfig) {
                         let g = (g1 * a + g2 * inv_a) / 255;
                         let b = (b1 * a + b2 * inv_a) / 255;
 
-                        *pixel = 0xFF000000 | (r << 16) | (g << 8) | b;
+                        *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
                     }
                 }
             }
@@ -162,21 +162,21 @@ mod tests {
     #[test]
     fn test_speed_lines_basic() {
         let mut fb = Framebuffer::new(100, 100).unwrap();
-        fb.clear(0xFF000000); // Black background
+        fb.clear(0xFF00_0000); // Black background
 
         let mut config = SpeedLinesConfig::default();
         config.inner_radius = 10.0;
-        config.line_color = 0xFFFFFFFF; // White lines
+        config.line_color = 0xFFFF_FFFF; // White lines
 
         apply_speed_lines(&mut fb, &config);
 
         // Center should be untouched (black)
-        assert_eq!(fb.get_pixel(50, 50).unwrap(), 0xFF000000);
+        assert_eq!(fb.get_pixel(50, 50).unwrap(), 0xFF00_0000);
 
         // Some pixels further out should be white (lines)
         let mut has_white = false;
         for &p in fb.as_slice() {
-            if p == 0xFFFFFFFF {
+            if p == 0xFFFF_FFFF {
                 has_white = true;
                 break;
             }
@@ -190,7 +190,7 @@ mod tests {
     #[test]
     fn test_speed_lines_alpha_blend() {
         let mut fb = Framebuffer::new(100, 100).unwrap();
-        fb.clear(0xFF000000); // Black
+        fb.clear(0xFF00_0000); // Black
 
         let mut config = SpeedLinesConfig::default();
         config.inner_radius = 5.0;
@@ -203,7 +203,7 @@ mod tests {
 
         let mut has_blend = false;
         for &p in fb.as_slice() {
-            if p != 0xFF000000 {
+            if p != 0xFF00_0000 {
                 // It should be a blended dark red, e.g., 0xFF800000
                 let r = (p >> 16) & 0xFF;
                 assert!(r > 0 && r < 255);

@@ -31,7 +31,7 @@ thread_local! {
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_gamma_correction;
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
@@ -92,7 +92,7 @@ pub fn apply_gamma_correction(fb: &mut Framebuffer, gamma: f32) {
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_grayscale;
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
@@ -170,7 +170,7 @@ fn apply_grayscale_scalar(pixels: &mut [u32]) {
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_scanlines;
 ///
 /// let mut fb = Framebuffer::new(1, 2).unwrap();
@@ -227,7 +227,7 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_invert;
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
@@ -243,8 +243,8 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 ///
 /// # Examples
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
-/// use `abrash_render::post_process::filters::apply_solarize`;
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::post_process::filters::apply_solarize;
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
 /// fb.clear(0xFFC0_C0C0); // Light Gray (192)
@@ -316,7 +316,7 @@ pub fn apply_invert(fb: &mut Framebuffer) {
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_sepia;
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
@@ -383,7 +383,7 @@ pub struct ChromaticAberrationConfig {
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::{apply_chromatic_aberration, ChromaticAberrationConfig};
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
@@ -471,7 +471,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberra
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_sobel;
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
@@ -594,7 +594,7 @@ impl Default for VignetteConfig {
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::{apply_vignette, VignetteConfig};
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
@@ -661,7 +661,7 @@ impl Default for ColorAdjustConfig {
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::{apply_color_adjust, ColorAdjustConfig};
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
@@ -707,7 +707,7 @@ pub struct FilmGrainConfig {
 ///
 /// # Examples
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::{apply_film_grain, FilmGrainConfig};
 ///
 /// let mut fb = Framebuffer::new(800, 600).unwrap();
@@ -1035,7 +1035,7 @@ mod simd {
         let th_val = _mm256_set1_epi8((threshold as i8).wrapping_sub(-128i8)); // Offset by 128 for signed compare
         let mask_rgb = _mm256_set1_epi32(0x00FFFFFF);
 
-        let mut ptr = pixels.as_mut_ptr().cast::<__m256i>();
+        let mut ptr = pixels.as_mut_ptr() as *mut __m256i;
         let simd_len = pixels.len();
         for _ in 0..(simd_len / 8) {
             let p = _mm256_loadu_si256(ptr);
@@ -1676,32 +1676,6 @@ mod tests {
         // Row 1 should not be shifted
         let p2 = fb.get_pixel(0, 1).unwrap();
         assert_eq!(p2, 0xFFFFFFFF);
-    }
-
-    #[test]
-    fn test_apply_solarize() {
-        let mut fb = Framebuffer::new(3, 1).unwrap();
-        // Base pixels
-        fb.set_pixel(0, 0, 0xFF80_8080); // Mid Gray (128) -> Above threshold (127), should invert (255 - 128 = 127)
-        fb.set_pixel(1, 0, 0xFF40_4040); // Dark Gray (64) -> Below threshold (127), should remain (64)
-        fb.set_pixel(2, 0, 0xFFC0_C0C0); // Light Gray (192) -> Above threshold (127), should invert (255 - 192 = 63)
-
-        apply_solarize(&mut fb, 127);
-
-        let p0 = fb.get_pixel(0, 0).unwrap();
-        assert_eq!((p0 >> 16) & 0xFF, 127, "R channel failed at x=0");
-        assert_eq!((p0 >> 8) & 0xFF, 127, "G channel failed at x=0");
-        assert_eq!(p0 & 0xFF, 127, "B channel failed at x=0");
-
-        let p1 = fb.get_pixel(1, 0).unwrap();
-        assert_eq!((p1 >> 16) & 0xFF, 64, "R channel failed at x=1");
-        assert_eq!((p1 >> 8) & 0xFF, 64, "G channel failed at x=1");
-        assert_eq!(p1 & 0xFF, 64, "B channel failed at x=1");
-
-        let p2 = fb.get_pixel(2, 0).unwrap();
-        assert_eq!((p2 >> 16) & 0xFF, 63, "R channel failed at x=2");
-        assert_eq!((p2 >> 8) & 0xFF, 63, "G channel failed at x=2");
-        assert_eq!(p2 & 0xFF, 63, "B channel failed at x=2");
     }
 
     #[test]
