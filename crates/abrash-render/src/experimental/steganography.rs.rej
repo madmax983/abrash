@@ -1,0 +1,11 @@
+--- steganography.rs
++++ steganography.rs
+@@ -10,6 +10,8 @@
+ /// Uses the Least Significant Bit (LSB) of each color channel (R, G, B) to store
+ /// the bits of the message string.
+ ///
++/// # Errors
++/// Returns an error if the message is too long to fit in the given framebuffer.
+ ///
+ /// * `fb`: The Framebuffer to encode the message into.
+ /// * `message`: The ASCII string to encode.

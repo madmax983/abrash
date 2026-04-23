@@ -14,8 +14,6 @@ fn havoc_gouraud_simd_buffer_mismatch() {
     let dc_dx = (0, 0, 0);
 
     unsafe {
-        draw_scanline_gouraud_simd_fast(
-            &mut fb, &mut zb, z_start, c_start, dz_dx, dc_dx,
-        );
+        draw_scanline_gouraud_simd_fast(&mut fb, &mut zb, z_start, c_start, dz_dx, dc_dx);
     }
 }
