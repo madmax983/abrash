@@ -230,35 +230,37 @@ impl<T> ResourcePool<T> {
     }
 
     /// Remove a resource and return it. Increments generation to invalidate old handles.
+    ///
+    /// ⚡ Bolt: Extracted generation computation before the core `std::mem::replace` swap to
+    /// prevent duplicate nested replacements during reclamation.
     pub fn remove(&mut self, handle: Handle<T>) -> Option<T> {
         let entry = self.entries.get_mut(handle.index as usize)?;
-        match entry {
+        let old_gen = match entry {
             PoolEntry::Occupied { generation, .. } if *generation == handle.generation => {
-                let old = if *generation == Generation::MAX {
-                    std::mem::replace(
-                        entry,
-                        PoolEntry::Vacant {
-                            generation: Generation::MAX,
-                        },
-                    )
-                } else {
-                    let new_gen = *generation + 1;
-                    let old_entry = std::mem::replace(
-                        entry,
-                        PoolEntry::Vacant {
-                            generation: new_gen,
-                        },
-                    );
-                    self.free_list.push(handle.index);
-                    old_entry
-                };
-
-                match old {
-                    PoolEntry::Occupied { value, .. } => Some(value),
-                    PoolEntry::Vacant { .. } => unreachable!(),
-                }
+                *generation
             }
-            _ => None,
+            _ => return None,
+        };
+
+        let new_gen = if old_gen == Generation::MAX {
+            Generation::MAX
+        } else {
+            old_gen + 1
+        };
+        let old_entry = std::mem::replace(
+            entry,
+            PoolEntry::Vacant {
+                generation: new_gen,
+            },
+        );
+
+        if old_gen != Generation::MAX {
+            self.free_list.push(handle.index);
+        }
+
+        match old_entry {
+            PoolEntry::Occupied { value, .. } => Some(value),
+            PoolEntry::Vacant { .. } => unreachable!(),
         }
     }
 }

@@ -40,17 +40,15 @@ fn draw_ellipse_points_unchecked(
 
     // Avoid multiple bounds checks by using manual 1D indexing.
     // Safe because this is only called from the fast-path which pre-validates boundaries.
-    unsafe {
-        *slice.get_unchecked_mut(((yc + y) as usize) * w + ((xc + x) as usize)) = color;
-        if x != 0 {
-            *slice.get_unchecked_mut(((yc + y) as usize) * w + ((xc - x) as usize)) = color;
-        }
-        if y != 0 {
-            *slice.get_unchecked_mut(((yc - y) as usize) * w + ((xc + x) as usize)) = color;
-        }
-        if x != 0 && y != 0 {
-            *slice.get_unchecked_mut(((yc - y) as usize) * w + ((xc - x) as usize)) = color;
-        }
+    slice[((yc + y) as usize) * w + ((xc + x) as usize)] = color;
+    if x != 0 {
+        slice[((yc + y) as usize) * w + ((xc - x) as usize)] = color;
+    }
+    if y != 0 {
+        slice[((yc - y) as usize) * w + ((xc + x) as usize)] = color;
+    }
+    if x != 0 && y != 0 {
+        slice[((yc - y) as usize) * w + ((xc - x) as usize)] = color;
     }
 }
 

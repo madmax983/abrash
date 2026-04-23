@@ -20,6 +20,10 @@
 ## [Prevent Allocator Resizing Chains in Iterator Maps]
 **Learning:** Replacing `.collect::<Vec<_>>().` with `Vec::with_capacity(n)` followed by `.extend(...)` prevents intermediate allocator resizing chains. This is particularly effective when `ExactSizeIterator` optimizations for complex iterator mapping fail to inline optimally in the frontend.
 **Action:** Use `Vec::with_capacity` and `extend` instead of `.collect()` for known-size iterators doing complex maps.
+
+**Explicit AVX2 Intrinsics for Filter Loops**
+**Learning:** While the LLVM autovectorizer is usually good at optimizing simple `iter_mut()` maps like `*pixel ^= 0x00FF_FFFF;`, writing explicit `_mm256_xor_si256` logic using unaligned loads/stores can still yield consistent performance improvements (e.g., ~6% speedup for 1080p full-screen pixel inversion).
+**Action:** Replaced standard iteration in `apply_invert_avx2` with explicit AVX2 SIMD logic to ensure optimal performance.
 ## 2024-04-22 - [TileRenderer set_clear_color removal optimization]
 **Learning:** Adding `set_clear_color` into `TileRenderer` and then resetting it after clears in `CpuRenderer` creates performance regressions, especially in `scene_render_integrated_clear_100_objects`. The `CpuRenderer` relies heavily on tight inner loops, and modifying global clear colors each frame defeats certain tile-clearing optimizations.
 **Action:** Reverting the `set_clear_color` addition and the usage of `clone()` during vertex range slicing (which allocated per batch) yielded measurable performance improvements in the `submit_mesh_only_20k_tris` and `4k_20k_tris_100obj` benchmarks.
@@ -42,3 +46,10 @@
 **Hoisting Conditional Branches in Distance Algorithms (Voronoi)**
 **Learning:** In distance-based algorithms like Voronoi diagrams, evaluating configuration branches (e.g., determining which metric to use) inside nested per-pixel and per-seed loops is highly inefficient.
 **Action:** Hoist these conditional checks entirely outside the loops and defer expensive operations (like `sqrt()`) until after the loop by comparing squared distances (`dx*dx + dy*dy`) yielding massive performance improvements.
+**[Eliding Bounds Checks on Rasterization Fast Paths]**
+**Learning:** In primitive rasterizers (like `circle` and `ellipse`), fast-paths are executed only after determining the primitive's bounding box is entirely within the framebuffer. However, the inner `draw_horizontal_line_unchecked` still pays a bounds-checking penalty using standard slice assignment `slice[start..=end].fill(color)`. Replacing this with `unsafe { slice.get_unchecked_mut(start..=end).fill(color) }` provides a measurable speedup (e.g. ~10-15% improvement).
+**Action:** Use `get_unchecked_mut` inside functions explicitly suffixed with `_unchecked` that have pre-verified geometric boundaries.
+
+**[Enum Swap Redundancy]**
+**Learning:** Using `std::mem::replace` multiple times in nested enum matches inside hot paths creates unnecessary temporary values and stack shuffling, even if logically safe.
+**Action:** Extract generation states outside the match block first, then do a single `std::mem::replace` with the computed state, significantly accelerating tight resource-reclamation loops.
