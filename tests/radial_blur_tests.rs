@@ -73,14 +73,14 @@ fn test_apply_radial_blur_fixed_point_rounding() {
 #[test]
 fn test_apply_radial_blur_oob_center() {
     let mut fb = Framebuffer::new(4, 4).unwrap();
-    fb.clear(0xFFFFFFFF);
+    fb.clear(0xFFFF_FFFF);
 
     // Apply with a center wildly out of bounds
     apply_radial_blur(&mut fb, 100, 100, 1.0, 5);
 
     unsafe {
         // Since the whole framebuffer was white, the blur from outside should still just sample white
-        assert_eq!(fb.get_pixel_unchecked(0, 0), 0xFFFFFFFF);
-        assert_eq!(fb.get_pixel_unchecked(3, 3), 0xFFFFFFFF);
+        assert_eq!(fb.get_pixel_unchecked(0, 0), 0xFFFF_FFFF);
+        assert_eq!(fb.get_pixel_unchecked(3, 3), 0xFFFF_FFFF);
     }
 }

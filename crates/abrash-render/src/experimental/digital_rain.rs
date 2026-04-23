@@ -20,7 +20,7 @@ impl Default for DigitalRain {
     fn default() -> Self {
         Self {
             drops: Vec::new(),
-            rng: XorShift32::new(0xDEADBEEF),
+            rng: XorShift32::new(0xDEAD_BEEF),
             cached_width: 0,
             cached_height: 0,
         }

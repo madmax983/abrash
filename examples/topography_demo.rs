@@ -62,6 +62,7 @@ struct TopographyDemoApp {
 
 #[cfg(feature = "nova")]
 impl TopographyDemoApp {
+    #[allow(clippy::unnecessary_wraps)]
     fn new() -> Result<Self, HostError> {
         Ok(Self {
             framebuffer: Framebuffer::new(WIDTH, HEIGHT).unwrap(),
@@ -108,6 +109,7 @@ impl WindowApp for TopographyDemoApp {
                 let dx = x as f32 - cx;
                 let dy = y as f32 - cy;
 
+                #[allow(clippy::imprecise_flops)]
                 let dist = (dx * dx + dy * dy).sqrt();
 
                 // Moving rings
@@ -116,7 +118,7 @@ impl WindowApp for TopographyDemoApp {
                 val = (val + 1.0) * 127.5;
 
                 let c = val as u32;
-                let color = 0xFF000000 | (c << 16) | (c << 8) | c;
+                let color = 0xFF00_0000 | (c << 16) | (c << 8) | c;
 
                 self.src_fb.set_pixel(x as i32, y as i32, color);
             }

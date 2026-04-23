@@ -13,9 +13,9 @@ fn bench_neon_outline(c: &mut Criterion) {
     for y in 0..height {
         for x in 0..width {
             let col = if rng.gen_bool(0.1) {
-                0xFFFFFFFF
+                0xFFFF_FFFF
             } else {
-                0xFF000000
+                0xFF00_0000
             };
             fb.set_pixel(x as i32, y as i32, col);
         }
