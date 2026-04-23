@@ -20,6 +20,9 @@
 **[Elide per-frame object allocation for Rendering]**
 **Learning:** Re-allocating the `DrawList` array containing transformed geometry vertices and draw calls incurs massive dynamic heap allocation penalties each frame when rendering hundreds of objects. By utilizing `thread_local!` `RefCell` storage to cache and reclaim the intermediate buffers between frames in `CpuRenderer` and `Scene`, we eliminate the per-frame allocations entirely, resulting in measurable performance improvements in `scene_render`.
 **Action:** Cache intermediate rendering vectors via `thread_local!` and reuse them rather than constructing a new `DrawList::with_capacity` dynamically on every `extract_draw_list` call.
+## [Iterator Size Hints and Collect]
+**Learning:** In Rust, `Iterator::collect::<Vec<_>>()` already optimally leverages `size_hint()` and internal traits (like `TrustedLen` or `ExactSizeIterator`) to pre-allocate memory. Manually replacing `.collect()` with `Vec::with_capacity(iter.size_hint().0)` followed by `.extend()` is an anti-pattern that achieves no performance gain and degrades code readability.
+**Action:** Do not replace `.collect()` with manual capacity and extend calls when consuming iterators.
 ## [Prevent Allocator Resizing Chains in Iterator Maps]
 **Learning:** Replacing `.collect::<Vec<_>>().` with `Vec::with_capacity(n)` followed by `.extend(...)` prevents intermediate allocator resizing chains. This is particularly effective when `ExactSizeIterator` optimizations for complex iterator mapping fail to inline optimally in the frontend.
 **Action:** Use `Vec::with_capacity` and `extend` instead of `.collect()` for known-size iterators doing complex maps.
