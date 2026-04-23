@@ -1,6 +1,6 @@
-use proptest::prelude::*;
 use crate::rasterizer::texture::draw_span_nearest_simd;
 use abrash_core::texture::Texture;
+use proptest::prelude::*;
 
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(50_000))]

@@ -702,6 +702,10 @@ name = "ellipse_bench"
 harness = false
 
 [[bench]]
+name = "fill_bench"
+harness = false
+
+[[bench]]
 name = "circle_oob_bench"
 harness = false
 

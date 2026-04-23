@@ -38,3 +38,6 @@
 **[Eliding Sqrt in Neon Outline Filter]**
 **Learning:** In edge-detection filters (like Sobel in `neon_outline`), calculating the exact magnitude using `sqrt()` for every pixel is a severe bottleneck.
 **Action:** Pre-calculate a squared threshold outside the loop (using `u64` to prevent overflow) and compare it against the squared magnitude (`gx*gx + gy*gy`). This safely elides the expensive `sqrt()` and floating-point cast operations for the vast majority of non-edge pixels.
+## [Elide Bounds Checks in Rect and Ellipse Rendering]
+**Learning:** In `draw_horizontal_line` and `clear_rect` operations, iterating over or filling slice ranges using `buffer[start..=end].fill(color)` involves implicit bounds checking that can slow down rasterization of ellipses, rectangles, and clearing operations, especially out-of-bounds rendering.
+**Action:** Elide these bounds checks by safely using `unsafe { buffer.get_unchecked_mut(start..=end).fill(color) }` after manual clipping has ensured the coordinates are within valid framebuffer boundaries.

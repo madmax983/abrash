@@ -36,7 +36,11 @@ fn draw_horizontal_line(fb: &mut Framebuffer, x0: i32, x1: i32, y: i32, color: u
     let end_idx = y as usize * w + x_end as usize;
 
     // Explicitly avoids per-pixel bounds checks inside the slice
-    fb.as_mut_slice()[start_idx..=end_idx].fill(color);
+    unsafe {
+        fb.as_mut_slice()
+            .get_unchecked_mut(start_idx..=end_idx)
+            .fill(color);
+    }
 }
 
 /// ⚡ Bolt: Direct horizontal line fill skipping boundary checking completely
@@ -50,7 +54,11 @@ fn draw_horizontal_line_unchecked(fb: &mut Framebuffer, x0: i32, x1: i32, y: i32
     // Safety check fallback to standard fill if things went horribly wrong,
     // though the contract says it should be safe.
     if end_idx < fb.as_mut_slice().len() && start_idx <= end_idx {
-        fb.as_mut_slice()[start_idx..=end_idx].fill(color);
+        unsafe {
+            fb.as_mut_slice()
+                .get_unchecked_mut(start_idx..=end_idx)
+                .fill(color);
+        }
     }
 }
 

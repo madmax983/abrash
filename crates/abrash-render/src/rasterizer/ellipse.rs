@@ -203,7 +203,11 @@ fn draw_horizontal_line(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32, color: u
         let start_idx = y_offset + (min_x as usize);
         let end_idx = y_offset + (max_x as usize);
 
-        fb.as_mut_slice()[start_idx..=end_idx].fill(color);
+        unsafe {
+            fb.as_mut_slice()
+                .get_unchecked_mut(start_idx..=end_idx)
+                .fill(color);
+        }
     }
 }
 
@@ -212,7 +216,11 @@ fn draw_horizontal_line_unchecked(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32
     let width = fb.width() as usize;
     let start_idx = (y as usize) * width + (x1 as usize);
     let end_idx = (y as usize) * width + (x2 as usize);
-    fb.as_mut_slice()[start_idx..=end_idx].fill(color);
+    unsafe {
+        fb.as_mut_slice()
+            .get_unchecked_mut(start_idx..=end_idx)
+            .fill(color);
+    }
 }
 
 /// Draws a solid, filled ellipse onto the provided [`Framebuffer`].

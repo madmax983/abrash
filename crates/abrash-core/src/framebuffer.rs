@@ -320,7 +320,9 @@ impl Framebuffer {
             // Calculate exact 1D slice indices first, applying .chunks_exact_mut(width)
             // directly to &mut buffer[start_idx..end_idx] entirely elides inner-loop bounds checking.
             for row in self.pixels[start_idx..end_idx].chunks_exact_mut(w) {
-                row[sx..ex].fill(color);
+                unsafe {
+                    row.get_unchecked_mut(sx..ex).fill(color);
+                }
             }
         }
     }
