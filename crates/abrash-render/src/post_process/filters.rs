@@ -247,7 +247,7 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 /// use `abrash_render::post_process::filters::apply_solarize`;
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
-/// fb.clear(0xFFC0_C0C0); // Light Gray (192)
+/// `fb.clear(0xFFC0_C0C0)`; // Light Gray (192)
 /// apply_solarize(&mut fb, 127);
 /// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFF3F_3F3F);
 /// ```
@@ -1032,6 +1032,10 @@ mod simd {
     #[target_feature(enable = "avx2")]
     pub unsafe fn apply_solarize_avx2(pixels: &mut [u32], threshold: u8) {
         use std::arch::x86_64::*;
+        use std::arch::x86_64::{
+            __m256i, _mm256_add_epi8, _mm256_and_si256, _mm256_cmpgt_epi8, _mm256_loadu_si256,
+            _mm256_set1_epi8, _mm256_set1_epi32, _mm256_storeu_si256, _mm256_xor_si256,
+        };
         let th_val = _mm256_set1_epi8((threshold as i8).wrapping_sub(-128i8)); // Offset by 128 for signed compare
         let mask_rgb = _mm256_set1_epi32(0x00FFFFFF);
 

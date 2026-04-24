@@ -23,7 +23,7 @@ use crate::zbuffer::ZBuffer;
 /// use abrash_core::math::Vec3;
 /// use abrash_render::particles::Particle;
 ///
-/// let p = Particle::new(Vec3::ZERO, Vec3::new(0.0, 1.0, 0.0), 5.0, 2.0, 0xFFFFFFFF);
+/// let p = Particle::new(Vec3::ZERO, Vec3::new(0.0, 1.0, 0.0), 5.0, 2.0, 0x00FF_FFFFFF);
 /// assert_eq!(p.life, 5.0);
 /// ```
 #[derive(Clone, Copy, Debug)]
@@ -88,7 +88,7 @@ mod tests {
             Vec3::new(0.0, 0.0, 0.0),
             1.0, // Life 1.0
             0.1,
-            0xFFFFFFFF,
+            0x00FF_FFFFFF,
         ));
 
         // Update 0.5s -> Life 0.5
@@ -112,7 +112,7 @@ mod tests {
             Vec3::new(0.0, 0.0, 0.0),
             2.0, // Life 2.0 so it survives 1.0s update
             0.1,
-            0xFFFFFFFF,
+            0x00FF_FFFFFF,
         ));
 
         // Update 1.0s

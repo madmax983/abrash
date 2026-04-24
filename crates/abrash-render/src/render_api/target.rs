@@ -16,7 +16,7 @@ use crate::zbuffer::ZBuffer;
 /// use abrash_render::render_api::RenderTarget;
 ///
 /// let mut target = RenderTarget::new(800, 600).unwrap();
-/// target.clear(0xFF000000); // Clear to black
+/// target.clear(0x00FF_000000); // Clear to black
 /// assert_eq!(target.width(), 800);
 /// assert_eq!(target.height(), 600);
 /// ```
@@ -149,8 +149,8 @@ mod tests {
     #[test]
     fn test_render_target_clear() {
         let mut target = RenderTarget::new(10, 10).unwrap();
-        target.clear(0xFFFF0000);
-        assert_eq!(target.pixels()[0], 0xFFFF0000);
+        target.clear(0xFFFF_0000);
+        assert_eq!(target.pixels()[0], 0xFFFF_0000);
         assert!(target.depths()[0].is_infinite());
     }
 
@@ -168,7 +168,7 @@ mod tests {
     #[test]
     fn test_render_target_pixel_access() {
         let mut target = RenderTarget::new(10, 10).unwrap();
-        target.pixels_mut()[0] = 0xDEADBEEF;
-        assert_eq!(target.pixels()[0], 0xDEADBEEF);
+        target.pixels_mut()[0] = 0xDEAD_BEEF;
+        assert_eq!(target.pixels()[0], 0xDEAD_BEEF);
     }
 }
