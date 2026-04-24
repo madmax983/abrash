@@ -12,10 +12,7 @@ use crate::easing::Easing;
 use crate::evaluable::{Evaluable, Sample};
 use crate::keyframe::Keyframe;
 
-enum TimelineState<T: Animatable> {
-    Playing,
-    Completed { final_sample: Sample<T> },
-}
+
 
 /// A stateful animation driver that wraps an `Evaluable<T>` root.
 ///
@@ -26,7 +23,7 @@ pub struct Timeline<T: Animatable> {
     clock: AnimationClock,
     duration: f32,
     playback: PlaybackMode,
-    state: TimelineState<T>,
+    completed: bool,
     last_sample: Sample<T>,
 }
 
@@ -41,7 +38,7 @@ impl<T: Animatable + Send + Sync + 'static> Timeline<T> {
             clock: AnimationClock::new(),
             duration,
             playback,
-            state: TimelineState::Playing,
+            completed: false,
             last_sample: initial,
         }
     }
@@ -98,8 +95,8 @@ impl<T: Animatable + Send + Sync + 'static> Timeline<T> {
     ///
     /// Once completed, subsequent ticks return the final sample unchanged.
     pub fn tick(&mut self, delta_secs: f32) -> Sample<T> {
-        if let TimelineState::Completed { final_sample } = &self.state {
-            return final_sample.clone();
+        if self.completed {
+            return self.last_sample.clone();
         }
 
         let sample = {
@@ -113,9 +110,7 @@ impl<T: Animatable + Send + Sync + 'static> Timeline<T> {
                 ClockEvent::CycleBoundary { .. } => {
                     if self.clock.is_finished(&self.playback) {
                         let final_sample = self.root.evaluate(1.0);
-                        self.state = TimelineState::Completed {
-                            final_sample: final_sample.clone(),
-                        };
+                        self.completed = true;
                         final_sample
                     } else {
                         let phase = self.clock.effective_phase(&self.playback);
@@ -132,7 +127,7 @@ impl<T: Animatable + Send + Sync + 'static> Timeline<T> {
     /// Whether the animation has finished (no more ticks will change the value).
     #[must_use]
     pub const fn is_completed(&self) -> bool {
-        matches!(self.state, TimelineState::Completed { .. })
+        self.completed
     }
 
     /// The most recently evaluated value.
@@ -144,7 +139,7 @@ impl<T: Animatable + Send + Sync + 'static> Timeline<T> {
     /// Reset the timeline to the beginning.
     pub fn reset(&mut self) {
         self.clock.reset();
-        self.state = TimelineState::Playing;
+        self.completed = false;
         self.last_sample = self.root.evaluate(0.0);
     }
 
