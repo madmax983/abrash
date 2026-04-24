@@ -2,7 +2,9 @@
 //!
 //! Renders the Mandelbrot set and allows panning and zooming.
 
+#[cfg(feature = "nova")]
 use abrash::framebuffer::Framebuffer;
+#[cfg(feature = "nova")]
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
@@ -10,9 +12,12 @@ use abrash::platform::{
 #[cfg(feature = "nova")]
 use abrash_render::experimental::mandelbrot::{MandelbrotConfig, render_mandelbrot};
 
+#[cfg(feature = "nova")]
 const WIDTH: u32 = 800;
+#[cfg(feature = "nova")]
 const HEIGHT: u32 = 600;
 
+#[cfg(feature = "nova")]
 struct MandelbrotDemo {
     presenter: Option<SoftwarePresenter>,
     framebuffer: Framebuffer,
@@ -20,6 +25,7 @@ struct MandelbrotDemo {
     config: MandelbrotConfig,
 }
 
+#[cfg(feature = "nova")]
 impl MandelbrotDemo {
     fn new() -> Result<Self, HostError> {
         Ok(Self {
@@ -32,6 +38,7 @@ impl MandelbrotDemo {
     }
 }
 
+#[cfg(feature = "nova")]
 impl WindowApp for MandelbrotDemo {
     type Error = HostError;
 
@@ -88,12 +95,74 @@ impl WindowApp for MandelbrotDemo {
 // Fallback for when "nova" feature is not enabled
 #[cfg(not(feature = "nova"))]
 fn main() {
-    eprintln!("This example requires the 'nova' feature to run.");
+    use comfy_table::{Cell, Color, Table, presets};
+    let mut error_table = Table::new();
+    error_table
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("⚠️  Missing Feature: Nova")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(Color::Red),
+        ])
+        .add_row(vec![
+            Cell::new("This example requires the 'nova' feature to run.").fg(Color::White),
+        ])
+        .add_row(vec![
+            Cell::new(
+                "Try running with:
+cargo run --example mandelbrot_demo --features nova",
+            )
+            .fg(Color::Green),
+        ]);
+
+    eprintln!(
+        "
+{error_table}"
+    );
     std::process::exit(1);
 }
 
 #[cfg(feature = "nova")]
+fn print_banner() {
+    use comfy_table::{Cell, Color, Table, presets};
+    use crossterm::style::Stylize;
+
+    println!("\n{}", "🌟 Nova: Mandelbrot Demo".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Renders the Mandelbrot set with auto-zooming").fg(Color::Green),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
+        .add_row(vec![Cell::new("Keyboard"), Cell::new("Auto-zooming")]);
+    println!("{controls}\n");
+}
+
+#[cfg(feature = "nova")]
 fn main() {
-    println!("🌟 Nova: Mandelbrot Demo");
+    print_banner();
     run_windowed(MandelbrotDemo::new().unwrap());
 }
