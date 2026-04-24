@@ -678,8 +678,11 @@ impl TileBins {
         Self {
             heads: vec![u32::MAX; num_tiles],
             tails: vec![u32::MAX; num_tiles],
-            nexts: Vec::with_capacity(1024),
-            tris: Vec::with_capacity(1024),
+            // ⚡ Bolt: Pre-allocate a larger capacity for triangle binning linked lists (8192 vs 1024).
+            // In dense scenes (like painter's algorithm sorting worst-cases), bins easily exceed 1024 elements.
+            // This avoids multiple O(N) dynamic heap reallocations during the hot `push` phase per frame.
+            nexts: Vec::with_capacity(8192),
+            tris: Vec::with_capacity(8192),
         }
     }
 
@@ -1674,7 +1677,9 @@ impl TileRenderer {
 
         let tiles_x = width.div_ceil(TILE_SIZE);
         let tiles_y = height.div_ceil(TILE_SIZE);
-        let tile_count = tiles_x.checked_mul(tiles_y).expect("TileRenderer dimensions overflow") as usize;
+        let tile_count = tiles_x
+            .checked_mul(tiles_y)
+            .expect("TileRenderer dimensions overflow") as usize;
         #[cfg(not(feature = "parallel"))]
         let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
 

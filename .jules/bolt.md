@@ -59,3 +59,7 @@
 **[Enum Swap Redundancy]**
 **Learning:** Using `std::mem::replace` multiple times in nested enum matches inside hot paths creates unnecessary temporary values and stack shuffling, even if logically safe.
 **Action:** Extract generation states outside the match block first, then do a single `std::mem::replace` with the computed state, significantly accelerating tight resource-reclamation loops.
+
+**[Pre-allocate TileBins Capacity]
+**Learning:** Dense geometric scenes, especially those rendered back-to-front, can generate significantly more than 1024 triangle references per frame. A small initial capacity (e.g., `Vec::with_capacity(1024)`) in hot structures like `TileBins`'s internal linked lists leads to costly multiple dynamic heap reallocations.
+**Action:** Always measure upper-bounds in worst-case sorting scenarios (like Painter's Algorithm) and pre-allocate realistic vector capacities (e.g., 8192) to eliminate runtime allocation overhead during tight binning loops.
