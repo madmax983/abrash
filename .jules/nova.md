@@ -43,3 +43,8 @@
 **Concept:** A mathematical renderer that simulates a mechanical harmonograph using damped pendulums to draw complex Lissajous curves and geometric patterns directly onto the 2D framebuffer.
 **Fate:** Implemented
 **Lesson:** Using a combination of simple trigonometric functions (sine) mapped to exponentially decaying amplitudes (damping) creates beautiful procedural curves. Bresenham's line algorithm effectively rasterizes these continuous math functions without requiring float-to-int pixel interpolation artifacts if sampled frequently enough (small step sizes).
+
+## [Physarum Simulation]
+**Concept:** A post-processing effect that simulates a transport network forming based on Physarum Polycephalum (slime mold). Agents drop a trail map and sense it to steer towards high concentrations.
+**Fate:** Implemented
+**Lesson:** Iterating over agents and checking the trail map is inherently cache-unfriendly. By using a decoupled 1D trail map and indexing it via pre-calculated boundary clamps, we avoid borrowing issues with `&mut self` and optimize reads.
