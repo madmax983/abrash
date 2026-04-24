@@ -15,7 +15,6 @@
 //! ```
 
 use abrash_core::framebuffer::Framebuffer;
-use abrash_core::ivec::IVec2;
 
 /// ⚡ Bolt: Fast horizontal line fill that avoids per-pixel bounds checks in the inner loop.
 #[inline(always)]
@@ -36,7 +35,11 @@ fn draw_horizontal_line(fb: &mut Framebuffer, x0: i32, x1: i32, y: i32, color: u
     let end_idx = y as usize * w + x_end as usize;
 
     // Explicitly avoids per-pixel bounds checks inside the slice
-    fb.as_mut_slice()[start_idx..=end_idx].fill(color);
+    unsafe {
+        fb.as_mut_slice()
+            .get_unchecked_mut(start_idx..=end_idx)
+            .fill(color);
+    }
 }
 
 /// ⚡ Bolt: Direct horizontal line fill skipping boundary checking completely
@@ -50,7 +53,52 @@ fn draw_horizontal_line_unchecked(fb: &mut Framebuffer, x0: i32, x1: i32, y: i32
     // Safety check fallback to standard fill if things went horribly wrong,
     // though the contract says it should be safe.
     if end_idx < fb.as_mut_slice().len() && start_idx <= end_idx {
-        fb.as_mut_slice()[start_idx..=end_idx].fill(color);
+        unsafe {
+            fb.as_mut_slice()
+                .get_unchecked_mut(start_idx..=end_idx)
+                .fill(color);
+        }
+    }
+}
+
+#[inline(always)]
+fn draw_vertical_line(fb: &mut Framebuffer, x: i32, y0: i32, y1: i32, color: u32) {
+    if x < 0 || x >= fb.width() as i32 {
+        return;
+    }
+
+    let y_start = y0.max(0);
+    let y_end = y1.min(fb.height() as i32 - 1);
+
+    if y_start > y_end {
+        return;
+    }
+
+    let w = fb.width() as usize;
+    let slice = fb.as_mut_slice();
+    let mut idx = y_start as usize * w + x as usize;
+    let end_idx = y_end as usize * w + x as usize;
+
+    unsafe {
+        while idx <= end_idx {
+            *slice.get_unchecked_mut(idx) = color;
+            idx += w;
+        }
+    }
+}
+
+#[inline(always)]
+fn draw_vertical_line_unchecked(fb: &mut Framebuffer, x: i32, y0: i32, y1: i32, color: u32) {
+    let w = fb.width() as usize;
+    let slice = fb.as_mut_slice();
+    let mut idx = y0 as usize * w + x as usize;
+    let end_idx = y1 as usize * w + x as usize;
+
+    unsafe {
+        while idx <= end_idx {
+            *slice.get_unchecked_mut(idx) = color;
+            idx += w;
+        }
     }
 }
 
@@ -84,14 +132,22 @@ pub fn draw_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, 
     let right = x + width as i32 - 1;
     let bottom = y + height as i32 - 1;
 
-    // Top
-    draw_horizontal_line(fb, x, right, y, color);
-    // Bottom
-    draw_horizontal_line(fb, x, right, bottom, color);
-    // Left
-    draw_line_2d_local(fb, IVec2::new(x, y), IVec2::new(x, bottom), color);
-    // Right
-    draw_line_2d_local(fb, IVec2::new(right, y), IVec2::new(right, bottom), color);
+    let is_on_screen = x >= 0
+        && y >= 0
+        && (i64::from(x) + i64::from(width)) <= i64::from(fb.width())
+        && (i64::from(y) + i64::from(height)) <= i64::from(fb.height());
+
+    if is_on_screen {
+        draw_horizontal_line_unchecked(fb, x, right, y, color);
+        draw_horizontal_line_unchecked(fb, x, right, bottom, color);
+        draw_vertical_line_unchecked(fb, x, y, bottom, color);
+        draw_vertical_line_unchecked(fb, right, y, bottom, color);
+    } else {
+        draw_horizontal_line(fb, x, right, y, color);
+        draw_horizontal_line(fb, x, right, bottom, color);
+        draw_vertical_line(fb, x, y, bottom, color);
+        draw_vertical_line(fb, right, y, bottom, color);
+    }
 }
 
 /// Fills a solid 2D rectangle.
@@ -181,8 +237,8 @@ pub fn draw_rounded_rect(
 
     let is_on_screen = x >= 0
         && y >= 0
-        && (x + width as i32) <= fb.width() as i32
-        && (y + height as i32) <= fb.height() as i32;
+        && (i64::from(x) + i64::from(width)) <= i64::from(fb.width())
+        && (i64::from(y) + i64::from(height)) <= i64::from(fb.height());
 
     // Draw straight edges
     if inner_w > 0 {
@@ -190,13 +246,8 @@ pub fn draw_rounded_rect(
         draw_horizontal_line(fb, cx_left, cx_right, y + height as i32 - 1, color); // Bottom
     }
     if inner_h > 0 {
-        draw_line_2d_local(fb, IVec2::new(x, cy_top), IVec2::new(x, cy_bottom), color); // Left
-        draw_line_2d_local(
-            fb,
-            IVec2::new(x + width as i32 - 1, cy_top),
-            IVec2::new(x + width as i32 - 1, cy_bottom),
-            color,
-        ); // Right
+        draw_vertical_line(fb, x, cy_top, cy_bottom, color); // Left
+        draw_vertical_line(fb, x + width as i32 - 1, cy_top, cy_bottom, color); // Right
     }
 
     let mut cx = 0;
@@ -323,8 +374,8 @@ pub fn fill_rounded_rect(
 
     let is_on_screen = x >= 0
         && y >= 0
-        && (x + width as i32) <= fb.width() as i32
-        && (y + height as i32) <= fb.height() as i32;
+        && (i64::from(x) + i64::from(width)) <= i64::from(fb.width())
+        && (i64::from(y) + i64::from(height)) <= i64::from(fb.height());
 
     let mut cx = 0;
     let mut cy = radius;
@@ -373,35 +424,6 @@ pub fn fill_rounded_rect(
                 cy -= 1;
             }
             cx += 1;
-        }
-    }
-}
-
-fn draw_line_2d_local(fb: &mut Framebuffer, p0: IVec2, p1: IVec2, color: u32) {
-    let mut x0 = p0.x;
-    let mut y0 = p0.y;
-    let x1 = p1.x;
-    let y1 = p1.y;
-
-    let dx = (x1 - x0).abs();
-    let sx = if x0 < x1 { 1 } else { -1 };
-    let dy = -(y1 - y0).abs();
-    let sy = if y0 < y1 { 1 } else { -1 };
-    let mut err = dx + dy;
-
-    loop {
-        fb.set_pixel(x0, y0, color);
-        if x0 == x1 && y0 == y1 {
-            break;
-        }
-        let e2 = 2 * err;
-        if e2 >= dy {
-            err += dy;
-            x0 += sx;
-        }
-        if e2 <= dx {
-            err += dx;
-            y0 += sy;
         }
     }
 }
