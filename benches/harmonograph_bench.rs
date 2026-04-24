@@ -6,7 +6,7 @@ fn bench_harmonograph(c: &mut Criterion) {
     let mut group = c.benchmark_group("Harmonograph");
 
     let mut fb = Framebuffer::new(800, 600).unwrap();
-    let mut h = Harmonograph::default();
+    let h = Harmonograph::default();
     h.iterations = 10000;
 
     group.bench_function("harmonograph_render_10k_iters", |b| {

@@ -246,6 +246,10 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 /// use `abrash_core::framebuffer::Framebuffer`;
 /// use `abrash_render::post_process::filters::apply_solarize`;
 ///
+/// ```
+/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_render::post_process::filters::apply_solarize;
+///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
 /// fb.clear(0xFFC0_C0C0); // Light Gray (192)
 /// apply_solarize(&mut fb, 127);
@@ -285,6 +289,18 @@ fn apply_solarize_scalar(pixels: &mut [u32], threshold: u8) {
     }
 }
 
+/// Inverts the colors of the framebuffer.
+///
+/// # Examples
+///
+/// ```rust
+/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_render::post_process::filters::apply_invert;
+///
+/// let mut fb = Framebuffer::new(1, 1).unwrap();
+/// fb.set_pixel(0, 0, 0xFF00_0000).unwrap();
+/// apply_invert(&mut fb);
+/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFFFF_FFFF);
 /// ```
 pub fn apply_invert(fb: &mut Framebuffer) {
     let pixels = fb.as_mut_slice();

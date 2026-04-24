@@ -20,7 +20,7 @@ const FIXED_INFINITY: Fixed16_16 = Fixed16_16::from_raw(i32::MAX);
 
 /// DDA grid stepper: steps through grid cells along a ray direction.
 ///
-/// Constructed from an origin position and a BAM angle. Each call to [`step`]
+/// Constructed from an origin position and a BAM angle. Each call to [`DdaStepper::step`]
 /// advances to the next grid cell boundary and reports which cell face was hit.
 pub(crate) struct DdaStepper {
     /// Current cell X coordinate.

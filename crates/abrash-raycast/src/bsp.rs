@@ -66,17 +66,25 @@ impl BspMapData {
     }
 
     /// Return the segs belonging to the given subsector.
+    /// Gets the segments for a given subsector index.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `ssector_idx` is not 0 (mock data limitation).
+    #[must_use]
     pub fn subsector_segs(&self, ssector_idx: usize) -> &[BspSeg] {
         assert_eq!(ssector_idx, 0, "mock map only has subsector 0");
         &self.segs
     }
 
     /// Return the front sector for a seg.
-    pub fn seg_front_sector(&self, _seg: &BspSeg) -> &BspSector {
+    #[must_use]
+    pub const fn seg_front_sector(&self, _seg: &BspSeg) -> &BspSector {
         &self.sector
     }
 
     /// Return the back sector for a seg, or `None` for solid walls.
+    #[must_use]
     pub fn seg_back_sector(&self, seg: &BspSeg) -> Option<&BspSector> {
         seg.back_sector.map(|_| &self.sector)
     }
