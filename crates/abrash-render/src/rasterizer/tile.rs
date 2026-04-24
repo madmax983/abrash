@@ -1674,7 +1674,9 @@ impl TileRenderer {
 
         let tiles_x = width.div_ceil(TILE_SIZE);
         let tiles_y = height.div_ceil(TILE_SIZE);
-        let tile_count = tiles_x.checked_mul(tiles_y).expect("TileRenderer dimensions overflow") as usize;
+        let tile_count = tiles_x
+            .checked_mul(tiles_y)
+            .expect("TileRenderer dimensions overflow") as usize;
         #[cfg(not(feature = "parallel"))]
         let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
 

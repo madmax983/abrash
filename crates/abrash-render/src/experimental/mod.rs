@@ -70,6 +70,7 @@ pub mod neon_outline;
 pub mod night_vision;
 pub mod palette;
 pub mod pencil_sketch;
+pub mod physarum;
 pub mod pixel_sort;
 pub mod pixelate;
 pub mod plasma;

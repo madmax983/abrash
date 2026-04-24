@@ -43,3 +43,8 @@
 **Concept:** A mathematical renderer that simulates a mechanical harmonograph using damped pendulums to draw complex Lissajous curves and geometric patterns directly onto the 2D framebuffer.
 **Fate:** Implemented
 **Lesson:** Using a combination of simple trigonometric functions (sine) mapped to exponentially decaying amplitudes (damping) creates beautiful procedural curves. Bresenham's line algorithm effectively rasterizes these continuous math functions without requiring float-to-int pixel interpolation artifacts if sampled frequently enough (small step sizes).
+
+## [Physarum Slime Mold Simulation]
+**Concept:** A multi-agent biological simulation based on Physarum polycephalum, where agents move on a grid, sense trail intensity, deposit pheromones, and form emergent networks. Rendered to a framebuffer via a green mapped intensity visualization.
+**Fate:** Implemented
+**Lesson:** Decoupling the `trail_map` reading from the `agents` mutation loop satisfies the Rust borrow checker while permitting multi-agent perception. Alternating turn direction systematically helps break ties deterministically without requiring a heavy RNG dependency.
