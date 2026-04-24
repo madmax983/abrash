@@ -20,3 +20,7 @@
 **2026-04-14 - Uninitialized Memory Read in PreparedTrianglesLists via Rayon Parallel Iterators**
 **Threat:** The `PreparedTrianglesList`, `PreparedGouraudTrianglesList`, and `PreparedTexturedTrianglesList` structs implemented `IntoParallelIterator` which initialized a temporary array using `unsafe { MaybeUninit::zeroed().assume_init() }`. Since `assume_init()` acts on uninitialized generic memory containing padding and floats, this leads to immediate Undefined Behavior. Additionally, iterating over this and copying elements leads to further memory un-safety as values are accessed before being properly verified.
 **Defense:** Replaced the unsafe UB with safe array initialization via `[const { MaybeUninit::uninit() }; 8]`, writing via the `.write` method on `MaybeUninit`, and safely casting the array back via pointer reads avoiding `.assume_init()` on uninitialized memory fields.
+
+**2024-04-24 - [Animation Clock Integer Overflow]**
+**Threat:** Extremely small `duration` values passed to `AnimationClock::tick` caused massive `phase_advance` values. When accumulated, this resulted in an integer overflow panic (`attempt to add with overflow`) in the `cycle` field, enabling a Denial of Service.
+**Defense:** Replaced the simple addition with `saturating_add` for the `cycle` field to prevent the panic and safely clamp the cycle count at `u64::MAX`.
