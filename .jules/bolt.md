@@ -59,3 +59,13 @@
 **[Enum Swap Redundancy]**
 **Learning:** Using `std::mem::replace` multiple times in nested enum matches inside hot paths creates unnecessary temporary values and stack shuffling, even if logically safe.
 **Action:** Extract generation states outside the match block first, then do a single `std::mem::replace` with the computed state, significantly accelerating tight resource-reclamation loops.
+
+**[Prevent Allocator Resizing Chains in Iterator Maps]**
+**Learning:** Replacing `.collect::<Vec<_>>().` with `Vec::with_capacity(n)` followed by `.extend(...)` prevents intermediate allocator resizing chains. This is particularly effective when `ExactSizeIterator` optimizations for complex iterator mapping fail to inline optimally in the frontend. Wait, the problem with `map_or_else` is that it's returning a `Vec` inside a closure.
+Actually, the main optimization I did here was `Option::map_or_else` instead of `if let Some(iter) = reader.read_positions() { ... } else { Vec::new() }` to fix a clippy warning, but it wasn't the main performance gain.
+The main performance gain was eliminating the `pj.name.clone()` inside the `extract_skeleton` loop by using `std::mem::take(&mut provisional[old_idx].name)`.
+This eliminates `N` heap allocations per frame where `N` is the number of joints in the skeleton, and we already know `provisional` is going to be discarded immediately after this loop.
+
+**[Eliminate String Cloning in Skeleton Extraction]**
+**Learning:** During GLTF skeleton extraction, iterating over `provisional` joint data and using `pj.name.clone()` forces a heap allocation for every joint name string. Since `provisional` is a local intermediate vector that is immediately dropped, we can eliminate these allocations entirely by using `std::mem::take(&mut provisional[old_idx].name)` to move the string out of the provisional struct and into the final `Joint` struct.
+**Action:** Replaced `pj.name.clone()` with `std::mem::take(...)` to eliminate `N` string heap allocations during skeleton loading.

@@ -28,6 +28,7 @@ impl<T: Animatable> Keyframe<T> {
 }
 
 impl<T: Animatable + Send + Sync> Keyframe<T> {
+    #[must_use]
     pub fn evaluate(&self, phase: f32) -> Sample<T> {
         let phase = phase.clamp(0.0, 1.0);
         let eased = self.easing.apply(phase);
@@ -44,7 +45,7 @@ impl<T: Animatable + Send + Sync> Keyframe<T> {
         Sample::new(value, velocity)
     }
 
-    pub fn natural_duration(&self) -> f32 {
+    pub const fn natural_duration(&self) -> f32 {
         self.duration
     }
 }
