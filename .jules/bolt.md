@@ -59,3 +59,6 @@
 **[Enum Swap Redundancy]**
 **Learning:** Using `std::mem::replace` multiple times in nested enum matches inside hot paths creates unnecessary temporary values and stack shuffling, even if logically safe.
 **Action:** Extract generation states outside the match block first, then do a single `std::mem::replace` with the computed state, significantly accelerating tight resource-reclamation loops.
+## [Voronoi Border Loop Unswitching]
+**Learning:** In hot rendering loops (e.g., per-pixel nested loops in Voronoi filters), conditionally executing border calculations based on `config.border_thickness > 0.0` introduces branching overhead inside the tight loop.
+**Action:** Unswitched the loop by checking `config.border_thickness > 0.0` outside the hot loop and duplicating the inner loop structure for both the border and no-border branches, yielding measurable performance improvements.
