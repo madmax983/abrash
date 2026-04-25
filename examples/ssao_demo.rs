@@ -1,3 +1,4 @@
+#![allow(clippy::unnecessary_wraps)]
 //! Abrash Graphics Demo - SSAO
 //!
 //! Demonstrates Screen-Space Ambient Occlusion.

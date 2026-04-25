@@ -1,3 +1,5 @@
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::unnecessary_wraps)]
 #![cfg(feature = "backend-winit")]
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
@@ -96,7 +98,7 @@ fn render_cube(fb: &mut Framebuffer, zb: &mut ZBuffer, cube: &Mesh, model: Mat4,
         }
 
         // Just use white as the base rendering color; sonar replaces it anyway
-        fill_triangle_3d(fb, zb, (clip0, w0), (clip1, w1), (clip2, w2), 0xFFFFFFFF);
+        fill_triangle_3d(fb, zb, (clip0, w0), (clip1, w1), (clip2, w2), 0xFFFF_FFFF);
     }
 }
 
@@ -170,7 +172,7 @@ impl WindowApp for SonarDemoApp {
     }
 
     fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        self.framebuffer.clear(0xFF000000);
+        self.framebuffer.clear(0xFF00_0000);
         self.zbuffer.clear();
 
         // Render a line of cubes to show off depth

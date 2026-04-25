@@ -1,3 +1,4 @@
+#![allow(clippy::unnecessary_wraps)]
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
 use std::error::Error;

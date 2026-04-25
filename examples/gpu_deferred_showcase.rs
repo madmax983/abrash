@@ -1,3 +1,4 @@
+#![allow(clippy::unnecessary_wraps)]
 //! GPU Deferred Rendering Showcase
 //!
 //! Demonstrates the full deferred rendering pipeline:

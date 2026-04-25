@@ -23,6 +23,6 @@ proptest! {
 
         // This will cause an out of bounds slice access when writing to the Z-Buffer
         // We ignore it so it doesn't kill the cargo test runner during normal suite runs.
-        draw_line_3d(&mut fb, &mut zb, v0, v1, 0xFFFFFFFF);
+        draw_line_3d(&mut fb, &mut zb, v0, v1, 0xFFFF_FFFF);
     }
 }

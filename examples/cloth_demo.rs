@@ -1,3 +1,4 @@
+#![allow(clippy::unnecessary_wraps)]
 //! Cloth Simulation Demo
 //!
 //! Visualizes a mass-spring cloth simulation.

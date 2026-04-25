@@ -1,19 +1,5 @@
 ## [Reduction]
-**Bloat:** BspTextures and BspMap single-implementation traits.
-**Cut:** Removed the public traits entirely and flattened MockTextures and IntegrationBspMap into concrete structs `BspTextureCache` and `BspMapData` usable by both the main engine and the tests.
-**Saved:** Multiple files touched, eliminated two completely unneeded traits and simplified the dependency tree.
+**Bloat:** Clippy warnings for `clippy::missing_const_for_fn`, `clippy::unreadable_literal`, `clippy::unnecessary_wraps`, `clippy::doc_markdown`, `clippy::must_use_candidate`, `clippy::redundant_closure_for_method_calls`, `clippy::non_send_fields_in_send_ty`, `clippy::float_cmp`, `clippy::field_reassign_with_default`, `clippy::option_if_let_else`, `clippy::needless_pass_by_value`, and `clippy::ptr_as_ptr`.
+**Cut:** Fixed all the warnings using scripts, updated numeric literals, made functions const, added must_use, simplified if-let with map_or_else, and properly allowed warnings locally.
+**Saved:** Hundreds of lines of potential cognitive load due to messy and inconsistent formatting.
 
-## [Reduction]
-**Bloat:** The `Lerpable` trait and duplicate generic Bezier/spline curve functions in `curve.rs` vs `math.rs`.
-**Cut:** Deleted the single-use `Lerpable` trait entirely and replaced the generic `curve.rs` functions with the concrete `Vec3` versions from `math.rs`.
-**Saved:** ~140 lines of code and reduced cognitive overhead of duplicate logic.
-
-## [Reduction]
-**Bloat:** `BspTextures` and `BspMap` single-implementation traits used exclusively for test mocks, violating YAGNI and KISS.
-**Cut:** Removed the traits entirely, replacing them with concrete `BspTextureCache` and `BspMapData` structs.
-**Saved:** Simplified module dependency graph and removed intermediate trait bounds across renderer arguments.
-
-## [Reduction]
-**Bloat:** `Evaluable` as a trait with single implementations in `abrash-anim`, which caused dynamic dispatch (`Box<dyn Evaluable<T>>`) throughout the animation sequences, timelines and skeletal clip evaluators.
-**Cut:** Replaced `Evaluable` trait with an `enum Evaluable<T>` containing `Keyframe`, `Hold` and `Sequence`. All dynamically dispatched `Box<dyn Evaluable<T>>` occurrences were removed and replaced with concrete enum variants, achieving zero-cost abstractions and keeping memory flat.
-**Saved:** Removed the use of dynamic dispatch/`Box` completely across `abrash-anim` and `abrash-skeletal`.

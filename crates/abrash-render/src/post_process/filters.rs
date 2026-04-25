@@ -1,3 +1,4 @@
+#![allow(clippy::doc_markdown)]
 //! Color filters.
 //!
 //! Provides various color mapping filters like grayscale, sepia, and invert.

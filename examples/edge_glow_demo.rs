@@ -1,3 +1,4 @@
+#![allow(clippy::unnecessary_wraps)]
 #[cfg(feature = "nova")]
 use abrash::framebuffer::Framebuffer;
 #[cfg(feature = "nova")]

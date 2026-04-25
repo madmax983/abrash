@@ -1,3 +1,4 @@
+#![allow(clippy::unnecessary_wraps)]
 //! Reaction-Diffusion (Gray-Scott) Demo
 //!
 //! Simulates the Turing patterns formed by two interacting chemicals.
