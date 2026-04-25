@@ -26,7 +26,6 @@ fn havoc_texture_overflow_simd() {
 }
 
 #[test]
-#[ignore = "👹 Havoc: Trigger out of bounds access by mismatched buffer lengths"]
 fn havoc_texture_simd_buffer_mismatch() {
     let mut fb = vec![0u32; 64];
     let mut zb = vec![100.0f32; 8];

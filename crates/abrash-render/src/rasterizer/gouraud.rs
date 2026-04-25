@@ -29,7 +29,7 @@ pub(crate) unsafe fn draw_scanline_gouraud_simd_fast(
         _mm256_storeu_ps, _mm256_storeu_si256,
     };
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     // Load constants
@@ -161,7 +161,7 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
         _mm256_storeu_si256,
     };
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     // Load constants
@@ -422,7 +422,7 @@ pub fn draw_scanline_gouraud_i32(
                 return;
             }
 
-            let len = fb_slice.len();
+            let len = fb_slice.len().min(zb_slice.len());
             assert!(
                 zb_slice.len() >= len,
                 "Depth buffer must be at least as large as the framebuffer slice"
@@ -462,7 +462,7 @@ pub fn draw_scanline_gouraud_i32(
                 return;
             }
 
-            let len = fb_slice.len();
+            let len = fb_slice.len().min(zb_slice.len());
             assert!(
                 zb_slice.len() >= len,
                 "Depth buffer must be at least as large as the framebuffer slice"
