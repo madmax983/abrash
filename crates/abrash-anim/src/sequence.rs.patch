@@ -1,0 +1,13 @@
+--- crates/abrash-anim/src/sequence.rs
++++ crates/abrash-anim/src/sequence.rs
+@@ -74,8 +74,8 @@
+ }
+
+ // Safety: `Evaluable` trait requires `Send + Sync`, so all boxed segments are `Send + Sync`.
+-unsafe impl<T: Animatable> Send for Sequence<T> {}
+-unsafe impl<T: Animatable> Sync for Sequence<T> {}
++unsafe impl<T: Animatable + Send> Send for Sequence<T> {}
++unsafe impl<T: Animatable + Sync> Sync for Sequence<T> {}
+
+ #[cfg(test)]
+ mod tests {

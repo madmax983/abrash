@@ -1,0 +1,17 @@
+--- crates/abrash-render/src/post_process/filters.rs
++++ crates/abrash-render/src/post_process/filters.rs
+@@ -246,10 +246,10 @@
+ /// use abrash_core::framebuffer::Framebuffer;
+ /// use abrash_render::post_process::filters::apply_solarize;
+ ///
+-/// let mut fb = Framebuffer::new(1, 1).unwrap();
+-/// fb.clear(0xFFC0_C0C0); // Light Gray (192)
+-/// apply_solarize(&mut fb, 127);
+-/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFF3F_3F3F);
++/// let mut fb = `Framebuffer::new(1, 1).unwrap()`;
++/// `fb.clear(0xFFC0_C0C0)`; // Light Gray (192)
++/// `apply_solarize(&mut fb, 127)`;
++/// `assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFF3F_3F3F)`;
+ /// ```
+ pub fn apply_solarize(fb: &mut Framebuffer, threshold: u8) {
+     let pixels = fb.as_mut_slice();

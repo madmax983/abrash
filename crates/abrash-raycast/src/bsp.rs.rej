@@ -1,0 +1,26 @@
+--- crates/abrash-raycast/src/bsp.rs
++++ crates/abrash-raycast/src/bsp.rs
+@@ -66,17 +66,22 @@
+         &self.nodes[node_idx]
+     }
+
++    /// # Panics
++    /// Panics if the map is just a mock map and the index is not 0.
++    #[must_use]
+     pub fn subsector_segs(&self, ssector_idx: usize) -> &[BspSeg] {
+         assert_eq!(ssector_idx, 0, "mock map only has subsector 0");
+         &self.segs
+     }
+
+-    pub fn seg_front_sector(&self, _seg: &BspSeg) -> &BspSector {
++    #[must_use]
++    pub const fn seg_front_sector(&self, _seg: &BspSeg) -> &BspSector {
+         &self.sector
+     }
+
++    #[must_use]
+     pub fn seg_back_sector(&self, seg: &BspSeg) -> Option<&BspSector> {
+         // Mock map is all solid back-sectors
+         None
+     }
+ }

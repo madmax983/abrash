@@ -1,0 +1,11 @@
+--- benches/solarize_bench.rs
++++ benches/solarize_bench.rs
+@@ -32,7 +32,7 @@
+         let ptr = pixels.as_mut_ptr();
+         let mut offset = 0;
+         let t_vec = unsafe { _mm256_set1_epi8(threshold as i8) };
+-        let t_offset = unsafe { _mm256_set1_epi8((threshold as i8).wrapping_sub(128)) }; // Offset by 128 for signed comparison
++        let t_offset = unsafe { _mm256_set1_epi8((threshold as u8).wrapping_sub(128) as i8) }; // Offset by 128 for signed comparison
+         let offset_vec = unsafe { _mm256_set1_epi8(-128) };
+         let inv_mask = unsafe { _mm256_set1_epi8(-1) }; // All 1s
+         while offset + 8 <= len {

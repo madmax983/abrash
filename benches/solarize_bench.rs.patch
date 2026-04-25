@@ -1,0 +1,10 @@
+--- benches/solarize_bench.rs
++++ benches/solarize_bench.rs
+@@ -32,7 +32,7 @@
+                     _mm256_set1_epi8, _mm256_set1_epi32, _mm256_storeu_si256, _mm256_sub_epi8,
+                     _mm256_xor_si256,
+                 };
+-                let th_val = _mm256_set1_epi8((threshold as i8).wrapping_sub(128)); // Offset by 128 for signed compare
++                let th_val = _mm256_set1_epi8((threshold as u8).wrapping_sub(128) as i8); // Offset by 128 for signed compare
+                 let _mask_255 = _mm256_set1_epi8(-1); // 0xFF
+                 let mask_rgb = _mm256_set1_epi32(0x00FFFFFF);
