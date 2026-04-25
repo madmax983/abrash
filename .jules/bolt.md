@@ -59,3 +59,6 @@
 **[Enum Swap Redundancy]**
 **Learning:** Using `std::mem::replace` multiple times in nested enum matches inside hot paths creates unnecessary temporary values and stack shuffling, even if logically safe.
 **Action:** Extract generation states outside the match block first, then do a single `std::mem::replace` with the computed state, significantly accelerating tight resource-reclamation loops.
+**[Eliding String allocation in array-mapping loops]**
+**Learning:** When mapping from an array of provisional structs to a final struct within a loop, using `std::mem::take` to extract owned fields (like `String`) instead of `.clone()` eliminates per-element heap allocations. However, this requires mutably borrowing the array element (`let item = &mut array[idx];`) to satisfy the borrow checker, even if other fields are simply copied.
+**Action:** Use `std::mem::take(&mut item.field)` and ensure `item` is a mutable reference when extracting owned fields from temporary arrays that will be discarded.
