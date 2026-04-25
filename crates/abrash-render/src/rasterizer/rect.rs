@@ -35,22 +35,74 @@ fn draw_horizontal_line(fb: &mut Framebuffer, x0: i32, x1: i32, y: i32, color: u
     let start_idx = y as usize * w + x_start as usize;
     let end_idx = y as usize * w + x_end as usize;
 
-    // Explicitly avoids per-pixel bounds checks inside the slice
-    fb.as_mut_slice()[start_idx..=end_idx].fill(color);
+    // ⚡ Bolt: Explicitly avoids per-pixel bounds checks inside the slice
+    // Safety: `y` is checked against `fb.height()`.
+    // `x_start` and `x_end` are clamped between `0` and `fb.width() - 1`.
+    // Therefore `start_idx` and `end_idx` are guaranteed to be within the slice bounds.
+    unsafe {
+        fb.as_mut_slice()
+            .get_unchecked_mut(start_idx..=end_idx)
+            .fill(color);
+    }
 }
 
 /// ⚡ Bolt: Direct horizontal line fill skipping boundary checking completely
 /// Warning: Only call when it is guaranteed that the span is on screen.
 #[inline(always)]
-fn draw_horizontal_line_unchecked(fb: &mut Framebuffer, x0: i32, x1: i32, y: i32, color: u32) {
+///
+/// ## Safety
+/// The caller must guarantee that the span is on screen.
+unsafe fn draw_horizontal_line_unchecked(
+    fb: &mut Framebuffer,
+    x0: i32,
+    x1: i32,
+    y: i32,
+    color: u32,
+) {
     let w = fb.width() as usize;
     let start_idx = y as usize * w + x0 as usize;
     let end_idx = y as usize * w + x1 as usize;
 
-    // Safety check fallback to standard fill if things went horribly wrong,
-    // though the contract says it should be safe.
-    if end_idx < fb.as_mut_slice().len() && start_idx <= end_idx {
-        fb.as_mut_slice()[start_idx..=end_idx].fill(color);
+    // ⚡ Bolt: Bypass slice bounds checking entirely when geometric boundaries are pre-verified.
+    // Safety: The caller must guarantee that `x0`, `x1`, and `y` are within bounds.
+    unsafe {
+        fb.as_mut_slice()
+            .get_unchecked_mut(start_idx..=end_idx)
+            .fill(color);
+    }
+}
+
+/// ⚡ Bolt: Fast vertical line fill that avoids Bresenham overhead and steps by framebuffer width.
+///
+/// ## Safety
+///
+/// The caller must guarantee that the starting index and all subsequent stepped indices
+/// remain within the valid bounds of the framebuffer slice.
+#[inline(always)]
+fn draw_vertical_line(fb: &mut Framebuffer, x: i32, y0: i32, y1: i32, color: u32) {
+    if x < 0 || x >= fb.width() as i32 {
+        return;
+    }
+
+    let y_start = y0.max(0);
+    let y_end = y1.min(fb.height() as i32 - 1);
+
+    if y_start > y_end {
+        return;
+    }
+
+    let w = fb.width() as usize;
+    let mut idx = y_start as usize * w + x as usize;
+    let buf = fb.as_mut_slice();
+
+    for _ in y_start..=y_end {
+        // Safety: `x` is checked against `fb.width()`.
+        // `y_start` and `y_end` are clamped between `0` and `fb.height() - 1`.
+        // Therefore `idx` is guaranteed to be within the slice bounds.
+        unsafe {
+            *buf.get_unchecked_mut(idx) = color;
+        }
+        idx += w;
     }
 }
 
@@ -89,9 +141,9 @@ pub fn draw_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, 
     // Bottom
     draw_horizontal_line(fb, x, right, bottom, color);
     // Left
-    draw_line_2d_local(fb, IVec2::new(x, y), IVec2::new(x, bottom), color);
+    draw_vertical_line(fb, x, y, bottom, color);
     // Right
-    draw_line_2d_local(fb, IVec2::new(right, y), IVec2::new(right, bottom), color);
+    draw_vertical_line(fb, right, y, bottom, color);
 }
 
 /// Fills a solid 2D rectangle.
@@ -190,13 +242,8 @@ pub fn draw_rounded_rect(
         draw_horizontal_line(fb, cx_left, cx_right, y + height as i32 - 1, color); // Bottom
     }
     if inner_h > 0 {
-        draw_line_2d_local(fb, IVec2::new(x, cy_top), IVec2::new(x, cy_bottom), color); // Left
-        draw_line_2d_local(
-            fb,
-            IVec2::new(x + width as i32 - 1, cy_top),
-            IVec2::new(x + width as i32 - 1, cy_bottom),
-            color,
-        ); // Right
+        draw_vertical_line(fb, x, cy_top, cy_bottom, color); // Left
+        draw_vertical_line(fb, x + width as i32 - 1, cy_top, cy_bottom, color); // Right
     }
 
     let mut cx = 0;
@@ -333,19 +380,33 @@ pub fn fill_rounded_rect(
     if is_on_screen {
         while cx <= cy {
             // Draw lines for corners, bypassing boundaries checks since we know it's on screen
-            draw_horizontal_line_unchecked(fb, cx_left - cx, cx_right + cx, cy_top - cy, color);
-            draw_horizontal_line_unchecked(fb, cx_left - cx, cx_right + cx, cy_bottom + cy, color);
-
-            // To avoid overdraw on the middle portions if cx != cy
-            if cx != cy {
-                draw_horizontal_line_unchecked(fb, cx_left - cy, cx_right + cy, cy_top - cx, color);
+            unsafe {
+                draw_horizontal_line_unchecked(fb, cx_left - cx, cx_right + cx, cy_top - cy, color);
                 draw_horizontal_line_unchecked(
                     fb,
-                    cx_left - cy,
-                    cx_right + cy,
-                    cy_bottom + cx,
+                    cx_left - cx,
+                    cx_right + cx,
+                    cy_bottom + cy,
                     color,
                 );
+
+                // To avoid overdraw on the middle portions if cx != cy
+                if cx != cy {
+                    draw_horizontal_line_unchecked(
+                        fb,
+                        cx_left - cy,
+                        cx_right + cy,
+                        cy_top - cx,
+                        color,
+                    );
+                    draw_horizontal_line_unchecked(
+                        fb,
+                        cx_left - cy,
+                        cx_right + cy,
+                        cy_bottom + cx,
+                        color,
+                    );
+                }
             }
 
             if d < 0 {
