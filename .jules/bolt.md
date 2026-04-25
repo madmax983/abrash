@@ -59,3 +59,6 @@
 **[Enum Swap Redundancy]**
 **Learning:** Using `std::mem::replace` multiple times in nested enum matches inside hot paths creates unnecessary temporary values and stack shuffling, even if logically safe.
 **Action:** Extract generation states outside the match block first, then do a single `std::mem::replace` with the computed state, significantly accelerating tight resource-reclamation loops.
+**Eliminate Heap Allocations During Struct Mapping**
+**Learning:** When mapping an array of provisional structures to final structures, if fields like `String` or `Vec` are no longer needed on the provisional structure, using `.clone()` causes an unnecessary heap allocation per element.
+**Action:** Iterate mutably, and use `std::mem::take(&mut field)` to transfer ownership into the new struct. This is safe, leaves the provisional struct in a valid default state, and completely elides the heap allocation.

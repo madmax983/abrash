@@ -381,7 +381,7 @@ fn extract_skeleton(
     // Build final Joint array
     let mut joints = Vec::with_capacity(joint_count);
     for &old_idx in &sorted_order {
-        let pj = &provisional[old_idx];
+        let pj = &mut provisional[old_idx];
 
         let parent = pj.parent_provisional.and_then(|parent_old| {
             let &parent_new = old_to_new.get(&parent_old)?;
@@ -389,8 +389,10 @@ fn extract_skeleton(
             Some(JointId(parent_new as u16))
         });
 
+        // ⚡ Bolt: Use `std::mem::take` to eliminate unnecessary per-element heap allocations
+        // when mapping from the provisional struct to the final Joint struct.
         joints.push(Joint {
-            name: pj.name.clone(),
+            name: std::mem::take(&mut pj.name),
             parent,
             inverse_bind_matrix: pj.inverse_bind_matrix,
             bind_transform: pj.bind_transform,
