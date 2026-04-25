@@ -868,3 +868,13 @@ required-features = ["nova"]
 [[bench]]
 name = "solarize_bench"
 harness = false
+
+[[example]]
+name = "cel_shader_demo"
+path = "examples/cel_shader_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "cel_shader_bench"
+harness = false
+required-features = ["nova"]

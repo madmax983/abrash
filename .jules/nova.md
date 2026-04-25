@@ -5,11 +5,6 @@
 
 ## [Pencil Sketch Filter]
 **Concept:** A post-processing effect that simulates a hand-drawn pencil sketch. It works by combining edge detection (to draw the strokes) with noise-driven hatching to simulate shading and texture.
-**Fate:** Proposed
-**Lesson:** TBD
-
-## [Pencil Sketch Filter]
-**Concept:** A post-processing effect that simulates a hand-drawn pencil sketch. It works by combining edge detection (to draw the strokes) with noise-driven hatching to simulate shading and texture.
 **Fate:** Implemented
 **Lesson:** Using procedural coordinate-based hashing combined with luminance is a highly effective and very fast way to produce stylized noise patterns like hatching, completely avoiding the overhead of external random number generator libraries in tight hot loops.
 **Lesson:** Iterating from bottom-to-top avoids teleporting particles through multiple steps in a single frame. Randomizing horizontal processing direction prevents directional bias when sand grains fall diagonally.
@@ -43,3 +38,8 @@
 **Concept:** A mathematical renderer that simulates a mechanical harmonograph using damped pendulums to draw complex Lissajous curves and geometric patterns directly onto the 2D framebuffer.
 **Fate:** Implemented
 **Lesson:** Using a combination of simple trigonometric functions (sine) mapped to exponentially decaying amplitudes (damping) creates beautiful procedural curves. Bresenham's line algorithm effectively rasterizes these continuous math functions without requiring float-to-int pixel interpolation artifacts if sampled frequently enough (small step sizes).
+
+## [Cel Shading Filter]
+**Concept:** A post-processing effect that simulates "toon" or "cel-shaded" look by using edge detection (Sobel filter) to draw outlines and color quantization to group colors into distinct bands.
+**Fate:** Implemented
+**Lesson:** Using simple gradient magnitude to detect edges and flooring color channels with a specified factor easily and effectively creates a non-photorealistic aesthetic that works without requiring complex 3D shader manipulation.
