@@ -170,10 +170,22 @@ fn main() {
 
     #[cfg(not(feature = "nova"))]
     {
-        println!("Controls:");
-        println!("  Up/Down: Move Focus Plane");
-        println!("  Left/Right: Change Blur Radius");
-        println!("  Esc/Q: Close window to exit");
+        use comfy_table::{Cell, Color, Table, presets};
+        let mut controls = Table::new();
+        controls
+            .load_preset(presets::UTF8_FULL)
+            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+            .set_header(vec![
+                Cell::new("Input").fg(Color::Cyan),
+                Cell::new("Action").fg(Color::Cyan),
+            ])
+            .add_row(vec![Cell::new("Up/Down"), Cell::new("Move Focus Plane")])
+            .add_row(vec![
+                Cell::new("Left/Right"),
+                Cell::new("Change Blur Radius"),
+            ])
+            .add_row(vec![Cell::new("Esc/Q"), Cell::new("Close window to exit")]);
+        println!("Controls:\n{controls}");
     }
 
     run_windowed(TiltShiftApp::new().unwrap());
