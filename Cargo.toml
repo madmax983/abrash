@@ -878,3 +878,13 @@ required-features = ["nova"]
 name = "cel_shade_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "conway_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "conway_demo"
+path = "examples/conway_demo.rs"
+required-features = ["nova"]
