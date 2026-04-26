@@ -288,7 +288,7 @@ unsafe fn box_blur_f32_vertical_avx2(
 ///
 /// let width = 3;
 /// let height = 1;
-/// let src = vec![0xFF000000, 0xFFFFFFFF, 0xFF000000]; // Black, White, Black
+/// let src = vec![0xFF00_0000, 0xFFFF_FFFF, 0xFF00_0000]; // Black, White, Black
 /// let mut dest = vec![0; 3];
 ///
 /// // Blur with radius 1 (window size 3)
@@ -296,7 +296,7 @@ unsafe fn box_blur_f32_vertical_avx2(
 ///
 /// // The center pixel was white, now the energy is spread horizontally.
 /// // The exact values depend on clamp-to-edge logic and integer scaling.
-/// assert!(dest[1] != 0xFFFFFFFF);
+/// assert!(dest[1] != 0xFFFF_FFFF);
 /// ```
 ///
 /// # Panics
@@ -478,7 +478,7 @@ fn process_row_horizontal(
 ///
 /// let width = 1;
 /// let height = 3;
-/// let src = vec![0xFF000000, 0xFFFFFFFF, 0xFF000000]; // Black, White, Black
+/// let src = vec![0xFF00_0000, 0xFFFF_FFFF, 0xFF00_0000]; // Black, White, Black
 /// let mut dest = vec![0; 3];
 /// let mut acc = vec![0; width * 3]; // Scratch buffer for RGB accumulators
 ///
@@ -486,7 +486,7 @@ fn process_row_horizontal(
 /// box_blur_vertical(&src, &mut dest, &mut acc, width, height, 1);
 ///
 /// // The energy from the center white pixel is spread vertically.
-/// assert!(dest[1] != 0xFFFFFFFF);
+/// assert!(dest[1] != 0xFFFF_FFFF);
 /// ```
 ///
 /// # Panics
@@ -802,7 +802,7 @@ unsafe fn box_blur_vertical_avx2(
                 let b_out = _mm256_cvttps_epi32(b_scaled);
 
                 // Pack back to u32 pixel: 0xFFRRGGBB
-                // r << 16 | g << 8 | b | 0xFF000000
+                // r << 16 | g << 8 | b | 0xFF00_0000
                 let r_shifted = _mm256_slli_epi32(r_out, 16);
                 let g_shifted = _mm256_slli_epi32(g_out, 8);
                 let pixel = _mm256_or_si256(

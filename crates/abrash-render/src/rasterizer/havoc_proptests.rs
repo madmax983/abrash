@@ -21,7 +21,7 @@ proptest! {
         let mut fb = vec![0u32; fb_len];
         let mut zb = vec![100.0f32; zb_len];
         let mut tex = Texture::new(w, h).unwrap();
-        tex.set_pixel(0, 0, 0xFFFFFFFF);
+        tex.set_pixel(0, 0, 0x00FF_FFFFFF);
 
         unsafe {
             draw_span_nearest_simd(

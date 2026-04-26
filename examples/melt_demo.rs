@@ -176,8 +176,25 @@ fn main() {
     }
     #[cfg(not(feature = "nova"))]
     {
-        println!("This example requires the 'nova' feature to be enabled.");
-        println!("Run with: cargo run --example melt_demo --features nova");
-        Ok(())
+        use comfy_table::{Cell, Color, Table, presets};
+        let mut error_table = Table::new();
+        error_table
+            .load_preset(presets::UTF8_FULL)
+            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+            .set_header(vec![
+                Cell::new("⚠️  Missing Feature: Nova")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(Color::Red),
+            ])
+            .add_row(vec![
+                Cell::new("This example requires the 'nova' feature to run.").fg(Color::White),
+            ])
+            .add_row(vec![
+                Cell::new("Try running with:\ncargo run --example melt_demo --features nova")
+                    .fg(Color::Green),
+            ]);
+
+        eprintln!("\n{error_table}");
+        std::process::exit(1);
     }
 }

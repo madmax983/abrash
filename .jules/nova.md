@@ -48,3 +48,8 @@
 **Concept:** A post-processing effect that simulates a comic book or anime aesthetic by combining color quantization (flat shading) with Sobel edge detection over depth and luminance.
 **Fate:** Implemented
 **Lesson:** Combining edge detection on the Z-Buffer (for object outlines) and the Luminance map (for internal creases/details) creates a highly robust cel-shaded look purely in screen-space, avoiding the need for custom forward shaders while effectively mimicking toon-style rendering.
+
+## [Conway's Game of Life Filter]
+**Concept:** A post-processing cellular automata filter based on Conway's Game of Life. It uses the framebuffer's luminance to seed the game state, causing bright areas of the scene to dissolve into an evolving, interactive cellular pattern.
+**Fate:** Implemented
+**Lesson:** Maintaining persistent state across frames for a post-processing filter can be achieved effectively by using `thread_local!` `RefCell` buffers. This allows complex automata like Conway's Game of Life to interact dynamically with the 3D scene being rendered without passing state manually through the main pipeline.

@@ -215,7 +215,7 @@ unsafe fn extract_bright_pixels_avx2(src: &[u32], dest: &mut [u32], threshold: u
             let luma = _mm256_srai_epi32(sums, 8); // Luminance 0..255
 
             // 2. Threshold
-            // Compare > threshold. _mm256_cmpgt_epi32 returns 0xFFFFFFFF if true, 0 if false.
+            // Compare > threshold. _mm256_cmpgt_epi32 returns 0xFFFF_FFFF if true, 0 if false.
             let mask = _mm256_cmpgt_epi32(luma, threshold_vec);
 
             // 3. Select

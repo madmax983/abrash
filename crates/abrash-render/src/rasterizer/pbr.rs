@@ -52,7 +52,7 @@
 //!
 //! // The pixel at the center now holds the glint of gold.
 //! let center_pixel = fb.get_pixel(50, 50).unwrap();
-//! assert_ne!(center_pixel, 0xFF000000);
+//! assert_ne!(center_pixel, 0x00FF_000000);
 //! ```
 
 use crate::clipping::clip_triangle_to_frustum;

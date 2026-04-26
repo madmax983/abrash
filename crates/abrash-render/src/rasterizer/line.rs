@@ -1,6 +1,15 @@
-//! Line drawing algorithms.
+//! # 3D Line Rendering 📏
 //!
-//! Implements Bresenham's line algorithm for wireframe rendering.
+//! Line drawing is the foundation of wireframe rendering and debugging.
+//! Unlike simple 2D screen-space lines (like a UI border), 3D lines exist
+//! in world space and must participate in the full graphics pipeline.
+//!
+//! This module implements Bresenham's line algorithm combined with Z-buffering
+//! and 3D frustum clipping to allow lines to interact correctly with solid objects.
+//!
+//! Why this matters: When a 3D line passes behind a solid wall, it shouldn't be drawn.
+//! When a line goes behind the camera, it must be clipped to the near plane before
+//! perspective division, otherwise projection math creates wild distortions.
 
 use crate::clipping::clip_line_to_frustum;
 use crate::framebuffer::Framebuffer;
@@ -8,13 +17,42 @@ use crate::math::{Vec3, project_to_screen_optimized};
 use crate::rasterizer::core::assert_same_dimensions;
 use crate::zbuffer::ZBuffer;
 
-/// Draw a 3D line with Z-buffering.
+/// Draws a 3D line between two clip-space vertices with depth testing.
 ///
-/// Handles frustum clipping and perspective projection.
+/// This is essential for wireframe rendering (`fill_triangle_wireframe`) and
+/// debugging collision shapes or light paths where depth interaction with the rest
+/// of the 3D scene is required.
 ///
-/// # Arguments
+/// ## How it works
+/// 1. **Frustum Clipping**: Uses Sutherland-Hodgman to clip the line segment against the 3D viewing volume.
+/// 2. **Projection**: Transforms the clipped endpoints into 2D screen space coordinates using perspective division.
+/// 3. **Rasterization**: Walks the edge using Bresenham's algorithm while linearly interpolating the Z-depth to test against the [`ZBuffer`].
 ///
-/// * `v0`, `v1` - Vertices defined as `(Position, W)`.
+/// ## Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_core::math::Vec3;
+/// use abrash_render::rasterizer::draw_line_3d;
+/// use abrash_render::zbuffer::ZBuffer;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+///
+/// // Two vertices in Homogeneous Clip Space (XYZ, W)
+/// // They have W=1.0, so they represent normalized device coordinates (NDC) directly.
+/// let v0 = (Vec3::new(-0.5, 0.0, 0.5), 1.0);
+/// let v1 = (Vec3::new(0.5, 0.0, 0.5), 1.0);
+///
+/// // Draw a white line between them
+/// draw_line_3d(&mut fb, &mut zb, v0, v1, 0xFFFFFFFF);
+/// ```
+///
+/// ## Parameters
+///
+/// * `fb` - Target framebuffer for pixel output.
+/// * `zb` - Target Z-buffer for depth testing.
+/// * `v0`, `v1` - Vertices defined as a tuple of `(Position, W)`.
 pub fn draw_line_3d(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
@@ -108,9 +146,28 @@ pub fn draw_line_3d(
     }
 }
 
-/// Fill a 3D triangle in wireframe mode.
+/// Fills a 3D triangle in wireframe mode.
 ///
-/// Draws the three edges of the triangle as lines.
+/// Useful for debugging the geometry of a mesh or achieving a specific wireframe aesthetic.
+/// It works by calling [`draw_line_3d`] on all three edges.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_core::math::Vec3;
+/// use abrash_render::rasterizer::fill_triangle_wireframe;
+/// use abrash_render::zbuffer::ZBuffer;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+///
+/// let v0 = (Vec3::new(0.0, 0.5, 0.5), 1.0);
+/// let v1 = (Vec3::new(-0.5, -0.5, 0.5), 1.0);
+/// let v2 = (Vec3::new(0.5, -0.5, 0.5), 1.0);
+///
+/// fill_triangle_wireframe(&mut fb, &mut zb, v0, v1, v2, 0xFFFFFFFF);
+/// ```
 pub fn fill_triangle_wireframe(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
@@ -139,6 +196,6 @@ mod tests {
         let v0 = (Vec3::new(10.0, 10.0, 1.0), 1.0);
         let v1 = (Vec3::new(90.0, 90.0, 1.0), 1.0);
 
-        draw_line_3d(&mut fb, &mut zb, v0, v1, 0xFFFFFFFF);
+        draw_line_3d(&mut fb, &mut zb, v0, v1, 0x00FF_FFFFFF);
     }
 }

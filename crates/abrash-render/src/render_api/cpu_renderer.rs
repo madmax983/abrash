@@ -549,7 +549,7 @@ mod tests {
         let frame = Frame::new(test_camera());
         assert!(renderer.render_frame(&frame, &mut target).is_ok());
 
-        // All pixels should be clear color (0xFF000000 = opaque black)
+        // All pixels should be clear color (0x00FF_000000 = opaque black)
         assert!(target.pixels().iter().all(|&p| p == 0xFF00_0000));
     }
 

@@ -55,7 +55,7 @@
 //! // 4. Add Objects
 //! let mesh = Arc::new(Mesh::cube(1.0));
 //! let transform = Mat4::translation(0.0, 0.0, 0.0);
-//! let object = SceneObject::new(mesh, transform, 0xFFFF0000); // Red Cube
+//! let object = SceneObject::new(mesh, transform, 0xFFFF_0000); // Red Cube
 //! scene.add_object(object);
 //!
 //! // 5. Render
@@ -239,6 +239,7 @@ impl Scene {
 
             let num_objects = self.objects.len();
             world_aabbs.clear();
+            world_aabbs.reserve(num_objects);
             cull_results.clear();
             cull_results.resize(num_objects, false);
 
@@ -358,7 +359,7 @@ mod tests {
         // In row-vector convention: v' = v * R * T.
         // First rotate, then translate.
 
-        let obj = SceneObject::new(mesh, transform, 0xFFFFFFFF);
+        let obj = SceneObject::new(mesh, transform, 0x00FF_FFFFFF);
 
         let calculated_aabb = obj.local_aabb.transform(&obj.transform);
 

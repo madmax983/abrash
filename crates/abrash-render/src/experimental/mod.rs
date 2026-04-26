@@ -39,6 +39,7 @@ pub mod cel_shade;
 pub mod cloth;
 pub mod color_blindness;
 pub mod color_splash;
+pub mod conway;
 pub mod crepuscular;
 pub mod crosshatch;
 pub mod crt;

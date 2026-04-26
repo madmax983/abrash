@@ -195,7 +195,7 @@ mod tests {
         // So both should be mapped to the start of the gradient (Hot/Red)
         assert_eq!(p0, p1);
         assert_eq!(
-            p0, 0xFFFF0000,
+            p0, 0xFFFF_0000,
             "Should map to Red when only one depth is present"
         );
     }
@@ -211,7 +211,7 @@ mod tests {
         // First pixel should still be the default unchanged Framebuffer color (Solid Black/Transparent)
         let p = fb.get_pixel(0, 0).unwrap();
         assert_eq!(
-            p, 0xFF000000,
+            p, 0x00FF_000000,
             "Should remain unchanged default Framebuffer color (Solid Black)"
         );
     }

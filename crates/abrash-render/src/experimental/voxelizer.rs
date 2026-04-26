@@ -63,7 +63,16 @@ impl VoxelGrid {
     /// Converts the voxel grid back into a mesh where each set voxel is a cube.
     #[must_use]
     pub fn to_mesh(&self) -> Mesh {
-        let mut mesh = Mesh::new();
+        // ⚡ Bolt: Count the set voxels to pre-allocate exact mesh capacity,
+        // avoiding repeated heap reallocations during cube generation.
+        let voxel_count = self.data.iter().filter(|&&b| b).count();
+        let vertices_per_cube = 8;
+        let indices_per_cube = 36; // 6 faces * 2 triangles * 3 vertices per triangle
+
+        let mut mesh = Mesh::with_capacity(
+            voxel_count * vertices_per_cube,
+            voxel_count * indices_per_cube,
+        );
         let half_size = self.voxel_size * 0.5;
 
         for z in 0..self.depth {
