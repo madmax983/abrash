@@ -148,7 +148,24 @@ fn main() -> Result<(), AppError> {
 
 #[cfg(not(feature = "nova"))]
 fn main() {
-    println!(
-        "This demo requires the 'nova' feature. Run with `cargo run --example starfield_demo --features nova`"
-    );
+    use comfy_table::{Cell, Color, Table, presets};
+    let mut error_table = Table::new();
+    error_table
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("⚠️  Missing Feature: Nova")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(Color::Red),
+        ])
+        .add_row(vec![
+            Cell::new("This example requires the 'nova' feature to run.").fg(Color::White),
+        ])
+        .add_row(vec![
+            Cell::new("Try running with:\ncargo run --example starfield_demo --features nova")
+                .fg(Color::Green),
+        ]);
+
+    eprintln!("\n{error_table}");
+    std::process::exit(1);
 }
