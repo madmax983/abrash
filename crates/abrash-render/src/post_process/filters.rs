@@ -251,6 +251,7 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 /// apply_solarize(&mut fb, 127);
 /// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFF3F_3F3F);
 /// ```
+#[allow(clippy::doc_markdown)]
 pub fn apply_solarize(fb: &mut Framebuffer, threshold: u8) {
     let pixels = fb.as_mut_slice();
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
