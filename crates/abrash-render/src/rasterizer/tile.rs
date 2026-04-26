@@ -1667,10 +1667,11 @@ impl TileRenderer {
     #[must_use]
     pub fn new(width: u32, height: u32) -> Self {
         assert!(width > 0 && height > 0, "Dimensions must be positive");
-        // WARDEN DEFENSE: Prevent integer overflow on expected_len before allocating arrays
-        let _ = (width as usize)
-            .checked_mul(height as usize)
-            .expect("TileRenderer dimensions overflow");
+        // WARDEN DEFENSE: Prevent capacity overflow panics
+        let _ = u64::from(width)
+            .checked_mul(u64::from(height))
+            .filter(|&s| u32::try_from(s).is_ok())
+            .expect("capacity overflow");
 
         let tiles_x = width.div_ceil(TILE_SIZE);
         let tiles_y = height.div_ceil(TILE_SIZE);
@@ -4059,7 +4060,7 @@ mod tests {
     // --- Step 1: Infrastructure + prepare ---
 
     #[test]
-    #[should_panic(expected = "TileRenderer dimensions overflow")]
+    #[should_panic(expected = "capacity overflow")]
     fn new_panics_on_dimensions_overflow() {
         let _ = TileRenderer::new(u32::MAX, u32::MAX);
     }
