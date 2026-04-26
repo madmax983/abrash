@@ -195,7 +195,7 @@ mod tests {
         let mut zb = ZBuffer::new(width, height).unwrap();
 
         // Fill with white
-        fb.clear(0xFFFFFFFF);
+        fb.clear(0xFFFF_FFFF);
 
         // Fill ZBuffer:
         // Left half: depth 1.0 (focus)
@@ -212,7 +212,7 @@ mod tests {
         for y in 0..height {
             for x in 0..width {
                 if (x + y).is_multiple_of(2) {
-                    fb.set_pixel(x as i32, y as i32, 0xFF000000);
+                    fb.set_pixel(x as i32, y as i32, 0xFF00_0000);
                 }
             }
         }
@@ -237,7 +237,7 @@ mod tests {
         );
 
         // Check if in-focus pixel is UNCHANGED (or minimally changed)
-        let focus_pixel_orig = 0xFF000000; // (0,0) is black
+        let focus_pixel_orig = 0xFF00_0000; // (0,0) is black
         let focus_pixel_new = fb.get_pixel(0, 0).unwrap();
         // Since factor should be 0.0 for dist=0, it should be exact.
         assert_eq!(

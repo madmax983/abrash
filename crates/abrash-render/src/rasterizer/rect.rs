@@ -11,7 +11,7 @@
 //! use abrash_render::rasterizer::rect::draw_rect;
 //!
 //! let mut fb = Framebuffer::new(100, 100).unwrap();
-//! draw_rect(&mut fb, 10, 10, 20, 20, 0xFFFFFFFF);
+//! draw_rect(&mut fb, 10, 10, 20, 20, 0x00FF_FFFFFF);
 //! ```
 
 use abrash_core::framebuffer::Framebuffer;
@@ -83,7 +83,7 @@ fn draw_horizontal_line_unchecked(fb: &mut Framebuffer, x0: i32, x1: i32, y: i32
 /// use abrash_render::rasterizer::rect::draw_rect;
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
-/// draw_rect(&mut fb, 10, 10, 20, 20, 0xFFFFFFFF);
+/// draw_rect(&mut fb, 10, 10, 20, 20, 0x00FF_FFFFFF);
 /// ```
 pub fn draw_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, color: u32) {
     if width == 0 || height == 0 {
@@ -123,7 +123,7 @@ pub fn draw_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, 
 /// use abrash_render::rasterizer::rect::fill_rect;
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
-/// fill_rect(&mut fb, 10, 10, 20, 20, 0xFFFFFFFF);
+/// fill_rect(&mut fb, 10, 10, 20, 20, 0x00FF_FFFFFF);
 /// ```
 pub fn fill_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, color: u32) {
     fb.clear_rect(x, y, width, height, color);
@@ -155,7 +155,7 @@ pub fn fill_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, 
 /// use abrash_render::rasterizer::rect::draw_rounded_rect;
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
-/// draw_rounded_rect(&mut fb, 10, 10, 50, 50, 10, 0xFFFFFFFF);
+/// draw_rounded_rect(&mut fb, 10, 10, 50, 50, 10, 0x00FF_FFFFFF);
 /// ```
 pub fn draw_rounded_rect(
     fb: &mut Framebuffer,
@@ -290,7 +290,7 @@ pub fn draw_rounded_rect(
 /// use abrash_render::rasterizer::rect::fill_rounded_rect;
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
-/// fill_rounded_rect(&mut fb, 10, 10, 50, 50, 10, 0xFFFFFFFF);
+/// fill_rounded_rect(&mut fb, 10, 10, 50, 50, 10, 0x00FF_FFFFFF);
 /// ```
 pub fn fill_rounded_rect(
     fb: &mut Framebuffer,
@@ -422,31 +422,31 @@ mod tests {
     #[test]
     fn test_draw_rect() {
         let mut fb = Framebuffer::new(100, 100).unwrap();
-        draw_rect(&mut fb, 10, 10, 20, 20, 0xFFFFFFFF);
+        draw_rect(&mut fb, 10, 10, 20, 20, 0x00FF_FFFFFF);
     }
 
     #[test]
     fn test_fill_rect() {
         let mut fb = Framebuffer::new(100, 100).unwrap();
-        fill_rect(&mut fb, 10, 10, 20, 20, 0xFFFFFFFF);
+        fill_rect(&mut fb, 10, 10, 20, 20, 0x00FF_FFFFFF);
     }
 
     #[test]
     fn test_draw_rounded_rect() {
         let mut fb = Framebuffer::new(100, 100).unwrap();
-        draw_rounded_rect(&mut fb, 10, 10, 20, 20, 5, 0xFFFFFFFF);
+        draw_rounded_rect(&mut fb, 10, 10, 20, 20, 5, 0x00FF_FFFFFF);
     }
 
     #[test]
     fn test_fill_rounded_rect() {
         let mut fb = Framebuffer::new(100, 100).unwrap();
-        fill_rounded_rect(&mut fb, 10, 10, 20, 20, 5, 0xFFFFFFFF);
+        fill_rounded_rect(&mut fb, 10, 10, 20, 20, 5, 0x00FF_FFFFFF);
     }
 
     #[test]
     fn test_rounded_rect_oob() {
         let mut fb = Framebuffer::new(100, 100).unwrap();
-        fill_rounded_rect(&mut fb, -10, -10, 50, 50, 10, 0xFFFFFFFF);
-        draw_rounded_rect(&mut fb, 80, 80, 50, 50, 10, 0xFFFFFFFF);
+        fill_rounded_rect(&mut fb, -10, -10, 50, 50, 10, 0x00FF_FFFFFF);
+        draw_rounded_rect(&mut fb, 80, 80, 50, 50, 10, 0x00FF_FFFFFF);
     }
 }
