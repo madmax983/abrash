@@ -1734,7 +1734,7 @@ unsafe fn draw_scanline_phong_simd(
                 let g_i = _mm256_cvttps_epi32(g_255);
                 let b_i = _mm256_cvttps_epi32(b_255);
 
-                // Pack: 0xFF000000 | (r << 16) | (g << 8) | b
+                // Pack: 0x00FF_000000 | (r << 16) | (g << 8) | b
                 let pixel_val = _mm256_or_si256(
                     alpha_mask,
                     _mm256_or_si256(
@@ -1748,7 +1748,7 @@ unsafe fn draw_scanline_phong_simd(
                 let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 // blendv_epi8 blends based on the high bit of each byte.
-                // Our mask is 32-bit 0xFFFFFFFF or 0x00000000, so it works for bytes too.
+                // Our mask is 32-bit 0x00FF_FFFFFF or 0x00000000, so it works for bytes too.
                 let new_color = _mm256_blendv_epi8(old_color, pixel_val, mask_int);
                 _mm256_storeu_si256(fb_ptr, new_color);
             }

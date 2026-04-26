@@ -868,3 +868,13 @@ required-features = ["nova"]
 [[bench]]
 name = "solarize_bench"
 harness = false
+
+[[example]]
+name = "cel_shade_demo"
+path = "examples/cel_shade_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "cel_shade_bench"
+harness = false
+required-features = ["nova"]

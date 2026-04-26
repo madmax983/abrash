@@ -26,7 +26,7 @@ unsafe fn draw_scanline_flat_simd(
         _mm256_storeu_ps, _mm256_storeu_si256,
     };
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     let dz_dx_vec = _mm256_set1_ps(dz_dx);
@@ -128,7 +128,7 @@ unsafe fn draw_scanline_flat_blended_simd(
         _mm256_storeu_si256,
     };
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     // Alpha blend constants
@@ -334,11 +334,11 @@ pub fn draw_scanline_flat_blended(
 /// let v2_clip = view_proj.transform_point(v2_model);
 ///
 /// // 4. Rasterize
-/// let color = 0xFFFF0000; // Red
+/// let color = 0xFFFF_0000; // Red
 /// fill_triangle_3d(&mut fb, &mut zb, v0_clip, v1_clip, v2_clip, color);
 ///
 /// // Verify center pixel
-/// assert_eq!(fb.get_pixel(50, 50), Some(0xFFFF0000));
+/// assert_eq!(fb.get_pixel(50, 50), Some(0xFFFF_0000));
 /// ```
 pub fn fill_triangle_3d(
     fb: &mut Framebuffer,

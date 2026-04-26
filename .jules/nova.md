@@ -43,3 +43,8 @@
 **Concept:** A mathematical renderer that simulates a mechanical harmonograph using damped pendulums to draw complex Lissajous curves and geometric patterns directly onto the 2D framebuffer.
 **Fate:** Implemented
 **Lesson:** Using a combination of simple trigonometric functions (sine) mapped to exponentially decaying amplitudes (damping) creates beautiful procedural curves. Bresenham's line algorithm effectively rasterizes these continuous math functions without requiring float-to-int pixel interpolation artifacts if sampled frequently enough (small step sizes).
+
+## [Cel Shading (Toon Shading) Filter]
+**Concept:** A post-processing effect that simulates a comic book or anime aesthetic by combining color quantization (flat shading) with Sobel edge detection over depth and luminance.
+**Fate:** Implemented
+**Lesson:** Combining edge detection on the Z-Buffer (for object outlines) and the Luminance map (for internal creases/details) creates a highly robust cel-shaded look purely in screen-space, avoiding the need for custom forward shaders while effectively mimicking toon-style rendering.

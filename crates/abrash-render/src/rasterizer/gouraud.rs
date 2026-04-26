@@ -29,7 +29,7 @@ pub(crate) unsafe fn draw_scanline_gouraud_simd_fast(
         _mm256_storeu_ps, _mm256_storeu_si256,
     };
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     // Load constants
@@ -161,7 +161,7 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
         _mm256_storeu_si256,
     };
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     // Load constants
@@ -192,7 +192,7 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
     let db_step = _mm256_slli_epi32(db_dx_vec, 3);
 
     // Masks
-    // 0x00FF0000 is 255.0 in 16.16 fixed point
+    // 0x00FF_0000 is 255.0 in 16.16 fixed point
     let min_val = _mm256_setzero_si256();
     let max_val = _mm256_set1_epi32(0x00FF_0000);
     let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
@@ -221,7 +221,7 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
                 let b_clamped = _mm256_min_epi32(_mm256_max_epi32(b_vec, min_val), max_val);
 
                 // Pack Colors: Optimized bitwise operations
-                // r_clamped is already in 0x00RRxxxx (max 0x00FF0000).
+                // r_clamped is already in 0x00RRxxxx (max 0x00FF_0000).
                 // Just mask off lower bits to get 0x00RR0000.
                 let r_packed = _mm256_and_si256(r_clamped, max_val);
 
@@ -422,7 +422,7 @@ pub fn draw_scanline_gouraud_i32(
                 return;
             }
 
-            let len = fb_slice.len();
+            let len = fb_slice.len().min(zb_slice.len());
             assert!(
                 zb_slice.len() >= len,
                 "Depth buffer must be at least as large as the framebuffer slice"
@@ -462,7 +462,7 @@ pub fn draw_scanline_gouraud_i32(
                 return;
             }
 
-            let len = fb_slice.len();
+            let len = fb_slice.len().min(zb_slice.len());
             assert!(
                 zb_slice.len() >= len,
                 "Depth buffer must be at least as large as the framebuffer slice"

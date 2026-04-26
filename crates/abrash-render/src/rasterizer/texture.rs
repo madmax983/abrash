@@ -588,7 +588,7 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
 ) {
     use std::arch::x86_64::*;
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     // Align pixels buffer
@@ -966,7 +966,7 @@ pub(crate) unsafe fn draw_span_nearest_simd(
 ) {
     use std::arch::x86_64::*;
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     // Align buffer
@@ -1201,7 +1201,7 @@ unsafe fn draw_scanline_textured_perspective_simd(
     unsafe {
         use std::arch::x86_64::*;
 
-        let len = fb_slice.len();
+        let len = fb_slice.len().min(zb_slice.len());
         let mut i = 0;
 
         // Load gradients
@@ -2522,7 +2522,7 @@ unsafe fn draw_scanline_normal_mapped_simd(
             _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_ps,
         };
 
-        let len = fb_slice.len();
+        let len = fb_slice.len().min(zb_slice.len());
         let mut i = 0;
 
         // Load gradients
@@ -2885,7 +2885,7 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
     };
 
     // Prepare SIMD constants
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     // Align buffer
@@ -3770,7 +3770,7 @@ unsafe fn draw_span_textured_gouraud_simd(
 ) {
     use std::arch::x86_64::*;
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     unsafe {
@@ -3965,7 +3965,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
 ) {
     use std::arch::x86_64::*;
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     unsafe {
@@ -4880,9 +4880,9 @@ mod tests {
         let mut zb = ZBuffer::new(10, 10).unwrap();
         let mut tex = Texture::new(2, 2).unwrap();
         // (0,0)=Red, (1,0)=Green, (0,1)=Blue, (1,1)=White
-        tex.set_pixel(0, 0, 0xFFFF0000);
-        tex.set_pixel(1, 0, 0xFF00FF00);
-        tex.set_pixel(0, 1, 0xFF0000FF);
+        tex.set_pixel(0, 0, 0xFFFF_0000);
+        tex.set_pixel(1, 0, 0xFF00_FF00);
+        tex.set_pixel(0, 1, 0xFF00_00FF);
         tex.set_pixel(1, 1, 0xFFFFFFFF);
 
         // Simple gradient: z=1, q=1 (w=1), u=0..1, v=0
@@ -4919,17 +4919,17 @@ mod tests {
 
         assert_eq!(
             fb.get_pixel(0, 5).unwrap(),
-            0xFFFF0000,
+            0xFFFF_0000,
             "Pixel 0 should be Red"
         );
         assert_eq!(
             fb.get_pixel(1, 5).unwrap(),
-            0xFFFF0000,
+            0xFFFF_0000,
             "Pixel 1 should be Red"
         );
         assert_eq!(
             fb.get_pixel(2, 5).unwrap(),
-            0xFF00FF00,
+            0xFF00_FF00,
             "Pixel 2 should be Green"
         );
     }
@@ -5178,7 +5178,7 @@ fn test_draw_span_nearest_overflow_vulnerability() {
 
     let u_fix = 10;
     let v_fix = 0;
-    let du_fix = 286331154; // Causes wrap around on 15 iterations: 286331154 * 15 % 2^32 = 14
+    let du_fix = 286_331_154; // Causes wrap around on 15 iterations: 286_331_154 * 15 % 2^32 = 14
     let dv_fix = 0;
 
     // Using `std::panic::catch_unwind` and `AssertUnwindSafe` to ensure intentional panic testing

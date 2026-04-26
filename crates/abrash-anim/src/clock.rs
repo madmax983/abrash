@@ -63,7 +63,7 @@ impl AnimationClock {
         let new_phase = self.phase + phase_advance;
         if new_phase >= 1.0 {
             let whole_cycles = new_phase as u64;
-            self.cycle += whole_cycles;
+            self.cycle = self.cycle.saturating_add(whole_cycles);
             self.phase = new_phase.fract();
             ClockEvent::CycleBoundary {
                 completed: whole_cycles,
