@@ -257,6 +257,7 @@ fn compute_texture_col(
 /// * `camera_angle` -- camera facing direction in BAM units.
 /// * `camera_z`     -- camera height (eye level) in 16.16 fixed-point.
 /// * `fov`          -- horizontal field of view in BAM units.
+#[allow(clippy::too_many_lines)]
 pub fn render_bsp_view(
     fb: &mut Framebuffer,
     zbuf: &mut ZBuffer,
@@ -276,7 +277,7 @@ pub fn render_bsp_view(
     let half_fov = Bam::from_raw(fov.raw() / 2);
     let projection = projection_distance(w, fov);
     let mut clip = ColumnClip::new(w, h);
-    let mut visplanes = VisplaneAllocator::new(w);
+    let mut visplanes = VisplaneAllocator::with_capacity(128, w);
     let half_h = h as i32 / 2;
 
     map.traverse_front_to_back(camera_pos, &mut |ssector_idx| {
@@ -657,7 +658,7 @@ mod tests {
         let textures = BspTextureCache::new();
 
         // Build a visplane spanning cols 100-200, rows 150-180
-        let mut visplanes = VisplaneAllocator::new(320);
+        let mut visplanes = VisplaneAllocator::with_capacity(128, 320);
         for col in 100..=200 {
             let vp = visplanes.find_or_create(0, 1, 160, col);
             visplanes.set_span(vp, col, 150, 180);
@@ -713,7 +714,7 @@ mod tests {
         let mut fb = Framebuffer::new(320, 200).unwrap();
         let mut zbuf = ZBuffer::new(320, 200).unwrap();
         let textures = BspTextureCache::new();
-        let visplanes = VisplaneAllocator::new(320);
+        let visplanes = VisplaneAllocator::with_capacity(128, 320);
 
         draw_visplane_spans(
             &mut fb,

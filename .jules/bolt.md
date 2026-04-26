@@ -78,3 +78,6 @@
 **[Optimized draw_rect for specialized straight lines]**
 **Learning:** In primitive outline algorithms (like rectangles), replacing a generalized Bresenham line drawing algorithm with specialized straight vertical and horizontal line rendering functions that explicitly step by the framebuffer's width using `unsafe { get_unchecked_mut }` alongside a precalculated on-screen bounding box check yields massive speedups.
 **Action:** Implemented `draw_vertical_line` and `draw_vertical_line_unchecked`, then refactored `draw_rect` to use these instead of `draw_line_2d_local`. Improved `draw_rect_100` benchmark performance by over 20%.
+## Avoid VisplaneAllocator dynamic allocations
+**Learning:** `VisplaneAllocator` was dynamically allocating its `Vec` of `Visplane`s every frame, even though Doom typically uses < 128 visplanes.
+**Action:** Always look for `Vec::new()` in frame-cycle allocations and replace with `Vec::with_capacity(expected)` to eliminate heap reallocations.
