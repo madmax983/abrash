@@ -84,7 +84,19 @@ impl Volume {
     /// Generates an optimized mesh (Hidden Face Removal).
     #[must_use]
     pub fn to_mesh_optimized(&self) -> Mesh {
-        let mut mesh = Mesh::new();
+        // ⚡ Bolt: Estimate mesh capacity based on total set voxels.
+        // For optimized meshing, not all faces are visible.
+        // Assuming ~2 visible faces per voxel on average for a dense volume.
+        let voxel_count = self.grid.data.iter().filter(|&&b| b).count();
+        let estimated_faces_per_voxel = 2;
+        let vertices_per_face = 4;
+        let indices_per_face = 6; // 2 triangles * 3 vertices per triangle
+
+        let mut mesh = Mesh::with_capacity(
+            voxel_count * estimated_faces_per_voxel * vertices_per_face,
+            voxel_count * estimated_faces_per_voxel * indices_per_face,
+        );
+
         let h = self.grid.voxel_size * 0.5;
 
         for z in 0..self.grid.depth {
