@@ -228,7 +228,7 @@ mod tests {
         fb.clear(0xFF_000000);
 
         let config = ConwayConfig {
-            cell_size: 4,      // 5x5 grid of cells
+            cell_size: 4, // 5x5 grid of cells
             seed_threshold: 128,
             live_color: 0xFF_FFFFFF,
             dead_color: 0xFF_000000,
@@ -257,6 +257,9 @@ mod tests {
         // A block is a still life, so it should remain the same.
 
         let p_r1c1 = fb.get_pixel(1 * 4 + 2, 1 * 4 + 2).unwrap();
-        assert_eq!(p_r1c1, 0xFF_FFFFFF, "Block failed to remain alive at r1, c1");
+        assert_eq!(
+            p_r1c1, 0xFF_FFFFFF,
+            "Block failed to remain alive at r1, c1"
+        );
     }
 }

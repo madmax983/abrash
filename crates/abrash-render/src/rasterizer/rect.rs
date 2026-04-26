@@ -63,7 +63,6 @@ fn draw_horizontal_line_unchecked(fb: &mut Framebuffer, x0: i32, x1: i32, y: i32
     }
 }
 
-
 /// ⚡ Bolt: Fast vertical line drawing skipping generalized Bresenham logic.
 #[inline(always)]
 fn draw_vertical_line(fb: &mut Framebuffer, x: i32, y0: i32, y1: i32, color: u32) {
@@ -146,10 +145,7 @@ pub fn draw_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, 
     let right = x + width as i32 - 1;
     let bottom = y + height as i32 - 1;
 
-    let is_on_screen = x >= 0
-        && y >= 0
-        && right < fb.width() as i32
-        && bottom < fb.height() as i32;
+    let is_on_screen = x >= 0 && y >= 0 && right < fb.width() as i32 && bottom < fb.height() as i32;
 
     if is_on_screen {
         // Top
