@@ -57,7 +57,7 @@ impl<T: Animatable + Send + Sync> Evaluable<T> {
     ///
     /// Used by composition types (e.g. `Sequence`) to allocate proportional
     /// phase ranges.
-    pub fn natural_duration(&self) -> f32 {
+    pub const fn natural_duration(&self) -> f32 {
         match self {
             Self::Keyframe(k) => k.natural_duration(),
             Self::Hold(h) => h.natural_duration(),
