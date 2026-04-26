@@ -5,7 +5,6 @@
 
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
-use std::error::Error;
 
 #[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 mod demo {
@@ -21,7 +20,7 @@ mod demo {
     const WIDTH: usize = 800;
     const HEIGHT: usize = 600;
 
-    pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+    pub fn run() {
         let mut window = Window::new("Abrash - Cloth Simulation", WIDTH as u32, HEIGHT as u32)?;
         let mut fb = Framebuffer::new(WIDTH as u32, HEIGHT as u32)?;
         let mut zb = ZBuffer::new(WIDTH as u32, HEIGHT as u32)?;
@@ -123,8 +122,6 @@ mod demo {
 
             window.blit_framebuffer(&fb);
         }
-
-        Ok(())
     }
 }
 
@@ -144,9 +141,8 @@ mod winit_demo {
     const WIDTH: u32 = 800;
     const HEIGHT: u32 = 600;
 
-    pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+    pub fn run() {
         run_windowed(ClothApp::new().unwrap());
-        Ok(())
     }
 
     struct ClothApp {
@@ -345,12 +341,12 @@ fn print_banner() {
 }
 
 #[cfg(feature = "backend-winit")]
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
     print_banner();
 
     #[cfg(feature = "nova")]
     {
-        winit_demo::run()
+        winit_demo::run();
     }
 
     #[cfg(not(feature = "nova"))]
@@ -378,7 +374,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 #[cfg(not(feature = "backend-winit"))]
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
     print_banner();
 
     #[cfg(feature = "nova")]

@@ -191,8 +191,7 @@ impl WindowApp for DirectionalBlurDemoApp {
     }
 }
 
-fn main() -> Result<(), AppError> {
+fn main() {
     print_banner();
     run_windowed(DirectionalBlurDemoApp::new().unwrap());
-    Ok(())
 }

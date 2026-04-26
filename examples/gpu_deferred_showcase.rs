@@ -496,7 +496,6 @@ impl WindowApp for ShowcaseApp {
     }
 }
 
-fn main() -> Result<(), DemoError> {
+fn main() {
     run_windowed(ShowcaseApp::new());
-    Ok(())
 }

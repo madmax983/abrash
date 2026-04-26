@@ -1,6 +1,5 @@
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
-use std::error::Error;
 
 #[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 mod demo {
@@ -14,7 +13,7 @@ mod demo {
     use abrash_render::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene, render_sdf};
     use std::time::Instant;
 
-    pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+    pub fn run() {
         let width = 800;
         let height = 600;
 
@@ -126,7 +125,6 @@ mod demo {
 
             window.blit_framebuffer(&fb);
         }
-        Ok(())
     }
 }
 
@@ -147,9 +145,8 @@ mod winit_demo {
     const WIDTH: u32 = 800;
     const HEIGHT: u32 = 600;
 
-    pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+    pub fn run() {
         run_windowed(JellyApp::new().unwrap());
-        Ok(())
     }
 
     struct JellyApp {
@@ -369,12 +366,12 @@ fn print_banner() {
 }
 
 #[cfg(feature = "backend-winit")]
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
     print_banner();
 
     #[cfg(feature = "nova")]
     {
-        winit_demo::run()
+        winit_demo::run();
     }
 
     #[cfg(not(feature = "nova"))]
@@ -402,7 +399,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 #[cfg(not(feature = "backend-winit"))]
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
     print_banner();
 
     #[cfg(feature = "nova")]

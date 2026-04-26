@@ -229,8 +229,7 @@ impl WindowApp for AnaglyphDemoApp {
     }
 }
 
-fn main() -> Result<(), AppError> {
+fn main() {
     print_banner();
     run_windowed(AnaglyphDemoApp::new().unwrap());
-    Ok(())
 }

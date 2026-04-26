@@ -118,7 +118,6 @@ impl WindowApp for ReactionDiffusionDemo {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     run_windowed(ReactionDiffusionDemo::new());
-    Ok(())
 }

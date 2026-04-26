@@ -240,8 +240,7 @@ impl WindowApp for DitherDemoApp {
     }
 }
 
-fn main() -> Result<(), AppError> {
+fn main() {
     print_banner();
     run_windowed(DitherDemoApp::new().unwrap());
-    Ok(())
 }

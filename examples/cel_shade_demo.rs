@@ -241,8 +241,7 @@ impl WindowApp for CelShadeDemoApp {
     }
 }
 
-fn main() -> Result<(), AppError> {
+fn main() {
     print_banner();
     run_windowed(CelShadeDemoApp::new().unwrap());
-    Ok(())
 }

@@ -42,9 +42,8 @@ mod winit_demo {
     const WIDTH: u32 = 400;
     const HEIGHT: u32 = 300;
 
-    pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+    pub fn run() {
         run_windowed(RaytracerApp::new().unwrap());
-        Ok(())
     }
 
     struct RaytracerApp {
@@ -221,13 +220,13 @@ fn print_banner() {
 }
 
 #[cfg(all(feature = "nova", feature = "backend-winit"))]
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     print_banner();
-    winit_demo::run()
+    winit_demo::run();
 }
 
 #[cfg(all(not(feature = "nova"), feature = "backend-winit"))]
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     let mut error_table = Table::new();
     error_table
         .load_preset(presets::UTF8_FULL)
@@ -250,7 +249,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[cfg(all(feature = "nova", not(feature = "backend-winit")))]
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     print_banner();
     let mut window = Window::new("Abrash - Raytracer", WIDTH, HEIGHT)?;
     let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
@@ -339,12 +338,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         window.blit_framebuffer(&framebuffer);
     }
-
-    Ok(())
 }
 
 #[cfg(all(not(feature = "nova"), not(feature = "backend-winit")))]
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     let mut error_table = Table::new();
     error_table
         .load_preset(presets::UTF8_FULL)

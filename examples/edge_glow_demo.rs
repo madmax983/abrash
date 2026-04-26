@@ -62,9 +62,8 @@ mod winit_demo {
     };
     use std::io;
 
-    pub fn run(width: u32, height: u32) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn run(width: u32, height: u32) {
         run_windowed(EdgeGlowApp::new(width, height).unwrap());
-        Ok(())
     }
 
     struct EdgeGlowApp {
@@ -232,7 +231,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         #[cfg(feature = "backend-winit")]
         {
-            return winit_demo::run(width, height);
+            winit_demo::run(width, height);
+            return Ok(());
         }
 
         #[cfg(not(feature = "backend-winit"))]

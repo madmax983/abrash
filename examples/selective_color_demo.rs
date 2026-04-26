@@ -58,10 +58,9 @@ fn main() {
 }
 
 #[cfg(feature = "nova")]
-fn main() -> Result<(), HostError> {
+fn main() {
     print_banner();
-    run_windowed(SelectiveColorApp::new().unwrap());
-    Ok(())
+    run_windowed(SelectiveColorApp::new());
 }
 
 #[cfg(feature = "nova")]
@@ -79,14 +78,14 @@ struct SelectiveColorApp {
 
 #[cfg(feature = "nova")]
 impl SelectiveColorApp {
-    fn new() -> Result<Self, HostError> {
+    fn new() -> Self {
         let mesh = Mesh::cube(1.0);
         let _ = mesh.compute_face_normals();
 
         let target_fps = 60;
         let timer = FixedTimestep::new(target_fps);
 
-        Ok(Self {
+        Self {
             presenter: None,
             fb: Framebuffer::new(WIDTH, HEIGHT).unwrap(),
             zb: ZBuffer::new(WIDTH, HEIGHT).unwrap(),
@@ -100,7 +99,7 @@ impl SelectiveColorApp {
                 tolerance: 45.0,
                 desaturation: 1.0,
             },
-        })
+        }
     }
 
     fn present(&mut self) -> Result<(), HostError> {
@@ -140,7 +139,7 @@ impl WindowApp for SelectiveColorApp {
     }
 
     fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        self.fb.clear(0xFF111111); // Dark grey background
+        self.fb.clear(0xFF11_1111); // Dark grey background
         self.zb.clear();
 
         let aspect = WIDTH as f32 / HEIGHT as f32;

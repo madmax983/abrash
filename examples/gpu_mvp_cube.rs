@@ -169,7 +169,6 @@ impl WindowApp for GpuMvpCubeApp {
     }
 }
 
-fn main() -> Result<(), DemoError> {
+fn main() {
     run_windowed(GpuMvpCubeApp::new());
-    Ok(())
 }

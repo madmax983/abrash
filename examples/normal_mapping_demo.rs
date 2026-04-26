@@ -236,8 +236,7 @@ impl WindowApp for NormalMappingDemoApp {
     }
 }
 
-fn main() -> Result<(), AppError> {
+fn main() {
     print_banner();
     run_windowed(NormalMappingDemoApp::new().unwrap());
-    Ok(())
 }
