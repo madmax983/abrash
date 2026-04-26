@@ -6,9 +6,7 @@ use abrash_core::math::Vec3;
 use abrash_core::quat::Quat;
 
 use abrash_anim::easing::Easing;
-use abrash_anim::evaluable::Evaluable;
-use abrash_anim::keyframe::Keyframe;
-use abrash_anim::sequence::Sequence;
+use abrash_anim::evaluable::{Evaluable, Keyframe, Sequence};
 
 use crate::clip::{AnimationChannel, ChannelValues};
 

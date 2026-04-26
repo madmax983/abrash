@@ -9,8 +9,7 @@ use abrash_core::animatable::Animatable;
 
 use crate::clock::{AnimationClock, ClockEvent, PlaybackMode};
 use crate::easing::Easing;
-use crate::evaluable::{Evaluable, Sample};
-use crate::keyframe::Keyframe;
+use crate::evaluable::{Evaluable, Keyframe, Sample};
 
 enum TimelineState<T: Animatable> {
     Playing,
@@ -274,9 +273,7 @@ mod tests {
 
     #[test]
     fn sequence_builder() {
-        use crate::hold::Hold;
-        use crate::keyframe::Keyframe;
-        use crate::sequence::Sequence;
+        use crate::evaluable::{Hold, Keyframe, Sequence};
 
         let seq = Sequence::new(vec![
             Evaluable::Keyframe(Keyframe::new(0.0, 10.0, Easing::Linear, 1.0)),
