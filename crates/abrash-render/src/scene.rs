@@ -239,6 +239,7 @@ impl Scene {
 
             let num_objects = self.objects.len();
             world_aabbs.clear();
+            world_aabbs.reserve(num_objects);
             cull_results.clear();
             cull_results.resize(num_objects, false);
 
