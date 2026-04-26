@@ -65,7 +65,9 @@ fn draw_horizontal_line_unchecked(fb: &mut Framebuffer, x0: i32, x1: i32, y: i32
 
 /// Draws the outline of a 2D rectangle.
 ///
-/// The lines are drawn directly onto the framebuffer, skipping complex 3D rasterization.
+/// This draws lines directly onto the framebuffer, skipping the complex 3D rasterization pipeline.
+/// It is incredibly useful for rendering fast UI overlays, selection boxes, or debugging boundaries
+/// on top of an already rendered 3D scene without needing to push vertices through the camera transform.
 ///
 /// ## Parameters
 ///
@@ -105,7 +107,9 @@ pub fn draw_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, 
 
 /// Fills a solid 2D rectangle.
 ///
-/// This delegates to the framebuffer's internal fast block clearing routine.
+/// Under the hood, this delegates to the framebuffer's internal fast block clearing routine.
+/// It's designed to be the fastest way to draw solid UI backgrounds or wipe specific regions
+/// of the screen, bypassing all edge-walking and rasterization logic entirely.
 ///
 /// ## Parameters
 ///
@@ -131,8 +135,10 @@ pub fn fill_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, 
 
 /// Draws the outline of a 2D rounded rectangle.
 ///
-/// Combines straight edge lines and Bresenham's circle drawing algorithm
-/// to create the corners.
+/// This provides a more aesthetically pleasing alternative to standard rectangles,
+/// perfect for modern UI elements like buttons or tooltips. It elegantly combines
+/// straight edge lines with Bresenham's circle drawing algorithm for the corners,
+/// ensuring a smooth curve without floating-point math overhead.
 ///
 /// ## Parameters
 ///
@@ -266,8 +272,10 @@ pub fn draw_rounded_rect(
 
 /// Fills a solid 2D rounded rectangle.
 ///
-/// Similar to `draw_rounded_rect`, it uses horizontal spans to fill
-/// the interior and corners efficiently.
+/// While `draw_rounded_rect` is great for borders, this function fills the entire shape.
+/// To maximize performance, it uses the fast block-clearing routine for the central region
+/// and horizontal spans for the curved corners, minimizing memory writes and avoiding
+/// expensive per-pixel boundary checks when the shape is fully on-screen.
 ///
 /// ## Parameters
 ///
