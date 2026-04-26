@@ -317,10 +317,15 @@ impl Framebuffer {
             self.pixels[start_idx..end_idx].fill(color);
         } else {
             // Bolt Performance Optimization:
-            // Calculate exact 1D slice indices first, applying .chunks_exact_mut(width)
-            // directly to &mut buffer[start_idx..end_idx] entirely elides inner-loop bounds checking.
-            for row in self.pixels[start_idx..end_idx].chunks_exact_mut(w) {
-                row[sx..ex].fill(color);
+            // Calculate exact 1D slice indices first, replacing .chunks_exact_mut with
+            // explicit start..end ranges and get_unchecked_mut completely elides bounds checking and improves performance.
+            let len = ex - sx;
+            let mut offset = start_idx + sx;
+            for _ in sy..ey {
+                unsafe {
+                    self.pixels.get_unchecked_mut(offset..offset + len).fill(color);
+                }
+                offset += w;
             }
         }
     }
