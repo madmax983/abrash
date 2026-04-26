@@ -17,7 +17,7 @@
 //! use abrash_render::ascii::{AsciiConverter, AsciiCharset};
 //!
 //! let mut fb = Framebuffer::new(10, 5).unwrap();
-//! fb.clear(0xFFFFFFFF); // White
+//! fb.clear(0x00FF_FFFFFF); // White
 //!
 //! let converter = AsciiConverter::new(&fb, AsciiCharset::Standard);
 //! let art = converter.to_string();

@@ -139,6 +139,6 @@ mod tests {
         let v0 = (Vec3::new(10.0, 10.0, 1.0), 1.0);
         let v1 = (Vec3::new(90.0, 90.0, 1.0), 1.0);
 
-        draw_line_3d(&mut fb, &mut zb, v0, v1, 0xFFFFFFFF);
+        draw_line_3d(&mut fb, &mut zb, v0, v1, 0x00FF_FFFFFF);
     }
 }

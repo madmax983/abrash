@@ -295,6 +295,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "capture width overflowed RGBA byte count")]
     fn test_capture_target_dimensions_overflow() {
-        let _ = CaptureConfig::new(u32::MAX, 240);
+        CaptureConfig::new(u32::MAX, 240);
     }
 }

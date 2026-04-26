@@ -66,7 +66,7 @@
 //!     ((Vec3::new(-0.5, -0.5, 0.5), 1.0),
 //!      (Vec3::new(0.5, -0.5, 0.5), 1.0),
 //!      (Vec3::new(0.0, 0.5, 0.5), 1.0),
-//!      0xFF0000FF), // Red triangle
+//!      0xFF00_00FF), // Red triangle
 //! ];
 //!
 //! renderer.render_batch(&mut fb, &mut zb, &triangles);
@@ -2216,7 +2216,7 @@ impl TileRenderer {
     ///     ((Vec3::new(0.0, 0.0, 1.0), 1.0),
     ///      (Vec3::new(1.0, 0.0, 1.0), 1.0),
     ///      (Vec3::new(0.5, 1.0, 1.0), 1.0),
-    ///      0xFFFFFFFF),
+    ///      0x00FF_FFFFFF),
     /// ];
     ///
     /// renderer.render_batch(&mut fb, &mut zb, &triangles);
@@ -5037,7 +5037,7 @@ mod warden_tests {
 
         // Attempt to write out of bounds
         unsafe {
-            ptr.write(15, 0xFFFFFFFF);
+            ptr.write(15, 0x00FF_FFFFFF);
         }
     }
 }
