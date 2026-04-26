@@ -459,7 +459,7 @@ mod tests {
 
         let mesh = Arc::new(Mesh::cube(1.0));
         scene.add_object(SceneObject::new(
-            mesh.clone(),
+            Arc::clone(&mesh),
             Mat4::identity(),
             0xFFFF_0000,
         ));
@@ -511,7 +511,7 @@ mod tests {
 
         let mesh = Arc::new(Mesh::cube(1.0));
         scene.add_object(SceneObject::new(
-            mesh.clone(),
+            Arc::clone(&mesh),
             Mat4::translation(-2.0, 0.0, 0.0),
             0xFFFF_0000,
         ));

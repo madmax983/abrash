@@ -59,7 +59,7 @@ fn bench_scene_render(c: &mut Criterion) {
         let x = (i % 10) as f32 * 15.0 - 75.0;
         let z = (i / 10) as f32 * 15.0 - 75.0;
         let transform = Mat4::translation(x, 0.0, z);
-        let object = SceneObject::new(mesh.clone(), transform, 0xFFFF_FFFF);
+        let object = SceneObject::new(Arc::clone(&mesh), transform, 0xFFFF_FFFF);
         scene.add_object(object);
     }
 
@@ -89,7 +89,7 @@ fn build_scene(width: u32, height: u32) -> Scene {
         let x = (i % 10) as f32 * 15.0 - 75.0;
         let z = (i / 10) as f32 * 15.0 - 75.0;
         scene.add_object(SceneObject::new(
-            mesh.clone(),
+            Arc::clone(&mesh),
             Mat4::translation(x, 0.0, z),
             0xFFFF_FFFF,
         ));
@@ -221,7 +221,7 @@ fn build_scene_cfg(width: u32, height: u32, obj_count: usize, grid_size: usize) 
         let x = (i % cols) as f32 * 15.0 - (cols as f32 * 7.5);
         let z = (i / cols) as f32 * 15.0 - (cols as f32 * 7.5);
         scene.add_object(SceneObject::new(
-            mesh.clone(),
+            Arc::clone(&mesh),
             Mat4::translation(x, 0.0, z),
             0xFFFF_FFFF,
         ));
