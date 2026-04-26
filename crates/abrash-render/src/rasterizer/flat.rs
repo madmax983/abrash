@@ -26,7 +26,7 @@ unsafe fn draw_scanline_flat_simd(
         _mm256_storeu_ps, _mm256_storeu_si256,
     };
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     let dz_dx_vec = _mm256_set1_ps(dz_dx);
@@ -128,7 +128,7 @@ unsafe fn draw_scanline_flat_blended_simd(
         _mm256_storeu_si256,
     };
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     // Alpha blend constants

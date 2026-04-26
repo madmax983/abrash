@@ -588,7 +588,7 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
 ) {
     use std::arch::x86_64::*;
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     // Align pixels buffer
@@ -966,7 +966,7 @@ pub(crate) unsafe fn draw_span_nearest_simd(
 ) {
     use std::arch::x86_64::*;
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     // Align buffer
@@ -1201,7 +1201,7 @@ unsafe fn draw_scanline_textured_perspective_simd(
     unsafe {
         use std::arch::x86_64::*;
 
-        let len = fb_slice.len();
+        let len = fb_slice.len().min(zb_slice.len());
         let mut i = 0;
 
         // Load gradients
@@ -2522,7 +2522,7 @@ unsafe fn draw_scanline_normal_mapped_simd(
             _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_ps,
         };
 
-        let len = fb_slice.len();
+        let len = fb_slice.len().min(zb_slice.len());
         let mut i = 0;
 
         // Load gradients
@@ -2885,7 +2885,7 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
     };
 
     // Prepare SIMD constants
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     // Align buffer
@@ -3770,7 +3770,7 @@ unsafe fn draw_span_textured_gouraud_simd(
 ) {
     use std::arch::x86_64::*;
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     unsafe {
@@ -3965,7 +3965,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
 ) {
     use std::arch::x86_64::*;
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     unsafe {

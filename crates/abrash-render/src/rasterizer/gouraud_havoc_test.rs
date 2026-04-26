@@ -1,7 +1,6 @@
 use crate::rasterizer::gouraud::draw_scanline_gouraud_simd_fast;
 
 #[test]
-#[ignore = "👹 Havoc: Trigger out of bounds access by mismatched buffer lengths in Gouraud"]
 fn havoc_gouraud_simd_buffer_mismatch() {
     let mut fb = vec![0u32; 64];
     // Intentionally smaller zb buffer. Since SIMD iterates based on fb.len(),
