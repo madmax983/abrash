@@ -59,3 +59,9 @@
 **[Enum Swap Redundancy]**
 **Learning:** Using `std::mem::replace` multiple times in nested enum matches inside hot paths creates unnecessary temporary values and stack shuffling, even if logically safe.
 **Action:** Extract generation states outside the match block first, then do a single `std::mem::replace` with the computed state, significantly accelerating tight resource-reclamation loops.
+**[Eliding Bounds Checks on Rasterization Fast Paths in `rect.rs`]**
+**Learning:** Removing standard slice assignment  in primitive drawing paths when bounding geometry is validated and replacing it with  yields a measurable speedup in `draw_rect` and `draw_rounded_rect`.
+**Action:** Use `get_unchecked_mut` inside `draw_horizontal_line_unchecked` and `draw_horizontal_line` inside `rect.rs`.
+**[Eliding Bounds Checks on Rasterization Fast Paths in rect.rs]**
+**Learning:** Removing standard slice assignment `slice[start..=end].fill(color)` in primitive drawing paths when bounding geometry is validated and replacing it with `unsafe { fb.as_mut_slice().get_unchecked_mut(start..=end).fill(color); }` yields a measurable speedup in `draw_rect` and `draw_rounded_rect`.
+**Action:** Use `get_unchecked_mut` inside `draw_horizontal_line_unchecked` and `draw_horizontal_line` inside `rect.rs`.
