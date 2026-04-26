@@ -31,7 +31,7 @@ thread_local! {
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_gamma_correction;
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
@@ -92,7 +92,7 @@ pub fn apply_gamma_correction(fb: &mut Framebuffer, gamma: f32) {
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_grayscale;
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
@@ -170,7 +170,7 @@ fn apply_grayscale_scalar(pixels: &mut [u32]) {
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_scanlines;
 ///
 /// let mut fb = Framebuffer::new(1, 2).unwrap();
@@ -227,7 +227,7 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_invert;
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
@@ -243,8 +243,8 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 ///
 /// # Examples
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
-/// use `abrash_render::post_process::filters::apply_solarize`;
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::post_process::filters::apply_solarize;
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
 /// `fb.clear(0xFFC0_C0C0)`; // Light Gray (192)
@@ -316,7 +316,7 @@ pub fn apply_invert(fb: &mut Framebuffer) {
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_sepia;
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
@@ -383,7 +383,7 @@ pub struct ChromaticAberrationConfig {
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::{apply_chromatic_aberration, ChromaticAberrationConfig};
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
@@ -471,7 +471,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberra
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_sobel;
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
@@ -594,7 +594,7 @@ impl Default for VignetteConfig {
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::{apply_vignette, VignetteConfig};
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
@@ -661,7 +661,7 @@ impl Default for ColorAdjustConfig {
 /// # Examples
 ///
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::{apply_color_adjust, ColorAdjustConfig};
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
@@ -707,7 +707,7 @@ pub struct FilmGrainConfig {
 ///
 /// # Examples
 /// ```
-/// use `abrash_core::framebuffer::Framebuffer`;
+/// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::{apply_film_grain, FilmGrainConfig};
 ///
 /// let mut fb = Framebuffer::new(800, 600).unwrap();
