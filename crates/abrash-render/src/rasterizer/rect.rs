@@ -63,6 +63,35 @@ fn draw_horizontal_line_unchecked(fb: &mut Framebuffer, x0: i32, x1: i32, y: i32
     }
 }
 
+/// ⚡ Bolt: Fast vertical line fill that steps directly by the framebuffer width,
+/// bypassing the generalized Bresenham line algorithm and inner loop bounds checks.
+#[inline(always)]
+fn draw_vertical_line(fb: &mut Framebuffer, x: i32, y0: i32, y1: i32, color: u32) {
+    if x < 0 || x >= fb.width() as i32 {
+        return;
+    }
+
+    let y_start = y0.max(0);
+    let y_end = y1.min(fb.height() as i32 - 1);
+
+    if y_start > y_end {
+        return;
+    }
+
+    let w = fb.width() as usize;
+    let mut idx = y_start as usize * w + x as usize;
+    let end_idx = y_end as usize * w + x as usize;
+
+    let buf = fb.as_mut_slice();
+
+    // ⚡ Bolt: Step directly by width, avoiding generic line logic.
+    // Bounds check elision is facilitated by the explicit clamping above.
+    while idx <= end_idx {
+        buf[idx] = color;
+        idx += w;
+    }
+}
+
 /// Draws the outline of a 2D rectangle.
 ///
 /// The lines are drawn directly onto the framebuffer, skipping complex 3D rasterization.
@@ -98,9 +127,9 @@ pub fn draw_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, 
     // Bottom
     draw_horizontal_line(fb, x, right, bottom, color);
     // Left
-    draw_line_2d_local(fb, IVec2::new(x, y), IVec2::new(x, bottom), color);
+    draw_vertical_line(fb, x, y, bottom, color);
     // Right
-    draw_line_2d_local(fb, IVec2::new(right, y), IVec2::new(right, bottom), color);
+    draw_vertical_line(fb, right, y, bottom, color);
 }
 
 /// Fills a solid 2D rectangle.

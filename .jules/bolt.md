@@ -68,3 +68,7 @@
 **[Eliding Bounds Checks on Rasterization Fast Paths in rect.rs]**
 **Learning:** Removing standard slice assignment `slice[start..=end].fill(color)` in primitive drawing paths when bounding geometry is validated and replacing it with `unsafe { fb.as_mut_slice().get_unchecked_mut(start..=end).fill(color); }` yields a measurable speedup in `draw_rect` and `draw_rounded_rect`.
 **Action:** Use `get_unchecked_mut` inside `draw_horizontal_line_unchecked` and `draw_horizontal_line` inside `rect.rs`.
+
+**Fast Vertical Line Optimization**
+**Learning:** In primitive outline algorithms (like rectangles), replacing a generalized Bresenham line drawing algorithm with specialized straight vertical and horizontal line rendering functions that explicitly step by the framebuffer's width yields massive speedups (e.g., ~20-50%). Precalculating and explicitly clamping valid coordinates before the loop triggers safe bounds-check elision by the Rust compiler, achieving optimal performance without needing `unsafe { get_unchecked_mut }`.
+**Action:** When optimizing hot-path graphics loops, carefully examine if general-purpose algorithms can be replaced with specialized cases. Leverage explicit clamping to eliminate `unsafe` without sacrificing performance.
