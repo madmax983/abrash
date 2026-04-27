@@ -888,3 +888,13 @@ required-features = ["nova"]
 name = "conway_demo"
 path = "examples/conway_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "cross_stitch_demo"
+path = "examples/cross_stitch_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "cross_stitch_bench"
+harness = false
+required-features = ["nova"]

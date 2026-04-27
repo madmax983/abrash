@@ -42,6 +42,7 @@ pub mod color_splash;
 pub mod conway;
 pub mod crepuscular;
 pub mod crosshatch;
+pub mod cross_stitch;
 pub mod crt;
 pub mod depth_fog;
 pub mod digital_rain;
