@@ -117,11 +117,11 @@ struct PyramidLevel {
 
 impl PyramidLevel {
     fn new(width: u32, height: u32) -> Self {
-        let _ = (width as usize)
-            .checked_mul(height as usize)
-            .and_then(|a| a.checked_mul(4))
-            .expect("Hi-Z dimensions overflow");
-        let size = (width as usize) * (height as usize);
+        // Prevent capacity overflow when allocating vec![f32::INFINITY; size]
+        let size = u64::from(width)
+            .checked_mul(u64::from(height))
+            .filter(|&s| u32::try_from(s).is_ok())
+            .expect("Hi-Z dimensions overflow") as usize;
         Self {
             width,
             height,
@@ -177,6 +177,12 @@ impl HiZBuffer {
     #[must_use]
     pub fn new(width: u32, height: u32) -> Self {
         assert!(width > 0 && height > 0, "Dimensions must be positive");
+
+        // Prevent huge allocations up front
+        let _ = u64::from(width)
+            .checked_mul(u64::from(height))
+            .filter(|&s| u32::try_from(s).is_ok())
+            .expect("capacity overflow");
 
         // Calculate level count: ceil(log2(max(width, height))) + 1
         // This gives us levels 0..level_count where level 0 is full resolution
@@ -268,11 +274,12 @@ impl HiZBuffer {
     pub fn build_pyramid_from_depths(&mut self, width: u32, height: u32, depths: &[f32]) {
         assert_eq!(width, self.width);
         assert_eq!(height, self.height);
-        let _ = (width as usize)
+        let expected_len = (width as usize)
             .checked_mul(height as usize)
-            .and_then(|a| a.checked_mul(4))
             .expect("Hi-Z dimensions overflow");
-        let expected_len = (width as usize) * (height as usize);
+
+        // WARDEN DEFENSE: Prevent capacity overflow panics
+        assert!(expected_len <= (isize::MAX as usize) / 4, "Hi-Z dimensions overflow: capacity exceeded");
         assert!(
             depths.len() >= expected_len,
             "Depth slice too small for Hi-Z pyramid build"
@@ -590,7 +597,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[should_panic(expected = "Hi-Z dimensions overflow")]
+    #[should_panic(expected = "capacity overflow")]
     fn test_hiz_dimensions_overflow() {
         let _ = HiZBuffer::new(u32::MAX, u32::MAX);
     }

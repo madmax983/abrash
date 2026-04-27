@@ -28,8 +28,8 @@ pub fn apply_solarize_simd_avx2(pixels: &mut [u32], threshold: u8) {
             let simd_len = len & !7;
             unsafe {
                 use std::arch::x86_64::*;
-                let th_val = _mm256_set1_epi8((threshold as i8).wrapping_sub(128)); // Offset by 128 for signed compare
-                let mask_255 = _mm256_set1_epi8(-1); // 0xFF
+                let th_val = _mm256_set1_epi8((threshold as i8).wrapping_sub(-128i8)); // Offset by 128 for signed compare
+                let _mask_255 = _mm256_set1_epi8(-1); // 0xFF
                 let mask_rgb = _mm256_set1_epi32(0x00FFFFFF);
 
                 let mut ptr = pixels.as_mut_ptr() as *mut __m256i;

@@ -120,6 +120,9 @@ impl DrawList {
 
     /// ⚡ Bolt: Create an empty draw list, pre-allocating the underlying vectors.
     /// This drastically reduces heap reallocations per frame when drawing many objects.
+    ///
+    /// # Panics
+    /// Panics if the requested capacity exceeds the maximum allowed allocation size (`isize::MAX` bytes).
     #[must_use]
     pub fn with_capacity(
         camera: FrameCamera,
@@ -127,6 +130,11 @@ impl DrawList {
         num_vertices: usize,
         num_lights: usize,
     ) -> Self {
+        // WARDEN DEFENSE: Prevent capacity overflow panics
+        assert!(num_lights <= (isize::MAX as usize) / std::mem::size_of::<Light>(), "capacity overflow");
+        assert!(num_vertices <= (isize::MAX as usize) / std::mem::size_of::<(Vec3, f32)>(), "capacity overflow");
+        assert!(num_commands <= (isize::MAX as usize) / std::mem::size_of::<DrawBatch>(), "capacity overflow");
+
         Self {
             camera,
             lights: Vec::with_capacity(num_lights),
