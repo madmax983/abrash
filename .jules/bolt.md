@@ -82,3 +82,7 @@
 **2024-05-18 - Optimize Framebuffer clear_rect**
 **Learning:** When optimizing 2D region fills (like `clear_rect`) over a 1D pixel buffer, replacing iterator-based chunking (`.chunks_exact_mut()`) with explicit 1D slice index offset calculations and `unsafe { get_unchecked_mut() }` (after rigorously clamping coordinates to the framebuffer bounds) entirely elides inner-loop bounds checking and significantly improves performance (e.g., ~30%).
 **Action:** Replaced `.chunks_exact_mut()` with explicit index calculations and `unsafe { get_unchecked_mut() }` in `Framebuffer::clear_rect`.
+
+**2025-04-27 - Revert Framebuffer clear_rect optimization**
+**Learning:** Benchmarks revealed that explicit index calculations with `unsafe { get_unchecked_mut() }` are actually slower than standard safe iterator-based chunking (`.chunks_exact_mut()`) for 2D region fills.
+**Action:** Reverted `Framebuffer::clear_rect` to use `chunks_exact_mut`, adhering to TDD benchmark results over speculative unsafe optimizations.
