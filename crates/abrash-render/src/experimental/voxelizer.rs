@@ -67,7 +67,7 @@ impl VoxelGrid {
         // avoiding repeated heap reallocations during cube generation.
         let voxel_count = self.data.iter().filter(|&&b| b).count();
         let vertices_per_cube = 8;
-        let indices_per_cube = 36; // 6 faces * 2 triangles * 3 vertices per triangle
+        let indices_per_cube = 12; // 6 faces * 2 triangles * 3 vertices per triangle
 
         let mut mesh = Mesh::with_capacity(
             voxel_count * vertices_per_cube,
