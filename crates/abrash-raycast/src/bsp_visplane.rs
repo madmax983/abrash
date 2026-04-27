@@ -98,6 +98,16 @@ impl VisplaneAllocator {
         }
     }
 
+    /// ⚡ Bolt: Create a new allocator with pre-allocated capacity for planes.
+    /// This eliminates dynamic heap reallocations per frame since doom typically uses < 128 visplanes.
+    #[must_use]
+    pub fn with_capacity(capacity: usize, screen_width: u32) -> Self {
+        Self {
+            planes: Vec::with_capacity(capacity),
+            screen_width,
+        }
+    }
+
     /// Find a matching `(height, texture, light)` visplane where `col` is free,
     /// or create a new one.
     ///
@@ -157,13 +167,13 @@ mod tests {
 
     #[test]
     fn allocator_starts_empty() {
-        let alloc = VisplaneAllocator::new(320);
+        let alloc = VisplaneAllocator::with_capacity(128, 320);
         assert!(alloc.planes().is_empty());
     }
 
     #[test]
     fn find_or_create_makes_new_plane() {
-        let mut alloc = VisplaneAllocator::new(320);
+        let mut alloc = VisplaneAllocator::with_capacity(128, 320);
         let idx = alloc.find_or_create(128, 1, 200, 10);
         assert_eq!(idx, 0);
         assert_eq!(alloc.planes().len(), 1);
@@ -171,7 +181,7 @@ mod tests {
 
     #[test]
     fn find_or_create_reuses_matching_plane() {
-        let mut alloc = VisplaneAllocator::new(320);
+        let mut alloc = VisplaneAllocator::with_capacity(128, 320);
         let idx0 = alloc.find_or_create(128, 1, 200, 10);
         alloc.set_span(idx0, 10, 50, 100);
 
@@ -183,7 +193,7 @@ mod tests {
 
     #[test]
     fn find_or_create_splits_on_column_conflict() {
-        let mut alloc = VisplaneAllocator::new(320);
+        let mut alloc = VisplaneAllocator::with_capacity(128, 320);
         let idx0 = alloc.find_or_create(128, 1, 200, 10);
         alloc.set_span(idx0, 10, 50, 100);
 
@@ -195,7 +205,7 @@ mod tests {
 
     #[test]
     fn find_or_create_different_properties() {
-        let mut alloc = VisplaneAllocator::new(320);
+        let mut alloc = VisplaneAllocator::with_capacity(128, 320);
         let idx0 = alloc.find_or_create(128, 1, 200, 10);
         let idx1 = alloc.find_or_create(64, 2, 180, 10);
         assert_ne!(idx0, idx1);
@@ -204,7 +214,7 @@ mod tests {
 
     #[test]
     fn set_span_updates_bounds() {
-        let mut alloc = VisplaneAllocator::new(320);
+        let mut alloc = VisplaneAllocator::with_capacity(128, 320);
         let idx = alloc.find_or_create(128, 1, 200, 0);
 
         alloc.set_span(idx, 50, 10, 80);
@@ -221,7 +231,7 @@ mod tests {
 
     #[test]
     fn visplane_unused_columns_return_none() {
-        let mut alloc = VisplaneAllocator::new(320);
+        let mut alloc = VisplaneAllocator::with_capacity(128, 320);
         let idx = alloc.find_or_create(128, 1, 200, 0);
         alloc.set_span(idx, 10, 30, 60);
 
@@ -236,7 +246,7 @@ mod tests {
 
     #[test]
     fn reset_clears_all() {
-        let mut alloc = VisplaneAllocator::new(320);
+        let mut alloc = VisplaneAllocator::with_capacity(128, 320);
         alloc.find_or_create(128, 1, 200, 10);
         alloc.find_or_create(64, 2, 180, 20);
         assert_eq!(alloc.planes().len(), 2);
