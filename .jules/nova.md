@@ -53,3 +53,8 @@
 **Concept:** A post-processing cellular automata filter based on Conway's Game of Life. It uses the framebuffer's luminance to seed the game state, causing bright areas of the scene to dissolve into an evolving, interactive cellular pattern.
 **Fate:** Implemented
 **Lesson:** Maintaining persistent state across frames for a post-processing filter can be achieved effectively by using `thread_local!` `RefCell` buffers. This allows complex automata like Conway's Game of Life to interact dynamically with the 3D scene being rendered without passing state manually through the main pipeline.
+
+## [Cross-Stitch Filter]
+**Concept:** A retro-style post-processing effect that converts the framebuffer into a pattern resembling a cross-stitch embroidery canvas, dividing the image into cells and drawing an 'X' with absolute coordinates on a canvas background.
+**Fate:** Implemented
+**Lesson:** Using basic modulo arithmetic and absolute coordinate differences within standard iteration loops provides an efficient, dependency-free alternative to calling external geometric rendering functions when making simple pixel-art grid patterns.
