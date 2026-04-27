@@ -3,7 +3,7 @@
 //!
 //! Gated behind the `gltf` feature flag.
 
-use std::collections::HashMap;
+use foldhash::{HashMap, HashMapExt};
 use std::path::Path;
 
 use abrash_core::math::{Mat4, Vec2, Vec3, Vec4};
@@ -293,7 +293,8 @@ fn extract_skeleton(
     document: &gltf::Document,
     buffers: &[gltf::buffer::Data],
 ) -> (Option<Skeleton>, HashMap<usize, usize>) {
-    let mut node_to_joint: HashMap<usize, usize> = HashMap::new();
+    // ⚡ Bolt: Uses `foldhash::HashMap` instead of the standard library `HashMap` for integer keys (`usize`) to eliminate SipHash cryptographic overhead during parsing.
+    let mut node_to_joint: HashMap<usize, usize> = HashMap::default();
 
     let Some(skin) = document.skins().next() else {
         return (None, node_to_joint);
@@ -310,6 +311,7 @@ fn extract_skeleton(
     }
 
     // Build node_index → provisional joint index map
+    // ⚡ Bolt: Uses `foldhash::HashMap` with pre-allocated capacity for integer keys to eliminate SipHash cryptographic overhead during node lookup.
     let mut node_idx_to_provisional: HashMap<usize, usize> = HashMap::with_capacity(joint_count);
     for (i, node) in joint_nodes.iter().enumerate() {
         node_idx_to_provisional.insert(node.index(), i);
@@ -361,6 +363,7 @@ fn extract_skeleton(
     let sorted_order = topological_sort_joints(&provisional);
 
     // Build old_provisional_index → new_sorted_index mapping
+    // ⚡ Bolt: Uses `foldhash::HashMap` for integer key mapping to eliminate SipHash cryptographic overhead when remapping joint indices.
     let mut old_to_new: HashMap<usize, usize> = HashMap::with_capacity(sorted_order.len());
     for (new_idx, &old_idx) in sorted_order.iter().enumerate() {
         old_to_new.insert(old_idx, new_idx);
@@ -402,6 +405,7 @@ fn build_parent_map(
     joint_nodes: &[gltf::Node<'_>],
     joint_set: &HashMap<usize, usize>,
 ) -> HashMap<usize, usize> {
+    // ⚡ Bolt: Uses `foldhash::HashMap` for integer-to-integer mapping to eliminate SipHash cryptographic overhead when inferring parent nodes.
     let mut child_to_parent: HashMap<usize, usize> = HashMap::with_capacity(joint_nodes.len());
 
     for node in joint_nodes {
