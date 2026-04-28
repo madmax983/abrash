@@ -43,6 +43,22 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
         return;
     }
 
+    // Pre-calculate blended stroke color for hatching outside the loop
+    let r_s = (config.stroke_color >> 16) & 0xFF;
+    let g_s = (config.stroke_color >> 8) & 0xFF;
+    let b_s = config.stroke_color & 0xFF;
+
+    let r_p = (config.paper_color >> 16) & 0xFF;
+    let g_p = (config.paper_color >> 8) & 0xFF;
+    let b_p = config.paper_color & 0xFF;
+
+    let blended_stroke_color = 0xFF00_0000
+        | (u32::midpoint(r_s, r_p) << 16)
+        | (u32::midpoint(g_s, g_p) << 8)
+        | u32::midpoint(b_s, b_p);
+
+    let hatch_threshold = (config.hatch_intensity * 100.0) as u32;
+
     // ⚡ Bolt: Eliminate per-frame heap allocation by using a thread-local static buffer.
     thread_local! {
         static SOURCE_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
@@ -69,15 +85,16 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
             }
 
             // --- 1. Edge Detection (Sobel) ---
-            // Fetch 3x3 neighborhood luminance
-            let tl = pixel_luminance(source_buffer[(y - 1) * width + (x - 1)]);
-            let tc = pixel_luminance(source_buffer[(y - 1) * width + x]);
-            let tr = pixel_luminance(source_buffer[(y - 1) * width + (x + 1)]);
-            let cl = pixel_luminance(source_buffer[y * width + (x - 1)]);
-            let cr = pixel_luminance(source_buffer[y * width + (x + 1)]);
-            let bl = pixel_luminance(source_buffer[(y + 1) * width + (x - 1)]);
-            let bc = pixel_luminance(source_buffer[(y + 1) * width + x]);
-            let br = pixel_luminance(source_buffer[(y + 1) * width + (x + 1)]);
+            // Fetch 3x3 neighborhood luminance using unchecked indexing for speed
+            let idx = y * width + x;
+            let tl = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx - width - 1) });
+            let tc = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx - width) });
+            let tr = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx - width + 1) });
+            let cl = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx - 1) });
+            let cr = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx + 1) });
+            let bl = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx + width - 1) });
+            let bc = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx + width) });
+            let br = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx + width + 1) });
 
             // Sobel X
             let gx = (i32::from(tr) + 2 * i32::from(cr) + i32::from(br))
@@ -97,48 +114,38 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
                 *pixel = config.stroke_color;
             } else {
                 // --- 2. Tonal Hatching ---
-                let luminance = f32::from(pixel_luminance(source_buffer[y * width + x])) / 255.0;
+                let luminance = unsafe { pixel_luminance(*source_buffer.get_unchecked(idx)) };
 
                 // Simple procedural hatching pattern
                 let mut is_hatch = false;
 
+                // luminance threshold mapping (luminance is 0-255):
+                // 0.7 * 255 = 178
+                // 0.5 * 255 = 127
+                // 0.3 * 255 = 76
+
                 // The darker the region, the more hatching strokes we apply.
-                // Hatch level 1 (light shadows): diagonal /
-                if luminance < 0.7 {
+                if luminance < 178 {
                     is_hatch |= (x + y) % 4 == 0;
-                }
-                // Hatch level 2 (mid shadows): crossing diagonal \
-                if luminance < 0.5 {
-                    is_hatch |= (x.wrapping_sub(y)) % 4 == 0;
-                }
-                // Hatch level 3 (deep shadows): vertical
-                if luminance < 0.3 {
-                    is_hatch |= x % 3 == 0;
+                    if luminance < 127 {
+                        is_hatch |= (x.wrapping_sub(y)) % 4 == 0;
+                        if luminance < 76 {
+                            is_hatch |= x % 3 == 0;
+                        }
+                    }
                 }
 
-                // Add some noise to hatching
-                // Use a simple pseudo-random hash based on coordinates
-                let hash = ((x * 3_266_489_917) ^ (y * 2_654_435_761)).wrapping_mul(0x85eb_ca6b);
-                let noise = (hash % 100) as f32 / 100.0;
+                if is_hatch {
+                    // Add some noise to hatching
+                    // Use a simple pseudo-random hash based on coordinates
+                    let hash = ((x * 3_266_489_917) ^ (y * 2_654_435_761)).wrapping_mul(0x85eb_ca6b);
 
-                if is_hatch && noise < config.hatch_intensity {
-                    // Blend stroke color lightly into paper color for hatching strokes
-                    let r_s = (config.stroke_color >> 16) & 0xFF;
-                    let g_s = (config.stroke_color >> 8) & 0xFF;
-                    let b_s = config.stroke_color & 0xFF;
-
-                    let r_p = (config.paper_color >> 16) & 0xFF;
-                    let g_p = (config.paper_color >> 8) & 0xFF;
-                    let b_p = config.paper_color & 0xFF;
-
-                    // Mix 50/50 for a lighter stroke effect for shading
-                    let r = u32::midpoint(r_s, r_p);
-                    let g = u32::midpoint(g_s, g_p);
-                    let b = u32::midpoint(b_s, b_p);
-
-                    *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                    if ((hash % 100) as u32) < hatch_threshold {
+                        *pixel = blended_stroke_color;
+                    } else {
+                        *pixel = config.paper_color;
+                    }
                 } else {
-                    // Plain paper
                     *pixel = config.paper_color;
                 }
             }
