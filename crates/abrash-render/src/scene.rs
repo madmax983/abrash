@@ -217,7 +217,12 @@ impl Scene {
     /// The culling step still uses thread-local scratch buffers to stay allocation-free.
     #[must_use]
     pub fn extract(&self) -> DrawList {
-        let mut draw_list = DrawList::new(FrameCamera::new(self.camera.view, self.camera.proj));
+        let mut draw_list = DrawList::with_capacity(
+            FrameCamera::new(self.camera.view, self.camera.proj),
+            self.objects.len(),
+            self.objects.len() * 3,
+            0,
+        );
         self.extract_into(&mut draw_list);
         draw_list
     }
@@ -320,7 +325,7 @@ impl Scene {
     /// *   **Batching**: Vertex transformations use thread-local scratch buffers.
     pub fn render(&self, renderer: &mut TileRenderer, fb: &mut Framebuffer, zb: &mut ZBuffer) {
         thread_local! {
-            static SCENE_DRAW_LIST: std::cell::RefCell<DrawList> = std::cell::RefCell::new(DrawList::new(FrameCamera::new(crate::math::Mat4::identity(), crate::math::Mat4::identity())));
+            static SCENE_DRAW_LIST: std::cell::RefCell<DrawList> = std::cell::RefCell::new(DrawList::with_capacity(FrameCamera::new(crate::math::Mat4::identity(), crate::math::Mat4::identity()), 128, 1024, 0));
         }
 
         SCENE_DRAW_LIST.with(|dl_cell| {

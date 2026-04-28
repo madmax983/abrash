@@ -96,3 +96,7 @@
 **[foldhash Optimization]**
 **Learning:** When using `foldhash::HashMap` as a faster drop-in replacement for `std::collections::HashMap`, remember to also import `foldhash::HashMapExt` (e.g., `use foldhash::{HashMap, HashMapExt};`) to retain access to essential associated functions like `with_capacity()`. Also, replacing the standard `std::collections::HashMap` (which defaults to SipHash) with a fast, non-cryptographic alternative like `foldhash::HashMap` for small integer keys (e.g., `usize` node indices in parsing logic) safely and measurably eliminates hashing overhead.
 **Action:** Include `HashMapExt` when importing `foldhash::HashMap` and apply `foldhash` when the hash keys are primitive integers where HashDoS is not a concern.
+
+**[DrawList Reallocations]**
+**Learning:** `DrawList` buffers in `CpuRenderer` and `Scene` were being created fresh with `DrawList::new()` every frame, causing unnecessary heap allocations during the hot extraction loop despite knowing the number of commands and objects in advance.
+**Action:** Replace `DrawList::new` with `DrawList::with_capacity` in hot paths (`CpuRenderer::extract_draw_list`, `Scene::extract`, and thread-locals) to eliminate frame-time heap reallocations.
