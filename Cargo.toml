@@ -897,3 +897,8 @@ harness = false
 name = "cross_stitch_demo"
 path = "examples/cross_stitch_demo.rs"
 required-features = ["nova"]
+
+[[bench]]
+name = "speed_lines_hypot_bench"
+harness = false
+required-features = ["nova"]
