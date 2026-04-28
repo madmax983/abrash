@@ -109,10 +109,24 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 ";
 
 /// A GPU-ready vertex with position and linear color.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Pod, Zeroable)]
 pub struct GpuVertex {
     pub position: [f32; 3],
     pub color: [f32; 3],
+}
+
+impl GpuVertex {
+    const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
+
+    pub const fn layout() -> wgpu::VertexBufferLayout<'static> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &Self::ATTRIBUTES,
+        }
+    }
 }
 
 /// A single triangle for GPU rasterization.
@@ -478,25 +492,6 @@ pub fn unit_cube_mesh() -> (Vec<GpuVertex>, Vec<u16>) {
     (vertices, indices)
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
-struct VertexRaw {
-    position: [f32; 3],
-    color: [f32; 3],
-}
-
-impl VertexRaw {
-    const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
-
-    const fn layout() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &Self::ATTRIBUTES,
-        }
-    }
-}
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -658,7 +653,7 @@ impl GpuMeshApp {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[VertexRaw::layout()],
+                buffers: &[GpuVertex::layout()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             primitive: wgpu::PrimitiveState {
@@ -692,17 +687,9 @@ impl GpuMeshApp {
             cache: None,
         });
 
-        let raw_vertices: Vec<VertexRaw> = vertices
-            .iter()
-            .map(|v| VertexRaw {
-                position: v.position,
-                color: v.color,
-            })
-            .collect();
-
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Cube Vertex Buffer"),
-            contents: bytemuck::cast_slice(&raw_vertices),
+            contents: bytemuck::cast_slice(&vertices),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
@@ -1113,7 +1100,7 @@ impl GpuOffscreenBench {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[VertexRaw::layout()],
+                buffers: &[GpuVertex::layout()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             primitive: wgpu::PrimitiveState {
@@ -1147,17 +1134,9 @@ impl GpuOffscreenBench {
             cache: None,
         });
 
-        let raw_vertices: Vec<VertexRaw> = vertices
-            .iter()
-            .map(|v| VertexRaw {
-                position: v.position,
-                color: v.color,
-            })
-            .collect();
-
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Offscreen Bench Vertex Buffer"),
-            contents: bytemuck::cast_slice(&raw_vertices),
+            contents: bytemuck::cast_slice(vertices),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
