@@ -26,11 +26,11 @@ thread_local! {
 
 /// Applies gamma correction to the framebuffer in-place.
 ///
-/// Uses the formula: `output = 255 * (input/255)^(1/gamma)`
+/// Uses the formula: output = 255 * (input/255)^(1/gamma)
 ///
 /// # Examples
 ///
-/// ```rust
+/// rust
 /// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_gamma_correction;
 ///
@@ -40,13 +40,13 @@ thread_local! {
 /// // With gamma 2.2, mid-gray becomes roughly 186.
 /// let p = fb.get_pixel(0, 0).unwrap();
 /// assert_eq!((p >> 16) & 0xFF, 186);
-/// ```
+///
 pub fn apply_gamma_correction(fb: &mut Framebuffer, gamma: f32) {
     let pixels = fb.as_mut_slice();
     let inv_gamma = 1.0 / gamma;
 
     // ⚡ Bolt: Cache the 256-element Look-Up Table (LUT) per thread to avoid 256
-    // calls to `powf` every frame. Gamma is generally a static or rarely-changed
+    // calls to powf every frame. Gamma is generally a static or rarely-changed
     // value, making it an ideal candidate for caching.
     thread_local! {
         static CACHED_GAMMA_LUT: std::cell::RefCell<(f32, [u32; 256])> = const { std::cell::RefCell::new((-1.0, [0u32; 256])) };
@@ -85,13 +85,13 @@ pub fn apply_gamma_correction(fb: &mut Framebuffer, gamma: f32) {
 /// Applies a grayscale filter to the framebuffer in-place.
 ///
 /// Uses a fixed-point approximation of the luminance formula:
-/// `Y = 0.299*R + 0.587*G + 0.114*B`
+/// Y = 0.299*R + 0.587*G + 0.114*B
 ///
-/// Approximated as: `Y = (77*R + 150*G + 29*B) >> 8`
+/// Approximated as: Y = (77*R + 150*G + 29*B) >> 8
 ///
 /// # Examples
 ///
-/// ```rust
+/// rust
 /// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_grayscale;
 ///
@@ -102,7 +102,7 @@ pub fn apply_gamma_correction(fb: &mut Framebuffer, gamma: f32) {
 /// // Result should be grey (76, 76, 76).
 /// let p = fb.get_pixel(0, 0).unwrap();
 /// assert_eq!(p & 0xFF, 76);
-/// ```
+///
 /// Configuration for the scanline jitter effect.
 #[derive(Debug, Clone, Copy)]
 pub struct ScanlineJitterConfig {
@@ -112,8 +112,8 @@ pub struct ScanlineJitterConfig {
 
 /// Applies a scanline jitter effect to the framebuffer in-place.
 ///
-/// **Bolt Optimization:** We use `chunks_exact_mut` to process two rows at a time,
-/// avoiding the overhead of `step_by` and extracting the subslice directly.
+/// **Bolt Optimization:** We use chunks_exact_mut to process two rows at a time,
+/// avoiding the overhead of step_by and extracting the subslice directly.
 pub fn apply_scanline_jitter(fb: &mut Framebuffer, config: &ScanlineJitterConfig) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
@@ -169,7 +169,7 @@ fn apply_grayscale_scalar(pixels: &mut [u32]) {
 ///
 /// # Examples
 ///
-/// ```rust
+/// rust
 /// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_scanlines;
 ///
@@ -183,7 +183,7 @@ fn apply_grayscale_scalar(pixels: &mut [u32]) {
 /// // Row 1 is darkened (halved)
 /// // 0xFF >> 1 = 0x7F
 /// assert_eq!(fb.get_pixel(0, 1).unwrap(), 0xFF7F_7F7F);
-/// ```
+///
 pub fn apply_scanlines(fb: &mut Framebuffer) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
@@ -226,7 +226,7 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 ///
 /// # Examples
 ///
-/// ```rust
+/// rust
 /// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_invert;
 ///
@@ -242,7 +242,7 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 /// Colors below the threshold remain unchanged.
 ///
 /// # Examples
-/// ```rust
+/// rust
 /// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_solarize;
 ///
@@ -250,7 +250,7 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 /// fb.clear(0xFFC0_C0C0); // Light Gray (192)
 /// apply_solarize(&mut fb, 127);
 /// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFF3F_3F3F);
-/// ```
+///
 pub fn apply_solarize(fb: &mut Framebuffer, threshold: u8) {
     let pixels = fb.as_mut_slice();
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
@@ -285,7 +285,7 @@ fn apply_solarize_scalar(pixels: &mut [u32], threshold: u8) {
     }
 }
 
-/// ```
+///
 pub fn apply_invert(fb: &mut Framebuffer) {
     let pixels = fb.as_mut_slice();
 
@@ -307,15 +307,15 @@ pub fn apply_invert(fb: &mut Framebuffer) {
 /// Converts the image to sepia using standard luminance weights and tinting.
 ///
 /// Formula:
-/// ```text
+/// text
 /// NewR = (0.393 * R + 0.769 * G + 0.189 * B)
 /// NewG = (0.349 * R + 0.686 * G + 0.168 * B)
 /// NewB = (0.272 * R + 0.534 * G + 0.131 * B)
-/// ```
+///
 ///
 /// # Examples
 ///
-/// ```rust
+/// rust
 /// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_sepia;
 ///
@@ -323,7 +323,7 @@ pub fn apply_invert(fb: &mut Framebuffer) {
 /// fb.set_pixel(0, 0, 0xFFFFFFFF); // White
 /// apply_sepia(&mut fb);
 /// // Result is tinted yellowish-brown.
-/// ```
+///
 pub fn apply_sepia(fb: &mut Framebuffer) {
     let pixels = fb.as_mut_slice();
 
@@ -376,20 +376,20 @@ pub struct ChromaticAberrationConfig {
 
 /// Applies chromatic aberration by shifting Red and Blue channels.
 ///
-/// *   Red channel is shifted left by `offset`.
-/// *   Blue channel is shifted right by `offset`.
+/// *   Red channel is shifted left by offset.
+/// *   Blue channel is shifted right by offset.
 /// *   Green channel remains unchanged.
 ///
 /// # Examples
 ///
-/// ```rust
+/// rust
 /// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::{apply_chromatic_aberration, ChromaticAberrationConfig};
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// fb.set_pixel(50, 50, 0xFFFFFFFF); // White
 /// apply_chromatic_aberration(&mut fb, &ChromaticAberrationConfig { offset: 5 });
-/// ```
+///
 
 pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberrationConfig) {
     if config.offset == 0 {
@@ -470,14 +470,14 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberra
 ///
 /// # Examples
 ///
-/// ```rust
+/// rust
 /// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::apply_sobel;
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// // Draw something...
 /// apply_sobel(&mut fb);
-/// ```
+///
 pub fn apply_sobel(fb: &mut Framebuffer) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
@@ -593,7 +593,7 @@ impl Default for VignetteConfig {
 ///
 /// # Examples
 ///
-/// ```rust
+/// rust
 /// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::{apply_vignette, VignetteConfig};
 ///
@@ -602,7 +602,7 @@ impl Default for VignetteConfig {
 /// // Apply vignette
 /// let config = VignetteConfig { intensity: 0.5, roundness: 0.5 };
 /// apply_vignette(&mut fb, &config);
-/// ```
+///
 pub fn apply_vignette(fb: &mut Framebuffer, config: &VignetteConfig) {
     let width = fb.width();
     let height = fb.height();
@@ -656,11 +656,11 @@ impl Default for ColorAdjustConfig {
 
 /// Adjusts the brightness and contrast of the framebuffer in-place.
 ///
-/// Formula per channel: `new_color = (old_color - 128) * contrast + 128 + brightness`
+/// Formula per channel: new_color = (old_color - 128) * contrast + 128 + brightness
 ///
 /// # Examples
 ///
-/// ```rust
+/// rust
 /// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::{apply_color_adjust, ColorAdjustConfig};
 ///
@@ -673,7 +673,7 @@ impl Default for ColorAdjustConfig {
 ///
 /// // Result should be 128 + 20 = 148
 /// assert_eq!(fb.get_pixel(0, 0).unwrap() & 0xFF, 148);
-/// ```
+///
 pub fn apply_color_adjust(fb: &mut Framebuffer, config: &ColorAdjustConfig) {
     let pixels = fb.as_mut_slice();
     let brightness = config.brightness;
@@ -703,17 +703,17 @@ pub struct FilmGrainConfig {
 /// Applies a film grain effect to the framebuffer.
 ///
 /// Uses a simple integer-based LCG (Linear Congruential Generator) per pixel
-/// to add noise scaled by the `intensity` parameter.
+/// to add noise scaled by the intensity parameter.
 ///
 /// # Examples
-/// ```rust
+/// rust
 /// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::post_process::filters::{apply_film_grain, FilmGrainConfig};
 ///
 /// let mut fb = Framebuffer::new(800, 600).unwrap();
 /// let config = FilmGrainConfig { intensity: 0.1, seed: 42 };
 /// apply_film_grain(&mut fb, &config);
-/// ```
+///
 pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
     let width = fb.width() as usize;
     if width == 0 {
