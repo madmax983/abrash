@@ -59,6 +59,7 @@ pub mod frosted_glass;
 pub mod glitch;
 pub mod halftone;
 pub mod harmonograph;
+pub mod hex_mosaic;
 pub mod hologram;
 pub mod isosurface;
 pub mod jelly;

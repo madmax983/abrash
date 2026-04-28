@@ -897,3 +897,8 @@ harness = false
 name = "cross_stitch_demo"
 path = "examples/cross_stitch_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "hex_mosaic_demo"
+path = "examples/hex_mosaic_demo.rs"
+required-features = ["nova"]

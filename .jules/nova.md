@@ -58,3 +58,8 @@
 **Concept:** A retro-style post-processing effect that converts the framebuffer into a pattern resembling a cross-stitch embroidery canvas, dividing the image into cells and drawing an 'X' with absolute coordinates on a canvas background.
 **Fate:** Implemented
 **Lesson:** Using basic modulo arithmetic and absolute coordinate differences within standard iteration loops provides an efficient, dependency-free alternative to calling external geometric rendering functions when making simple pixel-art grid patterns.
+
+## [Hexagonal Mosaic Filter]
+**Concept:** A post-processing effect that converts the framebuffer into a hexagonal grid mosaic ("Hexagons are the bestagons"), finding the nearest hex center and optionally drawing a stylish border.
+**Fate:** Implemented
+**Lesson:** Iterating over grids with non-orthogonal axes and calculating the nearest point between two interlocking rectangular grids is mathematically much faster than naive geometry algorithms. Checking distance thresholds from the center allows for quick border extraction.
