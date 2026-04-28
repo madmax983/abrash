@@ -1037,8 +1037,9 @@ mod simd {
             _mm256_set1_epi8, _mm256_set1_epi32, _mm256_storeu_si256, _mm256_xor_si256,
         };
         let th_val = _mm256_set1_epi8((threshold as i8).wrapping_sub(-128i8)); // Offset by 128 for signed compare
-        let mask_rgb = _mm256_set1_epi32(0x00FFFFFF);
+        let mask_rgb = _mm256_set1_epi32(0x00FF_FFFF);
 
+        #[allow(clippy::cast_ptr_alignment)]
         let mut ptr = pixels.as_mut_ptr().cast::<__m256i>();
         let simd_len = pixels.len();
         for _ in 0..(simd_len / 8) {

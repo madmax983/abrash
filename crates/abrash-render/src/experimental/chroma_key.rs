@@ -42,6 +42,7 @@ pub fn apply_chroma_key(fg: &mut Framebuffer, bg: &Framebuffer, key_color: u32) 
 }
 
 /// Composites the foreground over the background using a smooth chroma key algorithm.
+///
 /// Pixels within `threshold` distance from `key_color` are fully replaced.
 /// Pixels between `threshold` and `threshold + feather` are alpha blended.
 pub fn smooth_chroma_key(

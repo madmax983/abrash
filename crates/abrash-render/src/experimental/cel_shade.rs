@@ -212,8 +212,8 @@ mod tests {
         assert_eq!(quantize_color(0xFF_808080, 2), 0xFF_FFFFFF); // 128 rounds up to 255
 
         // 3 levels -> 0, 127, 255
-        assert_eq!(quantize_color(0xFF_404040, 3), 0xFF_000000);
-        assert_eq!(quantize_color(0xFF_808080, 3), 0xFF_808080); // 128 maps to ~128
+        assert_eq!(quantize_color(0xFF_404040, 3), 0xFF_7F7F7F);
+        assert_eq!(quantize_color(0xFF_808080, 3), 0xFF_7F7F7F); // 128 maps to ~128
         assert_eq!(quantize_color(0xFF_C0C0C0, 3), 0xFF_FFFFFF);
     }
 
