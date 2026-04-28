@@ -90,7 +90,7 @@ impl Volume {
         let voxel_count = self.grid.data.iter().filter(|&&b| b).count();
         let estimated_faces_per_voxel = 2;
         let vertices_per_face = 4;
-        let indices_per_face = 6; // 2 triangles * 3 vertices per triangle
+        let indices_per_face = 2; // 2 triangles
 
         let mut mesh = Mesh::with_capacity(
             voxel_count * estimated_faces_per_voxel * vertices_per_face,
