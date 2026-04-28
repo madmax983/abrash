@@ -94,6 +94,15 @@ impl Frame {
 
     /// ⚡ Bolt: Create an empty frame, pre-allocating the underlying vectors.
     /// This drastically reduces heap reallocations per frame when drawing many objects.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_render::render_api::frame::{Frame, FrameCamera};
+    /// use abrash_core::math::Mat4;
+    /// let camera = FrameCamera::new(Mat4::identity(), Mat4::identity());
+    /// let frame = Frame::with_capacity(camera, 100, 10);
+    /// ```
     #[must_use]
     pub fn with_capacity(camera: FrameCamera, num_commands: usize, num_lights: usize) -> Self {
         Self {
@@ -104,7 +113,23 @@ impl Frame {
         }
     }
 
-    /// Add a draw command.
+    /// Record a draw command in this frame.
+    ///
+    /// This adds a mesh to the rendering queue for the frame, specifying its material
+    /// and its transformation matrix in the world.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_render::render_api::frame::{Frame, FrameCamera};
+    /// use abrash_core::math::Mat4;
+    /// use abrash_render::render_api::Handle;
+    /// let camera = FrameCamera::new(Mat4::identity(), Mat4::identity());
+    /// let mut frame = Frame::new(camera);
+    /// let mesh_h = Handle::from_raw_parts(0, 0);
+    /// let mat_h = Handle::from_raw_parts(0, 0);
+    /// frame.draw(mesh_h, mat_h, Mat4::identity());
+    /// ```
     pub fn draw(&mut self, mesh: MeshHandle, material: MaterialHandle, transform: Mat4) {
         self.commands.push(DrawCommand {
             mesh,
@@ -113,7 +138,19 @@ impl Frame {
         });
     }
 
-    /// Add a light to the frame.
+    /// Add a light source to the frame.
+    ///
+    /// Affects how materials with shading enabled will be illuminated.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_render::render_api::frame::{Frame, FrameCamera, Light, DirectionalLight};
+    /// use abrash_core::math::{Mat4, Vec3};
+    /// let camera = FrameCamera::new(Mat4::identity(), Mat4::identity());
+    /// let mut frame = Frame::new(camera);
+    /// frame.add_light(Light::Directional(DirectionalLight { direction: Vec3::new(0.0, -1.0, 0.0), color: 0xFFFFFFFF, intensity: 1.0 }));
+    /// ```
     pub fn add_light(&mut self, light: Light) {
         self.lights.push(light);
     }

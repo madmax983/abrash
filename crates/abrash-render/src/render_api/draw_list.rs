@@ -121,6 +121,16 @@ impl DrawList {
     /// ⚡ Bolt: Create an empty draw list, pre-allocating the underlying vectors.
     /// This drastically reduces heap reallocations per frame when drawing many objects.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_render::render_api::draw_list::DrawList;
+    /// use abrash_render::render_api::frame::FrameCamera;
+    /// use abrash_core::math::Mat4;
+    /// let camera = FrameCamera::new(Mat4::identity(), Mat4::identity());
+    /// let dl = DrawList::with_capacity(camera, 10, 100, 2);
+    /// ```
+    ///
     /// # Panics
     /// Panics if the requested capacity exceeds the maximum allowed allocation size (`isize::MAX` bytes).
     #[must_use]
@@ -159,6 +169,19 @@ impl DrawList {
     }
 
     /// Total number of triangles across all batches.
+    ///
+    /// Useful for debugging and performance metrics.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_render::render_api::draw_list::DrawList;
+    /// use abrash_render::render_api::frame::FrameCamera;
+    /// use abrash_core::math::Mat4;
+    /// let camera = FrameCamera::new(Mat4::identity(), Mat4::identity());
+    /// let dl = DrawList::new(camera);
+    /// assert_eq!(dl.triangle_count(), 0);
+    /// ```
     #[must_use]
     pub fn triangle_count(&self) -> usize {
         self.batches.iter().map(|b| b.indices.len()).sum()
