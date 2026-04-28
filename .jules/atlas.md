@@ -105,3 +105,12 @@
 1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
 2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors. Addressed `clippy` warnings by adding `# Errors` documentation and formatting unreadable numeric literals.
 3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
+
+## [SIMD Alignment Crash Fix in TileRenderer]
+**Tangle:** The `TileRenderer` implemented thread-local buffering for parallel rendering (`end_frame_into_slices`) using standard `Vec<u32>` and `Vec<f32>` arrays in `TILE_BUFFER`. However, standard vectors only guarantee alignment up to their element size (4 bytes). When this unaligned memory was passed down to the AVX2 `rasterize_scanline_simd` routine, it caused a hard `SIGSEGV` segmentation fault due to the `_mm256_store_ps` intrinsic requiring strict 32-byte alignment. This caused the test suite to silently crash.
+
+**Blueprint:**
+1. **Refactor Type:** Replaced `Vec<T>` with `AlignedBuffer<T>` inside the thread-local `TILE_BUFFER` in `crates/abrash-render/src/rasterizer/tile.rs`.
+2. **Expose Resizing:** Added a `resize(&mut self, new_len, default_value)` method to the `AlignedBuffer` utility struct to emulate the `Vec` behavior required by the parallel iteration logic, while explicitly maintaining the 32-byte memory offset.
+
+**Stability:** Resolves a critical threading SIGSEGV crash. `AlignedBuffer` guarantees that SIMD intrinsics perform safe aligned memory accesses without trapping on hardware boundaries.

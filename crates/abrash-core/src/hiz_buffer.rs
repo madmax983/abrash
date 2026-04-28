@@ -279,7 +279,10 @@ impl HiZBuffer {
             .expect("Hi-Z dimensions overflow");
 
         // WARDEN DEFENSE: Prevent capacity overflow panics
-        assert!(expected_len <= (isize::MAX as usize) / 4, "Hi-Z dimensions overflow: capacity exceeded");
+        assert!(
+            expected_len <= (isize::MAX as usize) / 4,
+            "Hi-Z dimensions overflow: capacity exceeded"
+        );
         assert!(
             depths.len() >= expected_len,
             "Depth slice too small for Hi-Z pyramid build"

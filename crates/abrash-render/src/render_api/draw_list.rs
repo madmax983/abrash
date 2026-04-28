@@ -131,9 +131,18 @@ impl DrawList {
         num_lights: usize,
     ) -> Self {
         // WARDEN DEFENSE: Prevent capacity overflow panics
-        assert!(num_lights <= (isize::MAX as usize) / std::mem::size_of::<Light>(), "capacity overflow");
-        assert!(num_vertices <= (isize::MAX as usize) / std::mem::size_of::<(Vec3, f32)>(), "capacity overflow");
-        assert!(num_commands <= (isize::MAX as usize) / std::mem::size_of::<DrawBatch>(), "capacity overflow");
+        assert!(
+            num_lights <= (isize::MAX as usize) / std::mem::size_of::<Light>(),
+            "capacity overflow"
+        );
+        assert!(
+            num_vertices <= (isize::MAX as usize) / std::mem::size_of::<(Vec3, f32)>(),
+            "capacity overflow"
+        );
+        assert!(
+            num_commands <= (isize::MAX as usize) / std::mem::size_of::<DrawBatch>(),
+            "capacity overflow"
+        );
 
         Self {
             camera,

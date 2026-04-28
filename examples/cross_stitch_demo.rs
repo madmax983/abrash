@@ -1,11 +1,11 @@
 #![cfg(feature = "backend-winit")]
 //! Demonstration of the Nova Cross-Stitch filter.
 
+use abrash::experimental::cross_stitch::{CrossStitchConfig, apply_cross_stitch};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
-use abrash::experimental::cross_stitch::{apply_cross_stitch, CrossStitchConfig};
 
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
@@ -44,7 +44,10 @@ fn print_banner() {
             Cell::new("Action").fg(Color::Cyan),
         ])
         .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
-        .add_row(vec![Cell::new("Keyboard"), Cell::new("Auto-animated colors")]);
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Auto-animated colors"),
+        ]);
     println!("{controls}\n");
 }
 
@@ -112,7 +115,11 @@ impl WindowApp for CrossStitchApp {
         Ok(())
     }
 
-    fn on_update(&mut self, _context: &mut WindowContext, delta_time: f32) -> Result<(), HostError> {
+    fn on_update(
+        &mut self,
+        _context: &mut WindowContext,
+        delta_time: f32,
+    ) -> Result<(), HostError> {
         self.time += delta_time;
 
         self.render_scene();
