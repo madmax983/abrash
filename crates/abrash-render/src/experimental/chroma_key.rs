@@ -72,7 +72,9 @@ pub fn smooth_chroma_key(
             .zip(bg_pixels.par_chunks_exact(bg_stride))
             .take(height)
             .for_each(|(fg_row, bg_row)| {
-                process_smooth_row(fg_row, bg_row, width, key_r, key_g, key_b, threshold, feather);
+                process_smooth_row(
+                    fg_row, bg_row, width, key_r, key_g, key_b, threshold, feather,
+                );
             });
     }
 
@@ -81,7 +83,9 @@ pub fn smooth_chroma_key(
         for y in 0..height {
             let fg_row = &mut fg_pixels[y * fg_stride..(y + 1) * fg_stride];
             let bg_row = &bg_pixels[y * bg_stride..(y + 1) * bg_stride];
-            process_smooth_row(fg_row, bg_row, width, key_r, key_g, key_b, threshold, feather);
+            process_smooth_row(
+                fg_row, bg_row, width, key_r, key_g, key_b, threshold, feather,
+            );
         }
     }
 }

@@ -55,40 +55,39 @@ pub fn apply_cross_stitch(fb: &mut Framebuffer, config: &CrossStitchConfig) {
         use rayon::prelude::*;
         let chunk_size = width * b_size;
 
-        pixels
-            .par_chunks_mut(chunk_size)
-            .for_each(|block_rows| {
-                let block_height = block_rows.len() / width;
-                if block_height == 0 {
-                    return;
-                }
+        pixels.par_chunks_mut(chunk_size).for_each(|block_rows| {
+            let block_height = block_rows.len() / width;
+            if block_height == 0 {
+                return;
+            }
 
-                // Temporary buffer to hold the rendered cell row
-                // We allocate a buffer for an entire row of cells (width * block_height)
-                let mut row_buffer = vec![config.canvas_color; width * block_height];
+            // Temporary buffer to hold the rendered cell row
+            // We allocate a buffer for an entire row of cells (width * block_height)
+            let mut row_buffer = vec![config.canvas_color; width * block_height];
 
-                for cx in (0..width).step_by(b_size) {
-                    let block_width = std::cmp::min(b_size, width - cx);
-                    // Sample color from upper-left pixel
-                    let sample_color = block_rows[cx];
+            for cx in (0..width).step_by(b_size) {
+                let block_width = std::cmp::min(b_size, width - cx);
+                // Sample color from upper-left pixel
+                let sample_color = block_rows[cx];
 
-                    // Render the cross stitch into the row_buffer
-                    for by in 0..block_height {
-                        for bx in 0..block_width {
-                            let diff_forward = (bx as isize - by as isize).abs();
-                            let diff_backward = (bx as isize - (b_size as isize - 1 - by as isize)).abs();
+                // Render the cross stitch into the row_buffer
+                for by in 0..block_height {
+                    for bx in 0..block_width {
+                        let diff_forward = (bx as isize - by as isize).abs();
+                        let diff_backward =
+                            (bx as isize - (b_size as isize - 1 - by as isize)).abs();
 
-                            // Simple 'X' shape
-                            if diff_forward <= 1 || diff_backward <= 1 {
-                                let target_idx = (by * width) + cx + bx;
-                                row_buffer[target_idx] = sample_color;
-                            }
+                        // Simple 'X' shape
+                        if diff_forward <= 1 || diff_backward <= 1 {
+                            let target_idx = (by * width) + cx + bx;
+                            row_buffer[target_idx] = sample_color;
                         }
                     }
                 }
+            }
 
-                block_rows.copy_from_slice(&row_buffer);
-            });
+            block_rows.copy_from_slice(&row_buffer);
+        });
     }
 
     #[cfg(not(feature = "parallel"))]
@@ -105,7 +104,8 @@ pub fn apply_cross_stitch(fb: &mut Framebuffer, config: &CrossStitchConfig) {
                     for bx in 0..block_width {
                         let target_idx = row_start + (by * width) + x + bx;
                         let diff_forward = (bx as isize - by as isize).abs();
-                        let diff_backward = (bx as isize - (b_size as isize - 1 - by as isize)).abs();
+                        let diff_backward =
+                            (bx as isize - (b_size as isize - 1 - by as isize)).abs();
 
                         if diff_forward <= 1 || diff_backward <= 1 {
                             pixels[target_idx] = sample_color;
@@ -128,7 +128,10 @@ mod tests {
         let mut fb = Framebuffer::new(8, 8).unwrap();
         fb.clear(0xFF_FF0000); // Red
 
-        let config = CrossStitchConfig { cell_size: 8, canvas_color: 0xFF_FFFFFF };
+        let config = CrossStitchConfig {
+            cell_size: 8,
+            canvas_color: 0xFF_FFFFFF,
+        };
         apply_cross_stitch(&mut fb, &config);
 
         // Check top-left (part of X)

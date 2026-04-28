@@ -162,7 +162,7 @@ unsafe impl<T> Sync for SendPtr<T> {}
 
 #[allow(dead_code)]
 struct AlignedBuffer<T> {
-    _data: Vec<T>,
+    data: Vec<T>,
     ptr: *mut T,
     len: usize,
 }
@@ -189,11 +189,27 @@ impl<T: Default + Copy> AlignedBuffer<T> {
 
         let ptr = unsafe { start_ptr.add(offset_elements) };
 
-        Self {
-            _data: data,
-            ptr,
-            len,
+        Self { data, ptr, len }
+    }
+
+    fn resize(&mut self, new_len: usize, default_value: T) {
+        if new_len > self.len {
+            let align_bytes = 32;
+            let elem_size = std::mem::size_of::<T>();
+            let extra_elements = (align_bytes + elem_size - 1) / elem_size;
+
+            // Only reallocate if underlying vector capacity isn't enough
+            if new_len + extra_elements > self.data.capacity() {
+                self.data.resize(new_len + extra_elements, default_value);
+
+                let start_ptr = self.data.as_mut_ptr();
+                let start_addr = start_ptr as usize;
+                let offset_bytes = (align_bytes - (start_addr % align_bytes)) % align_bytes;
+                let offset_elements = offset_bytes / elem_size;
+                self.ptr = unsafe { start_ptr.add(offset_elements) };
+            }
         }
+        self.len = new_len;
     }
 }
 
@@ -2102,7 +2118,7 @@ impl TileRenderer {
                             }
 
                             std::thread_local! {
-                                static TILE_BUFFER: std::cell::RefCell<(Vec<u32>, Vec<f32>)> = const { std::cell::RefCell::new((Vec::new(), Vec::new())) };
+                                static TILE_BUFFER: std::cell::RefCell<(AlignedBuffer<u32>, AlignedBuffer<f32>)> = std::cell::RefCell::new((AlignedBuffer::new(0), AlignedBuffer::new(0)));
                             }
                             TILE_BUFFER.with(|buf| {
                                 let mut buffers = buf.borrow_mut();

@@ -34,8 +34,7 @@ fn print_banner() {
         ])
         .add_row(vec![
             Cell::new("Description"),
-            Cell::new("Conway's Game of Life filter mapped onto the screen")
-                .fg(Color::Green),
+            Cell::new("Conway's Game of Life filter mapped onto the screen").fg(Color::Green),
         ]);
 
     println!("\n{}", "⚙️  Info".bold());
@@ -70,7 +69,6 @@ struct ConwayDemoApp {
 impl ConwayDemoApp {
     fn new() -> Result<Self, HostError> {
         let cube = Mesh::cube(1.0);
-
 
         Ok(Self {
             presenter: None,

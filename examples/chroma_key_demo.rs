@@ -1,14 +1,14 @@
-use abrash::framebuffer::Framebuffer;
-use abrash::texture::Texture;
 #[cfg(feature = "nova")]
 use abrash::experimental::chroma_key::smooth_chroma_key;
+use abrash::framebuffer::Framebuffer;
+use abrash::texture::Texture;
+use std::num::NonZeroU32;
+use std::sync::Arc;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
-use std::num::NonZeroU32;
-use std::sync::Arc;
 
 fn create_checkerboard_texture(width: u32, height: u32) -> Texture {
     let mut tex = Texture::new(width, height).unwrap();
