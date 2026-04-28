@@ -263,18 +263,24 @@ pub fn draw_rounded_rect(
         && (y + height as i32) <= fb.height() as i32;
 
     // Draw straight edges
-    if inner_w > 0 {
-        draw_horizontal_line(fb, cx_left, cx_right, y, color); // Top
-        draw_horizontal_line(fb, cx_left, cx_right, y + height as i32 - 1, color); // Bottom
-    }
-    if inner_h > 0 {
-        draw_line_2d_local(fb, IVec2::new(x, cy_top), IVec2::new(x, cy_bottom), color); // Left
-        draw_line_2d_local(
-            fb,
-            IVec2::new(x + width as i32 - 1, cy_top),
-            IVec2::new(x + width as i32 - 1, cy_bottom),
-            color,
-        ); // Right
+    if is_on_screen {
+        if inner_w > 0 {
+            draw_horizontal_line_unchecked(fb, cx_left, cx_right, y, color); // Top
+            draw_horizontal_line_unchecked(fb, cx_left, cx_right, y + height as i32 - 1, color); // Bottom
+        }
+        if inner_h > 0 {
+            draw_vertical_line_unchecked(fb, x, cy_top, cy_bottom, color); // Left
+            draw_vertical_line_unchecked(fb, x + width as i32 - 1, cy_top, cy_bottom, color); // Right
+        }
+    } else {
+        if inner_w > 0 {
+            draw_horizontal_line(fb, cx_left, cx_right, y, color); // Top
+            draw_horizontal_line(fb, cx_left, cx_right, y + height as i32 - 1, color); // Bottom
+        }
+        if inner_h > 0 {
+            draw_vertical_line(fb, x, cy_top, cy_bottom, color); // Left
+            draw_vertical_line(fb, x + width as i32 - 1, cy_top, cy_bottom, color); // Right
+        }
     }
 
     let mut cx = 0;
