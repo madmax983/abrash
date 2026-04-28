@@ -441,6 +441,19 @@ fn topological_sort_joints(joints: &[ProvisionalJointData]) -> Vec<usize> {
 
     // Build children lists
     let mut children: Vec<Vec<usize>> = vec![Vec::new(); n];
+    // ⚡ Bolt: Pre-allocate capacities for the `children` adjacency list.
+    // In typical glTF skeletons, most joints have 0, 1, or 2 children.
+    // We count the exact children per parent to eliminate heap reallocations.
+    let mut child_counts = vec![0; n];
+    for j in joints {
+        if let Some(parent) = j.parent_provisional {
+            child_counts[parent] += 1;
+        }
+    }
+    for i in 0..n {
+        children[i].reserve_exact(child_counts[i]);
+    }
+
     for (i, j) in joints.iter().enumerate() {
         if let Some(parent) = j.parent_provisional {
             children[parent].push(i);

@@ -89,6 +89,10 @@
 **2025-04-27 - Revert Framebuffer clear_rect optimization**
 **Learning:** Benchmarks revealed that explicit index calculations with `unsafe { get_unchecked_mut() }` are actually slower than standard safe iterator-based chunking (`.chunks_exact_mut()`) for 2D region fills.
 **Action:** Reverted `Framebuffer::clear_rect` to use `chunks_exact_mut`, adhering to TDD benchmark results over speculative unsafe optimizations.
+
+**[Pre-allocate Tree Adjacency Lists]**
+**Learning:** When building tree adjacency lists or multi-dimensional collections (like `Vec<Vec<usize>>`), initializing inner vectors with `Vec::new()` and dynamically pushing elements causes multiple heap reallocations.
+**Action:** Perform an initial pass to count the exact number of elements per inner vector and use `.reserve_exact()` to safely eliminate these intermediate allocations.
 **[foldhash Optimization]**
 **Learning:** When using `foldhash::HashMap` as a faster drop-in replacement for `std::collections::HashMap`, remember to also import `foldhash::HashMapExt` (e.g., `use foldhash::{HashMap, HashMapExt};`) to retain access to essential associated functions like `with_capacity()`. Also, replacing the standard `std::collections::HashMap` (which defaults to SipHash) with a fast, non-cryptographic alternative like `foldhash::HashMap` for small integer keys (e.g., `usize` node indices in parsing logic) safely and measurably eliminates hashing overhead.
 **Action:** Include `HashMapExt` when importing `foldhash::HashMap` and apply `foldhash` when the hash keys are primitive integers where HashDoS is not a concern.
