@@ -399,6 +399,23 @@ impl CpuRenderer {
         Ok(to_texture_handle(self.textures.insert(texture.clone())))
     }
 
+    /// Update an existing texture to prevent dropping and recreating it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::StaleHandle`] if the texture handle is invalid.
+    pub fn update_texture(&mut self, handle: TextureHandle, texture: &Texture) -> Result<(), RenderError> {
+        let cpu_tex = self
+            .textures
+            .get_mut(from_texture_handle(handle))
+            .ok_or(RenderError::StaleHandle("texture"))?;
+
+        // ⚡ Bolt: Use `clone_from` instead of `clone()` to reuse the destination Texture's pre-allocated
+        // Vec capacities, entirely eliminating O(N) heap deallocations and re-allocations per update.
+        cpu_tex.clone_from(texture);
+        Ok(())
+    }
+
     /// Upload a texture taking ownership of the data, preventing a `clone()`.
     ///
     /// # Errors
@@ -751,6 +768,17 @@ mod tests {
     }
 
     #[test]
+    fn test_update_texture() {
+        let mut renderer = CpuRenderer::new(100, 100);
+        let tex = Texture::new(2, 2).unwrap();
+        let handle = renderer.create_texture(&tex).unwrap();
+
+        let mut tex2 = Texture::new(2, 2).unwrap();
+        tex2.set_pixel(0, 0, 0xFF00FF00);
+        let result = renderer.update_texture(handle, &tex2);
+        assert!(result.is_ok());
+    }
+
     fn test_destroy_texture() {
         let mut renderer = CpuRenderer::new(100, 100);
         let tex = Texture::new(2, 2).unwrap();

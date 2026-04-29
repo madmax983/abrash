@@ -1,6 +1,0 @@
-🎻 Bard: [documentation update]
-
-📖 Chapter: `render_api` (specifically `frame.rs` and `draw_list.rs`).
-🔦 Insight: Explained the exact purpose and internal use cases of `with_capacity`, `draw`, `add_light`, `push`, `clear`, and `triangle_count` functions. Removed vague/missing descriptions.
-🧪 Example: Added 7 fully executable doctests ensuring users have copy-pasteable examples of API usage.
-🖼️ Preview: All `cargo doc` outputs look fantastic and all `/// # Examples` have been validated via `cargo test`.
