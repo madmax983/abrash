@@ -902,3 +902,13 @@ required-features = ["nova"]
 name = "speed_lines_hypot_bench"
 harness = false
 required-features = ["nova"]
+
+[[example]]
+name = "mosaic_demo"
+path = "examples/mosaic_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "mosaic_bench"
+harness = false
+required-features = ["nova"]
