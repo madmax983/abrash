@@ -1,3 +1,4 @@
+//! Edge-case bounds testing for the Gouraud Rasterizer.
 use crate::rasterizer::gouraud::draw_scanline_gouraud_simd_fast;
 
 #[test]

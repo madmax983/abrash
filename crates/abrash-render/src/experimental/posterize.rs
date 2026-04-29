@@ -1,3 +1,9 @@
+//! Posterization processing for color quantization.
+//!
+//! This module provides the [`apply_posterize`] function, which reduces the number
+//! of distinct colors in a [`Framebuffer`] to create a "poster-like" visual effect,
+//! commonly used in stylistic and retro rendering pipelines.
+
 use crate::framebuffer::Framebuffer;
 
 /// Configuration for the Posterize effect.
@@ -15,6 +21,29 @@ impl Default for PosterizeConfig {
 }
 
 /// Applies a posterize effect to the given framebuffer in-place.
+///
+/// Reduces each RGB color channel to a discrete set of steps based on `config.levels`.
+/// The alpha channel is preserved.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::experimental::posterize::{apply_posterize, PosterizeConfig};
+///
+/// let mut fb = Framebuffer::new(2, 1).unwrap();
+/// // Setup a smooth gradient
+/// fb.set_pixel(0, 0, 0xFF_6E6E6E); // Gray 110
+/// fb.set_pixel(1, 0, 0xFF_787878); // Gray 120
+///
+/// // Quantize the image to only 4 levels per channel (e.g., 0, 85, 170, 255)
+/// let config = PosterizeConfig { levels: 4.0 };
+/// apply_posterize(&mut fb, &config);
+///
+/// // Both slightly different grays are snapped to the exact same quantization level (85 / 0x55)
+/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFF_555555);
+/// assert_eq!(fb.get_pixel(1, 0).unwrap(), 0xFF_555555);
+/// ```
 pub fn apply_posterize(fb: &mut Framebuffer, config: &PosterizeConfig) {
     let levels = config.levels.max(2.0); // Minimum of 2 levels
     let levels_minus_1 = levels - 1.0;

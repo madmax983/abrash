@@ -1,7 +1,47 @@
+//! Chroma Key processing for background replacement.
+//!
+//! This module provides functions to composite a foreground [`Framebuffer`] over a
+//! background [`Framebuffer`] by removing a specific "key color" (often green or blue).
+//! This simulates a "green screen" effect in software rendering.
+//!
+//! Both an exact match algorithm ([`apply_chroma_key`]) and a soft-edge blending
+//! algorithm ([`smooth_chroma_key`]) are provided.
+
 use abrash_core::framebuffer::Framebuffer;
 
 /// Replaces pixels in the foreground framebuffer that exactly match the key color
 /// with the corresponding pixels from the background framebuffer.
+///
+/// This performs a hard replacement. If the pixel color in `fg` is exactly `key_color`,
+/// it is overwritten by the pixel at the same coordinates in `bg`.
+///
+/// If the framebuffers are of different sizes, the operation is limited to the
+/// overlapping minimum width and height of the two buffers.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::experimental::chroma_key::apply_chroma_key;
+///
+/// let mut fg = Framebuffer::new(2, 2).unwrap();
+/// let mut bg = Framebuffer::new(2, 2).unwrap();
+///
+/// // Setup background (e.g., a white wall)
+/// bg.clear(0xFF_FFFFFF);
+///
+/// // Setup foreground with a green screen (0xFF_00FF00) and a red actor
+/// fg.set_pixel(0, 0, 0xFF_00FF00); // Green
+/// fg.set_pixel(1, 0, 0xFF_FF0000); // Red
+///
+/// // Apply the exact match chroma key
+/// apply_chroma_key(&mut fg, &bg, 0xFF_00FF00);
+///
+/// // The green pixel is replaced by the white background
+/// assert_eq!(fg.get_pixel(0, 0).unwrap(), 0xFF_FFFFFF);
+/// // The red pixel remains unchanged
+/// assert_eq!(fg.get_pixel(1, 0).unwrap(), 0xFF_FF0000);
+/// ```
 pub fn apply_chroma_key(fg: &mut Framebuffer, bg: &Framebuffer, key_color: u32) {
     let width = fg.width().min(bg.width()) as usize;
     let height = fg.height().min(bg.height()) as usize;
@@ -43,8 +83,48 @@ pub fn apply_chroma_key(fg: &mut Framebuffer, bg: &Framebuffer, key_color: u32) 
 
 /// Composites the foreground over the background using a smooth chroma key algorithm.
 ///
-/// Pixels within `threshold` distance from `key_color` are fully replaced.
-/// Pixels between `threshold` and `threshold + feather` are alpha blended.
+/// Unlike [`apply_chroma_key`], this function calculates the Euclidean distance in RGB
+/// color space between the foreground pixel and the `key_color`.
+///
+/// - Pixels within `threshold` distance from `key_color` are fully replaced by the background.
+/// - Pixels between `threshold` and `threshold + feather` are smoothly alpha blended,
+///   reducing hard jagged edges on the subject.
+/// - Pixels beyond `threshold + feather` remain untouched.
+///
+/// If the framebuffers are of different sizes, the operation is limited to the
+/// overlapping minimum width and height of the two buffers.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::experimental::chroma_key::smooth_chroma_key;
+///
+/// let mut fg = Framebuffer::new(2, 2).unwrap();
+/// let mut bg = Framebuffer::new(2, 2).unwrap();
+///
+/// // Background is pure white
+/// bg.clear(0xFF_FFFFFF);
+///
+/// // Foreground has a pure green pixel, a slightly dark green pixel, and a red pixel
+/// fg.set_pixel(0, 0, 0xFF_00FF00); // Pure Green (Exact match)
+/// fg.set_pixel(1, 0, 0xFF_00AA00); // Dark Green (Will be feathered)
+/// fg.set_pixel(0, 1, 0xFF_FF0000); // Red (Untouched)
+///
+/// // Apply soft chroma key (Threshold = 20.0, Feather = 100.0)
+/// smooth_chroma_key(&mut fg, &bg, 0xFF_00FF00, 20.0, 100.0);
+///
+/// // The exact green match is fully replaced with white
+/// assert_eq!(fg.get_pixel(0, 0).unwrap(), 0xFF_FFFFFF);
+///
+/// // The dark green is partially blended with white
+/// let blended = fg.get_pixel(1, 0).unwrap();
+/// assert_ne!(blended, 0xFF_00AA00); // Changed
+/// assert_ne!(blended, 0xFF_FFFFFF); // But not fully white
+///
+/// // The red pixel is untouched
+/// assert_eq!(fg.get_pixel(0, 1).unwrap(), 0xFF_FF0000);
+/// ```
 pub fn smooth_chroma_key(
     fg: &mut Framebuffer,
     bg: &Framebuffer,

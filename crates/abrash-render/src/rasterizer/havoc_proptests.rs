@@ -1,3 +1,4 @@
+//! Direct fuzzing and bounds testing for the Rasterizer using proptest.
 use crate::rasterizer::texture::draw_span_nearest_simd;
 use abrash_core::texture::Texture;
 use proptest::prelude::*;
