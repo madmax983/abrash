@@ -212,9 +212,8 @@ mod winit_demo {
         mesh: Mesh,
         normals: Vec<Vec3>,
         source_name: String,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) {
         run_windowed(ObjViewerApp::new(mesh, normals, source_name).unwrap());
-        Ok(())
     }
 
     struct ObjViewerApp {
@@ -534,7 +533,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         #[cfg(feature = "backend-winit")]
         {
-            return winit_demo::run(mesh, normals, source_name);
+            winit_demo::run(mesh, normals, source_name); return Ok(());
         }
 
         #[cfg(all(not(feature = "backend-winit"), not(feature = "backend-tui")))]

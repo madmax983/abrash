@@ -85,7 +85,7 @@ fn main() {
         }
     }
 
-    let mut fg = create_green_screen_fg(width, height);
+    let fg = create_green_screen_fg(width, height);
 
     // Apply smooth chroma key
     // Key color: Pure green (0xFF_00FF00)

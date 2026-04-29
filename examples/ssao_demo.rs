@@ -296,8 +296,7 @@ impl WindowApp for SsaoDemoApp {
     }
 }
 
-fn main() -> Result<(), AppError> {
+fn main() {
     print_banner();
     run_windowed(SsaoDemoApp::new().unwrap());
-    Ok(())
 }

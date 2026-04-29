@@ -7,7 +7,7 @@ use criterion::black_box;
 use criterion::{Criterion, criterion_group, criterion_main};
 
 #[cfg(feature = "nova")]
-fn bench_radial_blur(c: &mut Criterion) {
+const fn bench_radial_blur(c: &mut Criterion) {
     let mut fb = Framebuffer::new(1024, 1024).unwrap();
 
     // Fill with a checkerboard pattern
@@ -58,7 +58,7 @@ fn bench_radial_blur(c: &mut Criterion) {
 criterion_group!(benches, bench_radial_blur);
 
 #[cfg(not(feature = "nova"))]
-fn bench_radial_blur(_c: &mut Criterion) {}
+const fn bench_radial_blur(_c: &mut Criterion) {}
 
 #[cfg(not(feature = "nova"))]
 criterion_group!(benches, bench_radial_blur);

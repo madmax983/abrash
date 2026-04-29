@@ -4,7 +4,7 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn apply_solarize_branchless(fb: &mut Framebuffer, threshold: u8) {
     let pixels = fb.as_mut_slice();
-    let th = threshold as i32;
+    let th = i32::from(threshold);
     for pixel in pixels.iter_mut() {
         let p = *pixel;
         let a = p & 0xFF00_0000;
@@ -53,7 +53,7 @@ pub fn apply_solarize_simd_avx2(pixels: &mut [u32], threshold: u8) {
 
             // Tail
             let tail_slice = &mut pixels[simd_len..];
-            let th = threshold as i32;
+            let th = i32::from(threshold);
             for pixel in tail_slice.iter_mut() {
                 let p = *pixel;
                 let a = p & 0xFF00_0000;
@@ -72,7 +72,7 @@ pub fn apply_solarize_simd_avx2(pixels: &mut [u32], threshold: u8) {
     }
 
     // Fallback
-    let th = threshold as i32;
+    let th = i32::from(threshold);
     for pixel in pixels.iter_mut() {
         let p = *pixel;
         let a = p & 0xFF00_0000;
@@ -97,19 +97,19 @@ fn benchmark_solarize(c: &mut Criterion) {
     c.bench_function("solarize", |b| {
         b.iter(|| {
             apply_solarize(black_box(&mut fb), black_box(127));
-        })
+        });
     });
 
     c.bench_function("solarize_branchless", |b| {
         b.iter(|| {
             apply_solarize_branchless(black_box(&mut fb), black_box(127));
-        })
+        });
     });
 
     c.bench_function("solarize_simd_avx2", |b| {
         b.iter(|| {
             apply_solarize_simd_avx2(black_box(fb.as_mut_slice()), black_box(127));
-        })
+        });
     });
 }
 

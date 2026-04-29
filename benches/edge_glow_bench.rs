@@ -42,7 +42,7 @@ fn edge_glow_benchmark(c: &mut Criterion) {
 criterion_group!(benches, edge_glow_benchmark);
 
 #[cfg(not(feature = "nova"))]
-fn edge_glow_benchmark(c: &mut Criterion) {}
+const fn edge_glow_benchmark(_c: &Criterion) {}
 
 #[cfg(not(feature = "nova"))]
 criterion_group!(benches, edge_glow_benchmark);
