@@ -399,6 +399,27 @@ impl CpuRenderer {
         Ok(to_texture_handle(self.textures.insert(texture.clone())))
     }
 
+    /// Update an existing texture resource with new data.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::StaleHandle`] if the handle is invalid.
+    pub fn update_texture(
+        &mut self,
+        handle: TextureHandle,
+        texture: &Texture,
+    ) -> Result<(), RenderError> {
+        let cpu_texture = self
+            .textures
+            .get_mut(from_texture_handle(handle))
+            .ok_or(RenderError::StaleHandle("texture"))?;
+
+        // ⚡ Bolt: Use `clone_from` instead of `clone()` to reuse the destination Texture's pre-allocated
+        // Vec capacities, entirely eliminating O(N) heap deallocations and re-allocations per update.
+        cpu_texture.clone_from(texture);
+        Ok(())
+    }
+
     /// Upload a texture taking ownership of the data, preventing a `clone()`.
     ///
     /// # Errors
@@ -415,6 +436,25 @@ impl CpuRenderer {
     /// Returns [`RenderError::Internal`] if the material cannot be registered.
     pub fn create_material(&mut self, material: Material) -> Result<MaterialHandle, RenderError> {
         Ok(to_material_handle(self.materials.insert(material)))
+    }
+
+    /// Update an existing material resource.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::StaleHandle`] if the handle is invalid.
+    pub fn update_material(
+        &mut self,
+        handle: MaterialHandle,
+        material: Material,
+    ) -> Result<(), RenderError> {
+        let cpu_material = self
+            .materials
+            .get_mut(from_material_handle(handle))
+            .ok_or(RenderError::StaleHandle("material"))?;
+
+        *cpu_material = material;
+        Ok(())
     }
 
     /// Render a frame into caller-owned buffers.
