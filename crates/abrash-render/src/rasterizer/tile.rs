@@ -1687,7 +1687,7 @@ impl TileRenderer {
         let _ = u64::from(width)
             .checked_mul(u64::from(height))
             .filter(|&s| u32::try_from(s).is_ok())
-            .expect("capacity overflow");
+            .expect("TileRenderer dimensions overflow");
 
         let tiles_x = width.div_ceil(TILE_SIZE);
         let tiles_y = height.div_ceil(TILE_SIZE);
@@ -4076,7 +4076,7 @@ mod tests {
     // --- Step 1: Infrastructure + prepare ---
 
     #[test]
-    #[should_panic(expected = "capacity overflow")]
+    #[should_panic(expected = "TileRenderer dimensions overflow")]
     fn new_panics_on_dimensions_overflow() {
         let _ = TileRenderer::new(u32::MAX, u32::MAX);
     }
