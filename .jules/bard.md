@@ -7,3 +7,6 @@
 ## 2024-05-12 - [Line Rendering Documentation]
 **Confusion:** The `rasterizer::line` module had no high-level explanation of how 3D lines interact with the Z-buffer and frustum, causing users to mistakenly try using it for 2D UI overlays, leading to projection panics.
 **Clarification:** Added `//!` module documentation to `rasterizer::line` to explain the 3D pipeline constraints. Added executable doctests to `draw_line_3d` and `fill_triangle_wireframe` demonstrating proper Homogeneous Clip Space (W=1.0) setups.
+## 2024-05-13 - [Procedural Texture Documentation]
+**Confusion:** The `procedural` module lacked copy-pasteable doctests, leaving users confused about how to use its texture generation functions.
+**Clarification:** Added executable examples demonstrating how to use `xor_pattern`, `grid_pattern`, `white_noise`, and `plasma` to generate and verify textures.
