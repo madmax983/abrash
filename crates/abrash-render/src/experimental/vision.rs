@@ -266,7 +266,8 @@ mod tests {
         let center_x = width * 0.5;
         let center_y = height * 0.5;
 
-        let max_radius = center_x.hypot(center_y);
+        #[allow(clippy::imprecise_flops)]
+        let max_radius = (center_x * center_x + center_y * center_y).sqrt();
         let max_radius_sq = center_x.mul_add(center_x, center_y * center_y);
 
         // Pick an arbitrary coordinate
@@ -277,7 +278,8 @@ mod tests {
         let dy = y - center_y;
 
         // Old implementation
-        let dist = dx.hypot(dy);
+        #[allow(clippy::imprecise_flops)]
+        let dist = (dx * dx + dy * dy).sqrt();
         let expected_vignette = (1.0 - (dist / max_radius).powi(2)).max(0.0);
 
         // Optimized implementation
