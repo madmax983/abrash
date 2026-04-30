@@ -611,6 +611,129 @@ impl Texture {
     }
 }
 
+/// Sample a `Texture` at a specific Gaussian pyramid level without trilinear interpolation.
+///
+/// `level=0` returns a bilinear sample of the base-resolution pixel buffer.
+/// `level=k` (k ≥ 1) returns a bilinear sample of `mips[k-1]`, clamped to the deepest available mip.
+#[inline]
+fn sample_at_level(tex: &Texture, u: f32, v: f32, level: usize) -> [f32; 4] {
+    let raw = if level == 0 || tex.mips.is_empty() {
+        tex.get_pixel_bilinear(u, v)
+    } else {
+        let mip_idx = (level - 1).min(tex.mips.len() - 1);
+        tex.sample_mip(u, v, mip_idx)
+    };
+    [
+        ((raw >> 24) & 0xFF) as f32,
+        ((raw >> 16) & 0xFF) as f32,
+        ((raw >> 8) & 0xFF) as f32,
+        (raw & 0xFF) as f32,
+    ]
+}
+
+/// Pack `[A, R, G, B]` f32 channels (each nominally in `[0, 255]`) into a packed `0xAARRGGBB` u32.
+/// Values are clamped before conversion to handle Laplacian overshoot.
+#[inline]
+fn pack_argb_f32(ch: [f32; 4]) -> u32 {
+    let a = ch[0].clamp(0.0, 255.0) as u32;
+    let r = ch[1].clamp(0.0, 255.0) as u32;
+    let g = ch[2].clamp(0.0, 255.0) as u32;
+    let b = ch[3].clamp(0.0, 255.0) as u32;
+    (a << 24) | (r << 16) | (g << 8) | b
+}
+
+/// Blend two textures using Laplacian pyramid blending.
+///
+/// Implements the CPU adaptation of the algorithm from
+/// "GPU-Friendly Laplacian Texture Blending" (JCGT Vol. 14, No. 1, 2025).
+///
+/// Each texture is decomposed into Laplacian pyramid levels by subtracting
+/// consecutive Gaussian (mip) levels. Each Laplacian level is blended with
+/// a level-matched Gaussian of the mask, distributing variance loss over
+/// different spatial frequencies. This preserves sharp local features while
+/// avoiding visible seams or contrast loss at blend boundaries.
+///
+/// Both `tex0`/`tex1` and `mask` should have mipmaps generated via
+/// [`Texture::generate_mipmaps`] before calling this function.
+///
+/// # Parameters
+///
+/// - `tex0`, `tex1` — Textures to blend.
+/// - `mask` — Blend mask; red channel 0 = fully `tex0`, 255 = fully `tex1`.
+/// - `u`, `v` — Normalized UV coordinates in `[0.0, 1.0]`.
+/// - `num_levels` — Number of Laplacian levels (3–4 recommended; 0 degenerates to linear blend).
+/// - `base_lod` — Starting mip LOD for minification support (0.0 = full resolution).
+///   Per §6.1, the effective level count is reduced by `floor(base_lod)` when minified.
+///
+/// # Returns
+///
+/// Blended color as `0xAARRGGBB`, clamped to valid range.
+pub fn laplacian_blend_textures(
+    tex0: &Texture,
+    tex1: &Texture,
+    mask: &Texture,
+    u: f32,
+    v: f32,
+    num_levels: usize,
+    base_lod: f32,
+) -> u32 {
+    let base = base_lod.max(0.0).floor() as usize;
+    // §6.1: effective Laplacian levels = max(NUM_LEVELS − k, 0)
+    let effective_levels = num_levels.saturating_sub(base);
+
+    let mut acc = [0.0f32; 4]; // [A, R, G, B] accumulator
+
+    for i in 0..effective_levels {
+        let level_lo = base + i;
+        let level_hi = level_lo + 1;
+
+        let g0_lo = sample_at_level(tex0, u, v, level_lo);
+        let g0_hi = sample_at_level(tex0, u, v, level_hi);
+        let g1_lo = sample_at_level(tex1, u, v, level_lo);
+        let g1_hi = sample_at_level(tex1, u, v, level_hi);
+
+        // Laplacian_k = Gaussian_k − Gaussian_(k+1)  (Eq. 11 approximation)
+        let lap0 = [
+            g0_lo[0] - g0_hi[0],
+            g0_lo[1] - g0_hi[1],
+            g0_lo[2] - g0_hi[2],
+            g0_lo[3] - g0_hi[3],
+        ];
+        let lap1 = [
+            g1_lo[0] - g1_hi[0],
+            g1_lo[1] - g1_hi[1],
+            g1_lo[2] - g1_hi[2],
+            g1_lo[3] - g1_hi[3],
+        ];
+
+        // Mask at the same Gaussian level — R channel as blend weight ∈ [0, 1]
+        let m_raw = sample_at_level(mask, u, v, level_lo);
+        let m = m_raw[1] / 255.0;
+        let inv_m = 1.0 - m;
+
+        // Blend Laplacian levels and accumulate (Eq. 3)
+        acc[0] += lap0[0] * inv_m + lap1[0] * m;
+        acc[1] += lap0[1] * inv_m + lap1[1] * m;
+        acc[2] += lap0[2] * inv_m + lap1[2] * m;
+        acc[3] += lap0[3] * inv_m + lap1[3] * m;
+    }
+
+    // Lowest-frequency Gaussian level (coarsest mip)
+    let gauss_level = base + effective_levels;
+    let g0 = sample_at_level(tex0, u, v, gauss_level);
+    let g1 = sample_at_level(tex1, u, v, gauss_level);
+    let m_raw = sample_at_level(mask, u, v, gauss_level);
+    let m = m_raw[1] / 255.0;
+    let inv_m = 1.0 - m;
+
+    acc[0] += g0[0] * inv_m + g1[0] * m;
+    acc[1] += g0[1] * inv_m + g1[1] * m;
+    acc[2] += g0[2] * inv_m + g1[2] * m;
+    acc[3] += g0[3] * inv_m + g1[3] * m;
+
+    pack_argb_f32(acc)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -68,6 +68,22 @@ pub enum ShadingMode {
         /// 1.0/1.33 ≈ 0.752 for water in air).
         ior: f32,
     },
+    /// Two-texture Laplacian pyramid blend.
+    ///
+    /// Implements the algorithm from "GPU-Friendly Laplacian Texture Blending"
+    /// (JCGT Vol. 14, No. 1, 2025). Avoids contrast loss and ghosting at blend
+    /// boundaries by blending each frequency band of the textures separately,
+    /// using the same-frequency Gaussian of the blend mask as the blending weight.
+    LaplacianBlend {
+        /// Primary texture (selected when mask red channel = 0).
+        tex0: TextureHandle,
+        /// Secondary texture (selected when mask red channel = 255).
+        tex1: TextureHandle,
+        /// Blend mask texture; red channel controls the transition.
+        mask: TextureHandle,
+        /// Number of Laplacian pyramid levels (3–4 recommended).
+        num_levels: usize,
+    },
 }
 
 /// A material definition combining shading mode with rendering properties.

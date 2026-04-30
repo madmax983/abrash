@@ -89,8 +89,8 @@ pub use self::reflection::fill_triangle_reflection;
 pub use self::texture::{
     PerspectiveSpanStart, PerspectiveTextureGradients, TexturedGouraudGradients,
     TexturedGouraudSpanStart, draw_scanline_textured_gouraud, draw_scanline_textured_perspective,
-    fill_quad_textured, fill_triangle_normal_mapped, fill_triangle_textured,
-    fill_triangle_textured_gouraud,
+    fill_quad_textured, fill_triangle_laplacian_blend, fill_triangle_normal_mapped,
+    fill_triangle_textured, fill_triangle_textured_gouraud,
 };
 pub use self::tile::{
     ClipTriangle, TexturedClipTriangle, TileRenderer, should_use_tiled_rendering,
