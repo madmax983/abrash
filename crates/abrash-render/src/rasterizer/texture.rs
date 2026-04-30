@@ -290,7 +290,7 @@ pub(crate) fn draw_span_nearest(
     assert!(tex_pixels.len() >= (tex_w as usize) * (tex_h as usize));
 
     // Optimization: Check if the entire span is within texture bounds to avoid per-pixel checks.
-    let len = fb_slice.len() as i32;
+    let len = fb_slice.len().min(zb_slice.len()) as i32;
     let can_use_fast_path = if len > 0 {
         // Calculate range of u_fix and v_fix using i64 to prevent wrap-around bypassing bounds checks.
         let u_start_64 = i64::from(u_fix);
@@ -420,7 +420,7 @@ pub(crate) fn draw_span_bilinear(
     let tex_w_usize = tex_w as usize;
 
     // Optimization: Check if the entire span is within texture bounds to avoid per-pixel checks.
-    let len = fb_slice.len() as i32;
+    let len = fb_slice.len().min(zb_slice.len()) as i32;
     let can_use_fast_path = if len > 0 {
         // Calculate range of u_fix and v_fix using i64 to prevent wrap-around bypassing bounds checks.
         let u_start_64 = i64::from(u_fix);
