@@ -6,7 +6,6 @@ use proptest::prelude::*;
 
 proptest! {
     #[test]
-#[ignore = "👹 Havoc: ..."]
     fn havoc_line_3d_overflow(
         v0_x in any::<f32>(), v0_y in any::<f32>(), v0_z in any::<f32>(), v0_w in any::<f32>(),
         v1_x in any::<f32>(), v1_y in any::<f32>(), v1_z in any::<f32>(), v1_w in any::<f32>(),
