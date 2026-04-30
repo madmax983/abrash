@@ -113,3 +113,7 @@
 **[f32::hypot() Bottleneck in Per-Pixel Loops]**
 **Learning:** In hot inner loops (like per-pixel post-processing), calculating magnitude using `f32::hypot()` is a severe bottleneck due to internal overflow/underflow checks.
 **Action:** When coordinates are bounded (e.g., screen space or color values), replace `dx.hypot(dy)` with `(dx * dx + dy * dy).sqrt()` and explicitly suppress the resulting `clippy::imprecise_flops` warning using `#[allow(clippy::imprecise_flops)]`.
+
+**[Strict Bounds Pre-Allocation]**
+**Learning:** When pre-allocating or extending vectors where the exact required capacity or number of appended elements is known (e.g., transforming a slice of points), using `.reserve_exact()` instead of `.reserve()` bypasses standard overallocation heuristics, safely preventing unnecessary memory footprint growth for large arrays without causing performance regressions.
+**Action:** Replace `.reserve(x.len())` with `.reserve_exact(x.len())` on vectors mapped from identically sized slices.
