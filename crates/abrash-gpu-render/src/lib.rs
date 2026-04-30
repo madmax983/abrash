@@ -110,6 +110,8 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 
 /// A GPU-ready vertex with position and linear color.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[repr(C)]
+#[derive(bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GpuVertex {
     pub position: [f32; 3],
     pub color: [f32; 3],
@@ -478,14 +480,7 @@ pub fn unit_cube_mesh() -> (Vec<GpuVertex>, Vec<u16>) {
     (vertices, indices)
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
-struct VertexRaw {
-    position: [f32; 3],
-    color: [f32; 3],
-}
-
-impl VertexRaw {
+impl GpuVertex {
     const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
         wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
 
@@ -566,7 +561,7 @@ impl GpuMeshApp {
 
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
-                label: Some("GPU Cube Device"),
+                label: Some("GPU Cube Device "),
                 required_features: wgpu::Features::empty(),
                 required_limits: wgpu::Limits::default(),
                 memory_hints: wgpu::MemoryHints::default(),
@@ -605,7 +600,7 @@ impl GpuMeshApp {
         surface.configure(&device, &surface_config);
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("GPU Cube Shader"),
+            label: Some("GPU Cube Shader "),
             source: wgpu::ShaderSource::Wgsl(SHADER_SRC.into()),
         });
 
@@ -618,13 +613,13 @@ impl GpuMeshApp {
         };
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Scene Uniform Buffer"),
+            label: Some("Scene Uniform Buffer "),
             contents: bytemuck::bytes_of(&uniform),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
         let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Scene Uniform Layout"),
+            label: Some("Scene Uniform Layout "),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::VERTEX,
@@ -638,7 +633,7 @@ impl GpuMeshApp {
         });
 
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Scene Uniform Bind Group"),
+            label: Some("Scene Uniform Bind Group "),
             layout: &uniform_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
@@ -647,18 +642,18 @@ impl GpuMeshApp {
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("GPU Cube Pipeline Layout"),
+            label: Some("GPU Cube Pipeline Layout "),
             bind_group_layouts: &[Some(&uniform_layout)],
             immediate_size: 0,
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("GPU Cube Pipeline"),
+            label: Some("GPU Cube Pipeline "),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[VertexRaw::layout()],
+                buffers: &[GpuVertex::layout()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             primitive: wgpu::PrimitiveState {
@@ -692,22 +687,15 @@ impl GpuMeshApp {
             cache: None,
         });
 
-        let raw_vertices: Vec<VertexRaw> = vertices
-            .iter()
-            .map(|v| VertexRaw {
-                position: v.position,
-                color: v.color,
-            })
-            .collect();
-
+        // ⚡ Bolt: Eliminate O(N) intermediate heap allocation by using bytemuck to directly cast GpuVertex slice to bytes
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Cube Vertex Buffer"),
-            contents: bytemuck::cast_slice(&raw_vertices),
+            label: Some("Cube Vertex Buffer  "),
+            contents: bytemuck::cast_slice(&vertices),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Cube Index Buffer"),
+            label: Some("Cube Index Buffer "),
             contents: bytemuck::cast_slice(&indices),
             usage: wgpu::BufferUsages::INDEX,
         });
@@ -746,7 +734,7 @@ impl GpuMeshApp {
         config: &wgpu::SurfaceConfiguration,
     ) -> (wgpu::Texture, wgpu::TextureView) {
         let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Depth Texture"),
+            label: Some("Depth Texture "),
             size: wgpu::Extent3d {
                 width: config.width.max(1),
                 height: config.height.max(1),
@@ -812,12 +800,12 @@ impl GpuMeshApp {
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("GPU Cube Encoder"),
+                label: Some("GPU Cube Encoder "),
             });
 
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("GPU Cube Render Pass"),
+                label: Some("GPU Cube Render Pass "),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
@@ -1018,7 +1006,7 @@ impl GpuOffscreenBench {
         .map_err(|e| format!("No suitable GPU adapter found for offscreen benchmark: {e:?}"))?;
 
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("Offscreen GPU Bench Device"),
+            label: Some("Offscreen GPU Bench Device "),
             required_features: wgpu::Features::empty(),
             required_limits: wgpu::Limits::default(),
             memory_hints: wgpu::MemoryHints::default(),
@@ -1029,7 +1017,7 @@ impl GpuOffscreenBench {
         .map_err(|e| format!("Failed to create offscreen benchmark device: {e}"))?;
 
         let color_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Offscreen Bench Color"),
+            label: Some("Offscreen Bench Color "),
             size: wgpu::Extent3d {
                 width: config.width,
                 height: config.height,
@@ -1045,7 +1033,7 @@ impl GpuOffscreenBench {
         let color_view = color_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Offscreen Bench Depth"),
+            label: Some("Offscreen Bench Depth "),
             size: wgpu::Extent3d {
                 width: config.width,
                 height: config.height,
@@ -1061,7 +1049,7 @@ impl GpuOffscreenBench {
         let depth_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Offscreen GPU Bench Shader"),
+            label: Some("Offscreen GPU Bench Shader "),
             source: wgpu::ShaderSource::Wgsl(SHADER_SRC.into()),
         });
 
@@ -1073,13 +1061,13 @@ impl GpuOffscreenBench {
         };
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Offscreen Bench Uniform Buffer"),
+            label: Some("Offscreen Bench Uniform Buffer "),
             contents: bytemuck::bytes_of(&uniform),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
         let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Offscreen Bench Uniform Layout"),
+            label: Some("Offscreen Bench Uniform Layout "),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::VERTEX,
@@ -1093,7 +1081,7 @@ impl GpuOffscreenBench {
         });
 
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Offscreen Bench Uniform Bind Group"),
+            label: Some("Offscreen Bench Uniform Bind Group "),
             layout: &uniform_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
@@ -1102,18 +1090,18 @@ impl GpuOffscreenBench {
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Offscreen Bench Pipeline Layout"),
+            label: Some("Offscreen Bench Pipeline Layout "),
             bind_group_layouts: &[Some(&uniform_layout)],
             immediate_size: 0,
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Offscreen Bench Pipeline"),
+            label: Some("Offscreen Bench Pipeline "),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[VertexRaw::layout()],
+                buffers: &[GpuVertex::layout()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             primitive: wgpu::PrimitiveState {
@@ -1147,22 +1135,15 @@ impl GpuOffscreenBench {
             cache: None,
         });
 
-        let raw_vertices: Vec<VertexRaw> = vertices
-            .iter()
-            .map(|v| VertexRaw {
-                position: v.position,
-                color: v.color,
-            })
-            .collect();
-
+        // ⚡ Bolt: Eliminate O(N) intermediate heap allocation by using bytemuck to directly cast GpuVertex slice to bytes
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Offscreen Bench Vertex Buffer"),
-            contents: bytemuck::cast_slice(&raw_vertices),
+            label: Some("Offscreen Bench Vertex Buffer  "),
+            contents: bytemuck::cast_slice(vertices),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Offscreen Bench Index Buffer"),
+            label: Some("Offscreen Bench Index Buffer "),
             contents: bytemuck::cast_slice(indices),
             usage: wgpu::BufferUsages::INDEX,
         });
@@ -1210,12 +1191,12 @@ impl GpuOffscreenBench {
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Offscreen Bench Encoder"),
+                label: Some("Offscreen Bench Encoder "),
             });
 
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Offscreen Bench Pass"),
+                label: Some("Offscreen Bench Pass "),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &self.color_view,
                     resolve_target: None,

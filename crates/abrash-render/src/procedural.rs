@@ -9,6 +9,16 @@ use crate::utils::XorShift32;
 ///
 /// # Errors
 /// Returns an error if the texture dimensions are invalid.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_render::procedural::xor_pattern;
+///
+/// let tex = xor_pattern(32, 32).unwrap();
+/// assert_eq!(tex.width(), 32);
+/// assert_eq!(tex.height(), 32);
+/// ```
 pub fn xor_pattern(width: u32, height: u32) -> Result<Texture, &'static str> {
     let mut tex = Texture::new(width, height)?;
     for y in 0..height {
@@ -25,6 +35,16 @@ pub fn xor_pattern(width: u32, height: u32) -> Result<Texture, &'static str> {
 ///
 /// # Errors
 /// Returns an error if the texture dimensions are invalid or `cell_size` is 0.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_render::procedural::grid_pattern;
+///
+/// let tex = grid_pattern(32, 32, 8, 0xFFFFFFFF, 0xFF000000).unwrap();
+/// assert_eq!(tex.width(), 32);
+/// assert_eq!(tex.height(), 32);
+/// ```
 pub fn grid_pattern(
     width: u32,
     height: u32,
@@ -49,6 +69,16 @@ pub fn grid_pattern(
 ///
 /// # Errors
 /// Returns an error if the texture dimensions are invalid.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_render::procedural::white_noise;
+///
+/// let tex = white_noise(32, 32, 12345).unwrap();
+/// assert_eq!(tex.width(), 32);
+/// assert_eq!(tex.height(), 32);
+/// ```
 pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'static str> {
     let mut tex = Texture::new(width, height)?;
     let mut rng = XorShift32::new(seed);
@@ -67,6 +97,16 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
 ///
 /// # Errors
 /// Returns an error if the texture dimensions are invalid.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_render::procedural::plasma;
+///
+/// let tex = plasma(32, 32).unwrap();
+/// assert_eq!(tex.width(), 32);
+/// assert_eq!(tex.height(), 32);
+/// ```
 pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
     let mut tex = Texture::new(width, height)?;
 

@@ -138,7 +138,8 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
                 if is_hatch {
                     // Add some noise to hatching
                     // Use a simple pseudo-random hash based on coordinates
-                    let hash = ((x * 3_266_489_917) ^ (y * 2_654_435_761)).wrapping_mul(0x85eb_ca6b);
+                    let hash =
+                        ((x * 3_266_489_917) ^ (y * 2_654_435_761)).wrapping_mul(0x85eb_ca6b);
 
                     if ((hash % 100) as u32) < hatch_threshold {
                         *pixel = blended_stroke_color;

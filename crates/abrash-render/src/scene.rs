@@ -324,11 +324,7 @@ impl Scene {
     /// *   **Culling**: Objects completely outside the frustum are skipped entirely.
     /// *   **Batching**: Vertex transformations use thread-local scratch buffers.
     pub fn render(&self, renderer: &mut TileRenderer, fb: &mut Framebuffer, zb: &mut ZBuffer) {
-        thread_local! {
-            static SCENE_DRAW_LIST: std::cell::RefCell<DrawList> = std::cell::RefCell::new(DrawList::with_capacity(FrameCamera::new(crate::math::Mat4::identity(), crate::math::Mat4::identity()), 128, 1024, 0));
-        }
-
-        SCENE_DRAW_LIST.with(|dl_cell| {
+        crate::render_api::cpu_renderer::CPU_RENDERER_DRAW_LIST.with(|dl_cell| {
             let mut draw_list = dl_cell.borrow_mut();
             self.extract_into(&mut draw_list);
 
