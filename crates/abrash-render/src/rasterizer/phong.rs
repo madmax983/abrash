@@ -49,7 +49,7 @@ unsafe fn draw_scanline_phong_shadowed_simd(
         _mm256_sub_epi32, _mm256_sub_ps,
     };
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     let dz_dx = _mm256_set1_ps(gradients.dz_dx);
@@ -424,7 +424,7 @@ unsafe fn draw_scanline_point_lit_simd(
         _mm256_storeu_si256, _mm256_sub_ps,
     };
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     let dz_dx = _mm256_set1_ps(gradients.dz_dx);
@@ -1622,7 +1622,7 @@ unsafe fn draw_scanline_phong_simd(
             _mm256_sub_ps,
         };
 
-        let len = fb_slice.len();
+        let len = fb_slice.len().min(zb_slice.len());
         let mut i = 0;
 
         // Load constants

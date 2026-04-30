@@ -39,7 +39,7 @@ unsafe fn draw_scanline_reflection_simd(
         _mm256_set_ps, _mm256_set1_ps, _mm256_storeu_ps, _mm256_sub_ps,
     };
 
-    let len = fb_slice.len();
+    let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
     let dz_dx = _mm256_set1_ps(gradients.dz_dx);
