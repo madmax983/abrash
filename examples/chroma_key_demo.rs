@@ -2,6 +2,8 @@
 use abrash::experimental::chroma_key::smooth_chroma_key;
 use abrash::framebuffer::Framebuffer;
 use abrash::texture::Texture;
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use winit::{
@@ -57,7 +59,47 @@ fn create_green_screen_fg(width: u32, height: u32) -> Framebuffer {
     fb
 }
 
+fn print_banner() {
+    println!("\n{}", "🌟 Chroma Key Demo".bold().cyan());
+    println!("{}", "==================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Smooth Chroma Key compositing").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Renderer"),
+            Cell::new("Software Post-Process").fg(Color::Yellow),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
+        .add_row(vec![Cell::new("Keyboard"), Cell::new("None")]);
+    println!("{controls}\n");
+}
+
 fn main() {
+    print_banner();
+
     let width = 640;
     let height = 480;
 
