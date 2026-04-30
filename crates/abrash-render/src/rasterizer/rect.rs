@@ -142,8 +142,14 @@ pub fn draw_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, 
         return;
     }
 
-    let right = x + width as i32 - 1;
-    let bottom = y + height as i32 - 1;
+    // Safely calculate bounds preventing integer overflow on massive widths/heights
+    let right = x.saturating_add(width.min(i32::MAX as u32) as i32).saturating_sub(1);
+    let bottom = y.saturating_add(height.min(i32::MAX as u32) as i32).saturating_sub(1);
+
+    // ⚡ Bolt: Early rejection for fully off-screen rects
+    if right < 0 || bottom < 0 || x >= fb.width() as i32 || y >= fb.height() as i32 {
+        return;
+    }
 
     let is_on_screen = x >= 0 && y >= 0 && right < fb.width() as i32 && bottom < fb.height() as i32;
 
@@ -239,28 +245,38 @@ pub fn draw_rounded_rect(
         return;
     }
 
+    let w_i32 = width.min(i32::MAX as u32) as i32;
+    let h_i32 = height.min(i32::MAX as u32) as i32;
+
+    // ⚡ Bolt: Early rejection for fully off-screen rects
+    let right = x.saturating_add(w_i32).saturating_sub(1);
+    let bottom = y.saturating_add(h_i32).saturating_sub(1);
+    if right < 0 || bottom < 0 || x >= fb.width() as i32 || y >= fb.height() as i32 {
+        return;
+    }
+
     let radius = radius
         .max(0)
-        .min((width as i32) / 2)
-        .min((height as i32) / 2);
+        .min(w_i32 / 2)
+        .min(h_i32 / 2);
 
     if radius == 0 {
         draw_rect(fb, x, y, width, height, color);
         return;
     }
 
-    let inner_w = (width as i32) - 2 * radius;
-    let inner_h = (height as i32) - 2 * radius;
+    let inner_w = w_i32.saturating_sub(2 * radius);
+    let inner_h = h_i32.saturating_sub(2 * radius);
 
-    let cx_left = x + radius;
-    let cx_right = x + width as i32 - 1 - radius;
-    let cy_top = y + radius;
-    let cy_bottom = y + height as i32 - 1 - radius;
+    let cx_left = x.saturating_add(radius);
+    let cx_right = x.saturating_add(w_i32).saturating_sub(1).saturating_sub(radius);
+    let cy_top = y.saturating_add(radius);
+    let cy_bottom = y.saturating_add(h_i32).saturating_sub(1).saturating_sub(radius);
 
     let is_on_screen = x >= 0
         && y >= 0
-        && (x + width as i32) <= fb.width() as i32
-        && (y + height as i32) <= fb.height() as i32;
+        && x.saturating_add(w_i32) <= fb.width() as i32
+        && y.saturating_add(h_i32) <= fb.height() as i32;
 
     // Draw straight edges
     if is_on_screen {
@@ -285,7 +301,10 @@ pub fn draw_rounded_rect(
 
     let mut cx = 0;
     let mut cy = radius;
-    let mut d = 3 - 2 * radius;
+    // Convert to i64 to prevent circle algorithm overflow for massive radii
+    let mut cx = 0i64;
+    let mut cy = radius as i64;
+    let mut d = 3i64 - 2i64 * (radius as i64);
 
     if is_on_screen {
         let w = fb.width() as i32;
@@ -294,20 +313,20 @@ pub fn draw_rounded_rect(
         while cx <= cy {
             // Optimized on-screen rendering without bounds checking
             // Top Left
-            buf[((cy_top - cy) * w + (cx_left - cx)) as usize] = color;
-            buf[((cy_top - cx) * w + (cx_left - cy)) as usize] = color;
+            buf[((cy_top as i64 - cy) * w as i64 + (cx_left as i64 - cx)) as usize] = color;
+            buf[((cy_top as i64 - cx) * w as i64 + (cx_left as i64 - cy)) as usize] = color;
 
             // Top Right
-            buf[((cy_top - cy) * w + (cx_right + cx)) as usize] = color;
-            buf[((cy_top - cx) * w + (cx_right + cy)) as usize] = color;
+            buf[((cy_top as i64 - cy) * w as i64 + (cx_right as i64 + cx)) as usize] = color;
+            buf[((cy_top as i64 - cx) * w as i64 + (cx_right as i64 + cy)) as usize] = color;
 
             // Bottom Left
-            buf[((cy_bottom + cy) * w + (cx_left - cx)) as usize] = color;
-            buf[((cy_bottom + cx) * w + (cx_left - cy)) as usize] = color;
+            buf[((cy_bottom as i64 + cy) * w as i64 + (cx_left as i64 - cx)) as usize] = color;
+            buf[((cy_bottom as i64 + cx) * w as i64 + (cx_left as i64 - cy)) as usize] = color;
 
             // Bottom Right
-            buf[((cy_bottom + cy) * w + (cx_right + cx)) as usize] = color;
-            buf[((cy_bottom + cx) * w + (cx_right + cy)) as usize] = color;
+            buf[((cy_bottom as i64 + cy) * w as i64 + (cx_right as i64 + cx)) as usize] = color;
+            buf[((cy_bottom as i64 + cx) * w as i64 + (cx_right as i64 + cy)) as usize] = color;
 
             if d < 0 {
                 d = d + 4 * cx + 6;
@@ -319,14 +338,14 @@ pub fn draw_rounded_rect(
         }
     } else {
         while cx <= cy {
-            fb.set_pixel(cx_left - cx, cy_top - cy, color);
-            fb.set_pixel(cx_left - cy, cy_top - cx, color);
-            fb.set_pixel(cx_right + cx, cy_top - cy, color);
-            fb.set_pixel(cx_right + cy, cy_top - cx, color);
-            fb.set_pixel(cx_left - cx, cy_bottom + cy, color);
-            fb.set_pixel(cx_left - cy, cy_bottom + cx, color);
-            fb.set_pixel(cx_right + cx, cy_bottom + cy, color);
-            fb.set_pixel(cx_right + cy, cy_bottom + cx, color);
+            fb.set_pixel((cx_left as i64 - cx) as i32, (cy_top as i64 - cy) as i32, color);
+            fb.set_pixel((cx_left as i64 - cy) as i32, (cy_top as i64 - cx) as i32, color);
+            fb.set_pixel((cx_right as i64 + cx) as i32, (cy_top as i64 - cy) as i32, color);
+            fb.set_pixel((cx_right as i64 + cy) as i32, (cy_top as i64 - cx) as i32, color);
+            fb.set_pixel((cx_left as i64 - cx) as i32, (cy_bottom as i64 + cy) as i32, color);
+            fb.set_pixel((cx_left as i64 - cy) as i32, (cy_bottom as i64 + cx) as i32, color);
+            fb.set_pixel((cx_right as i64 + cx) as i32, (cy_bottom as i64 + cy) as i32, color);
+            fb.set_pixel((cx_right as i64 + cy) as i32, (cy_bottom as i64 + cx) as i32, color);
 
             if d < 0 {
                 d = d + 4 * cx + 6;
@@ -382,10 +401,20 @@ pub fn fill_rounded_rect(
         return;
     }
 
+    let w_i32 = width.min(i32::MAX as u32) as i32;
+    let h_i32 = height.min(i32::MAX as u32) as i32;
+
+    // ⚡ Bolt: Early rejection for fully off-screen rects
+    let right = x.saturating_add(w_i32).saturating_sub(1);
+    let bottom = y.saturating_add(h_i32).saturating_sub(1);
+    if right < 0 || bottom < 0 || x >= fb.width() as i32 || y >= fb.height() as i32 {
+        return;
+    }
+
     let radius = radius
         .max(0)
-        .min((width as i32) / 2)
-        .min((height as i32) / 2);
+        .min(w_i32 / 2)
+        .min(h_i32 / 2);
 
     if radius == 0 {
         fill_rect(fb, x, y, width, height, color);
@@ -396,40 +425,43 @@ pub fn fill_rounded_rect(
     fill_rect(
         fb,
         x,
-        y + radius,
+        y.saturating_add(radius),
         width,
-        height - 2 * (radius as u32),
+        height.saturating_sub(2 * (radius as u32)),
         color,
     );
 
-    let cx_left = x + radius;
-    let cx_right = x + width as i32 - 1 - radius;
-    let cy_top = y + radius;
-    let cy_bottom = y + height as i32 - 1 - radius;
+    let cx_left = x.saturating_add(radius);
+    let cx_right = x.saturating_add(w_i32).saturating_sub(1).saturating_sub(radius);
+    let cy_top = y.saturating_add(radius);
+    let cy_bottom = y.saturating_add(h_i32).saturating_sub(1).saturating_sub(radius);
 
     let is_on_screen = x >= 0
         && y >= 0
-        && (x + width as i32) <= fb.width() as i32
-        && (y + height as i32) <= fb.height() as i32;
+        && x.saturating_add(w_i32) <= fb.width() as i32
+        && y.saturating_add(h_i32) <= fb.height() as i32;
 
     let mut cx = 0;
     let mut cy = radius;
-    let mut d = 3 - 2 * radius;
+    // Convert to i64 to prevent circle algorithm overflow for massive radii
+    let mut cx = 0i64;
+    let mut cy = radius as i64;
+    let mut d = 3i64 - 2i64 * (radius as i64);
 
     if is_on_screen {
         while cx <= cy {
             // Draw lines for corners, bypassing boundaries checks since we know it's on screen
-            draw_horizontal_line_unchecked(fb, cx_left - cx, cx_right + cx, cy_top - cy, color);
-            draw_horizontal_line_unchecked(fb, cx_left - cx, cx_right + cx, cy_bottom + cy, color);
+            draw_horizontal_line_unchecked(fb, (cx_left as i64 - cx) as i32, (cx_right as i64 + cx) as i32, (cy_top as i64 - cy) as i32, color);
+            draw_horizontal_line_unchecked(fb, (cx_left as i64 - cx) as i32, (cx_right as i64 + cx) as i32, (cy_bottom as i64 + cy) as i32, color);
 
             // To avoid overdraw on the middle portions if cx != cy
             if cx != cy {
-                draw_horizontal_line_unchecked(fb, cx_left - cy, cx_right + cy, cy_top - cx, color);
+                draw_horizontal_line_unchecked(fb, (cx_left as i64 - cy) as i32, (cx_right as i64 + cy) as i32, (cy_top as i64 - cx) as i32, color);
                 draw_horizontal_line_unchecked(
                     fb,
-                    cx_left - cy,
-                    cx_right + cy,
-                    cy_bottom + cx,
+                    (cx_left as i64 - cy) as i32,
+                    (cx_right as i64 + cy) as i32,
+                    (cy_bottom as i64 + cx) as i32,
                     color,
                 );
             }
@@ -444,12 +476,12 @@ pub fn fill_rounded_rect(
         }
     } else {
         while cx <= cy {
-            draw_horizontal_line(fb, cx_left - cx, cx_right + cx, cy_top - cy, color);
-            draw_horizontal_line(fb, cx_left - cx, cx_right + cx, cy_bottom + cy, color);
+            draw_horizontal_line(fb, (cx_left as i64 - cx) as i32, (cx_right as i64 + cx) as i32, (cy_top as i64 - cy) as i32, color);
+            draw_horizontal_line(fb, (cx_left as i64 - cx) as i32, (cx_right as i64 + cx) as i32, (cy_bottom as i64 + cy) as i32, color);
 
             if cx != cy {
-                draw_horizontal_line(fb, cx_left - cy, cx_right + cy, cy_top - cx, color);
-                draw_horizontal_line(fb, cx_left - cy, cx_right + cy, cy_bottom + cx, color);
+                draw_horizontal_line(fb, (cx_left as i64 - cy) as i32, (cx_right as i64 + cy) as i32, (cy_top as i64 - cx) as i32, color);
+                draw_horizontal_line(fb, (cx_left as i64 - cy) as i32, (cx_right as i64 + cy) as i32, (cy_bottom as i64 + cx) as i32, color);
             }
 
             if d < 0 {

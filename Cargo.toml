@@ -916,3 +916,7 @@ required-features = ["nova"]
 name = "mosaic_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "offscreen_rect_bench"
+harness = false
