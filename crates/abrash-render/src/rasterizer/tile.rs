@@ -694,8 +694,8 @@ impl TileBins {
         Self {
             heads: vec![u32::MAX; num_tiles],
             tails: vec![u32::MAX; num_tiles],
-            nexts: Vec::with_capacity(1024),
-            tris: Vec::with_capacity(1024),
+            nexts: Vec::new(),
+            tris: Vec::new(),
         }
     }
 
