@@ -30,6 +30,8 @@ struct GpuMaterial {
     metallic: f32,
     roughness: f32,
     texture: Option<u32>,
+    /// True when this material uses screen-space refraction.
+    is_refractive: bool,
 }
 
 /// A texture uploaded to the GPU with its view and bind group.
@@ -45,6 +47,7 @@ struct PreparedDraw {
     triangle_count: u32,
     color: u32,
     texture_index: Option<u32>,
+    is_refractive: bool,
 }
 
 /// Convert `0xAARRGGBB` into a wgpu clear color.
@@ -114,6 +117,11 @@ pub struct GpuRenderer {
     gbuffer: Option<GBuffer>,
     hdr_target: Option<crate::postprocess::HdrTarget>,
     tone_map_pass: crate::postprocess::ToneMapPass,
+    // Screen-space refraction (Newton's method)
+    refraction_surface_pipeline: crate::refraction::RefractionSurfacePipeline,
+    refraction_resolve_pass: crate::refraction::RefractionResolvePass,
+    refraction_surface: Option<crate::refraction::RefractionSurface>,
+    refraction_output: Option<crate::refraction::RefractionOutput>,
     // RT (feature-gated)
     #[cfg(feature = "ray-tracing")]
     rt_shadow_pass: Option<crate::raytracing::RtShadowPass>,
@@ -207,6 +215,13 @@ impl GpuRenderer {
             ..Default::default()
         });
 
+        let refraction_surface_pipeline = crate::refraction::RefractionSurfacePipeline::new(
+            device,
+            &gbuffer_pipeline.frame_bind_group_layout,
+            &gbuffer_pipeline.draw_bind_group_layout,
+        );
+        let refraction_resolve_pass = crate::refraction::RefractionResolvePass::new(device);
+
         let tone_map_pass = crate::postprocess::ToneMapPass::new(device, color_format);
         let taa_pass = crate::taa::TaaPass::new(device);
         let composition_pass = crate::composition::CompositionPass::new(device);
@@ -255,6 +270,10 @@ impl GpuRenderer {
             gbuffer: None,
             hdr_target: None,
             tone_map_pass,
+            refraction_surface_pipeline,
+            refraction_resolve_pass,
+            refraction_surface: None,
+            refraction_output: None,
             #[cfg(feature = "ray-tracing")]
             rt_shadow_pass,
             #[cfg(feature = "ray-tracing")]
@@ -432,6 +451,24 @@ impl GpuRenderer {
             color,
             receive_light: _,
         } = material;
+
+        // Refractive materials are handled separately — they don't go through
+        // the standard deferred G-buffer and are rendered to the refraction
+        // surface buffer instead.
+        if let ShadingMode::Refractive { ior } = shading {
+            let index = self.materials.len() as u32;
+            self.materials.push(Some(GpuMaterial {
+                color,
+                shininess: ior,
+                specular_strength: 0.0,
+                metallic: 0.0,
+                roughness: 0.0,
+                texture: None,
+                is_refractive: true,
+            }));
+            return MaterialHandle::from_raw_parts(index, 0);
+        }
+
         let (color, shininess, spec, metallic, roughness, texture) = match shading {
             ShadingMode::Flat { color } => (color, 1.0, 0.0, 0.0, 1.0, None),
             ShadingMode::Phong {
@@ -456,6 +493,7 @@ impl GpuRenderer {
             metallic,
             roughness,
             texture,
+            is_refractive: false,
         }));
         MaterialHandle::from_raw_parts(index, 0)
     }
@@ -564,16 +602,24 @@ impl GpuRenderer {
                     label: Some("Deferred Capture Encoder"),
                 });
 
+        let has_refractive = prepared_draws.iter().any(|d| d.is_refractive);
+
         // Pass 1: Shadow depth (fallback, always runs)
         self.encode_shadow_pass(&mut encoder, frame, &prepared_draws)?;
 
-        // Pass 2: G-Buffer geometry
+        // Pass 2: G-Buffer geometry (opaque only — refractive draws are skipped inside)
         self.ensure_gbuffer(w, h);
         self.encode_gbuffer_pass(&mut encoder, &prepared_draws)?;
 
         // Pass 2.5: RT shadows (replaces shadow map when RT available)
         #[cfg(feature = "ray-tracing")]
         self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws);
+
+        // Pass 2.6: Refraction surface pass (refractive geometry → slim G-buffer)
+        if has_refractive {
+            self.ensure_refraction_surface(w, h);
+            self.encode_refraction_surface_pass(&mut encoder, &prepared_draws)?;
+        }
 
         // Pass 3: Deferred lighting → HDR
         self.ensure_hdr_target(w, h);
@@ -585,11 +631,25 @@ impl GpuRenderer {
         // Pass 4: TAA (if enabled)
         let hdr_view_for_tonemap = self.encode_taa_pass(&mut encoder, frame, w, h);
 
+        // Pass 4.5: Refraction Newton-method resolve → composite into scene
+        let refraction_view = if has_refractive {
+            self.ensure_refraction_output(w, h);
+            Some(self.encode_refraction_resolve_pass(
+                &mut encoder,
+                &hdr_view_for_tonemap,
+                frame,
+                w,
+                h,
+            ))
+        } else {
+            None
+        };
+
         // Pass 5: Composition (debug visualization)
         self.encode_composition(&mut encoder, &hdr_view_for_tonemap, w, h);
 
         // Pass 6: Tone mapping → LDR capture target
-        self.encode_tone_map_final(&mut encoder, &target.color_view);
+        self.encode_tone_map_final(&mut encoder, refraction_view.as_ref(), &target.color_view);
 
         // Store current VP for next frame's TAA reprojection
         let vp = frame.camera.view * frame.camera.projection;
@@ -708,16 +768,24 @@ impl GpuRenderer {
                     label: Some("Deferred Surface Encoder"),
                 });
 
+        let has_refractive = prepared_draws.iter().any(|d| d.is_refractive);
+
         // Pass 1: Shadow depth (fallback)
         self.encode_shadow_pass(&mut encoder, frame, &prepared_draws)?;
 
-        // Pass 2: G-Buffer geometry
+        // Pass 2: G-Buffer geometry (opaque only — refractive draws are skipped inside)
         self.ensure_gbuffer(w, h);
         self.encode_gbuffer_pass(&mut encoder, &prepared_draws)?;
 
         // Pass 2.5: RT shadows (when RT available)
         #[cfg(feature = "ray-tracing")]
         self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws);
+
+        // Pass 2.6: Refraction surface pass (refractive geometry → slim G-buffer)
+        if has_refractive {
+            self.ensure_refraction_surface(w, h);
+            self.encode_refraction_surface_pass(&mut encoder, &prepared_draws)?;
+        }
 
         // Pass 3: Deferred lighting → HDR
         self.ensure_hdr_target(w, h);
@@ -729,11 +797,25 @@ impl GpuRenderer {
         // Pass 4: TAA (if enabled)
         let hdr_view_for_tonemap = self.encode_taa_pass(&mut encoder, frame, w, h);
 
+        // Pass 4.5: Refraction Newton-method resolve → composite into scene
+        let refraction_view = if has_refractive {
+            self.ensure_refraction_output(w, h);
+            Some(self.encode_refraction_resolve_pass(
+                &mut encoder,
+                &hdr_view_for_tonemap,
+                frame,
+                w,
+                h,
+            ))
+        } else {
+            None
+        };
+
         // Pass 5: Composition (debug visualization)
         self.encode_composition(&mut encoder, &hdr_view_for_tonemap, w, h);
 
         // Pass 6: Tone mapping → surface
-        self.encode_tone_map_final(&mut encoder, &view);
+        self.encode_tone_map_final(&mut encoder, refraction_view.as_ref(), &view);
 
         // Store current VP for next frame's TAA reprojection
         let vp = frame.camera.view * frame.camera.projection;
@@ -813,6 +895,172 @@ impl GpuRenderer {
                 height,
             ));
         }
+    }
+
+    fn ensure_refraction_surface(&mut self, width: u32, height: u32) {
+        let needs = self
+            .refraction_surface
+            .as_ref()
+            .is_none_or(|s| s.width != width || s.height != height);
+        if needs {
+            self.refraction_surface =
+                Some(crate::refraction::RefractionSurface::new(self.gpu.device(), width, height));
+        }
+    }
+
+    fn ensure_refraction_output(&mut self, width: u32, height: u32) {
+        let needs = self
+            .refraction_output
+            .as_ref()
+            .is_none_or(|o| o.width != width || o.height != height);
+        if needs {
+            self.refraction_output =
+                Some(crate::refraction::RefractionOutput::new(self.gpu.device(), width, height));
+        }
+    }
+
+    /// Render refractive objects into the refraction surface G-buffer.
+    fn encode_refraction_surface_pass(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        prepared_draws: &[PreparedDraw],
+    ) -> Result<(), String> {
+        let surface = self.refraction_surface.as_ref().unwrap();
+
+        let frame_bg = self
+            .gpu
+            .device()
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Refraction Surface Frame BG"),
+                layout: &self.gbuffer_pipeline.frame_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: self.frame_uniform_buffer.as_entire_binding(),
+                }],
+            });
+
+        let draw_bg = self
+            .gpu
+            .device()
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Refraction Surface Draw BG"),
+                layout: &self.gbuffer_pipeline.draw_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &self.draw_uniform_buffer,
+                        offset: 0,
+                        size: std::num::NonZeroU64::new(
+                            std::mem::size_of::<DrawUniforms>() as u64,
+                        ),
+                    }),
+                }],
+            });
+
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Refraction Surface Pass"),
+                color_attachments: &[
+                    Some(wgpu::RenderPassColorAttachment {
+                        view: &surface.position_view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                            store: wgpu::StoreOp::Store,
+                        },
+                        depth_slice: None,
+                    }),
+                    Some(wgpu::RenderPassColorAttachment {
+                        view: &surface.normal_view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                            store: wgpu::StoreOp::Store,
+                        },
+                        depth_slice: None,
+                    }),
+                ],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &surface.depth_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Discard,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+
+            pass.set_pipeline(&self.refraction_surface_pipeline.pipeline);
+
+            for draw in prepared_draws {
+                if !draw.is_refractive {
+                    continue;
+                }
+
+                let gpu_mesh = self.meshes[draw.mesh_index]
+                    .as_ref()
+                    .ok_or_else(|| {
+                        format!("stale mesh at refraction command {}", draw.command_index)
+                    })?;
+
+                pass.set_bind_group(0, &frame_bg, &[]);
+                pass.set_bind_group(1, &draw_bg, &[draw.uniform_offset]);
+                pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+                pass.set_index_buffer(
+                    gpu_mesh.index_buffer.slice(..),
+                    wgpu::IndexFormat::Uint32,
+                );
+                pass.draw_indexed(0..gpu_mesh.index_count, 0, 0..1);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Apply Newton's method refraction resolve, writing to `refraction_output`.
+    ///
+    /// Returns a [`wgpu::TextureView`] of the refraction output texture.
+    fn encode_refraction_resolve_pass(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        scene_view: &wgpu::TextureView,
+        frame: &Frame,
+        width: u32,
+        height: u32,
+    ) -> wgpu::TextureView {
+        let surface = self.refraction_surface.as_ref().unwrap();
+        let output = self.refraction_output.as_ref().unwrap();
+        let gbuffer = self.gbuffer.as_ref().unwrap();
+
+        let vp = frame.camera.view * frame.camera.projection;
+        let vp_flat: [f32; 16] = bytemuck::cast(vp.m);
+        let inv_view = frame.camera.view.inverse();
+        let cam_pos = [inv_view.m[3][0], inv_view.m[3][1], inv_view.m[3][2], 0.0];
+
+        let params = crate::refraction::RefractionParams {
+            view_proj: vp_flat,
+            camera_pos: cam_pos,
+            screen_size: [width as f32, height as f32],
+            _ior_fallback: 0.667,
+            max_iterations: 6,
+        };
+
+        self.refraction_resolve_pass.encode(
+            self.gpu.device(),
+            self.gpu.queue(),
+            encoder,
+            surface,
+            &gbuffer.position_view,
+            &gbuffer.normal_view,
+            scene_view,
+            &output.color_view,
+            params,
+        );
+
+        output._texture.create_view(&wgpu::TextureViewDescriptor::default())
     }
 
     fn prepare_frame_uniforms(&self, frame: &Frame) -> (FrameUniforms, Vec<GpuLightData>) {
@@ -921,6 +1169,7 @@ impl GpuRenderer {
                 triangle_count: gpu_mesh.triangle_count,
                 color: material.color,
                 texture_index: material.texture,
+                is_refractive: material.is_refractive,
             });
             total_triangles = total_triangles.saturating_add(gpu_mesh.triangle_count);
         }
@@ -1098,6 +1347,11 @@ impl GpuRenderer {
             });
 
             for draw in prepared_draws {
+                // Refractive objects are rendered in the refraction surface pass.
+                if draw.is_refractive {
+                    continue;
+                }
+
                 let gpu_mesh = self.meshes[draw.mesh_index]
                     .as_ref()
                     .ok_or_else(|| format!("stale mesh at command {}", draw.command_index))?;
@@ -1420,33 +1674,36 @@ impl GpuRenderer {
     }
 
     /// Tone map from the current HDR result to the final LDR output.
+    ///
+    /// `refraction_override` — when `Some`, the refraction resolve output (which has
+    /// already composited refracted pixels over the opaque scene) is used as the source
+    /// directly, bypassing the normal HDR / TAA selection.
     fn encode_tone_map_final(
         &self,
         encoder: &mut wgpu::CommandEncoder,
+        refraction_override: Option<&wgpu::TextureView>,
         output_view: &wgpu::TextureView,
     ) {
-        // If debug mode or TAA produced output into TAA texture, read from there
-        let source_view = if !matches!(
+        let hdr = self.hdr_target.as_ref().unwrap();
+
+        // Priority: refraction composite > debug/TAA output > raw HDR.
+        let owned_taa_view;
+        let view: &wgpu::TextureView = if let Some(v) = refraction_override {
+            v
+        } else if !matches!(
             self.composition_pass.debug_mode,
             crate::composition::DebugMode::None
-        ) {
-            // Debug output went to TAA scratch texture
-            self.taa_pass
+        ) || self.taa_enabled
+        {
+            owned_taa_view = self
+                .taa_pass
                 .output_texture
                 .as_ref()
-                .map(|t| t.create_view(&wgpu::TextureViewDescriptor::default()))
-        } else if self.taa_enabled {
-            // TAA output
-            self.taa_pass
-                .output_texture
-                .as_ref()
-                .map(|t| t.create_view(&wgpu::TextureViewDescriptor::default()))
+                .map(|t| t.create_view(&wgpu::TextureViewDescriptor::default()));
+            owned_taa_view.as_ref().unwrap_or(&hdr.color_view)
         } else {
-            None
+            &hdr.color_view
         };
-
-        let hdr = self.hdr_target.as_ref().unwrap();
-        let view = source_view.as_ref().unwrap_or(&hdr.color_view);
 
         let tonemap_bg = self
             .tone_map_pass

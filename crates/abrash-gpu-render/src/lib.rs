@@ -17,6 +17,7 @@ pub mod mesh_buffer;
 pub mod postprocess;
 #[cfg(feature = "ray-tracing")]
 pub mod raytracing;
+pub mod refraction;
 pub mod renderer;
 #[cfg(feature = "ray-tracing")]
 pub mod rt_reflections;

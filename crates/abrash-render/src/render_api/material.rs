@@ -59,6 +59,15 @@ pub enum ShadingMode {
         /// Specular shininess exponent.
         shininess: f32,
     },
+    /// Screen-space refraction using Newton's method.
+    ///
+    /// Implements the technique from "Ultrafast Screen-Space Refractions and
+    /// Caustics via Newton's Method" (JCGT Vol. 15, No. 1, 2026).
+    Refractive {
+        /// Index of refraction ratio n1/n2 (e.g. 1.0/1.5 ≈ 0.667 for glass in air,
+        /// 1.0/1.33 ≈ 0.752 for water in air).
+        ior: f32,
+    },
 }
 
 /// A material definition combining shading mode with rendering properties.
@@ -103,6 +112,20 @@ impl Material {
             },
             color,
             receive_light: true,
+        }
+    }
+
+    /// Create a refractive (glass/water) material.
+    ///
+    /// The `ior` parameter is the ratio n1/n2 of refractive indices, e.g.:
+    /// - Glass in air: `1.0 / 1.5 ≈ 0.667`
+    /// - Water in air: `1.0 / 1.33 ≈ 0.752`
+    #[must_use]
+    pub const fn refractive(color: u32, ior: f32) -> Self {
+        Self {
+            shading: ShadingMode::Refractive { ior },
+            color,
+            receive_light: false,
         }
     }
 
