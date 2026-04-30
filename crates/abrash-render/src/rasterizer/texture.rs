@@ -34,7 +34,7 @@ use crate::framebuffer::Framebuffer;
 use crate::math::{
     ScreenPoint, Vec2, Vec3, Vec4, project_quad_to_screen, project_triangle_to_screen,
 };
-use crate::texture::{FilterMode, Texture, blend_four_way, blend_swar};
+use crate::texture::{FilterMode, Texture, blend_four_way, blend_swar, laplacian_blend_textures};
 use crate::zbuffer::ZBuffer;
 
 use super::core::{FIXED_SCALE, assert_same_dimensions, color_to_u32, is_backface, sort_by_y};
@@ -5095,6 +5095,360 @@ mod tests {
         let p = fb.get_pixel(5, 5).unwrap();
         assert_eq!(p, 0xFFFFFFFF, "Center pixel should be set");
     }
+}
+
+// ─── Laplacian Pyramid Texture Blending ───────────────────────────────────────
+
+/// Draw one span of Laplacian-blended pixels.
+///
+/// `u`/`v` are normalized UV coordinates `[0, 1]` advancing by `du`/`dv` per pixel.
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn draw_span_laplacian_blend(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    tex0: &Texture,
+    tex1: &Texture,
+    mask: &Texture,
+    mut z: f32,
+    dz_dx: f32,
+    mut u: f32,
+    mut v: f32,
+    du: f32,
+    dv: f32,
+    num_levels: usize,
+    base_lod: f32,
+) {
+    for (pixel, depth) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+        if z < *depth {
+            let color = laplacian_blend_textures(tex0, tex1, mask, u, v, num_levels, base_lod);
+            let alpha = (color >> 24) & 0xFF;
+            if alpha == 255 {
+                *depth = z;
+                *pixel = color;
+            } else if alpha > 0 {
+                *pixel = blend_swar(color, *pixel, 255 - alpha, alpha);
+            }
+        }
+        z += dz_dx;
+        u += du;
+        v += dv;
+    }
+}
+
+/// Draw one scanline of a Laplacian-blended triangle with perspective-correct UVs.
+///
+/// `start.u`/`start.v` are `(normalized_UV / w)` — perspective division recovers `[0, 1]` UV.
+/// LOD is computed from UV gradients per §6.1 of the paper and used as `base_lod`.
+#[allow(clippy::too_many_arguments)]
+fn draw_scanline_laplacian_blend(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    start: PerspectiveSpanStart,
+    gradients: &PerspectiveTextureGradients,
+    tex0: &Texture,
+    tex1: &Texture,
+    mask: &Texture,
+    num_levels: usize,
+) {
+    let width = fb.width() as i32;
+    let mut xs = x_start;
+    let mut xe = x_end;
+    let mut z = start.z;
+    let mut q = start.q;
+    let mut u = start.u;
+    let mut v = start.v;
+
+    if xs < 0 {
+        let diff = (-xs) as f32;
+        z += diff * gradients.dz_dx;
+        q += diff * gradients.dq_dx;
+        u += diff * gradients.du_dx;
+        v += diff * gradients.dv_dx;
+        xs = 0;
+    }
+    if xe >= width {
+        xe = width - 1;
+    }
+    if xs > xe {
+        return;
+    }
+
+    // Compute per-scanline LOD from UV gradients (§6.1).
+    // Gradients are in normalized UV / w space; multiply by tex dimension to get texel-space rate.
+    let w = if q.abs() > 0.000_001 { 1.0 / q } else { 1.0 };
+    let w_sq = w * w;
+    let tex_scale = tex0.width.max(tex0.height) as f32;
+    let du_tex_dx = (gradients.du_dx * q - u * gradients.dq_dx) * w_sq * tex_scale;
+    let dv_tex_dx = (gradients.dv_dx * q - v * gradients.dq_dx) * w_sq * tex_scale;
+    let du_tex_dy = (gradients.du_dy * q - u * gradients.dq_dy) * w_sq * tex_scale;
+    let dv_tex_dy = (gradients.dv_dy * q - v * gradients.dq_dy) * w_sq * tex_scale;
+    let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
+        .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
+    let lod = if max_rho_sq > 1.0 {
+        0.5 * max_rho_sq.log2()
+    } else {
+        0.0
+    };
+
+    let span_size = 16_i32;
+    let mut u_norm_start = u * w;
+    let mut v_norm_start = v * w;
+
+    let mut x = xs;
+    while x <= xe {
+        let count = (xe - x + 1).min(span_size);
+
+        let q_end = q + gradients.dq_dx * count as f32;
+        let u_end = u + gradients.du_dx * count as f32;
+        let v_end = v + gradients.dv_dx * count as f32;
+
+        let w_end = if q_end.abs() > 0.000_001 { 1.0 / q_end } else { 1.0 };
+        let u_norm_end = u_end * w_end;
+        let v_norm_end = v_end * w_end;
+
+        let inv_count = RECIPROCAL_TABLE[count as usize];
+        let du = (u_norm_end - u_norm_start) * inv_count;
+        let dv = (v_norm_end - v_norm_start) * inv_count;
+
+        let width_usize = fb.width() as usize;
+        let start_idx = (y as usize) * width_usize + (x as usize);
+        let end_idx = start_idx + (count as usize) - 1;
+
+        let fb_slice = &mut fb.as_mut_slice()[start_idx..=end_idx];
+        let zb_slice = &mut zb.as_mut_slice()[start_idx..=end_idx];
+
+        draw_span_laplacian_blend(
+            fb_slice,
+            zb_slice,
+            tex0,
+            tex1,
+            mask,
+            z,
+            gradients.dz_dx,
+            u_norm_start,
+            v_norm_start,
+            du,
+            dv,
+            num_levels,
+            lod,
+        );
+
+        z += gradients.dz_dx * count as f32;
+        q = q_end;
+        u = u_end;
+        v = v_end;
+        u_norm_start = u_norm_end;
+        v_norm_start = v_norm_end;
+        x += count;
+    }
+}
+
+/// Fill a 3D triangle with two textures blended using Laplacian pyramid blending.
+///
+/// Implements the CPU adaptation of "GPU-Friendly Laplacian Texture Blending"
+/// (JCGT Vol. 14, No. 1, 2025). Requires all three textures to have mipmaps
+/// generated via [`Texture::generate_mipmaps`] for best results.
+///
+/// The algorithm decomposes each texture into Laplacian pyramid levels and blends
+/// each level with the spatially corresponding level of the blend mask. This
+/// preserves sharp local features and avoids the contrast loss or ghosting that
+/// occurs with naive linear blending over large radii.
+///
+/// # Arguments
+///
+/// - `fb`, `zb` — Target framebuffer and z-buffer.
+/// - `v0`, `v1`, `v2` — Vertices as `((clip_pos, W), UV)`. UV in `[0.0, 1.0]`.
+/// - `tex0`, `tex1` — Textures to blend.
+/// - `mask` — Blend mask: red channel `0` = fully `tex0`, `255` = fully `tex1`.
+/// - `num_levels` — Laplacian pyramid levels. 3–4 gives natural transitions;
+///   0 degenerates to plain linear blending.
+pub fn fill_triangle_laplacian_blend(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    v0: ((Vec3, f32), Vec2),
+    v1: ((Vec3, f32), Vec2),
+    v2: ((Vec3, f32), Vec2),
+    tex0: &Texture,
+    tex1: &Texture,
+    mask: &Texture,
+    num_levels: usize,
+) {
+    assert_same_dimensions(fb, zb);
+
+    let clipped = clip_triangle_to_frustum(
+        v0,
+        v1,
+        v2,
+        |v| v.0,
+        |a, b, t| {
+            (
+                (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                a.1.lerp(b.1, t),
+            )
+        },
+    );
+
+    let width = fb.width();
+    let height = fb.height();
+    let half_width = width as f32 * 0.5;
+    let half_height = height as f32 * 0.5;
+
+    for ci in 0..clipped.count {
+        let base = ci * 3;
+        let cv0 = clipped[base];
+        let cv1 = clipped[base + 1];
+        let cv2 = clipped[base + 2];
+
+        let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
+            cv0.0.0, cv0.0.1, cv1.0.0, cv1.0.1, cv2.0.0, cv2.0.1,
+            half_width, half_height,
+        );
+
+        if is_backface(p0_orig, p1_orig, p2_orig) {
+            continue;
+        }
+
+        let inv_w0 = p0_orig.inv_w;
+        let inv_w1 = p1_orig.inv_w;
+        let inv_w2 = p2_orig.inv_w;
+
+        // Store normalized UV / w (not scaled by texture dims) so perspective
+        // division in the span loop recovers UV in [0, 1].
+        let u0 = cv0.1.x * inv_w0;
+        let vv0 = cv0.1.y * inv_w0;
+        let u1 = cv1.1.x * inv_w1;
+        let vv1 = cv1.1.y * inv_w1;
+        let u2 = cv2.1.x * inv_w2;
+        let vv2 = cv2.1.y * inv_w2;
+
+        let (gradients, _) = PerspectiveTextureGradients::new_with_winding(
+            p0_orig, p1_orig, p2_orig,
+            inv_w0, inv_w1, inv_w2,
+            u0, u1, u2,
+            vv0, vv1, vv2,
+        );
+
+        let mut verts = [
+            (p0_orig, u0, vv0),
+            (p1_orig, u1, vv1),
+            (p2_orig, u2, vv2),
+        ];
+        sort_by_y(&mut verts, |(p, _, _)| p.y);
+        let [(p0, u0, v0), (p1, u1, v1), (p2, u2, v2)] = verts;
+
+        let q0 = p0.inv_w;
+        let q1 = p1.inv_w;
+        let q2 = p2.inv_w;
+
+        let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+        if total_height == 0.0 {
+            continue;
+        }
+
+        let y_min = 0_i32;
+        let y_max = height as i32 - 1;
+        let y_start = p0.y.max(y_min);
+        let y_end = p2.y.min(y_max);
+        if y_start > y_end {
+            continue;
+        }
+
+        let nz = calculate_signed_area_doubled(p0, p1, p2);
+        let long_edge_is_left = nz > 0.0;
+
+        let mut edge_a = PerspectiveTextureEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2);
+        if y_start > p0.y {
+            edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
+        }
+
+        let mut edge_b = if y_start < p1.y {
+            let mut e = PerspectiveTextureEdgeWalker::new(p0, p1, q0, q1, u0, u1, v0, v1);
+            if y_start > p0.y {
+                e.step_n(i64::from(y_start) - i64::from(p0.y));
+            }
+            e
+        } else {
+            let mut e = PerspectiveTextureEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2);
+            if y_start > p1.y {
+                e.step_n(i64::from(y_start) - i64::from(p1.y));
+            }
+            e
+        };
+
+        let width_i32 = width as i32;
+
+        for y in y_start..=y_end {
+            if y == p1.y && y != p0.y {
+                edge_b = PerspectiveTextureEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2);
+            }
+
+            let (x_start, x_end, z_left, q_left, u_left, v_left) = if long_edge_is_left {
+                (
+                    (edge_a.x >> 16) as i32,
+                    (edge_b.x >> 16) as i32,
+                    edge_a.z,
+                    edge_a.q,
+                    edge_a.u,
+                    edge_a.v,
+                )
+            } else {
+                (
+                    (edge_b.x >> 16) as i32,
+                    (edge_a.x >> 16) as i32,
+                    edge_b.z,
+                    edge_b.q,
+                    edge_b.u,
+                    edge_b.v,
+                )
+            };
+
+            let xs = x_start.max(0);
+            let xe = x_end.min(width_i32 - 1);
+            if xs <= xe {
+                let span_start =
+                    PerspectiveSpanStart { z: z_left, q: q_left, u: u_left, v: v_left };
+                draw_scanline_laplacian_blend(
+                    fb, zb, y, xs, xe, span_start, &gradients,
+                    tex0, tex1, mask, num_levels,
+                );
+            }
+
+            edge_a.step();
+            edge_b.step();
+        }
+    }
+}
+
+#[test]
+fn test_fill_triangle_laplacian_blend_runs_without_panic() {
+    let mut fb = Framebuffer::new(16, 16).unwrap();
+    let mut zb = ZBuffer::new(16, 16).unwrap();
+
+    let mut tex0 = Texture::new(8, 8).unwrap();
+    let mut tex1 = Texture::new(8, 8).unwrap();
+    let mut mask = Texture::new(8, 8).unwrap();
+
+    for y in 0..8_u32 {
+        for x in 0..8_u32 {
+            tex0.set_pixel(x, y, 0xFFFF0000); // red
+            tex1.set_pixel(x, y, 0xFF0000FF); // blue
+            // Horizontal gradient mask: left = tex0, right = tex1
+            mask.set_pixel(x, y, 0xFF000000 | ((x * 32) << 16) | ((x * 32) << 8) | (x * 32));
+        }
+    }
+    tex0.generate_mipmaps();
+    tex1.generate_mipmaps();
+    mask.generate_mipmaps();
+
+    let v0 = ((Vec3::new(0.0, 0.9, 0.5), 1.0), Vec2::new(0.5, 0.0));
+    let v1 = ((Vec3::new(-0.9, -0.9, 0.5), 1.0), Vec2::new(0.0, 1.0));
+    let v2 = ((Vec3::new(0.9, -0.9, 0.5), 1.0), Vec2::new(1.0, 1.0));
+
+    fill_triangle_laplacian_blend(&mut fb, &mut zb, v0, v1, v2, &tex0, &tex1, &mask, 4);
 }
 
 #[test]

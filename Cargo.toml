@@ -133,6 +133,10 @@ path = "examples/gpu_deferred_showcase.rs"
 required-features = ["gpu-render"]
 
 [[example]]
+name = "laplacian_blend_demo"
+path = "examples/laplacian_blend_demo.rs"
+
+[[example]]
 name = "normal_mapping_demo"
 path = "examples/normal_mapping_demo.rs"
 
