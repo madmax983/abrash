@@ -110,7 +110,8 @@ pub fn apply_cel_shade(fb: &mut Framebuffer, zb: &ZBuffer, config: &CelShadeConf
             gy_z += d_tl + 2.0 * d_tc + d_tr;
             gy_z += -d_bl - 2.0 * d_bc - d_br;
 
-            let edge_z = gx_z.hypot(gy_z);
+            #[allow(clippy::imprecise_flops)]
+            let edge_z = (gx_z * gx_z + gy_z * gy_z).sqrt();
 
             // Collect Luminance
             let l_tl = get_lum(src_pixels[tl]);
@@ -129,7 +130,8 @@ pub fn apply_cel_shade(fb: &mut Framebuffer, zb: &ZBuffer, config: &CelShadeConf
             gy_l += l_tl + 2.0 * l_tc + l_tr;
             gy_l += -l_bl - 2.0 * l_bc - l_br;
 
-            let edge_l = gx_l.hypot(gy_l);
+            #[allow(clippy::imprecise_flops)]
+            let edge_l = (gx_l * gx_l + gy_l * gy_l).sqrt();
 
             // Combine edge strengths
             // Depth edges are strong, luminance edges help with interior creases
