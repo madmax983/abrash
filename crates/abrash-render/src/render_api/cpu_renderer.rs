@@ -43,6 +43,10 @@ struct CpuMesh {
     shared_indices: std::sync::Arc<[[usize; 3]]>,
 }
 
+thread_local! {
+    pub static CPU_RENDERER_DRAW_LIST: std::cell::RefCell<DrawList> = std::cell::RefCell::new(DrawList::with_capacity(FrameCamera::new(crate::math::Mat4::identity(), crate::math::Mat4::identity()), 128, 1024, 0));
+}
+
 /// Software rasterizer.
 ///
 /// Uses `TileRenderer` internally for cache-efficient tile-based rendering.
@@ -121,7 +125,12 @@ impl CpuRenderer {
     /// independently of this renderer's internal pools.
     #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
     pub fn extract_draw_list(&self, frame: &Frame) -> Result<DrawList, RenderError> {
-        let mut draw_list = DrawList::new(frame.camera);
+        let mut draw_list = DrawList::with_capacity(
+            frame.camera,
+            frame.commands.len(),
+            frame.commands.len() * 3,
+            frame.lights.len(),
+        );
         self.extract_draw_list_into(frame, &mut draw_list)?;
         Ok(draw_list)
     }
@@ -423,10 +432,6 @@ impl CpuRenderer {
         frame: &Frame,
         target: &mut BorrowedRenderTarget<'_>,
     ) -> Result<(), RenderError> {
-        thread_local! {
-            static CPU_RENDERER_DRAW_LIST: std::cell::RefCell<DrawList> = std::cell::RefCell::new(DrawList::new(FrameCamera::new(crate::math::Mat4::identity(), crate::math::Mat4::identity())));
-        }
-
         CPU_RENDERER_DRAW_LIST.with(|dl_cell| {
             let mut dl = dl_cell.borrow_mut();
             self.extract_draw_list_into(frame, &mut dl)?;
@@ -446,10 +451,6 @@ impl CpuRenderer {
         frame: &Frame,
         target: &mut RenderTarget,
     ) -> Result<(), RenderError> {
-        thread_local! {
-            static CPU_RENDERER_DRAW_LIST: std::cell::RefCell<DrawList> = std::cell::RefCell::new(DrawList::new(FrameCamera::new(crate::math::Mat4::identity(), crate::math::Mat4::identity())));
-        }
-
         CPU_RENDERER_DRAW_LIST.with(|dl_cell| {
             let mut dl = dl_cell.borrow_mut();
             self.extract_draw_list_into(frame, &mut dl)?;

@@ -85,6 +85,7 @@ fn main() {
         }
     }
 
+    #[allow(unused_mut)]
     let mut fg = create_green_screen_fg(width, height);
 
     // Apply smooth chroma key

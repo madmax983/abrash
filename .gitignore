@@ -2,3 +2,5 @@
 .claude/
 .worktrees/fuzz/
 fuzz/
+# Ignore proptest regression files
+*.proptest-regressions

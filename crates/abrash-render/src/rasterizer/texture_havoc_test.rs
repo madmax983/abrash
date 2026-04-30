@@ -1,9 +1,10 @@
+//! Edge-case bounds testing for the Texture Rasterizer.
 use crate::rasterizer::texture::draw_span_nearest_simd;
 use abrash_core::texture::Texture;
 use proptest::prelude::*;
 
 #[test]
-#[ignore = "👹 Havoc: Trigger SIMD out of bounds access directly"]
+
 fn havoc_texture_overflow_simd() {
     let mut fb = vec![0u32; 64];
     let mut zb = vec![100.0f32; 64];
@@ -47,7 +48,7 @@ fn havoc_texture_simd_buffer_mismatch() {
 }
 
 #[test]
-#[ignore = "👹 Havoc: Trigger SIMD zero length frame buffer"]
+
 fn havoc_texture_simd_zero_fb() {
     let mut fb = vec![0u32; 0];
     let mut zb = vec![100.0f32; 0];

@@ -1,3 +1,4 @@
+//! Extreme edge-case bounds and load testing for the OBJ Loader.
 #[cfg(test)]
 mod tests {
     use crate::obj_loader::load_obj;
