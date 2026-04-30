@@ -109,19 +109,29 @@ impl CrossStitchApp {
 }
 
 impl WindowApp for CrossStitchApp {
-    fn on_init(&mut self, context: &mut WindowContext) -> Result<(), HostError> {
-        self.presenter = Some(context.create_software_presenter(&self.framebuffer)?);
+    type Error = HostError;
+
+    fn config(&self) -> WindowHostConfig {
+        WindowHostConfig {
+            title: "Abrash - Cross-Stitch Filter".to_string(),
+            width: 800,
+            height: 600,
+            vsync: true,
+        }
+    }
+
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         print_banner();
         Ok(())
     }
 
-    fn on_update(
-        &mut self,
-        _context: &mut WindowContext,
-        delta_time: f32,
-    ) -> Result<(), HostError> {
-        self.time += delta_time;
+    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.time += ctx.dt_seconds;
+        Ok(())
+    }
 
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
         self.render_scene();
 
         self.framebuffer
@@ -146,14 +156,9 @@ impl WindowApp for CrossStitchApp {
 #[cfg(feature = "backend-winit")]
 fn main() -> Result<(), HostError> {
     let app = CrossStitchApp::new()?;
-    let config = WindowHostConfig {
-        title: "Abrash - Cross-Stitch Filter".to_string(),
-        width: 800,
-        height: 600,
-        ..Default::default()
-    };
 
-    run_windowed(app, config)
+    run_windowed(app);
+    Ok(())
 }
 
 #[cfg(not(feature = "backend-winit"))]

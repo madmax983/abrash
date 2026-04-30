@@ -100,9 +100,10 @@ pub fn apply_blueprint(fb: &mut Framebuffer, config: &BlueprintConfig) {
             let g_bg = 0;
             let b_bg = 0;
 
-            let dist_sq = (r_src as i32 - r_bg as i32).pow(2)
-                + (g_src as i32 - g_bg as i32).pow(2)
-                + (b_src as i32 - b_bg as i32).pow(2);
+            let dr = r_src as i32 - r_bg as i32;
+            let dg = g_src as i32 - g_bg as i32;
+            let db = b_src as i32 - b_bg as i32;
+            let dist_sq = dr * dr + dg * dg + db * db;
 
             // If the pixel is very close to black, it's not an edge.
             if dist_sq < 1000 {

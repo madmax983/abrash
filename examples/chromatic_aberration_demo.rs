@@ -109,9 +109,9 @@ impl WindowApp for ChromaticAberrationDemo {
         for y in 0..height {
             for x in 0..width {
                 let is_grid_line = (x % 50 < 2) || (y % 50 < 2);
-                let is_circle = ((x as i32 - width as i32 / 2).pow(2)
-                    + (y as i32 - height as i32 / 2).pow(2))
-                    < 150_i32.pow(2);
+                let dx = x as i32 - width as i32 / 2;
+                let dy = y as i32 - height as i32 / 2;
+                let is_circle = (dx * dx + dy * dy) < 22500;
 
                 pixels[y * width + x] = if is_grid_line {
                     0xFF_AA_AA_AA
