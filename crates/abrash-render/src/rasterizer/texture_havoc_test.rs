@@ -1,3 +1,4 @@
+//! Edge-case bounds testing for the Texture Rasterizer.
 use crate::rasterizer::texture::draw_span_nearest_simd;
 use abrash_core::texture::Texture;
 use proptest::prelude::*;

@@ -1,3 +1,9 @@
+//! Slit-scan processing for temporal image distortion.
+//!
+//! This module provides a [`SlitScanFilter`] that continuously processes frames
+//! and composes a single output image using scanlines from different points in time,
+//! simulating physical slit-scan photography.
+
 use crate::framebuffer::Framebuffer;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -27,6 +33,21 @@ impl SlitScanFilter {
     /// * `height` - The height of the framebuffer.
     /// * `history_len` - The number of frames to keep in history. A larger number
     ///                   creates a more pronounced time-stretching effect.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::framebuffer::Framebuffer;
+    /// use abrash_render::experimental::slitscan::SlitScanFilter;
+    ///
+    /// // Initialize the filter to process 10x10 frames with a 5-frame history
+    /// let mut filter = SlitScanFilter::new(10, 10, 5);
+    /// let mut fb = Framebuffer::new(10, 10).unwrap();
+    ///
+    /// // Continuously apply the filter to incoming frames
+    /// fb.clear(0xFF_FF0000); // Red frame
+    /// filter.apply(&mut fb);
+    /// ```
     #[must_use]
     pub fn new(width: usize, height: usize, history_len: usize) -> Self {
         assert!(history_len > 0, "history_len must be greater than 0");
