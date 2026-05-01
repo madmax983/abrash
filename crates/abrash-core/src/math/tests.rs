@@ -945,7 +945,6 @@ mod tests {
     }
 }
 
-
 #[cfg(test)]
 mod tests_scalar_utils {
     use super::*;
@@ -1126,7 +1125,6 @@ mod tests_scalar_utils {
         assert!((n.x - 1.0).abs() < 0.01, "normalize x: {}", n.x);
     }
 }
-
 
 #[cfg(test)]
 mod tests_mat3 {
@@ -1635,7 +1633,6 @@ mod tests_mat3 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_14 {
     use super::*;
@@ -1819,7 +1816,6 @@ mod tests_pass_14 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_15 {
     use super::*;
@@ -1904,7 +1900,6 @@ mod tests_pass_15 {
         assert_eq!(sign_no_zero(0.0), 1.0, "zero maps to +1");
     }
 }
-
 
 #[cfg(test)]
 mod tests_pass_16 {
@@ -2069,7 +2064,6 @@ mod tests_pass_16 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_17 {
     use super::*;
@@ -2202,7 +2196,6 @@ mod tests_pass_17 {
         assert!((t - Vec3::X).length() < 1e-5, "T should be +X");
     }
 }
-
 
 #[cfg(test)]
 mod tests_pass_18 {
@@ -2365,7 +2358,6 @@ mod tests_pass_18 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_19 {
     use super::*;
@@ -2527,7 +2519,6 @@ mod tests_pass_19 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_20 {
     use super::*;
@@ -2651,7 +2642,6 @@ mod tests_pass_20 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_21 {
     use super::*;
@@ -2765,7 +2755,6 @@ mod tests_pass_21 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_22 {
     use super::*;
@@ -2878,7 +2867,6 @@ mod tests_pass_22 {
         assert!(s > 0.70 && s < 0.76, "mid-grey: {s}");
     }
 }
-
 
 #[cfg(test)]
 mod tests_pass_23 {
@@ -3022,7 +3010,6 @@ mod tests_pass_23 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_24 {
     use super::*;
@@ -3128,7 +3115,6 @@ mod tests_pass_24 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_25 {
     use super::*;
@@ -3221,7 +3207,6 @@ mod tests_pass_25 {
         assert!((ease_elastic_out(1.0, 1.0, 0.3) - 1.0).abs() < 1e-5);
     }
 }
-
 
 #[cfg(test)]
 mod tests_pass_26 {
@@ -3328,7 +3313,6 @@ mod tests_pass_26 {
         assert!(b[0].abs() < 1e-5 && b[1].abs() < 1e-5);
     }
 }
-
 
 #[cfg(test)]
 mod tests_pass_27 {
@@ -3505,7 +3489,6 @@ mod tests_pass_27 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_28 {
     use super::*;
@@ -3660,7 +3643,6 @@ mod tests_pass_28 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_29 {
     use super::*;
@@ -3803,7 +3785,6 @@ mod tests_pass_29 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_30 {
     use super::*;
@@ -3907,7 +3888,6 @@ mod tests_pass_30 {
         assert!(ease_expo_out(0.5) > 0.95);
     }
 }
-
 
 #[cfg(test)]
 mod tests_pass_31 {
@@ -4078,7 +4058,6 @@ mod tests_pass_31 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_32 {
     use super::*;
@@ -4235,7 +4214,6 @@ mod tests_pass_32 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_33 {
     use super::*;
@@ -4335,7 +4313,6 @@ mod tests_pass_33 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_34 {
     use super::*;
@@ -4412,7 +4389,6 @@ mod tests_pass_34 {
         assert!(n_ccw.z > 0.0 && n_cw.z < 0.0);
     }
 }
-
 
 #[cfg(test)]
 mod tests_pass_35 {
@@ -4505,7 +4481,6 @@ mod tests_pass_35 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_36 {
     use super::*;
@@ -4586,7 +4561,6 @@ mod tests_pass_36 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_37 {
     use super::*;
@@ -4661,7 +4635,6 @@ mod tests_pass_37 {
         assert!(h.z > 0.999, "near-specular peak: {}", h.z);
     }
 }
-
 
 #[cfg(test)]
 mod tests_pass_38 {
@@ -4801,7 +4774,6 @@ mod tests_pass_38 {
         assert!((len - 1.0).abs() < 1e-4, "len={len}");
     }
 }
-
 
 #[cfg(test)]
 mod tests_pass_39 {
@@ -4958,7 +4930,6 @@ mod tests_pass_39 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_40 {
     use super::*;
@@ -5093,7 +5064,6 @@ mod tests_pass_40 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_41 {
     use super::*;
@@ -5214,7 +5184,6 @@ mod tests_pass_41 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_42 {
     use super::*;
@@ -5326,7 +5295,6 @@ mod tests_pass_42 {
         assert!((d1 - d2).abs() < 1e-5);
     }
 }
-
 
 #[cfg(test)]
 mod tests_pass_44 {
@@ -5511,7 +5479,6 @@ mod tests_pass_44 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_45 {
     use super::*;
@@ -5654,7 +5621,6 @@ mod tests_pass_45 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_46 {
     use super::*;
@@ -5759,7 +5725,6 @@ mod tests_pass_46 {
         assert_eq!(unique.len(), vals.len());
     }
 }
-
 
 #[cfg(test)]
 mod tests_pass_47 {
@@ -5907,7 +5872,6 @@ mod tests_pass_47 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_48 {
     use super::*;
@@ -6029,7 +5993,6 @@ mod tests_pass_48 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_49 {
     use super::*;
@@ -6147,7 +6110,6 @@ mod tests_pass_49 {
         assert!((v2 - v8).abs() > 1e-4, "should differ: v2={v2} v8={v8}");
     }
 }
-
 
 #[cfg(test)]
 mod tests_pass_50 {
@@ -6291,7 +6253,6 @@ mod tests_pass_50 {
         assert_eq!(zero_crossings(&[1.0, 1.0, 1.0, 1.0]), 0);
     }
 }
-
 
 #[cfg(test)]
 mod tests_pass_51 {
@@ -6482,7 +6443,6 @@ mod tests_pass_51 {
         assert!((t_mid - 0.5).abs() < 0.01, "t_mid={t_mid}");
     }
 }
-
 
 #[cfg(test)]
 mod tests_pass_52 {
@@ -6694,7 +6654,6 @@ mod tests_pass_52 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_53 {
     use super::*;
@@ -6890,7 +6849,6 @@ mod tests_pass_53 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_54 {
     use super::*;
@@ -7016,7 +6974,6 @@ mod tests_pass_54 {
         assert!(seen.iter().all(|&v| v), "not all cells covered");
     }
 }
-
 
 #[cfg(test)]
 mod tests_pass_55 {
@@ -7188,7 +7145,6 @@ mod tests_pass_55 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_56 {
     use super::*;
@@ -7314,7 +7270,6 @@ mod tests_pass_56 {
         assert!(n.z >= 0.0, "z negative: {}", n.z);
     }
 }
-
 
 #[cfg(test)]
 mod tests_pass_57 {
@@ -7484,7 +7439,6 @@ mod tests_pass_57 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_58 {
     use super::*;
@@ -7643,7 +7597,6 @@ mod tests_pass_58 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_pass_59 {
     use super::*;
@@ -7768,7 +7721,6 @@ mod tests_pass_59 {
     }
 }
 
-
 #[cfg(test)]
 mod tests_nlerp_fix {
     use super::*;
@@ -7781,7 +7733,6 @@ mod tests_nlerp_fix {
         assert_eq!(q.w, 1.0);
     }
 }
-
 
 #[cfg(test)]
 mod tests_sentry {

@@ -44,11 +44,11 @@ pub mod mat3;
 pub mod mat4;
 pub mod quat;
 pub mod screen_point;
+#[cfg(test)]
+mod tests;
 pub mod vec2;
 pub mod vec3;
 pub mod vec4;
-#[cfg(test)]
-mod tests;
 
 pub use funcs::*;
 pub use mat2::*;

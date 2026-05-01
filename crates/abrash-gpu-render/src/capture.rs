@@ -232,6 +232,12 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "capture width overflowed RGBA byte count")]
+    fn test_aligned_bytes_per_row_overflow() {
+        let _ = aligned_bytes_per_row(u32::MAX);
+    }
+
+    #[test]
     fn test_capture_target_dimensions() {
         let config = CaptureConfig::new(320, 240);
         assert_eq!(config.width, 320);

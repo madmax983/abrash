@@ -1,7 +1,7 @@
-use std::mem::MaybeUninit;
-use std::ops::{Add, Mul, Sub};
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use std::mem::MaybeUninit;
+use std::ops::{Add, Mul, Sub};
 
 /// A 2-component vector, used for texture coordinates (UVs) and 2D positions.
 ///
@@ -20,7 +20,6 @@ pub struct Vec2 {
     pub x: f32,
     pub y: f32,
 }
-
 
 impl Vec2 {
     #[allow(missing_docs)]
@@ -472,7 +471,6 @@ impl Vec2 {
     }
 }
 
-
 impl Add for Vec2 {
     type Output = Self;
 
@@ -484,7 +482,6 @@ impl Add for Vec2 {
         }
     }
 }
-
 
 impl Sub for Vec2 {
     type Output = Self;
@@ -498,7 +495,6 @@ impl Sub for Vec2 {
     }
 }
 
-
 impl Mul<f32> for Vec2 {
     type Output = Self;
 
@@ -510,7 +506,6 @@ impl Mul<f32> for Vec2 {
         }
     }
 }
-
 
 impl std::ops::Div<f32> for Vec2 {
     type Output = Self;

@@ -903,8 +903,11 @@ impl GpuRenderer {
             .as_ref()
             .is_none_or(|s| s.width != width || s.height != height);
         if needs {
-            self.refraction_surface =
-                Some(crate::refraction::RefractionSurface::new(self.gpu.device(), width, height));
+            self.refraction_surface = Some(crate::refraction::RefractionSurface::new(
+                self.gpu.device(),
+                width,
+                height,
+            ));
         }
     }
 
@@ -914,8 +917,11 @@ impl GpuRenderer {
             .as_ref()
             .is_none_or(|o| o.width != width || o.height != height);
         if needs {
-            self.refraction_output =
-                Some(crate::refraction::RefractionOutput::new(self.gpu.device(), width, height));
+            self.refraction_output = Some(crate::refraction::RefractionOutput::new(
+                self.gpu.device(),
+                width,
+                height,
+            ));
         }
     }
 
@@ -950,9 +956,7 @@ impl GpuRenderer {
                     resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
                         buffer: &self.draw_uniform_buffer,
                         offset: 0,
-                        size: std::num::NonZeroU64::new(
-                            std::mem::size_of::<DrawUniforms>() as u64,
-                        ),
+                        size: std::num::NonZeroU64::new(std::mem::size_of::<DrawUniforms>() as u64),
                     }),
                 }],
             });
@@ -1000,19 +1004,14 @@ impl GpuRenderer {
                     continue;
                 }
 
-                let gpu_mesh = self.meshes[draw.mesh_index]
-                    .as_ref()
-                    .ok_or_else(|| {
-                        format!("stale mesh at refraction command {}", draw.command_index)
-                    })?;
+                let gpu_mesh = self.meshes[draw.mesh_index].as_ref().ok_or_else(|| {
+                    format!("stale mesh at refraction command {}", draw.command_index)
+                })?;
 
                 pass.set_bind_group(0, &frame_bg, &[]);
                 pass.set_bind_group(1, &draw_bg, &[draw.uniform_offset]);
                 pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-                pass.set_index_buffer(
-                    gpu_mesh.index_buffer.slice(..),
-                    wgpu::IndexFormat::Uint32,
-                );
+                pass.set_index_buffer(gpu_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 pass.draw_indexed(0..gpu_mesh.index_count, 0, 0..1);
             }
         }
@@ -1060,7 +1059,9 @@ impl GpuRenderer {
             params,
         );
 
-        output._texture.create_view(&wgpu::TextureViewDescriptor::default())
+        output
+            ._texture
+            .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
     fn prepare_frame_uniforms(&self, frame: &Frame) -> (FrameUniforms, Vec<GpuLightData>) {

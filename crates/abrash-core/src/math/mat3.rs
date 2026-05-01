@@ -1,7 +1,7 @@
-use std::mem::MaybeUninit;
-use std::ops::{Add, Mul, Sub};
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use std::mem::MaybeUninit;
+use std::ops::{Add, Mul, Sub};
 
 /// A 3×3 matrix for normals, 2D homogeneous transforms, and upper-left extraction.
 ///
@@ -22,7 +22,6 @@ use super::*;
 pub struct Mat3 {
     pub m: [[f32; 3]; 3],
 }
-
 
 impl Mat3 {
     /// Identity matrix.
@@ -159,7 +158,6 @@ impl Mat3 {
     }
 }
 
-
 impl std::ops::Mul for Mat3 {
     type Output = Self;
     #[inline]
@@ -177,13 +175,11 @@ impl std::ops::Mul for Mat3 {
     }
 }
 
-
 impl Default for Mat3 {
     fn default() -> Self {
         Self::identity()
     }
 }
-
 
 impl std::ops::Mul<Vec3> for Mat3 {
     type Output = Vec3;

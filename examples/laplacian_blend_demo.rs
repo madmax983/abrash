@@ -21,9 +21,9 @@ use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
+use std::f32::consts::PI;
 use std::fmt;
 use std::io::Error as IoError;
-use std::f32::consts::PI;
 
 const WIDTH: u32 = 900;
 const HEIGHT: u32 = 500;
@@ -85,7 +85,8 @@ fn print_banner() {
         ])
         .add_row(vec![
             Cell::new("Right quad"),
-            Cell::new("Laplacian pyramid blend (num_levels=4) — sharp, no ghosting").fg(Color::Green),
+            Cell::new("Laplacian pyramid blend (num_levels=4) — sharp, no ghosting")
+                .fg(Color::Green),
         ])
         .add_row(vec![
             Cell::new("Textures"),
@@ -103,7 +104,11 @@ fn make_checker_texture(size: u32, tile: u32, c0: u32, c1: u32) -> Result<Textur
     let mut tex = Texture::new(size, size)?;
     for y in 0..size {
         for x in 0..size {
-            let color = if ((x / tile) + (y / tile)) & 1 == 0 { c0 } else { c1 };
+            let color = if ((x / tile) + (y / tile)) & 1 == 0 {
+                c0
+            } else {
+                c1
+            };
             tex.set_pixel(x, y, color);
         }
     }
@@ -117,14 +122,22 @@ fn make_brick_texture(size: u32) -> Result<Texture, &'static str> {
     let brick_h = size / 16;
     let brick_w = size / 8;
     let mortar = 0xFF_60_60_60u32; // grey mortar
-    let brick = 0xFF_CC_55_33u32;  // terracotta
+    let brick = 0xFF_CC_55_33u32; // terracotta
     for y in 0..size {
         let row = y / brick_h;
         let offset = if row & 1 == 0 { 0 } else { brick_w / 2 };
         for x in 0..size {
             let is_mortar_y = (y % brick_h) == 0;
             let is_mortar_x = ((x + offset) % brick_w) == 0;
-            tex.set_pixel(x, y, if is_mortar_y || is_mortar_x { mortar } else { brick });
+            tex.set_pixel(
+                x,
+                y,
+                if is_mortar_y || is_mortar_x {
+                    mortar
+                } else {
+                    brick
+                },
+            );
         }
     }
     tex.generate_mipmaps();
@@ -139,8 +152,7 @@ fn make_gradient_mask(size: u32, transition_frac: f32) -> Result<Texture, &'stat
     let half_width = size as f32 * transition_frac * 0.5;
     for y in 0..size {
         for x in 0..size {
-            let t = ((x as f32 - half + half_width) / (2.0 * half_width))
-                .clamp(0.0, 1.0);
+            let t = ((x as f32 - half + half_width) / (2.0 * half_width)).clamp(0.0, 1.0);
             // Smooth-step for a natural transition
             let t_smooth = t * t * (3.0 - 2.0 * t);
             let v = (t_smooth * 255.0) as u32;
@@ -166,9 +178,11 @@ fn draw_quad_laplacian(
     num_levels: usize,
 ) {
     let mvp = model * vp;
-    let v: Vec<_> = p.iter().zip(uv.iter()).map(|(&pos, &uv_coord)| {
-        (mvp.transform_point(pos), uv_coord)
-    }).collect();
+    let v: Vec<_> = p
+        .iter()
+        .zip(uv.iter())
+        .map(|(&pos, &uv_coord)| (mvp.transform_point(pos), uv_coord))
+        .collect();
 
     fill_triangle_laplacian_blend(fb, zb, v[0], v[1], v[2], tex0, tex1, mask, num_levels);
     fill_triangle_laplacian_blend(fb, zb, v[0], v[2], v[3], tex0, tex1, mask, num_levels);
@@ -258,10 +272,10 @@ impl WindowApp for LaplacianBlendDemoApp {
 
         // Quad corners in local space (a flat plane facing the camera)
         let quad_p = [
-            Vec3::new(-1.0,  1.0, 0.0),
+            Vec3::new(-1.0, 1.0, 0.0),
             Vec3::new(-1.0, -1.0, 0.0),
-            Vec3::new( 1.0, -1.0, 0.0),
-            Vec3::new( 1.0,  1.0, 0.0),
+            Vec3::new(1.0, -1.0, 0.0),
+            Vec3::new(1.0, 1.0, 0.0),
         ];
         let quad_uv = [
             Vec2::new(0.0, 0.0),
@@ -271,8 +285,7 @@ impl WindowApp for LaplacianBlendDemoApp {
         ];
 
         // Left quad — direct linear blend (num_levels = 0, no Laplacian)
-        let model_left = Mat4::rotation_y(self.angle * 0.7)
-            * Mat4::translation(-1.6, 0.0, 0.0);
+        let model_left = Mat4::rotation_y(self.angle * 0.7) * Mat4::translation(-1.6, 0.0, 0.0);
         draw_quad_laplacian(
             &mut self.framebuffer,
             &mut self.zbuffer,
@@ -283,12 +296,11 @@ impl WindowApp for LaplacianBlendDemoApp {
             &self.tex0,
             &self.tex1,
             &self.mask,
-            0,  // Direct linear blend
+            0, // Direct linear blend
         );
 
         // Right quad — Laplacian pyramid blend (num_levels = 4)
-        let model_right = Mat4::rotation_y(self.angle * 0.7)
-            * Mat4::translation(1.6, 0.0, 0.0);
+        let model_right = Mat4::rotation_y(self.angle * 0.7) * Mat4::translation(1.6, 0.0, 0.0);
         draw_quad_laplacian(
             &mut self.framebuffer,
             &mut self.zbuffer,
@@ -299,7 +311,7 @@ impl WindowApp for LaplacianBlendDemoApp {
             &self.tex0,
             &self.tex1,
             &self.mask,
-            4,  // Laplacian pyramid blend
+            4, // Laplacian pyramid blend
         );
 
         self.present()

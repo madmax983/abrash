@@ -537,4 +537,13 @@ mod tests {
         let visible = pixels.iter().filter(|&&p| p != 0xFF00_0000).count();
         assert_eq!(visible, 0, "object behind camera should be culled");
     }
+
+    #[test]
+    #[should_panic(expected = "mesh indices must be in bounds")]
+    fn test_register_mesh_panics_on_invalid_indices() {
+        let mut backend = AbrashBackend::new(100, 100);
+        let mut bad_mesh = Mesh::cube(1.0);
+        bad_mesh.indices.push([999, 999, 999]); // Add out-of-bounds indices
+        backend.register_mesh(&bad_mesh);
+    }
 }

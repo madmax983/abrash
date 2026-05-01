@@ -1,5 +1,5 @@
-use abrash::framebuffer::Framebuffer;
 use abrash::experimental::mosaic::apply_hex_mosaic;
+use abrash::framebuffer::Framebuffer;
 use criterion::{Criterion, criterion_group, criterion_main};
 
 fn bench_mosaic(c: &mut Criterion) {
