@@ -642,6 +642,7 @@ fn sample_at_level(tex: &Texture, u: f32, v: f32, level: usize) -> [f32; 4] {
 /// Pack `[A, R, G, B]` f32 channels (each nominally in `[0, 255]`) into a packed `0xAARRGGBB` u32.
 /// Values are clamped before conversion to handle Laplacian overshoot.
 #[inline]
+#[allow(clippy::missing_const_for_fn)]
 fn pack_argb_f32(ch: [f32; 4]) -> u32 {
     let a = ch[0].clamp(0.0, 255.0) as u32;
     let r = ch[1].clamp(0.0, 255.0) as u32;
@@ -676,6 +677,7 @@ fn pack_argb_f32(ch: [f32; 4]) -> u32 {
 /// # Returns
 ///
 /// Blended color as `0xAARRGGBB`, clamped to valid range.
+#[must_use]
 pub fn laplacian_blend_textures(
     tex0: &Texture,
     tex1: &Texture,
@@ -700,30 +702,19 @@ pub fn laplacian_blend_textures(
         let g1_lo = sample_at_level(tex1, u, v, level_lo);
         let g1_hi = sample_at_level(tex1, u, v, level_hi);
 
-        // Laplacian_k = Gaussian_k − Gaussian_(k+1)  (Eq. 11 approximation)
-        let lap0 = [
-            g0_lo[0] - g0_hi[0],
-            g0_lo[1] - g0_hi[1],
-            g0_lo[2] - g0_hi[2],
-            g0_lo[3] - g0_hi[3],
-        ];
-        let lap1 = [
-            g1_lo[0] - g1_hi[0],
-            g1_lo[1] - g1_hi[1],
-            g1_lo[2] - g1_hi[2],
-            g1_lo[3] - g1_hi[3],
-        ];
-
         // Mask at the same Gaussian level — R channel as blend weight ∈ [0, 1]
         let m_raw = sample_at_level(mask, u, v, level_lo);
         let m = m_raw[1] / 255.0;
         let inv_m = 1.0 - m;
 
+        // Laplacian_k = Gaussian_k − Gaussian_(k+1)  (Eq. 11 approximation)
         // Blend Laplacian levels and accumulate (Eq. 3)
-        acc[0] += lap0[0] * inv_m + lap1[0] * m;
-        acc[1] += lap0[1] * inv_m + lap1[1] * m;
-        acc[2] += lap0[2] * inv_m + lap1[2] * m;
-        acc[3] += lap0[3] * inv_m + lap1[3] * m;
+        // ⚡ Bolt: Elided intermediate `lap0` and `lap1` array allocations
+        // to directly accumulate scalar components.
+        acc[0] += (g0_lo[0] - g0_hi[0]) * inv_m + (g1_lo[0] - g1_hi[0]) * m;
+        acc[1] += (g0_lo[1] - g0_hi[1]) * inv_m + (g1_lo[1] - g1_hi[1]) * m;
+        acc[2] += (g0_lo[2] - g0_hi[2]) * inv_m + (g1_lo[2] - g1_hi[2]) * m;
+        acc[3] += (g0_lo[3] - g0_hi[3]) * inv_m + (g1_lo[3] - g1_hi[3]) * m;
     }
 
     // Lowest-frequency Gaussian level (coarsest mip)
