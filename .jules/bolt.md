@@ -121,3 +121,6 @@
 **[Pre-calculated Mipmap Capacity]**
 **Learning:** In `Texture::generate_mipmaps`, dynamically reallocating the `mips` vector within the while loop invokes standard overallocation strategies for every mip level generated. By pre-calculating the exact number of mip levels required using a simple while loop (`width.max(height) > 1`) and pre-allocating with `reserve_exact(num_mips)`, we completely eliminate intermediate heap reallocations.
 **Action:** Calculate the exact size requirements and use `reserve_exact()` before entering loops that iteratively push to structurally empty vectors, specifically in texture generation pipelines.
+**[Strict Bounds Pre-Allocation]**
+**Learning:** When pre-allocating or extending vectors where the exact required capacity or number of appended elements is known (e.g., transforming a slice of points), using `.reserve_exact()` instead of `.reserve()` bypasses standard overallocation heuristics, safely preventing unnecessary memory footprint growth for large arrays without causing performance regressions.
+**Action:** Replace `.reserve(x.len())` with `.reserve_exact(x.len())` on vectors mapped from identically sized slices.

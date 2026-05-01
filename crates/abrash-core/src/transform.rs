@@ -227,7 +227,7 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
-        out.reserve(points.len());
+        out.reserve_exact(points.len());
         out.extend(points.iter().map(|p| {
             Vec3::new(
                 p.x * m00 + p.y * m10 + p.z * m20 + self.position.x,
@@ -284,7 +284,7 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
-        out.reserve(vectors.len());
+        out.reserve_exact(vectors.len());
         out.extend(vectors.iter().map(|v| {
             Vec3::new(
                 v.x * m00 + v.y * m10 + v.z * m20,
@@ -342,7 +342,7 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
-        out.reserve(points.len());
+        out.reserve_exact(points.len());
         out.extend(points.iter().map(|p| {
             let local = *p - self.position;
             Vec3::new(
