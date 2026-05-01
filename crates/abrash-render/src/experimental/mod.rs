@@ -66,6 +66,7 @@ pub mod kaleidoscope;
 pub mod kuwahara;
 pub mod led_matrix;
 pub mod lsystem;
+pub mod magnifying_glass;
 pub mod mandelbrot;
 pub mod melt;
 pub mod mode7;

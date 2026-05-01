@@ -924,3 +924,8 @@ required-features = ["nova"]
 [[bench]]
 name = "offscreen_rect_bench"
 harness = false
+
+[[example]]
+name = "magnifying_glass_demo"
+path = "examples/magnifying_glass_demo.rs"
+required-features = ["nova"]
