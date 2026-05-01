@@ -5206,7 +5206,11 @@ fn draw_scanline_laplacian_blend(
         let u_end = u + gradients.du_dx * count as f32;
         let v_end = v + gradients.dv_dx * count as f32;
 
-        let w_end = if q_end.abs() > 0.000_001 { 1.0 / q_end } else { 1.0 };
+        let w_end = if q_end.abs() > 0.000_001 {
+            1.0 / q_end
+        } else {
+            1.0
+        };
         let u_norm_end = u_end * w_end;
         let v_norm_end = v_end * w_end;
 
@@ -5304,8 +5308,14 @@ pub fn fill_triangle_laplacian_blend(
         let cv2 = clipped[base + 2];
 
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
-            cv0.0.0, cv0.0.1, cv1.0.0, cv1.0.1, cv2.0.0, cv2.0.1,
-            half_width, half_height,
+            cv0.0.0,
+            cv0.0.1,
+            cv1.0.0,
+            cv1.0.1,
+            cv2.0.0,
+            cv2.0.1,
+            half_width,
+            half_height,
         );
 
         if is_backface(p0_orig, p1_orig, p2_orig) {
@@ -5326,17 +5336,10 @@ pub fn fill_triangle_laplacian_blend(
         let vv2 = cv2.1.y * inv_w2;
 
         let (gradients, _) = PerspectiveTextureGradients::new_with_winding(
-            p0_orig, p1_orig, p2_orig,
-            inv_w0, inv_w1, inv_w2,
-            u0, u1, u2,
-            vv0, vv1, vv2,
+            p0_orig, p1_orig, p2_orig, inv_w0, inv_w1, inv_w2, u0, u1, u2, vv0, vv1, vv2,
         );
 
-        let mut verts = [
-            (p0_orig, u0, vv0),
-            (p1_orig, u1, vv1),
-            (p2_orig, u2, vv2),
-        ];
+        let mut verts = [(p0_orig, u0, vv0), (p1_orig, u1, vv1), (p2_orig, u2, vv2)];
         sort_by_y(&mut verts, |(p, _, _)| p.y);
         let [(p0, u0, v0), (p1, u1, v1), (p2, u2, v2)] = verts;
 
@@ -5409,11 +5412,14 @@ pub fn fill_triangle_laplacian_blend(
             let xs = x_start.max(0);
             let xe = x_end.min(width_i32 - 1);
             if xs <= xe {
-                let span_start =
-                    PerspectiveSpanStart { z: z_left, q: q_left, u: u_left, v: v_left };
+                let span_start = PerspectiveSpanStart {
+                    z: z_left,
+                    q: q_left,
+                    u: u_left,
+                    v: v_left,
+                };
                 draw_scanline_laplacian_blend(
-                    fb, zb, y, xs, xe, span_start, &gradients,
-                    tex0, tex1, mask, num_levels,
+                    fb, zb, y, xs, xe, span_start, &gradients, tex0, tex1, mask, num_levels,
                 );
             }
 
@@ -5437,7 +5443,11 @@ fn test_fill_triangle_laplacian_blend_runs_without_panic() {
             tex0.set_pixel(x, y, 0xFFFF0000); // red
             tex1.set_pixel(x, y, 0xFF0000FF); // blue
             // Horizontal gradient mask: left = tex0, right = tex1
-            mask.set_pixel(x, y, 0xFF000000 | ((x * 32) << 16) | ((x * 32) << 8) | (x * 32));
+            mask.set_pixel(
+                x,
+                y,
+                0xFF000000 | ((x * 32) << 16) | ((x * 32) << 8) | (x * 32),
+            );
         }
     }
     tex0.generate_mipmaps();

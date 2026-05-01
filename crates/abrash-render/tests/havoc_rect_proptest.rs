@@ -1,6 +1,6 @@
-use proptest::prelude::*;
 use abrash_core::framebuffer::Framebuffer;
 use abrash_render::rasterizer::rect::{draw_rect, fill_rounded_rect};
+use proptest::prelude::*;
 
 proptest! {
     #[test]
