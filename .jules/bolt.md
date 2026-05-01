@@ -113,3 +113,11 @@
 **[f32::hypot() Bottleneck in Per-Pixel Loops]**
 **Learning:** In hot inner loops (like per-pixel post-processing), calculating magnitude using `f32::hypot()` is a severe bottleneck due to internal overflow/underflow checks.
 **Action:** When coordinates are bounded (e.g., screen space or color values), replace `dx.hypot(dy)` with `(dx * dx + dy * dy).sqrt()` and explicitly suppress the resulting `clippy::imprecise_flops` warning using `#[allow(clippy::imprecise_flops)]`.
+
+**[Eliding Reallocations during Mipmap Generation]**
+**Learning:** During texture mipmap generation in `Texture::generate_mipmaps`, the `self.mips` vector is cleared and then iteratively pushed to. This triggers standard geometric overallocation heuristics, unnecessarily allocating dynamic heap memory on each growth step. By mathematically pre-calculating the exact number of mip levels required (based on `width.max(height)`) and calling `reserve_exact(num_mips)` upfront, all intermediate reallocations are safely and measurably eliminated.
+**Action:** Use `.reserve_exact()` on vectors where exact capacity bounds are mathematically guaranteed ahead of time (e.g., mipmap levels, matrix cells).
+
+**[Pre-calculated Mipmap Capacity]**
+**Learning:** In `Texture::generate_mipmaps`, dynamically reallocating the `mips` vector within the while loop invokes standard overallocation strategies for every mip level generated. By pre-calculating the exact number of mip levels required using a simple while loop (`width.max(height) > 1`) and pre-allocating with `reserve_exact(num_mips)`, we completely eliminate intermediate heap reallocations.
+**Action:** Calculate the exact size requirements and use `reserve_exact()` before entering loops that iteratively push to structurally empty vectors, specifically in texture generation pipelines.
