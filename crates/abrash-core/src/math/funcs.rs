@@ -1,7 +1,7 @@
-use std::mem::MaybeUninit;
-use std::ops::{Add, Mul, Sub};
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use std::mem::MaybeUninit;
+use std::ops::{Add, Mul, Sub};
 
 /// Fast polynomial approximation of sin and cos.
 ///
@@ -1035,27 +1035,6 @@ pub fn point_in_polygon_2d(p: Vec2, polygon: &[Vec2]) -> bool {
     winding != 0
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /// Project a 3D point to screen coordinates using pre-calculated half-dimensions.
 ///
 /// This avoids repetitive integer-to-float conversions and divisions.
@@ -1820,29 +1799,7 @@ pub fn basis_from_normal(n: Vec3) -> (Vec3, Vec3) {
     (tangent, bitangent)
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
 // ── Quaternion ────────────────────────────────────────────────────────────────
-
-
-
-
-
-
-
-
-
-
 
 // ── Pass 18: Octahedral encoding, Morton Z-order, Spherical Fibonacci ─────────
 
@@ -1995,8 +1952,6 @@ pub fn golden_ratio_sequence(n: u32) -> f32 {
     const PHI: f32 = 1.618_033_988_749_895_f32;
     (n as f32 * PHI).fract()
 }
-
-
 
 // ── Pass 19: Spring dynamics, fast bit-ops, scalar utilities ──────────────────
 
@@ -2226,7 +2181,6 @@ pub fn approx_eq(a: f32, b: f32, eps: f32) -> bool {
     (a - b).abs() <= eps
 }
 
-
 // ── Pass 20: Hashing, Bayer dithering, audio utils, misc ─────────────────────
 
 /// PCG (Permuted Congruential Generator) hash — high-quality stateless integer
@@ -2389,7 +2343,6 @@ pub fn bounce(t: f32, lo: f32, hi: f32) -> f32 {
     lo + folded
 }
 
-
 // ── Pass 21: Geometric math, scalar helpers ───────────────────────────────────
 
 /// Minimum of three scalars.
@@ -2541,7 +2494,6 @@ pub fn ease_exp_out(t: f32, k: f32) -> f32 {
     1.0 - ease_exp_in(1.0 - t, k)
 }
 
-
 // ── Pass 22: Tone mapping, UV utilities, linear/sRGB ─────────────────────────
 
 /// Simple **Reinhard** tone mapping: maps HDR `[0,∞)` → `[0,1)`.
@@ -2684,7 +2636,6 @@ pub fn srgb_to_linear(x: f32) -> f32 {
         ((x + 0.055) / 1.055).powf(2.4)
     }
 }
-
 
 // ── Pass 23: Color spaces, PBR utilities, ray intersections, noise ────────────
 
@@ -3926,8 +3877,6 @@ pub fn barycentric_3d(p: Vec3, a: Vec3, b: Vec3, c: Vec3) -> (f32, f32, f32) {
     (u, v, w)
 }
 
-
-
 // ── Pass 29 additions ─────────────────────────────────────────────────────────
 
 /// Reflect an incident direction about a surface `normal` (Snell's law mirror term).
@@ -4205,7 +4154,6 @@ pub fn erf_approx(x: f32) -> f32 {
     sign * (1.0 - poly * (-x * x).exp())
 }
 
-
 // ── Pass 30 additions ─────────────────────────────────────────────────────────
 
 /// 3D Perlin noise in `[−1, 1]` using Ken Perlin's improved 2002 gradients.
@@ -4424,7 +4372,6 @@ pub fn ease_expo_in_out(t: f32) -> f32 {
         (2.0 - (-20.0 * t + 10.0).exp2()) * 0.5
     }
 }
-
 
 // ── Pass 31 ────────────────────────────────────────────────────────────────────
 
@@ -4733,7 +4680,6 @@ pub fn ray_capsule_intersect(ro: Vec3, rd: Vec3, a: Vec3, b: Vec3, r: f32) -> Op
     if t < f32::INFINITY { Some(t) } else { None }
 }
 
-
 // ── Pass 32 ────────────────────────────────────────────────────────────────────
 
 /// Quartic ease-in: accelerates with `t⁴`.
@@ -4936,7 +4882,6 @@ pub fn xyz_to_linear_rgb(x: f32, y: f32, z: f32) -> (f32, f32, f32) {
     (r, g, b)
 }
 
-
 // ── Pass 33 ────────────────────────────────────────────────────────────────────
 
 /// Compute the shortest-arc [`Quat`] that rotates unit vector `from` to unit
@@ -5090,7 +5035,6 @@ pub const fn log2_ceil(n: u32) -> u32 {
     u32::BITS - (n - 1).leading_zeros()
 }
 
-
 // ── Pass 34 ────────────────────────────────────────────────────────────────────
 
 /// Linearise a depth-buffer value from the NDC \[0, 1] range (DirectX /
@@ -5175,7 +5119,6 @@ pub fn triangle_normal(a: Vec3, b: Vec3, c: Vec3) -> Vec3 {
     let ac = Vec3::new(c.x - a.x, c.y - a.y, c.z - a.z);
     ab.cross(ac)
 }
-
 
 // ── Pass 35 ────────────────────────────────────────────────────────────────────
 
@@ -5304,7 +5247,6 @@ pub fn unpack_snorm_2x16(packed: u32) -> (f32, f32) {
     (x, y)
 }
 
-
 // ── Pass 36 ────────────────────────────────────────────────────────────────────
 
 /// Bilinear interpolation of four corner values on a unit \[0,1]² grid.
@@ -5406,7 +5348,6 @@ pub fn worley_f1_f2_2d(p: Vec2) -> (f32, f32) {
     }
     (f1, f2)
 }
-
 
 // ── Pass 37 ────────────────────────────────────────────────────────────────────
 
@@ -5532,7 +5473,6 @@ pub fn sample_ggx_hemisphere(roughness: f32, u1: f32, u2: f32) -> Vec3 {
     Vec3::new(sin_theta * phi.cos(), sin_theta * phi.sin(), cos_theta).normalize()
 }
 
-
 // ---------------------------------------------------------------------------
 // Pass 38 — frustum culling, signed angle, vec3 slerp
 // ---------------------------------------------------------------------------
@@ -5646,7 +5586,6 @@ pub fn vec3_slerp(a: Vec3, b: Vec3, t: f32) -> Vec3 {
     )
 }
 
-
 // ---------------------------------------------------------------------------
 // Pass 39 — smooth-min/max, pingpong, wrap_angle, PCG hash, IGN, gold noise
 // ---------------------------------------------------------------------------
@@ -5740,7 +5679,6 @@ pub fn gold_noise(x: f32, y: f32, seed: f32) -> f32 {
     const PHI: f32 = 1.618_033_98; // golden ratio
     ((x * PHI + y + seed) * 1_e4).sin().fract().abs()
 }
-
 
 // ---------------------------------------------------------------------------
 // Pass 40 — Rodrigues rotation, swing/twist decompose, refraction,
@@ -5871,7 +5809,6 @@ pub fn gaussian_kernel_1d(radius: u32, sigma: f32) -> Vec<f32> {
     kernel
 }
 
-
 // ---------------------------------------------------------------------------
 // Pass 41 — Sobel filter, height-to-normal, trilinear interp, mip LOD,
 //           contrast adjust, saturation adjust
@@ -5967,7 +5904,6 @@ pub fn saturation_adjust(r: f32, g: f32, b: f32, factor: f32) -> (f32, f32, f32)
     let nb = (luma + factor * (b - luma)).clamp(0.0, 1.0);
     (nr, ng, nb)
 }
-
 
 // ---------------------------------------------------------------------------
 // Pass 42 — Horner polynomial eval, Newton-Raphson, bisection,
@@ -6070,7 +6006,6 @@ pub fn delta_e_cie76(l1: f32, a1: f32, b1: f32, l2: f32, a2: f32, b2: f32) -> f3
     let db = b1 - b2;
     (dl * dl + da * da + db * db).sqrt()
 }
-
 
 // ---------------------------------------------------------------------------
 // Pass 44 — linear solvers, Gram-Schmidt, Givens, regression, plane fit,
@@ -6387,7 +6322,6 @@ pub fn sphere_sphere_overlap(c1: Vec3, r1: f32, c2: Vec3, r2: f32) -> Option<f32
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // Pass 45 — signal processing & control theory
 //   exponential_smooth, one_euro_filter_step, half_life ↔ decay,
@@ -6506,7 +6440,6 @@ pub fn welford_update(count: u32, mean: f32, m2: f32, new_value: f32) -> (u32, f
     (count, mean, m2)
 }
 
-
 // ---------------------------------------------------------------------------
 // Pass 46 — GPU data packing & bit manipulation
 //   oct_encode/decode normal, morton_encode/decode_3d,
@@ -6618,7 +6551,6 @@ pub const fn reverse_bits_u32(mut n: u32) -> u32 {
     n
 }
 
-
 // ---------------------------------------------------------------------------
 // Pass 47 — numerical integration, atmosphere, terrain utilities
 //   euler_step, runge_kutta_4, verlet_step,
@@ -6712,7 +6644,6 @@ pub fn slope_from_heightmap(pixels: &[f32; 9], texel_size: f32) -> f32 {
     let gy_s = gy / scale;
     (gx_s * gx_s + gy_s * gy_s).sqrt()
 }
-
 
 // ---------------------------------------------------------------------------
 // Pass 48 — Monte Carlo / importance sampling
@@ -6820,7 +6751,6 @@ pub fn stratified_jitter_2d(n: u32, jitter: &[(f32, f32)]) -> Vec<(f32, f32)> {
         })
         .collect()
 }
-
 
 // ---------------------------------------------------------------------------
 // Pass 49 — advanced noise variants
@@ -6958,7 +6888,6 @@ pub fn voronoi_smooth_2d(p: Vec2, k: f32) -> f32 {
     -(1.0 / k) * res.ln()
 }
 
-
 // ---------------------------------------------------------------------------
 // Pass 50 — numerical analysis & signal processing
 //   finite_diff_deriv, integrate_trapezoid, integrate_simpson,
@@ -7073,7 +7002,6 @@ pub fn pearson_correlation(x: &[f32], y: &[f32]) -> Option<f32> {
 pub fn zero_crossings(signal: &[f32]) -> usize {
     signal.windows(2).filter(|w| w[0] * w[1] < 0.0).count()
 }
-
 
 // ── Pass 51 ──────────────────────────────────────────────────────────────────
 // convex_hull_2d, point_in_convex_polygon_2d, two_bone_ik,
@@ -7332,7 +7260,6 @@ pub fn bezier_arc_length_param(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, s: f32, s
 
 // ── Tests — Pass 51 ───────────────────────────────────────────────────────────
 
-
 // ── Pass 52 ──────────────────────────────────────────────────────────────────
 // orient_2d, triangle_circumcenter_2d, in_circumcircle_2d,
 // capsule_vs_capsule, sphere_vs_capsule,
@@ -7514,7 +7441,6 @@ pub fn obb_vs_obb_2d(
 }
 
 // ── Tests — Pass 52 ───────────────────────────────────────────────────────────
-
 
 // ── Pass 53 — SDF primitives & operators ─────────────────────────────────────
 // sdf_sphere, sdf_box_3d, sdf_torus, sdf_capsule_3d, sdf_cone,
@@ -7722,7 +7648,6 @@ pub fn sdf_op_repeat_3d(p: Vec3, c: Vec3) -> Vec3 {
 
 // ── Tests — Pass 53 ───────────────────────────────────────────────────────────
 
-
 // ── Pass 54 — hash functions, XYZ/RGB, blackbody, Hilbert curve ───────────────
 // wang_hash, lowbias32, murmur3_fmix32, hash_to_unit_vec3,
 // xyz_to_linear_rgb, blackbody_linear_rgb,
@@ -7854,7 +7779,6 @@ pub const fn hilbert_d_to_xy(mut d: u32, n: u32) -> (u32, u32) {
 
 // ── Tests — Pass 54 ───────────────────────────────────────────────────────────
 
-
 // ── Pass 55 — window functions, DCT-II, RMS, SDF normal ──────────────────────
 // hann_window, hamming_window, blackman_window, apply_window,
 // rms, dct_ii, idct_ii, sdf_normal_3d
@@ -7983,7 +7907,6 @@ pub fn sdf_normal_3d(p: Vec3, sdf: impl Fn(Vec3) -> f32, eps: f32) -> Vec3 {
 }
 
 // ── Tests — Pass 55 ───────────────────────────────────────────────────────────
-
 
 // ── Pass 56 — rendering utilities ────────────────────────────────────────────
 // perspective_reverse_z, taa_halton_jitter, f32_to_f16, f16_to_f32,
@@ -8142,7 +8065,6 @@ pub fn perspective_oblique(proj: Mat4, clip_plane: [f32; 4]) -> Mat4 {
 }
 
 // ── Tests — Pass 56 ───────────────────────────────────────────────────────────
-
 
 // ── Pass 57 — camera exposure, splines, quat utilities, oscillator ────────────
 // ev100, ev100_to_exposure, log_average_luminance,
@@ -8384,7 +8306,6 @@ pub fn damped_oscillator_state(omega: f32, zeta: f32, x0: f32, v0: f32, t: f32) 
 }
 
 // ── Tests — Pass 57 ───────────────────────────────────────────────────────────
-
 
 // ── Pass 58: SDF shapes, SDF space operators, lens distortion ────────────────
 

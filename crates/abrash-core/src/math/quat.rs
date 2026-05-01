@@ -1,7 +1,7 @@
-use std::mem::MaybeUninit;
-use std::ops::{Add, Mul, Sub};
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use std::mem::MaybeUninit;
+use std::ops::{Add, Mul, Sub};
 
 /// Unit quaternion representing a 3-D rotation.
 ///
@@ -23,7 +23,6 @@ pub struct Quat {
     /// The scalar real component determining the angle of rotation.
     pub w: f32,
 }
-
 
 impl Quat {
     /// The identity quaternion (no rotation).
@@ -274,7 +273,6 @@ impl Quat {
     }
 }
 
-
 impl std::ops::Mul for Quat {
     type Output = Self;
     /// Hamilton product: applies `self` first, then `rhs`.
@@ -288,7 +286,6 @@ impl std::ops::Mul for Quat {
         }
     }
 }
-
 
 impl Default for Quat {
     fn default() -> Self {

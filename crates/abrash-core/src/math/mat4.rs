@@ -1,7 +1,7 @@
-use std::mem::MaybeUninit;
-use std::ops::{Add, Mul, Sub};
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use std::mem::MaybeUninit;
+use std::ops::{Add, Mul, Sub};
 
 /// A 4x4 transformation matrix used for 3D graphics.
 ///
@@ -48,7 +48,6 @@ use super::*;
 pub struct Mat4 {
     pub m: [[f32; 4]; 4],
 }
-
 
 impl Mat4 {
     /// Creates the standard identity matrix.
@@ -1303,13 +1302,11 @@ impl Mat4 {
     }
 }
 
-
 impl Default for Mat4 {
     fn default() -> Self {
         Self::identity()
     }
 }
-
 
 impl Mul for Mat4 {
     type Output = Self;

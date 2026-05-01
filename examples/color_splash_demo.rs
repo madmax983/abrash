@@ -8,9 +8,9 @@ use abrash::platform::{
 use abrash::rasterizer::fill_triangle_gouraud;
 use abrash::zbuffer::ZBuffer;
 use abrash_render::experimental::color_splash::{ColorSplashConfig, apply_color_splash};
-use std::time::Instant;
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
+use std::time::Instant;
 
 const WIDTH: u32 = 640;
 const HEIGHT: u32 = 480;

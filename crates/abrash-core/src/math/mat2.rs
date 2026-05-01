@@ -1,7 +1,7 @@
-use std::mem::MaybeUninit;
-use std::ops::{Add, Mul, Sub};
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use std::mem::MaybeUninit;
+use std::ops::{Add, Mul, Sub};
 
 /// A 2x2 matrix, primarily used for 2D rotations and transformations.
 ///
@@ -25,7 +25,6 @@ use super::*;
 pub struct Mat2 {
     pub m: [[f32; 2]; 2],
 }
-
 
 impl Mat2 {
     /// Creates a 2D rotation matrix.
@@ -137,7 +136,6 @@ impl Mat2 {
         }
     }
 }
-
 
 impl std::ops::Mul for Mat2 {
     type Output = Self;

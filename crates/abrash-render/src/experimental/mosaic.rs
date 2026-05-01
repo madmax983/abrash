@@ -16,12 +16,7 @@ use crate::framebuffer::Framebuffer;
 /// * `cell_size` - The radius of the hexagons.
 /// * `border_size` - The thickness of the border between hexagons.
 /// * `border_color` - The ARGB color of the border.
-pub fn apply_hex_mosaic(
-    fb: &mut Framebuffer,
-    cell_size: f32,
-    border_size: f32,
-    border_color: u32,
-) {
+pub fn apply_hex_mosaic(fb: &mut Framebuffer, cell_size: f32, border_size: f32, border_color: u32) {
     if cell_size <= 1.0 {
         return;
     }
@@ -48,53 +43,56 @@ pub fn apply_hex_mosaic(
     #[cfg(feature = "parallel")]
     {
         use rayon::prelude::*;
-        pixels.par_chunks_mut(width).enumerate().for_each(|(y, row)| {
-            let py = y as f32;
-            for x in 0..width {
-                let px = x as f32;
+        pixels
+            .par_chunks_mut(width)
+            .enumerate()
+            .for_each(|(y, row)| {
+                let py = y as f32;
+                for x in 0..width {
+                    let px = x as f32;
 
-                // Grid 1
-                let grid_x1 = (px / grid_w).round();
-                let grid_y1 = (py / grid_h).round();
-                let cx1 = grid_x1 * grid_w;
-                let cy1 = grid_y1 * grid_h;
+                    // Grid 1
+                    let grid_x1 = (px / grid_w).round();
+                    let grid_y1 = (py / grid_h).round();
+                    let cx1 = grid_x1 * grid_w;
+                    let cy1 = grid_y1 * grid_h;
 
-                // Grid 2
-                let grid_x2 = ((px - 1.5 * r) / grid_w).round();
-                let grid_y2 = ((py - 0.5 * grid_h) / grid_h).round();
-                let cx2 = grid_x2 * grid_w + 1.5 * r;
-                let cy2 = grid_y2 * grid_h + 0.5 * grid_h;
+                    // Grid 2
+                    let grid_x2 = ((px - 1.5 * r) / grid_w).round();
+                    let grid_y2 = ((py - 0.5 * grid_h) / grid_h).round();
+                    let cx2 = grid_x2 * grid_w + 1.5 * r;
+                    let cy2 = grid_y2 * grid_h + 0.5 * grid_h;
 
-                let dx1 = px - cx1;
-                let dy1 = py - cy1;
-                let dist1_sq = dx1 * dx1 + dy1 * dy1;
+                    let dx1 = px - cx1;
+                    let dy1 = py - cy1;
+                    let dist1_sq = dx1 * dx1 + dy1 * dy1;
 
-                let dx2 = px - cx2;
-                let dy2 = py - cy2;
-                let dist2_sq = dx2 * dx2 + dy2 * dy2;
+                    let dx2 = px - cx2;
+                    let dy2 = py - cy2;
+                    let dist2_sq = dx2 * dx2 + dy2 * dy2;
 
-                let (cx, cy, dx, dy) = if dist1_sq < dist2_sq {
-                    (cx1, cy1, dx1, dy1)
-                } else {
-                    (cx2, cy2, dx2, dy2)
-                };
+                    let (cx, cy, dx, dy) = if dist1_sq < dist2_sq {
+                        (cx1, cy1, dx1, dy1)
+                    } else {
+                        (cx2, cy2, dx2, dy2)
+                    };
 
-                let center_x = cx.round().clamp(0.0, (width - 1) as f32) as usize;
-                let center_y = cy.round().clamp(0.0, (height - 1) as f32) as usize;
+                    let center_x = cx.round().clamp(0.0, (width - 1) as f32) as usize;
+                    let center_y = cy.round().clamp(0.0, (height - 1) as f32) as usize;
 
-                let abs_dx = dx.abs();
-                let abs_dy = dy.abs();
+                    let abs_dx = dx.abs();
+                    let abs_dy = dy.abs();
 
-                // Distance to nearest hexagon edge
-                let hex_dist = abs_dy.max(abs_dx * (sqrt3 * 0.5) + abs_dy * 0.5);
+                    // Distance to nearest hexagon edge
+                    let hex_dist = abs_dy.max(abs_dx * (sqrt3 * 0.5) + abs_dy * 0.5);
 
-                if hex_dist > inradius - border_size {
-                    row[x] = border_color;
-                } else {
-                    row[x] = src_pixels[center_y * width + center_x];
+                    if hex_dist > inradius - border_size {
+                        row[x] = border_color;
+                    } else {
+                        row[x] = src_pixels[center_y * width + center_x];
+                    }
                 }
-            }
-        });
+            });
     }
 
     #[cfg(not(feature = "parallel"))]

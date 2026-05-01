@@ -272,7 +272,11 @@ pub struct RefractionSurface {
 impl RefractionSurface {
     #[must_use]
     pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
-        let size = wgpu::Extent3d { width, height, depth_or_array_layers: 1 };
+        let size = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
         let make = |label, format, usage: wgpu::TextureUsages| {
             let tex = device.create_texture(&wgpu::TextureDescriptor {
                 label: Some(label),
@@ -402,7 +406,11 @@ impl RefractionOutput {
     pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Refraction Output"),
-            size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -411,7 +419,12 @@ impl RefractionOutput {
             view_formats: &[],
         });
         let color_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        Self { _texture: texture, color_view, width, height }
+        Self {
+            _texture: texture,
+            color_view,
+            width,
+            height,
+        }
     }
 }
 
@@ -449,12 +462,10 @@ impl RefractionResolvePass {
             source: wgpu::ShaderSource::Wgsl(REFRACTION_RESOLVE_SHADER.into()),
         });
 
-        let surface_bind_group_layout = Self::two_nonfilterable_tex_layout(
-            device, "Refraction Surface Layout",
-        );
-        let opaque_bind_group_layout = Self::two_nonfilterable_tex_layout(
-            device, "Refraction Opaque GBuf Layout",
-        );
+        let surface_bind_group_layout =
+            Self::two_nonfilterable_tex_layout(device, "Refraction Surface Layout");
+        let opaque_bind_group_layout =
+            Self::two_nonfilterable_tex_layout(device, "Refraction Opaque GBuf Layout");
         let scene_bind_group_layout = Self::color_tex_layout(device);
         let params_bind_group_layout = Self::params_layout(device);
 
@@ -623,10 +634,7 @@ impl RefractionResolvePass {
 
     // ── Bind group layout helpers ────────────────────────────────────────────
 
-    fn two_nonfilterable_tex_layout(
-        device: &wgpu::Device,
-        label: &str,
-    ) -> wgpu::BindGroupLayout {
+    fn two_nonfilterable_tex_layout(device: &wgpu::Device, label: &str) -> wgpu::BindGroupLayout {
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some(label),
             entries: &[
@@ -688,7 +696,7 @@ impl RefractionResolvePass {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
                     min_binding_size: NonZeroU64::new(
-                        std::mem::size_of::<RefractionParams>() as u64,
+                        std::mem::size_of::<RefractionParams>() as u64
                     ),
                 },
                 count: None,

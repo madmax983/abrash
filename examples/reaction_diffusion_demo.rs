@@ -122,7 +122,10 @@ impl WindowApp for ReactionDiffusionDemo {
 }
 
 fn print_banner() {
-    println!("\n{}", "🌟 Reaction-Diffusion (Gray-Scott) Demo".bold().cyan());
+    println!(
+        "\n{}",
+        "🌟 Reaction-Diffusion (Gray-Scott) Demo".bold().cyan()
+    );
     println!("{}", "=======================================".dark_grey());
 
     let mut table = Table::new();
@@ -135,7 +138,8 @@ fn print_banner() {
         ])
         .add_row(vec![
             Cell::new("Description"),
-            Cell::new("Simulates Turing patterns formed by two interacting chemicals").fg(Color::Green),
+            Cell::new("Simulates Turing patterns formed by two interacting chemicals")
+                .fg(Color::Green),
         ])
         .add_row(vec![
             Cell::new("Renderer"),

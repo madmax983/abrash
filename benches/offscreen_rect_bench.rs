@@ -1,6 +1,6 @@
 use abrash_core::framebuffer::Framebuffer;
 use abrash_render::rasterizer::rect::fill_rounded_rect;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_fill_rounded_rect_offscreen(c: &mut Criterion) {
     let mut fb = Framebuffer::new(800, 600).unwrap();

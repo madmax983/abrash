@@ -1,7 +1,7 @@
-use std::mem::MaybeUninit;
-use std::ops::{Add, Mul, Sub};
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use std::mem::MaybeUninit;
+use std::ops::{Add, Mul, Sub};
 
 /// A 4-component vector, often used for homogeneous coordinates or tangents.
 ///
@@ -26,7 +26,6 @@ pub struct Vec4 {
     pub z: f32,
     pub w: f32,
 }
-
 
 impl Vec4 {
     #[allow(missing_docs)]
@@ -359,7 +358,6 @@ impl Vec4 {
     }
 }
 
-
 /// Multiply vector by scalar.
 impl std::ops::Mul<f32> for Vec4 {
     type Output = Self;
@@ -373,7 +371,6 @@ impl std::ops::Mul<f32> for Vec4 {
         }
     }
 }
-
 
 /// Component-wise multiply.
 impl std::ops::Mul for Vec4 {
@@ -389,7 +386,6 @@ impl std::ops::Mul for Vec4 {
     }
 }
 
-
 /// Component-wise addition.
 impl std::ops::Add for Vec4 {
     type Output = Self;
@@ -404,7 +400,6 @@ impl std::ops::Add for Vec4 {
     }
 }
 
-
 /// Component-wise subtraction.
 impl std::ops::Sub for Vec4 {
     type Output = Self;
@@ -418,7 +413,6 @@ impl std::ops::Sub for Vec4 {
         }
     }
 }
-
 
 impl std::ops::Div<f32> for Vec4 {
     type Output = Self;

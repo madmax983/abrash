@@ -1,7 +1,7 @@
-use std::mem::MaybeUninit;
-use std::ops::{Add, Mul, Sub};
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use std::mem::MaybeUninit;
+use std::ops::{Add, Mul, Sub};
 
 /// A 3-component vector commonly used for positions, directions, and colors.
 ///
@@ -21,7 +21,6 @@ pub struct Vec3 {
     pub y: f32,
     pub z: f32,
 }
-
 
 impl Vec3 {
     /// Linearly interpolate between this vector and another.
@@ -779,7 +778,6 @@ impl Vec3 {
     }
 }
 
-
 impl Add for Vec3 {
     type Output = Self;
     #[inline]
@@ -791,7 +789,6 @@ impl Add for Vec3 {
         }
     }
 }
-
 
 impl Sub for Vec3 {
     type Output = Self;
@@ -805,7 +802,6 @@ impl Sub for Vec3 {
     }
 }
 
-
 impl Mul<f32> for Vec3 {
     type Output = Self;
     #[inline]
@@ -818,7 +814,6 @@ impl Mul<f32> for Vec3 {
     }
 }
 
-
 impl Mul for Vec3 {
     type Output = Self;
     #[inline]
@@ -830,7 +825,6 @@ impl Mul for Vec3 {
         }
     }
 }
-
 
 impl std::ops::Div<f32> for Vec3 {
     type Output = Self;
