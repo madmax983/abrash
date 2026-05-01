@@ -74,6 +74,10 @@ name = "math_bench"
 harness = false
 
 [[bench]]
+name = "laplacian_blend_bench"
+harness = false
+
+[[bench]]
 name = "tangent_space_bench"
 harness = false
 
