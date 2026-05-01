@@ -10,6 +10,10 @@ use crate::framebuffer::Framebuffer;
 /// Converts the image into a honeycomb grid. Each pixel takes the color of the
 /// center of the nearest hexagon. An optional border can be drawn between hexagons.
 ///
+/// # Panics
+///
+/// Panics if the internal framebuffer allocation fails due to memory exhaustion or extreme dimensions.
+///
 /// # Arguments
 ///
 /// * `fb` - The framebuffer to modify in-place.
@@ -52,14 +56,15 @@ pub fn apply_hex_mosaic(fb: &mut Framebuffer, cell_size: f32, border_size: f32, 
                     let px = x as f32;
 
                     // Grid 1
-                    let grid_x1 = (px / grid_w).round();
-                    let grid_y1 = (py / grid_h).round();
+                    // ⚡ Bolt: Replace f32::round() with fast integer casting
+                    let grid_x1 = (px / grid_w + 0.5) as i32 as f32;
+                    let grid_y1 = (py / grid_h + 0.5) as i32 as f32;
                     let cx1 = grid_x1 * grid_w;
                     let cy1 = grid_y1 * grid_h;
 
                     // Grid 2
-                    let grid_x2 = ((px - 1.5 * r) / grid_w).round();
-                    let grid_y2 = ((py - 0.5 * grid_h) / grid_h).round();
+                    let grid_x2 = ((px - 1.5 * r) / grid_w + 0.5) as i32 as f32;
+                    let grid_y2 = ((py - 0.5 * grid_h) / grid_h + 0.5) as i32 as f32;
                     let cx2 = grid_x2 * grid_w + 1.5 * r;
                     let cy2 = grid_y2 * grid_h + 0.5 * grid_h;
 
@@ -77,8 +82,10 @@ pub fn apply_hex_mosaic(fb: &mut Framebuffer, cell_size: f32, border_size: f32, 
                         (cx2, cy2, dx2, dy2)
                     };
 
-                    let center_x = cx.round().clamp(0.0, (width - 1) as f32) as usize;
-                    let center_y = cy.round().clamp(0.0, (height - 1) as f32) as usize;
+                    let center_x = (cx + 0.5) as i32 as usize;
+                    let center_x = center_x.clamp(0, width - 1);
+                    let center_y = (cy + 0.5) as i32 as usize;
+                    let center_y = center_y.clamp(0, height - 1);
 
                     let abs_dx = dx.abs();
                     let abs_dy = dy.abs();
@@ -103,14 +110,15 @@ pub fn apply_hex_mosaic(fb: &mut Framebuffer, cell_size: f32, border_size: f32, 
                 let px = x as f32;
 
                 // Grid 1
-                let grid_x1 = (px / grid_w).round();
-                let grid_y1 = (py / grid_h).round();
+                // ⚡ Bolt: Replace f32::round() with fast integer casting
+                let grid_x1 = (px / grid_w + 0.5) as i32 as f32;
+                let grid_y1 = (py / grid_h + 0.5) as i32 as f32;
                 let cx1 = grid_x1 * grid_w;
                 let cy1 = grid_y1 * grid_h;
 
                 // Grid 2
-                let grid_x2 = ((px - 1.5 * r) / grid_w).round();
-                let grid_y2 = ((py - 0.5 * grid_h) / grid_h).round();
+                let grid_x2 = ((px - 1.5 * r) / grid_w + 0.5) as i32 as f32;
+                let grid_y2 = ((py - 0.5 * grid_h) / grid_h + 0.5) as i32 as f32;
                 let cx2 = grid_x2 * grid_w + 1.5 * r;
                 let cy2 = grid_y2 * grid_h + 0.5 * grid_h;
 
@@ -128,8 +136,10 @@ pub fn apply_hex_mosaic(fb: &mut Framebuffer, cell_size: f32, border_size: f32, 
                     (cx2, cy2, dx2, dy2)
                 };
 
-                let center_x = cx.round().clamp(0.0, (width - 1) as f32) as usize;
-                let center_y = cy.round().clamp(0.0, (height - 1) as f32) as usize;
+                let center_x = (cx + 0.5) as i32 as usize;
+                let center_x = center_x.clamp(0, width - 1);
+                let center_y = (cy + 0.5) as i32 as usize;
+                let center_y = center_y.clamp(0, height - 1);
 
                 let abs_dx = dx.abs();
                 let abs_dy = dy.abs();

@@ -111,7 +111,8 @@ pub fn apply_cel_shade(fb: &mut Framebuffer, zb: &ZBuffer, config: &CelShadeConf
             gy_z += -d_bl - 2.0 * d_bc - d_br;
 
             #[allow(clippy::imprecise_flops)]
-            let edge_z = (gx_z * gx_z + gy_z * gy_z).sqrt();
+            // ⚡ Bolt: Use squared magnitude to avoid f32::sqrt() in hot inner loop
+            let edge_z_sq = gx_z * gx_z + gy_z * gy_z;
 
             // Collect Luminance
             let l_tl = get_lum(src_pixels[tl]);
@@ -131,13 +132,13 @@ pub fn apply_cel_shade(fb: &mut Framebuffer, zb: &ZBuffer, config: &CelShadeConf
             gy_l += -l_bl - 2.0 * l_bc - l_br;
 
             #[allow(clippy::imprecise_flops)]
-            let edge_l = (gx_l * gx_l + gy_l * gy_l).sqrt();
+            let edge_l_sq = gx_l * gx_l + gy_l * gy_l;
 
             // Combine edge strengths
             // Depth edges are strong, luminance edges help with interior creases
-            let combined_edge = edge_z + (edge_l * 0.5);
+            let combined_edge_sq = edge_z_sq + edge_l_sq * 0.25;
 
-            if combined_edge > edge_thresh {
+            if combined_edge_sq > edge_thresh * edge_thresh {
                 *pixel_out = edge_color;
             } else {
                 *pixel_out = quantize_color(src_pixels[center_idx], levels);
@@ -195,9 +196,10 @@ fn quantize_color(color: u32, levels: u32) -> u32 {
     let g = ((color >> 8) & 0xFF) as f32;
     let b = (color & 0xFF) as f32;
 
-    let qr = ((r * inv_factor).round() * factor).clamp(0.0, 255.0) as u32;
-    let qg = ((g * inv_factor).round() * factor).clamp(0.0, 255.0) as u32;
-    let qb = ((b * inv_factor).round() * factor).clamp(0.0, 255.0) as u32;
+    // ⚡ Bolt: Replace f32::round() with fast integer casting
+    let qr = (((r * inv_factor + 0.5) as i32 as f32) * factor).clamp(0.0, 255.0) as u32;
+    let qg = (((g * inv_factor + 0.5) as i32 as f32) * factor).clamp(0.0, 255.0) as u32;
+    let qb = (((b * inv_factor + 0.5) as i32 as f32) * factor).clamp(0.0, 255.0) as u32;
 
     a | (qr << 16) | (qg << 8) | qb
 }
