@@ -101,7 +101,7 @@ pub fn apply_speed_lines(fb: &mut Framebuffer, config: &SpeedLinesConfig) {
             }
 
             // Calculate angle (-PI to PI)
-            let mut angle = dy.atan2(dx);
+            let mut angle = abrash_core::math::fast_atan2(dy, dx);
             if angle < 0.0 {
                 angle += std::f32::consts::TAU;
             }
