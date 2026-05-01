@@ -1,6 +1,13 @@
-⚡ Bolt: [Cel Shading Performance] Replace f32::hypot with manual sqrt
+⚡ Bolt: Replace reserve_exact with reserve on dynamic frame buffers
 
-💡 What: Replaced f32::hypot(gx, gy) with (gx * gx + gy * gy).sqrt() in the hot Sobel edge detection loops inside cel_shade.rs.
-🎯 Why: f32::hypot internally performs bounds checks to prevent overflow and underflow, which are unnecessary for the bounded magnitude calculations done in this screen-space shader.
-📊 Impact: Reduced the execution time of apply_cel_shade on an 800x600 buffer by ~15%, dropping from ~37ms to ~31ms.
-🔬 Measurement: Verified through cargo bench --bench cel_shade_bench.
+💡 What:
+Replaced `.reserve_exact()` with `.reserve()` in `CpuRenderer::extract_draw_list_into` and `Scene::extract_into` for dynamically populated thread-local and passed vectors (`world_aabbs`, `draw_list.batches`, `draw_list.vertices`, `draw_list.lights`).
+
+🎯 Why:
+As noted in "Persona 'Bolt' Learning: Do not use `Vec::reserve_exact()` on dynamic buffers that are cleared and repopulated periodically", using `reserve_exact()` on buffers that may grow slightly across frames defeats standard amortized growth mechanisms and triggers continuous O(N) heap reallocations.
+
+📊 Impact:
+Significantly reduces frame-to-frame heap memory allocations when the scene dynamically shifts in size, improving CPU frame times on non-static scenes.
+
+🔬 Measurement:
+Run `cargo bench --bench scene_render`.
