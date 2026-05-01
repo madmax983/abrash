@@ -76,8 +76,6 @@ impl SpeedLinesApp {
 }
 
 impl WindowApp for SpeedLinesApp {
-    type Error = HostError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: "Speed Lines Demo".to_string(),
@@ -87,17 +85,17 @@ impl WindowApp for SpeedLinesApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.time += 0.05;
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         // Draw background
         self.framebuffer.clear(0xFF101030); // Dark blue
 

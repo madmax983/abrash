@@ -128,8 +128,6 @@ mod winit_demo {
     }
 
     impl WindowApp for EdgeGlowApp {
-        type Error = io::Error;
-
         fn config(&self) -> WindowHostConfig {
             WindowHostConfig {
                 title: "Edge Glow Demo".to_string(),
@@ -139,7 +137,7 @@ mod winit_demo {
             }
         }
 
-        fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
             self.presenter = Some(SoftwarePresenter::new(ctx.window).map_err(io::Error::other)?);
             Ok(())
         }
@@ -149,15 +147,15 @@ mod winit_demo {
             _ctx: WindowContext<'_>,
             width: u32,
             height: u32,
-        ) -> Result<(), Self::Error> {
+        ) -> Result<(), Box<dyn std::error::Error>> {
             self.rebuild_framebuffer(width, height)
         }
 
-        fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
             Ok(())
         }
 
-        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
             let presenter = self
                 .presenter
                 .as_mut()

@@ -83,8 +83,6 @@ impl GlitchDemo {
 }
 
 impl WindowApp for GlitchDemo {
-    type Error = HostError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: TITLE.to_string(),
@@ -94,7 +92,7 @@ impl WindowApp for GlitchDemo {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
@@ -104,7 +102,7 @@ impl WindowApp for GlitchDemo {
         _ctx: WindowContext<'_>,
         width: u32,
         height: u32,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), Box<dyn std::error::Error>> {
         self.framebuffer =
             Framebuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
         self.zbuffer =
@@ -112,14 +110,14 @@ impl WindowApp for GlitchDemo {
         Ok(())
     }
 
-    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.rotation_y += ctx.dt_seconds * 1.5;
         self.rotation_x += ctx.dt_seconds * 1.0;
         self.time_elapsed += ctx.dt_seconds;
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let width = self.framebuffer.width();
         let height = self.framebuffer.height();
 

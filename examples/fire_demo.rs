@@ -79,8 +79,6 @@ impl FireDemoApp {
 }
 
 impl WindowApp for FireDemoApp {
-    type Error = HostError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: TITLE.to_string(),
@@ -90,12 +88,12 @@ impl WindowApp for FireDemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let width = WIDTH as usize;
         let height = HEIGHT as usize;
 
@@ -118,7 +116,7 @@ impl WindowApp for FireDemoApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         apply_fire(&mut self.framebuffer, &self.cooling_map);
 
         // Apply a fire palette (convert grayscale heat to fire colors)

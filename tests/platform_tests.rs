@@ -156,17 +156,16 @@ struct MockApp;
 
 #[cfg(feature = "backend-winit")]
 impl WindowApp for MockApp {
-    type Error = std::convert::Infallible;
 
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig::default()
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 }

@@ -95,8 +95,6 @@ impl SkyboxDemoApp {
 }
 
 impl WindowApp for SkyboxDemoApp {
-    type Error = HostError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: TITLE.to_string(),
@@ -106,7 +104,7 @@ impl WindowApp for SkyboxDemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
@@ -116,7 +114,7 @@ impl WindowApp for SkyboxDemoApp {
         _ctx: WindowContext<'_>,
         width: u32,
         height: u32,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), Box<dyn std::error::Error>> {
         self.framebuffer =
             Framebuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
         self.zbuffer =
@@ -124,11 +122,11 @@ impl WindowApp for SkyboxDemoApp {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let t = self.start_time.elapsed().as_secs_f32();
         let proj = Mat4::perspective(
             1.57,

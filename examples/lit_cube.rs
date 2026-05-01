@@ -127,8 +127,6 @@ impl LitCubeApp {
 }
 
 impl WindowApp for LitCubeApp {
-    type Error = HostError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: TITLE.to_string(),
@@ -138,7 +136,7 @@ impl WindowApp for LitCubeApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
@@ -148,7 +146,7 @@ impl WindowApp for LitCubeApp {
         _ctx: WindowContext<'_>,
         width: u32,
         height: u32,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), Box<dyn std::error::Error>> {
         self.framebuffer =
             Framebuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
         self.zbuffer =
@@ -156,7 +154,7 @@ impl WindowApp for LitCubeApp {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let steps = self.timestep.update();
         for _ in 0..steps {
             self.angle_y += 0.02;
@@ -165,7 +163,7 @@ impl WindowApp for LitCubeApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let projection = Mat4::perspective(
             PI / 3.0,
             self.framebuffer.width() as f32 / self.framebuffer.height() as f32,

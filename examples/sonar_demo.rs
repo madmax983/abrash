@@ -10,7 +10,6 @@ use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use abrash_render::experimental::sonar::{SonarConfig, apply_sonar};
 use std::f32::consts::PI;
-use std::fmt;
 use std::io::Error as IoError;
 
 use comfy_table::{Cell, Color, Table, presets};
@@ -19,40 +18,7 @@ use crossterm::style::Stylize;
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 
-#[derive(Debug)]
-struct AppError(String);
 
-impl fmt::Display for AppError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::error::Error for AppError {}
-
-impl From<&'static str> for AppError {
-    fn from(error: &'static str) -> Self {
-        Self(error.to_string())
-    }
-}
-
-impl From<String> for AppError {
-    fn from(error: String) -> Self {
-        Self(error)
-    }
-}
-
-impl From<IoError> for AppError {
-    fn from(error: IoError) -> Self {
-        Self(error.to_string())
-    }
-}
-
-impl From<abrash::platform::HostError> for AppError {
-    fn from(error: abrash::platform::HostError) -> Self {
-        Self(error.to_string())
-    }
-}
 
 fn print_banner() {
     println!("\n{}", "📡  Sonar Demo".bold().green());
@@ -112,7 +78,7 @@ struct SonarDemoApp {
 }
 
 impl SonarDemoApp {
-    fn new() -> Result<Self, AppError> {
+    fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
         let view = Mat4::look_at(
             Vec3::new(0.0, 5.0, 15.0),
@@ -132,7 +98,7 @@ impl SonarDemoApp {
         })
     }
 
-    fn present(&mut self) -> Result<(), AppError> {
+    fn present(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let framebuffer = &self.framebuffer;
         let presenter = self
             .presenter
@@ -144,8 +110,6 @@ impl SonarDemoApp {
 }
 
 impl WindowApp for SonarDemoApp {
-    type Error = AppError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: "Abrash - Sonar Demo".to_string(),
@@ -155,12 +119,12 @@ impl WindowApp for SonarDemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let steps = self.timestep.update();
         for _ in 0..steps {
             self.angle_y += self.timestep.dt();
@@ -169,7 +133,7 @@ impl WindowApp for SonarDemoApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.framebuffer.clear(0xFF000000);
         self.zbuffer.clear();
 
@@ -201,7 +165,7 @@ impl WindowApp for SonarDemoApp {
     }
 }
 
-fn main() -> Result<(), AppError> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_banner();
     run_windowed(SonarDemoApp::new().unwrap());
     Ok(())

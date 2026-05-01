@@ -99,8 +99,6 @@ mod app {
     }
 
     impl WindowApp for DepthFogApp {
-        type Error = HostError;
-
         fn config(&self) -> WindowHostConfig {
             WindowHostConfig {
                 title: TITLE.to_string(),
@@ -110,7 +108,7 @@ mod app {
             }
         }
 
-        fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
             self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
             Ok(())
         }
@@ -120,7 +118,7 @@ mod app {
             _ctx: WindowContext<'_>,
             width: u32,
             height: u32,
-        ) -> Result<(), Self::Error> {
+        ) -> Result<(), Box<dyn std::error::Error>> {
             if width > 0 && height > 0 {
                 self.framebuffer = Framebuffer::new(width, height)
                     .map_err(|error| HostError::App(error.to_string()))?;
@@ -130,7 +128,7 @@ mod app {
             Ok(())
         }
 
-        fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
             let steps = self.timestep.update();
             for _ in 0..steps {
                 self.rotation_y.tick(self.timestep.dt());
@@ -139,7 +137,7 @@ mod app {
             Ok(())
         }
 
-        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
             let projection = Mat4::perspective(
                 PI / 3.0,
                 self.framebuffer.width() as f32 / self.framebuffer.height() as f32,

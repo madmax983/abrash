@@ -85,8 +85,6 @@ impl MeltDemoApp {
 }
 
 impl WindowApp for MeltDemoApp {
-    type Error = HostError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: TITLE.to_string(),
@@ -96,12 +94,12 @@ impl WindowApp for MeltDemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
 
-    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         // Wait a second before melting
         self.time += ctx.dt_seconds;
 
@@ -118,7 +116,7 @@ impl WindowApp for MeltDemoApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.framebuffer
             .as_mut_slice()
             .copy_from_slice(self.background_fb.as_slice());

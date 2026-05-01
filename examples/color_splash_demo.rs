@@ -8,9 +8,9 @@ use abrash::platform::{
 use abrash::rasterizer::fill_triangle_gouraud;
 use abrash::zbuffer::ZBuffer;
 use abrash_render::experimental::color_splash::{ColorSplashConfig, apply_color_splash};
-use std::time::Instant;
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
+use std::time::Instant;
 
 const WIDTH: u32 = 640;
 const HEIGHT: u32 = 480;
@@ -51,8 +51,6 @@ impl ColorSplashDemoApp {
 }
 
 impl WindowApp for ColorSplashDemoApp {
-    type Error = HostError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: TITLE.to_string(),
@@ -62,13 +60,13 @@ impl WindowApp for ColorSplashDemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         self.last_time = Instant::now();
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let now = Instant::now();
         let dt = now.duration_since(self.last_time).as_secs_f32();
         self.last_time = now;
@@ -111,7 +109,7 @@ impl WindowApp for ColorSplashDemoApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         apply_color_splash(&mut self.framebuffer, &self.config);
         self.present()
     }

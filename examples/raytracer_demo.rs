@@ -127,8 +127,6 @@ mod winit_demo {
     }
 
     impl WindowApp for RaytracerApp {
-        type Error = io::Error;
-
         fn config(&self) -> WindowHostConfig {
             WindowHostConfig {
                 title: "Abrash - Raytracer".to_string(),
@@ -138,7 +136,7 @@ mod winit_demo {
             }
         }
 
-        fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
             self.presenter = Some(SoftwarePresenter::new(ctx.window).map_err(io::Error::other)?);
             Ok(())
         }
@@ -148,11 +146,11 @@ mod winit_demo {
             _ctx: WindowContext<'_>,
             width: u32,
             height: u32,
-        ) -> Result<(), Self::Error> {
+        ) -> Result<(), Box<dyn std::error::Error>> {
             self.rebuild_buffers(width, height)
         }
 
-        fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
             self.angle_y += ctx.dt_seconds * 0.6;
             let rotation = Mat4::rotation_y(self.angle_y);
             let translation = Mat4::translation(0.0, 0.5 + (self.angle_y * 2.0).sin() * 0.5, 0.0);
@@ -160,7 +158,7 @@ mod winit_demo {
             Ok(())
         }
 
-        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
             self.renderer.render(&self.scene, &mut self.framebuffer);
             let presenter = self
                 .presenter

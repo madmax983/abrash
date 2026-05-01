@@ -276,8 +276,6 @@ mod winit_demo {
     }
 
     impl WindowApp for JellyApp {
-        type Error = io::Error;
-
         fn config(&self) -> WindowHostConfig {
             WindowHostConfig {
                 title: "Jelly Physics Demo".to_string(),
@@ -287,7 +285,7 @@ mod winit_demo {
             }
         }
 
-        fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
             self.presenter = Some(SoftwarePresenter::new(ctx.window).map_err(io::Error::other)?);
             Ok(())
         }
@@ -297,11 +295,11 @@ mod winit_demo {
             _ctx: WindowContext<'_>,
             width: u32,
             height: u32,
-        ) -> Result<(), Self::Error> {
+        ) -> Result<(), Box<dyn std::error::Error>> {
             self.rebuild_buffers(width, height)
         }
 
-        fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
             let dt = ctx.dt_seconds.min(0.05);
             for _ in 0..4 {
                 self.jelly.update(dt / 4.0);
@@ -310,7 +308,7 @@ mod winit_demo {
             Ok(())
         }
 
-        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
             self.render_scene();
             let presenter = self
                 .presenter

@@ -134,8 +134,6 @@ impl RaycastDemoApp {
 }
 
 impl WindowApp for RaycastDemoApp {
-    type Error = HostError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: TITLE.to_string(),
@@ -145,7 +143,7 @@ impl WindowApp for RaycastDemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
@@ -155,14 +153,18 @@ impl WindowApp for RaycastDemoApp {
         _ctx: WindowContext<'_>,
         width: u32,
         height: u32,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), Box<dyn std::error::Error>> {
         self.framebuffer =
             Framebuffer::new(width, height).map_err(|e| HostError::App(e.to_string()))?;
         self.zbuffer = ZBuffer::new(width, height).map_err(|e| HostError::App(e.to_string()))?;
         Ok(())
     }
 
-    fn input(&mut self, ctx: WindowContext<'_>, event: &WindowEvent) -> Result<(), Self::Error> {
+    fn input(
+        &mut self,
+        ctx: WindowContext<'_>,
+        event: &WindowEvent,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         if let WindowEvent::KeyboardInput {
             event: KeyEvent {
                 logical_key, state, ..
@@ -185,7 +187,7 @@ impl WindowApp for RaycastDemoApp {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         // Rotation.
         let turn = Bam::from_raw(TURN_SPEED);
         if self.key_turn_left {
@@ -241,7 +243,7 @@ impl WindowApp for RaycastDemoApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         // Clear to dark background (acts as ceiling/floor color).
         self.framebuffer.clear(BACKGROUND);
         self.zbuffer.clear();

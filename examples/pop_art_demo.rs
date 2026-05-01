@@ -76,8 +76,6 @@ impl PopArtApp {
 }
 
 impl WindowApp for PopArtApp {
-    type Error = HostError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: "Pop Art Filter Demo (Nova)".to_string(),
@@ -87,17 +85,17 @@ impl WindowApp for PopArtApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.angle += 0.05;
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         // Draw a simple moving pattern to the source framebuffer
         let cx = 400.0 + (self.angle * 0.5).cos() * 200.0;
         let cy = 300.0 + (self.angle * 0.3).sin() * 150.0;

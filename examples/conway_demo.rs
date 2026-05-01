@@ -84,8 +84,6 @@ impl ConwayDemoApp {
 }
 
 impl WindowApp for ConwayDemoApp {
-    type Error = HostError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: "🌟 Nova: Conway's Game of Life Filter".to_string(),
@@ -95,7 +93,7 @@ impl WindowApp for ConwayDemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
@@ -105,7 +103,7 @@ impl WindowApp for ConwayDemoApp {
         _ctx: WindowContext<'_>,
         width: u32,
         height: u32,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), Box<dyn std::error::Error>> {
         self.framebuffer =
             Framebuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
         self.zbuffer =
@@ -113,7 +111,7 @@ impl WindowApp for ConwayDemoApp {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let steps = self.timestep.update();
         for _ in 0..steps {
             self.angle += 0.02;
@@ -121,7 +119,7 @@ impl WindowApp for ConwayDemoApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let projection = Mat4::perspective(
             1.57, // PI/2
             self.framebuffer.width() as f32 / self.framebuffer.height() as f32,

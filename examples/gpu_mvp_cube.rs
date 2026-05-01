@@ -9,25 +9,7 @@ use abrash_render::render_api::frame::{Frame, FrameCamera};
 use abrash_render::render_api::handles::{MaterialHandle, MeshHandle};
 use abrash_render::render_api::material::Material;
 use std::error::Error;
-use std::fmt;
 use std::time::Instant;
-
-#[derive(Debug)]
-struct DemoError(String);
-
-impl fmt::Display for DemoError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl Error for DemoError {}
-
-impl From<String> for DemoError {
-    fn from(value: String) -> Self {
-        Self(value)
-    }
-}
 
 struct GpuMvpCubeApp {
     renderer: Option<GpuRenderer>,
@@ -50,8 +32,6 @@ impl GpuMvpCubeApp {
 }
 
 impl WindowApp for GpuMvpCubeApp {
-    type Error = DemoError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: "Abrash GPU MVP Cube".to_string(),
@@ -61,7 +41,7 @@ impl WindowApp for GpuMvpCubeApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         use comfy_table::{Cell, Color, Table, presets};
         use crossterm::style::Stylize;
 
@@ -119,32 +99,30 @@ impl WindowApp for GpuMvpCubeApp {
         _ctx: WindowContext<'_>,
         width: u32,
         height: u32,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), Box<dyn std::error::Error>> {
         if let (Some(renderer), Some(surface)) = (self.renderer.as_ref(), self.surface.as_mut()) {
             surface.resize(renderer.device(), width, height);
         }
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 
-    fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let renderer = self
             .renderer
             .as_mut()
-            .ok_or_else(|| DemoError("renderer not initialized".to_string()))?;
+            .ok_or_else(|| "renderer not initialized".into())?;
         let surface = self
             .surface
             .as_mut()
-            .ok_or_else(|| DemoError("surface not initialized".to_string()))?;
-        let mesh = self
-            .mesh
-            .ok_or_else(|| DemoError("mesh not initialized".to_string()))?;
+            .ok_or_else(|| "surface not initialized".into())?;
+        let mesh = self.mesh.ok_or_else(|| "mesh not initialized".into())?;
         let material = self
             .material
-            .ok_or_else(|| DemoError("material not initialized".to_string()))?;
+            .ok_or_else(|| "material not initialized".into())?;
 
         let elapsed = self.start.elapsed().as_secs_f32();
         let angle = elapsed * 0.8;
@@ -165,11 +143,11 @@ impl WindowApp for GpuMvpCubeApp {
 
         renderer
             .render_to_surface(&frame, surface)
-            .map_err(DemoError::from)
+            .map_err(Into::into)
     }
 }
 
-fn main() -> Result<(), DemoError> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     run_windowed(GpuMvpCubeApp::new());
     Ok(())
 }

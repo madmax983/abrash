@@ -11,47 +11,13 @@ use clap::Parser;
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
 use std::f32::consts::PI;
-use std::fmt;
 use std::io::Error as IoError;
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const BACKGROUND: u32 = 0xFF10_1010;
 
-#[derive(Debug)]
-struct AppError(String);
 
-impl fmt::Display for AppError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::error::Error for AppError {}
-
-impl From<&'static str> for AppError {
-    fn from(error: &'static str) -> Self {
-        Self(error.to_string())
-    }
-}
-
-impl From<String> for AppError {
-    fn from(error: String) -> Self {
-        Self(error)
-    }
-}
-
-impl From<IoError> for AppError {
-    fn from(error: IoError) -> Self {
-        Self(error.to_string())
-    }
-}
-
-impl From<abrash::platform::HostError> for AppError {
-    fn from(error: abrash::platform::HostError) -> Self {
-        Self(error.to_string())
-    }
-}
 
 #[derive(Parser, Debug)]
 #[command(
@@ -182,7 +148,7 @@ struct ParticleDemoApp {
 }
 
 impl ParticleDemoApp {
-    fn new(args: &Args) -> Result<Self, AppError> {
+    fn new(args: &Args) -> Result<Self, Box<dyn std::error::Error>> {
         let texture = create_particle_texture();
         let mut particles = ParticleSystem::new(args.count, texture);
         particles.emission_rate = args.rate;
@@ -201,7 +167,7 @@ impl ParticleDemoApp {
         })
     }
 
-    fn present(&mut self) -> Result<(), AppError> {
+    fn present(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let framebuffer = &self.framebuffer;
         let presenter = self
             .presenter
@@ -213,8 +179,6 @@ impl ParticleDemoApp {
 }
 
 impl WindowApp for ParticleDemoApp {
-    type Error = AppError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: "Nova - Particle System".to_string(),
@@ -224,12 +188,12 @@ impl WindowApp for ParticleDemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let steps = self.timestep.update();
         for _ in 0..steps {
             self.angle += 0.5 * self.timestep.dt();
@@ -238,7 +202,7 @@ impl WindowApp for ParticleDemoApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.framebuffer.clear(BACKGROUND);
         self.zbuffer.clear();
 
@@ -258,7 +222,7 @@ impl WindowApp for ParticleDemoApp {
     }
 }
 
-fn main() -> Result<(), AppError> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     print_banner(&args);
     run_windowed(ParticleDemoApp::new(&args).unwrap());

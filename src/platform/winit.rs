@@ -111,9 +111,6 @@ pub struct WindowContext<'a> {
 
 /// Trait implemented by callers that want to run inside the native host.
 pub trait WindowApp {
-    /// Concrete application error type.
-    type Error: Error + Send + Sync + 'static;
-
     /// Static window configuration.
     fn config(&self) -> WindowHostConfig;
 
@@ -122,7 +119,7 @@ pub trait WindowApp {
     /// # Errors
     ///
     /// Returns an application-defined error if initialization fails.
-    fn init(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 
@@ -136,7 +133,7 @@ pub trait WindowApp {
         _ctx: WindowContext<'_>,
         _width: u32,
         _height: u32,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 
@@ -145,7 +142,11 @@ pub trait WindowApp {
     /// # Errors
     ///
     /// Returns an application-defined error if input handling fails.
-    fn input(&mut self, _ctx: WindowContext<'_>, _event: &WindowEvent) -> Result<(), Self::Error> {
+    fn input(
+        &mut self,
+        _ctx: WindowContext<'_>,
+        _event: &WindowEvent,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 
@@ -154,14 +155,14 @@ pub trait WindowApp {
     /// # Errors
     ///
     /// Returns an application-defined error if the update step fails.
-    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error>;
+    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>>;
 
     /// Render the current frame.
     ///
     /// # Errors
     ///
     /// Returns an application-defined error if rendering fails.
-    fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error>;
+    fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 use comfy_table::{Cell, Color, Table, presets};

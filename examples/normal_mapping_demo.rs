@@ -12,7 +12,6 @@ use abrash::texture::Texture;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use std::f32::consts::PI;
-use std::fmt;
 use std::io::Error as IoError;
 
 use comfy_table::{Cell, Color, Table, presets};
@@ -21,40 +20,7 @@ use crossterm::style::Stylize;
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 
-#[derive(Debug)]
-struct AppError(String);
 
-impl fmt::Display for AppError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::error::Error for AppError {}
-
-impl From<&'static str> for AppError {
-    fn from(error: &'static str) -> Self {
-        Self(error.to_string())
-    }
-}
-
-impl From<String> for AppError {
-    fn from(error: String) -> Self {
-        Self(error)
-    }
-}
-
-impl From<IoError> for AppError {
-    fn from(error: IoError) -> Self {
-        Self(error.to_string())
-    }
-}
-
-impl From<abrash::platform::HostError> for AppError {
-    fn from(error: abrash::platform::HostError) -> Self {
-        Self(error.to_string())
-    }
-}
 
 fn print_banner() {
     println!("\n{}", "🧱 Normal Mapping Demo".bold().blue());
@@ -98,7 +64,7 @@ struct NormalMappingDemoApp {
 }
 
 impl NormalMappingDemoApp {
-    fn new() -> Result<Self, AppError> {
+    fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let diffuse_map = Texture::checkered(256, 256, 0xFF80_8080, 0xFF80_8080)?;
         let mut normal_map = Texture::new(256, 256)?;
         let normal_map_pixels = normal_map.pixels_mut();
@@ -142,7 +108,7 @@ impl NormalMappingDemoApp {
         })
     }
 
-    fn present(&mut self) -> Result<(), AppError> {
+    fn present(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let framebuffer = &self.framebuffer;
         let presenter = self
             .presenter
@@ -154,8 +120,6 @@ impl NormalMappingDemoApp {
 }
 
 impl WindowApp for NormalMappingDemoApp {
-    type Error = AppError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: "Abrash - Normal Mapping".to_string(),
@@ -165,12 +129,12 @@ impl WindowApp for NormalMappingDemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let steps = self.timestep.update();
         for _ in 0..steps {
             self.light_angle += 0.05;
@@ -178,7 +142,7 @@ impl WindowApp for NormalMappingDemoApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.framebuffer.clear(0xFF00_0000);
         self.zbuffer.clear();
 
@@ -236,7 +200,7 @@ impl WindowApp for NormalMappingDemoApp {
     }
 }
 
-fn main() -> Result<(), AppError> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_banner();
     run_windowed(NormalMappingDemoApp::new().unwrap());
     Ok(())

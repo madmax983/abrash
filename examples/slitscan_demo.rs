@@ -10,7 +10,6 @@ use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use abrash_render::experimental::slitscan::SlitScanFilter;
 use std::f32::consts::PI;
-use std::fmt;
 use std::io::Error as IoError;
 
 use comfy_table::{Cell, Color, Table, presets};
@@ -29,40 +28,7 @@ const COLORS: [u32; 6] = [
     0xFF00_FFFF,
 ];
 
-#[derive(Debug)]
-struct AppError(String);
 
-impl fmt::Display for AppError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::error::Error for AppError {}
-
-impl From<&'static str> for AppError {
-    fn from(error: &'static str) -> Self {
-        Self(error.to_string())
-    }
-}
-
-impl From<String> for AppError {
-    fn from(error: String) -> Self {
-        Self(error)
-    }
-}
-
-impl From<IoError> for AppError {
-    fn from(error: IoError) -> Self {
-        Self(error.to_string())
-    }
-}
-
-impl From<abrash::platform::HostError> for AppError {
-    fn from(error: abrash::platform::HostError) -> Self {
-        Self(error.to_string())
-    }
-}
 
 fn print_banner() {
     println!("\n{}", "🌀  Slit-Scan Demo".bold().cyan());
@@ -122,7 +88,7 @@ struct SlitScanDemoApp {
 }
 
 impl SlitScanDemoApp {
-    fn new() -> Result<Self, AppError> {
+    fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
         let view = Mat4::look_at(
             Vec3::new(0.0, 2.0, 5.0),
@@ -145,7 +111,7 @@ impl SlitScanDemoApp {
         })
     }
 
-    fn present(&mut self) -> Result<(), AppError> {
+    fn present(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let framebuffer = &self.framebuffer;
         let presenter = self
             .presenter
@@ -157,8 +123,6 @@ impl SlitScanDemoApp {
 }
 
 impl WindowApp for SlitScanDemoApp {
-    type Error = AppError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: "Abrash - Slit-Scan Demo".to_string(),
@@ -168,12 +132,12 @@ impl WindowApp for SlitScanDemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let steps = self.timestep.update();
         for _ in 0..steps {
             self.angle_y += 3.0 * self.timestep.dt(); // rotate fast enough to see the effect clearly
@@ -181,7 +145,7 @@ impl WindowApp for SlitScanDemoApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.framebuffer.clear(BACKGROUND);
         self.zbuffer.clear();
 
@@ -224,7 +188,7 @@ impl WindowApp for SlitScanDemoApp {
     }
 }
 
-fn main() -> Result<(), AppError> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_banner();
     run_windowed(SlitScanDemoApp::new().unwrap());
     Ok(())

@@ -96,8 +96,6 @@ impl Mode7Demo {
 }
 
 impl WindowApp for Mode7Demo {
-    type Error = HostError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: "Mode 7 Pseudo-3D Demo".to_string(),
@@ -107,7 +105,7 @@ impl WindowApp for Mode7Demo {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
@@ -117,7 +115,7 @@ impl WindowApp for Mode7Demo {
         _ctx: WindowContext<'_>,
         width: u32,
         height: u32,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), Box<dyn std::error::Error>> {
         if width > 0
             && height > 0
             && (width != self.framebuffer.width() || height != self.framebuffer.height())
@@ -127,7 +125,7 @@ impl WindowApp for Mode7Demo {
         Ok(())
     }
 
-    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let dt = ctx.dt_seconds;
 
         // Auto-pilot
@@ -137,7 +135,7 @@ impl WindowApp for Mode7Demo {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let sky_color = 0xFF88_CCFF;
         self.framebuffer.clear(sky_color);
 

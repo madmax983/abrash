@@ -49,8 +49,6 @@ impl ReactionDiffusionDemo {
 }
 
 impl WindowApp for ReactionDiffusionDemo {
-    type Error = HostError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: "🌟 Nova: Reaction-Diffusion (Gray-Scott)".to_string(),
@@ -60,11 +58,11 @@ impl WindowApp for ReactionDiffusionDemo {
         }
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 
-    fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         if self.presenter.is_none() {
             self.presenter = Some(SoftwarePresenter::new(ctx.window.clone())?);
         }
@@ -122,7 +120,10 @@ impl WindowApp for ReactionDiffusionDemo {
 }
 
 fn print_banner() {
-    println!("\n{}", "🌟 Reaction-Diffusion (Gray-Scott) Demo".bold().cyan());
+    println!(
+        "\n{}",
+        "🌟 Reaction-Diffusion (Gray-Scott) Demo".bold().cyan()
+    );
     println!("{}", "=======================================".dark_grey());
 
     let mut table = Table::new();
@@ -135,7 +136,8 @@ fn print_banner() {
         ])
         .add_row(vec![
             Cell::new("Description"),
-            Cell::new("Simulates Turing patterns formed by two interacting chemicals").fg(Color::Green),
+            Cell::new("Simulates Turing patterns formed by two interacting chemicals")
+                .fg(Color::Green),
         ])
         .add_row(vec![
             Cell::new("Renderer"),

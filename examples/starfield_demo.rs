@@ -2,7 +2,6 @@
 //!
 //! Renders a 3D flying starfield using the experimental Starfield effect.
 
-use std::fmt;
 use std::io::Error as IoError;
 
 use abrash::framebuffer::Framebuffer;
@@ -22,40 +21,7 @@ use comfy_table::{Cell, Color, Table, presets};
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 
-#[derive(Debug)]
-struct AppError(String);
 
-impl fmt::Display for AppError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::error::Error for AppError {}
-
-impl From<&'static str> for AppError {
-    fn from(error: &'static str) -> Self {
-        Self(error.to_string())
-    }
-}
-
-impl From<String> for AppError {
-    fn from(error: String) -> Self {
-        Self(error)
-    }
-}
-
-impl From<IoError> for AppError {
-    fn from(error: IoError) -> Self {
-        Self(error.to_string())
-    }
-}
-
-impl From<abrash::platform::HostError> for AppError {
-    fn from(error: abrash::platform::HostError) -> Self {
-        Self(error.to_string())
-    }
-}
 
 #[cfg(feature = "nova")]
 fn print_banner() {
@@ -94,8 +60,6 @@ struct App {
 
 #[cfg(feature = "nova")]
 impl WindowApp for App {
-    type Error = AppError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: "Abrash - Starfield Demo".to_string(),
@@ -105,12 +69,12 @@ impl WindowApp for App {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let steps = self.timestep.update();
         let dt = self.timestep.dt();
         for _ in 0..steps {
@@ -119,7 +83,7 @@ impl WindowApp for App {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.fb.clear(0xFF00_0000);
 
         self.starfield.render(&mut self.fb);
@@ -132,11 +96,11 @@ impl WindowApp for App {
 }
 
 #[cfg(feature = "nova")]
-fn main() -> Result<(), AppError> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_banner();
 
     let app = App {
-        fb: Framebuffer::new(WIDTH, HEIGHT).map_err(|e| AppError(e.to_string()))?,
+        fb: Framebuffer::new(WIDTH, HEIGHT).map_err(|e| e.to_string())?,
         timestep: FixedTimestep::new(60),
         starfield: Starfield::new(1000, 20.0, 100.0),
         presenter: None,

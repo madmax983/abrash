@@ -79,8 +79,6 @@ fn print_banner() {
 }
 
 impl WindowApp for DigitalRainDemoApp {
-    type Error = HostError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: TITLE.to_string(),
@@ -90,17 +88,17 @@ impl WindowApp for DigitalRainDemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         self.framebuffer.clear(0xFF_00_00_00); // Start pure black
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 
-    fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         // dt capped to avoid huge jumps
         let dt = ctx.dt_seconds.clamp(0.001, 0.1);
         self.rain.apply(&mut self.framebuffer, dt);

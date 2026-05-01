@@ -9,7 +9,6 @@ use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use abrash_render::experimental::cel_shade::{CelShadeConfig, apply_cel_shade};
 use std::f32::consts::PI;
-use std::fmt;
 
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
@@ -28,8 +27,6 @@ const COLORS: [u32; 6] = [
 ];
 
 #[derive(Debug)]
-struct AppError(String);
-
 impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.0)
@@ -132,7 +129,7 @@ struct CelShadeDemoApp {
 }
 
 impl CelShadeDemoApp {
-    fn new() -> Result<Self, AppError> {
+    fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
         let view = Mat4::look_at(
             Vec3::new(0.0, 2.0, 6.0),
@@ -156,7 +153,7 @@ impl CelShadeDemoApp {
         })
     }
 
-    fn present(&mut self) -> Result<(), AppError> {
+    fn present(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let framebuffer = &self.framebuffer;
         let presenter = self
             .presenter
@@ -168,8 +165,6 @@ impl CelShadeDemoApp {
 }
 
 impl WindowApp for CelShadeDemoApp {
-    type Error = AppError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: "Abrash - Cel Shading Demo".to_string(),
@@ -179,12 +174,12 @@ impl WindowApp for CelShadeDemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let steps = self.timestep.update();
         for _ in 0..steps {
             self.angle += 1.0 * self.timestep.dt();
@@ -192,7 +187,7 @@ impl WindowApp for CelShadeDemoApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.framebuffer.clear(BACKGROUND);
         self.zbuffer.clear();
 
@@ -241,7 +236,7 @@ impl WindowApp for CelShadeDemoApp {
     }
 }
 
-fn main() -> Result<(), AppError> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_banner();
     run_windowed(CelShadeDemoApp::new().unwrap());
     Ok(())

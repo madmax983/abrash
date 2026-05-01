@@ -287,8 +287,6 @@ mod winit_demo {
     }
 
     impl WindowApp for ObjViewerApp {
-        type Error = io::Error;
-
         fn config(&self) -> WindowHostConfig {
             WindowHostConfig {
                 title: format!("Abrash - OBJ Viewer - {}", self.source_name),
@@ -298,7 +296,7 @@ mod winit_demo {
             }
         }
 
-        fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
             self.presenter = Some(SoftwarePresenter::new(ctx.window).map_err(io::Error::other)?);
             Ok(())
         }
@@ -308,24 +306,24 @@ mod winit_demo {
             _ctx: WindowContext<'_>,
             width: u32,
             height: u32,
-        ) -> Result<(), Self::Error> {
-            self.rebuild_buffers(width, height)
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            Ok(self.rebuild_buffers(width, height)?)
         }
 
-        fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
             self.angle_y += ctx.dt_seconds;
             Ok(())
         }
 
-        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
             self.render_frame();
             let presenter = self
                 .presenter
                 .as_mut()
                 .ok_or_else(|| io::Error::other("presenter not initialized"))?;
-            presenter
+            Ok(presenter
                 .present(&self.framebuffer)
-                .map_err(io::Error::other)
+                .map_err(io::Error::other)?)
         }
     }
 }

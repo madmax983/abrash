@@ -9,7 +9,6 @@ use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use abrash_render::experimental::anaglyph::{AnaglyphConfig, apply_anaglyph};
 use std::f32::consts::PI;
-use std::fmt;
 use std::io::Error as IoError;
 
 use comfy_table::{Cell, Color, Table, presets};
@@ -19,40 +18,7 @@ const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const BACKGROUND: u32 = 0xFF00_0000;
 
-#[derive(Debug)]
-struct AppError(String);
 
-impl fmt::Display for AppError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::error::Error for AppError {}
-
-impl From<&'static str> for AppError {
-    fn from(error: &'static str) -> Self {
-        Self(error.to_string())
-    }
-}
-
-impl From<String> for AppError {
-    fn from(error: String) -> Self {
-        Self(error)
-    }
-}
-
-impl From<IoError> for AppError {
-    fn from(error: IoError) -> Self {
-        Self(error.to_string())
-    }
-}
-
-impl From<abrash::platform::HostError> for AppError {
-    fn from(error: abrash::platform::HostError) -> Self {
-        Self(error.to_string())
-    }
-}
 
 fn print_banner() {
     println!("\n{}", "👓 Anaglyph 3D Demo".bold().cyan());
@@ -106,7 +72,7 @@ struct AnaglyphDemoApp {
 }
 
 impl AnaglyphDemoApp {
-    fn new() -> Result<Self, AppError> {
+    fn new() -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             presenter: None,
             framebuffer: Framebuffer::new(WIDTH, HEIGHT)?,
@@ -128,7 +94,7 @@ impl AnaglyphDemoApp {
         })
     }
 
-    fn present(&mut self) -> Result<(), AppError> {
+    fn present(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let framebuffer = &self.framebuffer;
         let presenter = self
             .presenter
@@ -140,8 +106,6 @@ impl AnaglyphDemoApp {
 }
 
 impl WindowApp for AnaglyphDemoApp {
-    type Error = AppError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: "Abrash - Anaglyph 3D".to_string(),
@@ -151,12 +115,12 @@ impl WindowApp for AnaglyphDemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let steps = self.timestep.update();
         for _ in 0..steps {
             self.angle_y += 1.0 * self.timestep.dt();
@@ -165,7 +129,7 @@ impl WindowApp for AnaglyphDemoApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.framebuffer.clear(BACKGROUND);
         self.zbuffer.clear();
 
@@ -229,7 +193,7 @@ impl WindowApp for AnaglyphDemoApp {
     }
 }
 
-fn main() -> Result<(), AppError> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_banner();
     run_windowed(AnaglyphDemoApp::new().unwrap());
     Ok(())

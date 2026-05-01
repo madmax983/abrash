@@ -17,7 +17,6 @@ use abrash::rasterizer::fill_triangle_lit;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use std::f32::consts::PI;
-use std::fmt;
 use std::io::Error as IoError;
 
 use comfy_table::{Cell, Color, Table, presets};
@@ -26,40 +25,7 @@ use crossterm::style::Stylize;
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 
-#[derive(Debug)]
-struct AppError(String);
 
-impl fmt::Display for AppError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::error::Error for AppError {}
-
-impl From<&'static str> for AppError {
-    fn from(error: &'static str) -> Self {
-        Self(error.to_string())
-    }
-}
-
-impl From<String> for AppError {
-    fn from(error: String) -> Self {
-        Self(error)
-    }
-}
-
-impl From<IoError> for AppError {
-    fn from(error: IoError) -> Self {
-        Self(error.to_string())
-    }
-}
-
-impl From<abrash::platform::HostError> for AppError {
-    fn from(error: abrash::platform::HostError) -> Self {
-        Self(error.to_string())
-    }
-}
 
 fn print_banner() {
     println!("\n{}", "⚫ SSAO Demo".bold().cyan());
@@ -135,7 +101,7 @@ struct SsaoDemoApp {
 }
 
 impl SsaoDemoApp {
-    fn new() -> Result<Self, AppError> {
+    fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let cube = Mesh::cube(1.0);
         let floor = create_floor();
         let cube_normals = cube.compute_face_normals();
@@ -165,7 +131,7 @@ impl SsaoDemoApp {
         })
     }
 
-    fn present(&mut self) -> Result<(), AppError> {
+    fn present(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let framebuffer = &self.framebuffer;
         let presenter = self
             .presenter
@@ -177,8 +143,6 @@ impl SsaoDemoApp {
 }
 
 impl WindowApp for SsaoDemoApp {
-    type Error = AppError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             title: "Abrash - SSAO Demo".to_string(),
@@ -188,12 +152,12 @@ impl WindowApp for SsaoDemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let steps = self.timestep.update();
         for _ in 0..steps {
             self.time += 0.016;
@@ -201,7 +165,7 @@ impl WindowApp for SsaoDemoApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         let ssao_enabled = (self.time % 6.0) < 3.0;
 
         self.framebuffer.clear(0xFF1A_1A2E);
@@ -296,7 +260,7 @@ impl WindowApp for SsaoDemoApp {
     }
 }
 
-fn main() -> Result<(), AppError> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_banner();
     run_windowed(SsaoDemoApp::new().unwrap());
     Ok(())

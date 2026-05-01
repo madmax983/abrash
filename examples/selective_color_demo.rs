@@ -132,8 +132,6 @@ impl SelectiveColorApp {
 
 #[cfg(feature = "nova")]
 impl WindowApp for SelectiveColorApp {
-    type Error = HostError;
-
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
             width: WIDTH,
@@ -143,12 +141,12 @@ impl WindowApp for SelectiveColorApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         if self.timer.update() > 0 {
             self.rotation_y += 0.02;
             self.rotation_x += 0.015;
@@ -159,7 +157,7 @@ impl WindowApp for SelectiveColorApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Box<dyn std::error::Error>> {
         self.fb.clear(0xFF111111); // Dark grey background
         self.zb.clear();
 
