@@ -218,6 +218,14 @@ impl Texture {
 
         self.mips.clear();
 
+        let mut max_dim = width.max(height);
+        let mut num_mips = 0;
+        while max_dim > 1 {
+            num_mips += 1;
+            max_dim /= 2;
+        }
+        self.mips.reserve_exact(num_mips);
+
         while width > 1 || height > 1 {
             let next_width = (width / 2).max(1);
             let next_height = (height / 2).max(1);
