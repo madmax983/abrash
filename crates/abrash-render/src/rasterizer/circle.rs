@@ -72,28 +72,35 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
         return;
     }
 
+    // Faster loop hoisting arithmetic conversions
+    let mut x_i64 = 0_i64;
+    let mut y_i64 = i64::from(y);
     if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
         draw_circle_points_unchecked(fb, xc, yc, x, y, color);
-        while y >= x {
+        while y_i64 >= x_i64 {
             x += 1;
+            x_i64 += 1;
             if d > 0 {
                 y -= 1;
-                d = d + 4 * i64::from(x - y) + 10;
+                y_i64 -= 1;
+                d += 4 * (x_i64 - y_i64) + 10;
             } else {
-                d = d + 4 * i64::from(x) + 6;
+                d += 4 * x_i64 + 6;
             }
             draw_circle_points_unchecked(fb, xc, yc, x, y, color);
         }
     } else {
         // Safe path: clip against screen bounds
         draw_circle_points(fb, xc, yc, x, y, color);
-        while y >= x {
+        while y_i64 >= x_i64 {
             x += 1;
+            x_i64 += 1;
             if d > 0 {
                 y -= 1;
-                d = d + 4 * i64::from(x - y) + 10;
+                y_i64 -= 1;
+                d += 4 * (x_i64 - y_i64) + 10;
             } else {
-                d = d + 4 * i64::from(x) + 6;
+                d += 4 * x_i64 + 6;
             }
             draw_circle_points(fb, xc, yc, x, y, color);
         }
@@ -225,46 +232,53 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
         return;
     }
 
+    // Faster loop hoisting arithmetic conversions
+    let mut x_i64 = 0_i64;
+    let mut y_i64 = i64::from(y);
     if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
-        while y >= x {
+        while y_i64 >= x_i64 {
             draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
             if x > 0 {
                 draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc - x, color);
             }
 
             if d > 0 {
-                if y > x {
+                if y_i64 > x_i64 {
                     draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
                     draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
                 }
                 y -= 1;
-                d = d + 4 * i64::from(x - y) + 10;
+                y_i64 -= 1;
+                d += 4 * (x_i64 - y_i64) + 10;
             } else {
-                d = d + 4 * i64::from(x) + 6;
+                d += 4 * x_i64 + 6;
             }
 
             x += 1;
+            x_i64 += 1;
         }
     } else {
         // Safe path: clip against screen bounds
-        while y >= x {
+        while y_i64 >= x_i64 {
             draw_horizontal_line(fb, xc - y, xc + y, yc + x, color);
             if x > 0 {
                 draw_horizontal_line(fb, xc - y, xc + y, yc - x, color);
             }
 
             if d > 0 {
-                if y > x {
+                if y_i64 > x_i64 {
                     draw_horizontal_line(fb, xc - x, xc + x, yc + y, color);
                     draw_horizontal_line(fb, xc - x, xc + x, yc - y, color);
                 }
                 y -= 1;
-                d = d + 4 * i64::from(x - y) + 10;
+                y_i64 -= 1;
+                d += 4 * (x_i64 - y_i64) + 10;
             } else {
-                d = d + 4 * i64::from(x) + 6;
+                d += 4 * x_i64 + 6;
             }
 
             x += 1;
+            x_i64 += 1;
         }
     }
 }
