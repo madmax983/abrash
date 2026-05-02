@@ -1,5 +1,6 @@
+#![allow(clippy::imprecise_flops)]
 #![allow(
-    clippy::imprecise_flops,
+
     clippy::must_use_candidate,
     clippy::items_after_statements,
     clippy::too_long_first_doc_paragraph,

@@ -1,4 +1,4 @@
-#![allow(clippy::imprecise_flops)]
+
 
 //! Linear-space RGBA color type with sRGB, HSV, and HSL conversion.
 //!

@@ -93,7 +93,7 @@ pub fn apply_speed_lines(fb: &mut Framebuffer, config: &SpeedLinesConfig) {
             let dx = (x as f32) - cx;
 
             // Calculate distance from center
-            #[allow(clippy::imprecise_flops)]
+
             let dist = (dx * dx + dy * dy).sqrt();
 
             if dist < config.inner_radius {

@@ -1,3 +1,4 @@
+#![allow(clippy::imprecise_flops)]
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use std::mem::MaybeUninit;

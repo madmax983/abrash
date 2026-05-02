@@ -290,7 +290,7 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         let dy = dy.abs();
                         let x2 = dx * dx;
                         let y2 = dy * dy;
-                        #[allow(clippy::imprecise_flops)]
+
                         let dist = (x2 * x2 + y2 * y2).sqrt().sqrt();
                         if dist < min_dist {
                             second_min_dist = min_dist;
@@ -324,7 +324,7 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         let dy = dy.abs();
                         let x2 = dx * dx;
                         let y2 = dy * dy;
-                        #[allow(clippy::imprecise_flops)]
+
                         let dist = (x2 * x2 + y2 * y2).sqrt().sqrt();
                         if dist < min_dist {
                             min_dist = dist;

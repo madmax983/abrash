@@ -1,4 +1,4 @@
-#![allow(clippy::imprecise_flops)]
+
 #![allow(clippy::suspicious_operation_groupings)]
 #![allow(clippy::must_use_candidate)]
 
