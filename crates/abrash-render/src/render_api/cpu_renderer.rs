@@ -44,6 +44,12 @@ struct CpuMesh {
 }
 
 thread_local! {
+    /// Thread-local buffer for reusing the draw list across frames.
+    ///
+    /// The `DrawList` contains inner heap-allocated buffers (`Vec`s) that can grow quite large
+    /// depending on scene complexity. By caching this in a thread-local variable and using
+    /// `.clone_from()` when updating, we optimally reuse the destination's existing pre-allocated
+    /// capacities, safely eliminating O(N) heap deallocations and allocations per frame update.
     pub static CPU_RENDERER_DRAW_LIST: std::cell::RefCell<DrawList> = std::cell::RefCell::new(DrawList::with_capacity(FrameCamera::new(crate::math::Mat4::identity(), crate::math::Mat4::identity()), 128, 1024, 0));
 }
 

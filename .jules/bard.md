@@ -10,3 +10,6 @@
 ## 2024-05-13 - [Procedural Texture Documentation]
 **Confusion:** The `procedural` module lacked copy-pasteable doctests, leaving users confused about how to use its texture generation functions.
 **Clarification:** Added executable examples demonstrating how to use `xor_pattern`, `grid_pattern`, `white_noise`, and `plasma` to generate and verify textures.
+## 2024-05-14 - [Core and Render Undocumented Items]
+**Confusion:** Several public structs (`Cylinder`), modules (math primitives), and thread-locals (`CPU_RENDERER_DRAW_LIST`) were lacking documentation, generating missing_docs warnings and leaving their use-cases unclear.
+**Clarification:** Added appropriate module and struct level documentation to clarify their purpose in the larger 3D graphics pipeline context.

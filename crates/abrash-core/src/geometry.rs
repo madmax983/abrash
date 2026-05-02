@@ -261,6 +261,24 @@ impl Cone {
     }
 }
 
+/// A 3D cylinder primitive.
+///
+/// Unlike a bounding sphere or an AABB, a cylinder provides tight bounding
+/// volumes for character capsules or elongated architectural elements.
+/// It is defined by a base center point, a radius, and a total height along the Y axis.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash_core::geometry::Cylinder;
+/// use abrash_core::math::Vec3;
+///
+/// // Create a player collision cylinder with height 2.0 and radius 0.5.
+/// let player_bounds = Cylinder::from_radius_height(Vec3::new(0.0, 1.0, 0.0), 0.5, 2.0);
+///
+/// assert_eq!(player_bounds.radius, 0.5);
+/// assert_eq!(player_bounds.height, 2.0);
+/// ```
 pub struct Cylinder {
     /// The center of the cylinder.
     pub center: Vec3,
