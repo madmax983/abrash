@@ -112,6 +112,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn borrowed_target_rejects_overflowing_dimensions() {
+        let mut pixels = vec![];
+        let mut depths = vec![];
+
+        let result = BorrowedRenderTarget::new(
+            u32::MAX,
+            u32::MAX,
+            pixels.as_mut_slice(),
+            depths.as_mut_slice(),
+        );
+
+        assert_eq!(result.err(), Some("buffer dimensions overflow"));
+    }
+
+    #[test]
     fn borrowed_target_accepts_exact_length_slices() {
         let mut pixels = vec![0_u32; 4];
         let mut depths = vec![f32::INFINITY; 4];
