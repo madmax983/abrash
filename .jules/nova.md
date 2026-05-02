@@ -63,3 +63,8 @@
 **Concept:** A post-processing effect that converts the framebuffer into a hexagonal mosaic (honeycomb) pattern. It determines the nearest hexagon center for each pixel and applies its color, optionally drawing a border between cells.
 **Fate:** Implemented
 **Lesson:** When calculating nearest hexagon centers in a screen-space grid, iterating over two interlocking rectangular grids and computing the nearest center based on squared distance proves much faster than complex geometry algorithms. Furthermore, checking distances to the hexagon's edge allows efficient procedural border drawing without needing separate line rendering passes.
+
+## [Kinect Depth Filter]
+**Concept:** A post-processing effect that maps the depths stored in the Z-buffer to a false-color heat map palette, effectively simulating the visual output of a Kinect camera or structured light scanner.
+**Fate:** Implemented
+**Lesson:** Mapping normalized Z-buffer depth values to a heat-map color palette via linear interpolation provides a highly convincing depth camera (e.g., Kinect) aesthetic purely in screen-space, effectively leveraging depth data for creative visualization rather than just occlusion.

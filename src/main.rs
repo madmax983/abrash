@@ -85,6 +85,13 @@ const DEMOS: &[Demo] = &[
         example_name: "cube_3d",
     },
     Demo {
+        name: "Kinect Depth Filter",
+        category: DemoCategory::PostProcess,
+        description: "Simulates Kinect/structured light depth sensor",
+        instructions: "• Mouse: None\n• Keyboard: Auto-rotating",
+        example_name: "kinect_depth_demo",
+    },
+    Demo {
         name: "OBJ Viewer",
         category: DemoCategory::Utility,
         description: "Loads and renders a 3D model (Spaceship)",
@@ -390,6 +397,7 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "chromatic_aberration_demo"
         || example_name == "voronoi_demo"
         || example_name == "vignette_demo"
+        || example_name == "kinect_depth_demo"
         || example_name == "swirl_demo"
         || example_name == "wobble_demo"
         || example_name == "fisheye_demo"

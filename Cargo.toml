@@ -924,3 +924,8 @@ required-features = ["nova"]
 [[bench]]
 name = "offscreen_rect_bench"
 harness = false
+
+[[example]]
+name = "kinect_depth_demo"
+path = "examples/kinect_depth_demo.rs"
+required-features = ["nova"]
