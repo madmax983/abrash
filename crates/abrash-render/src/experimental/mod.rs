@@ -63,6 +63,7 @@ pub mod hologram;
 pub mod isosurface;
 pub mod jelly;
 pub mod kaleidoscope;
+pub mod kinect_depth;
 pub mod kuwahara;
 pub mod led_matrix;
 pub mod lsystem;
