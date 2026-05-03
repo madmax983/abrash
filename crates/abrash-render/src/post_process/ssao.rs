@@ -30,9 +30,11 @@ struct SsaoContext {
 
 impl Default for SsaoContext {
     fn default() -> Self {
+        // ⚡ Bolt: Pre-allocate the screen-sized buffers with a typical resolution capacity (e.g., 800x600).
+        // This safely bypasses expensive dynamic heap overallocation hits during the first frame of this long-lived render pass.
         Self {
-            occlusion_buffer: Vec::new(),
-            scratch_buffer: Vec::new(),
+            occlusion_buffer: Vec::with_capacity(480_000),
+            scratch_buffer: Vec::with_capacity(480_000),
             acc_buffer: Vec::new(),
             precomputed_kernel_buffer: Vec::new(),
             kernel: [Vec3::default(); KERNEL_SIZE],
