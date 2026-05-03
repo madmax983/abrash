@@ -1,14 +1,13 @@
-⚡ Bolt: Replace f32::round() with fast integer casting in cel_shade and mosaic
+⚡ Bolt: Fast squared Euclidean distance in convex hull sort
 
-💡 What
-In `apply_cel_shade` and `apply_hex_mosaic` (and potentially others), I'm replacing floating-point `.round()` method calls with fast integer casting. For `cel_shade`, the pixel color values are positive so `(val + 0.5) as i32 as f32` correctly mimics `.round()`. For `mosaic`, since grid values can be negative, I used `(val + 16384.5) as i32 as f32 - 16384.0` to ensure safe truncation mapping.
+💡 What:
+Replaced the `f32::hypot` distance calculation in the `convex_hull_2d` sorting loop with a squared Euclidean distance calculation `(a.x - pivot.x) * (a.x - pivot.x) + (a.y - pivot.y) * (a.y - pivot.y)`.
 
-🎯 Why
-`f32::round()` can incur noticeable intrinsic and branching overheads in hot loops compared to simple cast instructions. Avoiding them in post-processing passes yields significant speedups. I left the `f32::sqrt()` calls intact in `cel_shade` because eliding them safely requires careful math due to cross-terms when evaluating sums.
+🎯 Why:
+`f32::hypot` includes internal overflow and underflow checks that cause measurable overhead. Since these values represent 2D coordinates within `convex_hull_2d` and are only used for relative magnitude comparison (finding the farthest point), we can safely skip the square root and bounds checks by comparing squared distances.
 
-📊 Impact
-- `cel_shade_800x600`: Benchmark times dropped from ~31 ms down to ~28 ms (-10%).
-- `mosaic_800x600`: Benchmark times dropped from ~13.7 ms to ~7.8 ms (-43%).
+📊 Impact:
+Provides a zero-cost performance boost by eliding the expensive `f32::hypot` check in a hot `O(N log N)` sorting closure.
 
-🔬 Measurement
-Benchmarks `cargo bench --bench cel_shade_bench --features nova` and `cargo bench --bench mosaic_bench --features nova`.
+🔬 Measurement:
+Run `cargo test -p abrash-core` to verify that `convex_hull_2d` and related tests still pass perfectly with the optimized distance logic.
