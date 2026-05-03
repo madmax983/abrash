@@ -826,7 +826,6 @@ required-features = ["nova"]
 [[example]]
 name = "gamma_demo"
 path = "examples/gamma_demo.rs"
-imprecise_flops = "allow"
 
 [[bench]]
 name = "pencil_sketch_bench"

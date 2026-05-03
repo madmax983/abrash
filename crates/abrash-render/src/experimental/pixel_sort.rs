@@ -61,11 +61,27 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
             // Using Rayon, we can process columns in parallel. We wrap the raw pointer
             // to bypass the borrow checker since columns represent disjoint memory locations.
             #[derive(Clone, Copy)]
-            struct SendPtr(*mut u32);
+            struct SendPtr(*mut u32, usize);
+
+            impl SendPtr {
+                unsafe fn read(&self, index: usize) -> u32 {
+                    assert!(index < self.1, "Index out of bounds");
+                    unsafe { *self.0.add(index) }
+                }
+
+                unsafe fn write(&self, index: usize, value: u32) {
+                    assert!(index < self.1, "Index out of bounds");
+                    unsafe {
+                        *self.0.add(index) = value;
+                    }
+                }
+            }
+
             unsafe impl Send for SendPtr {}
             unsafe impl Sync for SendPtr {}
 
-            let pixels_ptr = SendPtr(pixels.as_mut_ptr());
+            let pixels_len = pixels.len();
+            let pixels_ptr = SendPtr(pixels.as_mut_ptr(), pixels_len);
 
             // ⚡ Bolt: Eliminate per-thread dynamic heap allocation in par_iter by using a thread_local buffer.
             std::thread_local! {
@@ -88,7 +104,7 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
                     // Extract column
                     for (y, item) in col_slice.iter_mut().enumerate() {
                         unsafe {
-                            *item = *ptr.0.add(y * width + x);
+                            *item = ptr.read(y * width + x);
                         }
                     }
 
@@ -98,7 +114,7 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
                     // Put column back
                     for (y, item) in col_slice.iter().enumerate() {
                         unsafe {
-                            *ptr.0.add(y * width + x) = *item;
+                            ptr.write(y * width + x, *item);
                         }
                     }
                 });
