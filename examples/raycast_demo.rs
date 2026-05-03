@@ -25,7 +25,7 @@ const MOVE_SPEED: f32 = 0.05;
 const TURN_SPEED: u32 = 0x0200_0000;
 
 fn print_banner() {
-    println!("\n{}", "Raycaster Demo".bold().cyan());
+    println!("\n{}", "🔦 Raycaster Demo".bold().cyan());
     println!("{}", "=====================".dark_grey());
 
     let mut table = Table::new();
@@ -45,10 +45,10 @@ fn print_banner() {
             TableCell::new("DDA Raycaster + Software Presenter").fg(Color::Yellow),
         ]);
 
-    println!("\n{}", "Info".bold());
+    println!("\n{}", "⚙️  Info".bold());
     println!("{table}");
 
-    println!("\n{}", "Controls".bold());
+    println!("\n{}", "🎮 Controls".bold());
     let mut controls = Table::new();
     controls
         .load_preset(presets::UTF8_FULL)
