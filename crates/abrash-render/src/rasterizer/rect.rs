@@ -259,7 +259,7 @@ pub fn draw_rounded_rect(
         return;
     }
 
-    let radius = radius.max(0).min(w_i32 / 2).min(h_i32 / 2);
+    let radius = radius.max(0).min(w_i32 / 2).min(h_i32 / 2).min(16384);
 
     if radius == 0 {
         draw_rect(fb, x, y, width, height, color);
@@ -450,7 +450,7 @@ pub fn fill_rounded_rect(
         return;
     }
 
-    let radius = radius.max(0).min(w_i32 / 2).min(h_i32 / 2);
+    let radius = radius.max(0).min(w_i32 / 2).min(h_i32 / 2).min(16384);
 
     if radius == 0 {
         fill_rect(fb, x, y, width, height, color);
