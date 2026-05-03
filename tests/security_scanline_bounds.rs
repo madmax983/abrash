@@ -1,4 +1,5 @@
 use abrash::framebuffer::Framebuffer;
+use abrash_render::rasterizer::gouraud::{GouraudSpanStartI64, GouraudGradients};
 use abrash::math::{ScreenPoint, Vec3};
 use abrash::rasterizer::gouraud::draw_scanline_gouraud;
 use abrash::rasterizer::texture::{
@@ -22,10 +23,8 @@ fn test_scanlines_handle_out_of_bounds_y_gracefully() {
         -1, // Invalid Y
         0,
         50,
-        1.0,
-        (0, 0, 0),
-        0.0,
-        (0, 0, 0),
+        GouraudSpanStartI64 { z_start: 1.0, c_start: (0, 0, 0) },
+        &GouraudGradients { dz_dx: 0.0, dc_dx: (0, 0, 0) },
     );
     draw_scanline_gouraud(
         &mut fb,
@@ -33,10 +32,8 @@ fn test_scanlines_handle_out_of_bounds_y_gracefully() {
         100, // Invalid Y
         0,
         50,
-        1.0,
-        (0, 0, 0),
-        0.0,
-        (0, 0, 0),
+        GouraudSpanStartI64 { z_start: 1.0, c_start: (0, 0, 0) },
+        &GouraudGradients { dz_dx: 0.0, dc_dx: (0, 0, 0) },
     );
 
     // 2. Texture Perspective

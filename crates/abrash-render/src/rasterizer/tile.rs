@@ -72,9 +72,9 @@
 //! renderer.render_batch(&mut fb, &mut zb, &triangles);
 //! ```
 
-#[cfg(all(feature = "simd", target_arch = "x86_64"))]
-use super::gouraud::draw_scanline_gouraud_simd_fast;
-use super::gouraud::{GouraudEdgeWalker, GouraudGradients};
+use super::gouraud::{
+    GouraudEdgeWalker, GouraudGradients, GouraudSpanStart, draw_scanline_gouraud_simd_fast,
+};
 use super::texture::{draw_span_bilinear, draw_span_nearest, draw_span_trilinear};
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::texture::{draw_span_bilinear_simd, draw_span_nearest_simd, draw_span_trilinear_simd};
@@ -4012,15 +4012,37 @@ fn process_tile_scanline_gouraud(
                 if pixels.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
                         draw_scanline_gouraud_simd_fast(
-                            pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx,
+                            pixels,
+                            depths,
+                            GouraudSpanStart {
+                                z_start: z_at_xs,
+                                c_start: c_at_xs,
+                            },
+                            &GouraudGradients { dz_dx, dc_dx },
                         );
                     }
                 } else {
-                    draw_scanline_gouraud_i32_tile(pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx);
+                    draw_scanline_gouraud_i32_tile(
+                        pixels,
+                        depths,
+                        GouraudSpanStart {
+                            z_start: z_at_xs,
+                            c_start: c_at_xs,
+                        },
+                        &GouraudGradients { dz_dx, dc_dx },
+                    );
                 }
             }
             #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
-            draw_scanline_gouraud_i32_tile(pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx);
+            draw_scanline_gouraud_i32_tile(
+                pixels,
+                depths,
+                GouraudSpanStart {
+                    z_start: z_at_xs,
+                    c_start: c_at_xs,
+                },
+                &GouraudGradients { dz_dx, dc_dx },
+            );
         }
     }
 }
@@ -4028,11 +4050,13 @@ fn process_tile_scanline_gouraud(
 fn draw_scanline_gouraud_i32_tile(
     pixels: &mut [u32],
     depths: &mut [f32],
-    z_start: f32,
-    c_start: (i32, i32, i32),
-    dz_dx: f32,
-    dc_dx: (i32, i32, i32),
+    start: GouraudSpanStart,
+    gradients: &GouraudGradients,
 ) {
+    let z_start = start.z_start;
+    let c_start = start.c_start;
+    let dz_dx = gradients.dz_dx;
+    let dc_dx = gradients.dc_dx;
     let mut z = z_start;
     let mut r = c_start.0;
     let mut g = c_start.1;

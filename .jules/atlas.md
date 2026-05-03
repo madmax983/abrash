@@ -114,3 +114,24 @@
 2. **Expose Resizing:** Added a `resize(&mut self, new_len, default_value)` method to the `AlignedBuffer` utility struct to emulate the `Vec` behavior required by the parallel iteration logic, while explicitly maintaining the 32-byte memory offset.
 
 **Stability:** Resolves a critical threading SIGSEGV crash. `AlignedBuffer` guarantees that SIMD intrinsics perform safe aligned memory accesses without trapping on hardware boundaries.
+**Argument Jungle Fix for Texture Rasterization II**\n**Tangle:** The  and  functions were suffering from the "Argument Jungle" anti-pattern. Functions took upwards of 15 primitive arguments (, , , , , , etc.), leading to cognitive overload, brittle function signatures, and disorganized data flows.\n\n**Blueprint:**\n1.  **Extract Structs:** Created  and  to bundle standard perspective texture coordinates and gouraud color inputs.\n2.  **Refactor Signatures:** Modified all  functions in  to accept these new configuration structs instead of loose arguments.\n3.  **Update Callers:** Updated all callers to construct and pass the new state and step structs.\n\n**Stability:** Improved clarity and lowered argument count below the cognitive limit. High cohesion is achieved by grouping related interpolation state variables together, making the low-level rendering API significantly cleaner and easier to maintain.
+
+## [Argument Jungle Fix for Texture Rasterization II]
+**Tangle:** The `fill_projected_triangle_textured` and `fill_projected_triangle_textured_gouraud` functions were suffering from the "Argument Jungle" anti-pattern. Functions took upwards of 15 primitive arguments (`u0`, `v0`, `u1`, `v1`, `u2`, `v2`, etc.), leading to cognitive overload, brittle function signatures, and disorganized data flows.
+
+**Blueprint:**
+1.  **Extract Structs:** Created `TexturedTriangleCoords` and `TexturedGouraudTriangleCoords` to bundle standard perspective texture coordinates and gouraud color inputs.
+2.  **Refactor Signatures:** Modified all `fill_projected_triangle_*` functions in `crates/abrash-render/src/rasterizer/texture.rs` to accept these new configuration structs instead of loose arguments.
+3.  **Update Callers:** Updated all callers to construct and pass the new state and step structs.
+
+**Stability:** Improved clarity and lowered argument count below the cognitive limit. High cohesion is achieved by grouping related interpolation state variables together, making the low-level rendering API significantly cleaner and easier to maintain.
+
+## [Argument Jungle Fix for Gouraud Rasterization]
+**Tangle:** The `draw_scanline_gouraud` and related functions were suffering from the "Argument Jungle" anti-pattern. Functions took upwards of 9 primitive arguments (`z_start`, `c_start`, `dz_dx`, `dc_dx`, etc.), leading to cognitive overload and disorganized data flows.
+
+**Blueprint:**
+1.  **Extract Structs:** Created `GouraudSpanStart` and `GouraudSpanStartI64` to bundle starting coordinates and color inputs. Leveraged existing `GouraudGradients` for gradient data.
+2.  **Refactor Signatures:** Modified all `draw_scanline_gouraud_*` functions in `crates/abrash-render/src/rasterizer/gouraud.rs` to accept these new configuration structs instead of loose arguments.
+3.  **Update Callers:** Updated all callers in `gouraud.rs` and `tile.rs` to construct and pass the new state structs.
+
+**Stability:** Improved clarity and lowered argument count below the cognitive limit. High cohesion is achieved by grouping related interpolation state variables together, aligning the Gouraud rasterizer API with the cleaner Texture rasterizer API.

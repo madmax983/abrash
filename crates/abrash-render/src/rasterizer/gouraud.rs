@@ -11,15 +11,25 @@ use super::core::{
     FIXED_SCALE, assert_same_dimensions, is_backface, pack_color_fixed_i32, sort_by_y,
 };
 
+#[derive(Clone, Copy)]
+pub struct GouraudSpanStart {
+    pub z_start: f32,
+    pub c_start: (i32, i32, i32),
+}
+
+#[derive(Clone, Copy)]
+pub struct GouraudSpanStartI64 {
+    pub z_start: f32,
+    pub c_start: (i64, i64, i64),
+}
+
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
 pub(crate) unsafe fn draw_scanline_gouraud_simd_fast(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
-    z_start: f32,
-    c_start: (i32, i32, i32),
-    dz_dx: f32,
-    dc_dx: (i32, i32, i32),
+    start: GouraudSpanStart,
+    gradients: &GouraudGradients,
 ) {
     use std::arch::x86_64::{
         __m256i, _CMP_LT_OQ, _mm256_add_epi32, _mm256_add_ps, _mm256_and_si256, _mm256_blendv_epi8,
@@ -29,6 +39,10 @@ pub(crate) unsafe fn draw_scanline_gouraud_simd_fast(
         _mm256_storeu_ps, _mm256_storeu_si256,
     };
 
+    let z_start = start.z_start;
+    let c_start = start.c_start;
+    let dz_dx = gradients.dz_dx;
+    let dc_dx = gradients.dc_dx;
     let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
@@ -147,10 +161,8 @@ pub(crate) unsafe fn draw_scanline_gouraud_simd_fast(
 unsafe fn draw_scanline_gouraud_simd_clamped(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
-    z_start: f32,
-    c_start: (i32, i32, i32),
-    dz_dx: f32,
-    dc_dx: (i32, i32, i32),
+    start: GouraudSpanStart,
+    gradients: &GouraudGradients,
 ) {
     use std::arch::x86_64::{
         __m256i, _CMP_LT_OQ, _mm256_add_epi32, _mm256_add_ps, _mm256_and_si256, _mm256_blendv_epi8,
@@ -161,6 +173,10 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
         _mm256_storeu_si256,
     };
 
+    let z_start = start.z_start;
+    let c_start = start.c_start;
+    let dz_dx = gradients.dz_dx;
+    let dc_dx = gradients.dc_dx;
     let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
@@ -296,21 +312,24 @@ pub fn draw_scanline_gouraud(
     y: i32,
     x_start: i32,
     x_end: i32,
-    z_start: f32,
-    c_start: (i64, i64, i64), // Fixed point color
-    dz_dx: f32,
-    dc_dx: (i32, i32, i32),
+    start: GouraudSpanStartI64,
+    gradients: &GouraudGradients,
 ) {
+    let z_start = start.z_start;
+    let c_start = start.c_start;
+    let dz_dx = gradients.dz_dx;
+    let dc_dx = gradients.dc_dx;
     draw_scanline_gouraud_i32(
         fb,
         zb,
         y,
         x_start,
         x_end,
-        z_start,
-        (c_start.0 as i32, c_start.1 as i32, c_start.2 as i32),
-        dz_dx,
-        dc_dx,
+        GouraudSpanStart {
+            z_start,
+            c_start: (c_start.0 as i32, c_start.1 as i32, c_start.2 as i32),
+        },
+        gradients,
     );
 }
 
@@ -326,11 +345,13 @@ pub fn draw_scanline_gouraud_i32(
     y: i32,
     x_start: i32,
     x_end: i32,
-    z_start: f32,
-    c_start: (i32, i32, i32), // Fixed point color
-    dz_dx: f32,
-    dc_dx: (i32, i32, i32),
+    start: GouraudSpanStart,
+    gradients: &GouraudGradients,
 ) {
+    let z_start = start.z_start;
+    let c_start = start.c_start;
+    let dz_dx = gradients.dz_dx;
+    let dc_dx = gradients.dc_dx;
     if y < 0 || y >= fb.height() as i32 {
         return;
     }
@@ -413,10 +434,11 @@ pub fn draw_scanline_gouraud_i32(
                     draw_scanline_gouraud_simd_fast(
                         fb_slice,
                         zb_slice,
-                        z,
-                        (r_i, g_i, b_i),
-                        dz_dx,
-                        (dr, dg, db),
+                        GouraudSpanStart {
+                            z_start: z,
+                            c_start: (r_i, g_i, b_i),
+                        },
+                        gradients,
                     );
                 }
                 return;
@@ -453,10 +475,11 @@ pub fn draw_scanline_gouraud_i32(
                     draw_scanline_gouraud_simd_clamped(
                         fb_slice,
                         zb_slice,
-                        z,
-                        (r_i, g_i, b_i),
-                        dz_dx,
-                        (dr, dg, db),
+                        GouraudSpanStart {
+                            z_start: z,
+                            c_start: (r_i, g_i, b_i),
+                        },
+                        gradients,
                     );
                 }
                 return;
@@ -497,8 +520,8 @@ pub fn draw_scanline_gouraud_i32(
 #[derive(Clone, Copy)]
 /// Gradients used for interpolating values across a Gouraud shaded triangle.
 pub struct GouraudGradients {
-    pub(crate) dz_dx: f32,
-    pub(crate) dc_dx: (i32, i32, i32),
+    pub dz_dx: f32,
+    pub dc_dx: (i32, i32, i32),
 }
 
 impl GouraudGradients {
@@ -834,10 +857,11 @@ pub fn fill_triangle_gouraud(
                     y,
                     x_start,
                     x_end,
-                    z_left,
-                    c_left,
-                    gradients.dz_dx,
-                    gradients.dc_dx,
+                    GouraudSpanStart {
+                        z_start: z_left,
+                        c_start: c_left,
+                    },
+                    &gradients,
                 );
             }
 
@@ -864,7 +888,16 @@ mod tests {
         let c_start = (200i64 << 16, 0, 50i64 << 16);
         let dc_dx = ((-1i32) << 16, 1i32 << 16, 0);
 
-        draw_scanline_gouraud(&mut fb, &mut zb, 0, 0, 99, z_start, c_start, dz_dx, dc_dx);
+        let gradients = GouraudGradients { dz_dx, dc_dx };
+        draw_scanline_gouraud(
+            &mut fb,
+            &mut zb,
+            0,
+            0,
+            99,
+            GouraudSpanStartI64 { z_start, c_start },
+            &gradients,
+        );
 
         let p0 = fb.get_pixel(0, 0).unwrap();
         assert_eq!(p0, 0xFF00_0000 | (0xC8 << 16) | 0x32);

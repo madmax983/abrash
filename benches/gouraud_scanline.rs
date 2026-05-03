@@ -1,5 +1,6 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::rasterizer::draw_scanline_gouraud;
+use abrash_render::rasterizer::gouraud::{GouraudSpanStartI64, GouraudGradients};
 use abrash::zbuffer::ZBuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
@@ -35,10 +36,8 @@ fn bench_draw_scanline_gouraud_short(c: &mut Criterion) {
                 black_box(y),
                 black_box(x_start),
                 black_box(x_end),
-                black_box(z_start),
-                black_box(c_start),
-                black_box(dz_dx),
-                black_box(dc_dx),
+                black_box(GouraudSpanStartI64 { z_start, c_start }),
+                black_box(&GouraudGradients { dz_dx, dc_dx }),
             );
         });
     });
@@ -74,10 +73,8 @@ fn bench_draw_scanline_gouraud_medium(c: &mut Criterion) {
                 black_box(y),
                 black_box(x_start),
                 black_box(x_end),
-                black_box(z_start),
-                black_box(c_start),
-                black_box(dz_dx),
-                black_box(dc_dx),
+                black_box(GouraudSpanStartI64 { z_start, c_start }),
+                black_box(&GouraudGradients { dz_dx, dc_dx }),
             );
         });
     });
@@ -114,10 +111,8 @@ fn bench_draw_scanline_gouraud_long(c: &mut Criterion) {
                 black_box(y),
                 black_box(x_start),
                 black_box(x_end),
-                black_box(z_start),
-                black_box(c_start),
-                black_box(dz_dx),
-                black_box(dc_dx),
+                black_box(GouraudSpanStartI64 { z_start, c_start }),
+                black_box(&GouraudGradients { dz_dx, dc_dx }),
             );
         });
     });

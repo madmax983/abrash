@@ -372,7 +372,7 @@ mod tests {
         pixels[0] = 0x1234_5678;
         depths[0] = 42.0;
         assert_eq!(pixels[0], 0x1234_5678);
-        assert_eq!(depths[0], 42.0);
+        assert!((depths[0] - 42.0).abs() < 1e-6);
     }
 
     #[test]
@@ -474,11 +474,11 @@ mod tests {
 
         let red_pixels = pixels
             .iter()
-            .filter(|&&p| (p >> 16) & 0xFF == 0xFF && (p >> 8) & 0xFF == 0)
+            .filter(|&&p| (p >> 16) & 0xFF == 0xFF && (p >> 8).trailing_zeros() >= 8)
             .count();
         let green_pixels = pixels
             .iter()
-            .filter(|&&p| (p >> 8) & 0xFF == 0xFF && (p >> 16) & 0xFF == 0)
+            .filter(|&&p| (p >> 8) & 0xFF == 0xFF && (p >> 16).trailing_zeros() >= 8)
             .count();
         assert!(red_pixels > 0, "should have red pixels from left cube");
         assert!(green_pixels > 0, "should have green pixels from right cube");
@@ -499,11 +499,7 @@ mod tests {
         for i in 0..3u32 {
             let angle = i as f32 * std::f32::consts::FRAC_PI_4;
             let pixels = backend.render(&EmbedScene {
-                camera: EmbedCamera {
-                    position: camera.position,
-                    target: camera.target,
-                    fov_y: camera.fov_y,
-                },
+                camera: camera.clone(),
                 draws: &[EmbedDraw {
                     mesh_index: cube,
                     transform: Mat4::rotation_y(angle),

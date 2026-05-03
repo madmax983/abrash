@@ -320,20 +320,28 @@ pub fn draw_rounded_rect(
         while cx <= cy {
             // Optimized on-screen rendering without bounds checking
             // Top Left
-            buf[((i64::from(cy_top) - cy) * i64::from(w) + (i64::from(cx_left) - cx)) as usize] = color;
-            buf[((i64::from(cy_top) - cx) * i64::from(w) + (i64::from(cx_left) - cy)) as usize] = color;
+            buf[((i64::from(cy_top) - cy) * i64::from(w) + (i64::from(cx_left) - cx)) as usize] =
+                color;
+            buf[((i64::from(cy_top) - cx) * i64::from(w) + (i64::from(cx_left) - cy)) as usize] =
+                color;
 
             // Top Right
-            buf[((i64::from(cy_top) - cy) * i64::from(w) + (i64::from(cx_right) + cx)) as usize] = color;
-            buf[((i64::from(cy_top) - cx) * i64::from(w) + (i64::from(cx_right) + cy)) as usize] = color;
+            buf[((i64::from(cy_top) - cy) * i64::from(w) + (i64::from(cx_right) + cx)) as usize] =
+                color;
+            buf[((i64::from(cy_top) - cx) * i64::from(w) + (i64::from(cx_right) + cy)) as usize] =
+                color;
 
             // Bottom Left
-            buf[((i64::from(cy_bottom) + cy) * i64::from(w) + (i64::from(cx_left) - cx)) as usize] = color;
-            buf[((i64::from(cy_bottom) + cx) * i64::from(w) + (i64::from(cx_left) - cy)) as usize] = color;
+            buf[((i64::from(cy_bottom) + cy) * i64::from(w) + (i64::from(cx_left) - cx))
+                as usize] = color;
+            buf[((i64::from(cy_bottom) + cx) * i64::from(w) + (i64::from(cx_left) - cy))
+                as usize] = color;
 
             // Bottom Right
-            buf[((i64::from(cy_bottom) + cy) * i64::from(w) + (i64::from(cx_right) + cx)) as usize] = color;
-            buf[((i64::from(cy_bottom) + cx) * i64::from(w) + (i64::from(cx_right) + cy)) as usize] = color;
+            buf[((i64::from(cy_bottom) + cy) * i64::from(w) + (i64::from(cx_right) + cx))
+                as usize] = color;
+            buf[((i64::from(cy_bottom) + cx) * i64::from(w) + (i64::from(cx_right) + cy))
+                as usize] = color;
 
             if d < 0 {
                 d = d + 4 * cx + 6;

@@ -1,4 +1,5 @@
 use abrash::framebuffer::Framebuffer;
+use abrash_render::rasterizer::gouraud::{GouraudSpanStartI64, GouraudGradients};
 use abrash::rasterizer::{FIXED_SCALE, draw_scanline_gouraud};
 use abrash::zbuffer::ZBuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
@@ -38,10 +39,8 @@ fn bench_draw_scanline_gouraud_100px(c: &mut Criterion) {
                 black_box(y),
                 black_box(x_start),
                 black_box(x_end),
-                black_box(z_start),
-                black_box(c_start),
-                black_box(dz_dx),
-                black_box(dc_dx),
+                black_box(GouraudSpanStartI64 { z_start, c_start }),
+                black_box(&GouraudGradients { dz_dx, dc_dx }),
             );
         });
     });

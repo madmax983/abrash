@@ -1,5 +1,7 @@
 //! Edge-case bounds testing for the Gouraud Rasterizer.
-use crate::rasterizer::gouraud::draw_scanline_gouraud_simd_fast;
+use crate::rasterizer::gouraud::{
+    GouraudGradients, GouraudSpanStart, draw_scanline_gouraud_simd_fast,
+};
 
 #[test]
 fn havoc_gouraud_simd_buffer_mismatch() {
@@ -14,6 +16,11 @@ fn havoc_gouraud_simd_buffer_mismatch() {
     let dc_dx = (0, 0, 0);
 
     unsafe {
-        draw_scanline_gouraud_simd_fast(&mut fb, &mut zb, z_start, c_start, dz_dx, dc_dx);
+        draw_scanline_gouraud_simd_fast(
+            &mut fb,
+            &mut zb,
+            GouraudSpanStart { z_start, c_start },
+            &GouraudGradients { dz_dx, dc_dx },
+        );
     }
 }
