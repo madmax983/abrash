@@ -131,6 +131,9 @@
 **TileBins Initial Capacity Allocation**
 **Learning:** In tile-based rendering or binning systems, dynamic heap collections like `Vec::new()` embedded inside per-frame structures (like `TileBins`) can cause significant initialization stutter due to continuous heap capacity resizing across thousands of overlapping triangles in early frames.
 **Action:** Always estimate and allocate a baseline working capacity using `Vec::with_capacity(n)` based on the grid constraints (e.g. `num_tiles * 4`) to safely elide these initial heap reallocations.
+**Optimize Cel Shading Memory Footprint**
+**Learning:** Calling `.to_vec()` on a framebuffer slice inside a post-processing pass causes an expensive O(N) dynamic heap allocation and memory copy on every single frame, significantly degrading performance.
+**Action:** Instead of `.to_vec()`, hoist the temporary scratch buffer into a `thread_local!(static SOURCE_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) })`. Resize this buffer dynamically and use `copy_from_slice()` to safely reuse the allocated capacity across frames without reallocation. Extract it as a `&[u32]` to safely pass it into Rayon's parallel iterators.
 **Pre-allocated SsaoContext buffers**\n**Learning:** When a struct containing large s (like  and  in SSAO) is used as a per-frame or long-lived buffer, allocating it with  causes massive overallocation penalties on the first frame. Using  bypasses this entirely.\n**Action:** Use  in the  implementations for known large buffers.\n
 
 **Pre-allocated SsaoContext buffers**
