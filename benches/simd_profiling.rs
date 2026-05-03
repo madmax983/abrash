@@ -8,6 +8,8 @@ use abrash::{
 use comfy_table::{
     Attribute, Cell, Color, Table, modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL,
 };
+#[cfg(feature = "backend-tui")]
+use crossterm::style::Stylize;
 use std::time::Instant;
 
 #[cfg(target_arch = "x86_64")]
@@ -30,7 +32,15 @@ fn read_tsc() -> u64 {
 
 /// Detailed profiling benchmark to identify SIMD bottlenecks
 fn main() {
-    println!("\n🎨 Mosaic Profiler: SIMD Analysis\n");
+    #[cfg(feature = "backend-tui")]
+    {
+        println!("\n{}", "🎨 Mosaic Profiler: SIMD Analysis".bold().cyan());
+        println!("{}\n", "=================================".dark_grey());
+    }
+    #[cfg(not(feature = "backend-tui"))]
+    {
+        println!("\n🎨 Mosaic Profiler: SIMD Analysis\n");
+    }
 
     // Test different scanline lengths
     profile_scanline_lengths();
@@ -43,6 +53,9 @@ fn main() {
 }
 
 fn profile_scanline_lengths() {
+    #[cfg(feature = "backend-tui")]
+    println!("{}", "📦 Scanline Length Analysis".bold());
+    #[cfg(not(feature = "backend-tui"))]
     println!("📦 Scanline Length Analysis");
 
     let mut table = Table::new();
@@ -126,6 +139,9 @@ fn profile_scanline_lengths() {
 }
 
 fn profile_hiz_pyramid() {
+    #[cfg(feature = "backend-tui")]
+    println!("{}", "🏗️  Hi-Z Pyramid Build Profiling".bold());
+    #[cfg(not(feature = "backend-tui"))]
     println!("🏗️  Hi-Z Pyramid Build Profiling");
 
     let mut table = Table::new();
@@ -203,6 +219,9 @@ fn profile_hiz_pyramid() {
 }
 
 fn profile_rendering_pipeline() {
+    #[cfg(feature = "backend-tui")]
+    println!("{}", "🚀 Full Rendering Pipeline Breakdown".bold());
+    #[cfg(not(feature = "backend-tui"))]
     println!("🚀 Full Rendering Pipeline Breakdown");
 
     let triangles = generate_test_scene(100, 1920, 1080);
