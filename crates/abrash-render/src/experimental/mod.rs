@@ -65,6 +65,7 @@ pub mod jelly;
 pub mod kaleidoscope;
 pub mod kuwahara;
 pub mod led_matrix;
+pub mod light_leak;
 pub mod lsystem;
 pub mod magnifying_glass;
 pub mod mandelbrot;

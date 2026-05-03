@@ -928,3 +928,8 @@ harness = false
 name = "magnifying_glass_demo"
 path = "examples/magnifying_glass_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "light_leak_demo"
+path = "examples/light_leak_demo.rs"
+required-features = ["nova"]

@@ -68,3 +68,8 @@
 **Concept:** A post-processing effect that simulates a moving magnifying glass over the screen. It works by mapping pixels within a defined radius to a sampled source coordinate pulled closer to the lens center based on the magnification factor, complete with a dark rim.
 **Fate:** Implemented
 **Lesson:** Utilizing a thread-local intermediate source buffer efficiently prevents read-after-write aliasing artifacts when dynamically scaling and transforming pixels in-place within the same framebuffer.
+
+## [Light Leak Filter]
+**Concept:** A post-processing effect simulating analog film light leaks and flares using overlapping additive color gradients modulated by procedural time-based sine waves.
+**Fate:** Implemented
+**Lesson:** Simple procedural gradients mapped to the framebuffer edges using distance falloffs combined with Screen blending logic create a highly convincing light leak effect that feels organic without needing heavy texture sampling.
