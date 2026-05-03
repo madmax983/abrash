@@ -31,15 +31,15 @@ thread_local! {
 /// # Examples
 ///
 /// rust
-/// use abrash_core::framebuffer::Framebuffer;
-/// use abrash_render::post_process::filters::apply_gamma_correction;
+/// use `abrash_core::framebuffer::Framebuffer`;
+/// use `abrash_render::post_process::filters::apply_gamma_correction`;
 ///
-/// let mut fb = Framebuffer::new(1, 1).unwrap();
-/// fb.set_pixel(0, 0, 0xFF808080); // Mid-gray (128)
-/// apply_gamma_correction(&mut fb, 2.2);
+/// let mut fb = `Framebuffer::new(1`, `1).unwrap()`;
+/// `fb.set_pixel(0`, 0, 0xFF808080); // Mid-gray (128)
+/// `apply_gamma_correction(&mut` fb, 2.2);
 /// // With gamma 2.2, mid-gray becomes roughly 186.
-/// let p = fb.get_pixel(0, 0).unwrap();
-/// assert_eq!((p >> 16) & 0xFF, 186);
+/// let p = `fb.get_pixel(0`, `0).unwrap()`;
+/// `assert_eq!((p` >> 16) & 0xFF, 186);
 ///
 pub fn apply_gamma_correction(fb: &mut Framebuffer, gamma: f32) {
     let pixels = fb.as_mut_slice();
@@ -92,16 +92,16 @@ pub fn apply_gamma_correction(fb: &mut Framebuffer, gamma: f32) {
 /// # Examples
 ///
 /// rust
-/// use abrash_core::framebuffer::Framebuffer;
-/// use abrash_render::post_process::filters::apply_grayscale;
+/// use `abrash_core::framebuffer::Framebuffer`;
+/// use `abrash_render::post_process::filters::apply_grayscale`;
 ///
-/// let mut fb = Framebuffer::new(1, 1).unwrap();
-/// fb.set_pixel(0, 0, 0xFFFF0000); // Red
-/// apply_grayscale(&mut fb);
+/// let mut fb = `Framebuffer::new(1`, `1).unwrap()`;
+/// `fb.set_pixel(0`, 0, 0xFFFF0000); // Red
+/// `apply_grayscale(&mut` fb);
 /// // Red component is 255. 77*255/256 = 76.
 /// // Result should be grey (76, 76, 76).
-/// let p = fb.get_pixel(0, 0).unwrap();
-/// assert_eq!(p & 0xFF, 76);
+/// let p = `fb.get_pixel(0`, `0).unwrap()`;
+/// `assert_eq!(p` & 0xFF, 76);
 ///
 /// Configuration for the scanline jitter effect.
 #[derive(Debug, Clone, Copy)]
@@ -112,8 +112,8 @@ pub struct ScanlineJitterConfig {
 
 /// Applies a scanline jitter effect to the framebuffer in-place.
 ///
-/// **Bolt Optimization:** We use chunks_exact_mut to process two rows at a time,
-/// avoiding the overhead of step_by and extracting the subslice directly.
+/// **Bolt Optimization:** We use `chunks_exact_mut` to process two rows at a time,
+/// avoiding the overhead of `step_by` and extracting the subslice directly.
 pub fn apply_scanline_jitter(fb: &mut Framebuffer, config: &ScanlineJitterConfig) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
@@ -170,19 +170,19 @@ fn apply_grayscale_scalar(pixels: &mut [u32]) {
 /// # Examples
 ///
 /// rust
-/// use abrash_core::framebuffer::Framebuffer;
-/// use abrash_render::post_process::filters::apply_scanlines;
+/// use `abrash_core::framebuffer::Framebuffer`;
+/// use `abrash_render::post_process::filters::apply_scanlines`;
 ///
-/// let mut fb = Framebuffer::new(1, 2).unwrap();
-/// fb.clear(0xFFFF_FFFF); // White
-/// apply_scanlines(&mut fb);
+/// let mut fb = `Framebuffer::new(1`, `2).unwrap()`;
+/// `fb.clear(0xFFFF_FFFF)`; // White
+/// `apply_scanlines(&mut` fb);
 ///
 /// // Row 0 is untouched
-/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFFFF_FFFF);
+/// `assert_eq!(fb.get_pixel(0`, `0).unwrap()`, `0xFFFF_FFFF`);
 ///
 /// // Row 1 is darkened (halved)
 /// // 0xFF >> 1 = 0x7F
-/// assert_eq!(fb.get_pixel(0, 1).unwrap(), 0xFF7F_7F7F);
+/// `assert_eq!(fb.get_pixel(0`, `1).unwrap()`, `0xFF7F_7F7F`);
 ///
 pub fn apply_scanlines(fb: &mut Framebuffer) {
     let width = fb.width() as usize;
@@ -227,15 +227,15 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 /// # Examples
 ///
 /// rust
-/// use abrash_core::framebuffer::Framebuffer;
-/// use abrash_render::post_process::filters::apply_invert;
+/// use `abrash_core::framebuffer::Framebuffer`;
+/// use `abrash_render::post_process::filters::apply_invert`;
 ///
-/// let mut fb = Framebuffer::new(1, 1).unwrap();
-/// fb.set_pixel(0, 0, 0xFF000000); // Black
-/// apply_invert(&mut fb);
+/// let mut fb = `Framebuffer::new(1`, `1).unwrap()`;
+/// `fb.set_pixel(0`, 0, 0xFF000000); // Black
+/// `apply_invert(&mut` fb);
 ///
 /// // Alpha is preserved (FF), color is inverted (000000 -> FFFFFF)
-/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFFFFFFFF); // White
+/// `assert_eq!(fb.get_pixel(0`, `0).unwrap()`, 0xFFFFFFFF); // White
 /// Applies a solarize filter to the framebuffer in-place.
 ///
 /// Colors with a value above the given threshold will be inverted.
@@ -243,13 +243,13 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 ///
 /// # Examples
 /// rust
-/// use abrash_core::framebuffer::Framebuffer;
-/// use abrash_render::post_process::filters::apply_solarize;
+/// use `abrash_core::framebuffer::Framebuffer`;
+/// use `abrash_render::post_process::filters::apply_solarize`;
 ///
-/// let mut fb = Framebuffer::new(1, 1).unwrap();
-/// fb.clear(0xFFC0_C0C0); // Light Gray (192)
-/// apply_solarize(&mut fb, 127);
-/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFF3F_3F3F);
+/// let mut fb = `Framebuffer::new(1`, `1).unwrap()`;
+/// `fb.clear(0xFFC0_C0C0)`; // Light Gray (192)
+/// `apply_solarize(&mut` fb, 127);
+/// `assert_eq!(fb.get_pixel(0`, `0).unwrap()`, `0xFF3F_3F3F`);
 ///
 pub fn apply_solarize(fb: &mut Framebuffer, threshold: u8) {
     let pixels = fb.as_mut_slice();
@@ -308,20 +308,20 @@ pub fn apply_invert(fb: &mut Framebuffer) {
 ///
 /// Formula:
 /// text
-/// NewR = (0.393 * R + 0.769 * G + 0.189 * B)
-/// NewG = (0.349 * R + 0.686 * G + 0.168 * B)
-/// NewB = (0.272 * R + 0.534 * G + 0.131 * B)
+/// `NewR` = (0.393 * R + 0.769 * G + 0.189 * B)
+/// `NewG` = (0.349 * R + 0.686 * G + 0.168 * B)
+/// `NewB` = (0.272 * R + 0.534 * G + 0.131 * B)
 ///
 ///
 /// # Examples
 ///
 /// rust
-/// use abrash_core::framebuffer::Framebuffer;
-/// use abrash_render::post_process::filters::apply_sepia;
+/// use `abrash_core::framebuffer::Framebuffer`;
+/// use `abrash_render::post_process::filters::apply_sepia`;
 ///
-/// let mut fb = Framebuffer::new(1, 1).unwrap();
-/// fb.set_pixel(0, 0, 0xFFFFFFFF); // White
-/// apply_sepia(&mut fb);
+/// let mut fb = `Framebuffer::new(1`, `1).unwrap()`;
+/// `fb.set_pixel(0`, 0, 0xFFFFFFFF); // White
+/// `apply_sepia(&mut` fb);
 /// // Result is tinted yellowish-brown.
 ///
 pub fn apply_sepia(fb: &mut Framebuffer) {
@@ -383,12 +383,12 @@ pub struct ChromaticAberrationConfig {
 /// # Examples
 ///
 /// rust
-/// use abrash_core::framebuffer::Framebuffer;
-/// use abrash_render::post_process::filters::{apply_chromatic_aberration, ChromaticAberrationConfig};
+/// use `abrash_core::framebuffer::Framebuffer`;
+/// use `abrash_render::post_process::filters::{apply_chromatic_aberration`, `ChromaticAberrationConfig`};
 ///
-/// let mut fb = Framebuffer::new(100, 100).unwrap();
-/// fb.set_pixel(50, 50, 0xFFFFFFFF); // White
-/// apply_chromatic_aberration(&mut fb, &ChromaticAberrationConfig { offset: 5 });
+/// let mut fb = `Framebuffer::new(100`, `100).unwrap()`;
+/// `fb.set_pixel(50`, 50, 0xFFFFFFFF); // White
+/// `apply_chromatic_aberration(&mut` fb, &`ChromaticAberrationConfig` { offset: 5 });
 ///
 
 pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberrationConfig) {
@@ -471,12 +471,12 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberra
 /// # Examples
 ///
 /// rust
-/// use abrash_core::framebuffer::Framebuffer;
-/// use abrash_render::post_process::filters::apply_sobel;
+/// use `abrash_core::framebuffer::Framebuffer`;
+/// use `abrash_render::post_process::filters::apply_sobel`;
 ///
-/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut fb = `Framebuffer::new(100`, `100).unwrap()`;
 /// // Draw something...
-/// apply_sobel(&mut fb);
+/// `apply_sobel(&mut` fb);
 ///
 pub fn apply_sobel(fb: &mut Framebuffer) {
     let width = fb.width() as usize;
@@ -594,14 +594,14 @@ impl Default for VignetteConfig {
 /// # Examples
 ///
 /// rust
-/// use abrash_core::framebuffer::Framebuffer;
-/// use abrash_render::post_process::filters::{apply_vignette, VignetteConfig};
+/// use `abrash_core::framebuffer::Framebuffer`;
+/// use `abrash_render::post_process::filters::{apply_vignette`, `VignetteConfig`};
 ///
-/// let mut fb = Framebuffer::new(100, 100).unwrap();
-/// fb.clear(0xFFFF_FFFF); // White
+/// let mut fb = `Framebuffer::new(100`, `100).unwrap()`;
+/// `fb.clear(0xFFFF_FFFF)`; // White
 /// // Apply vignette
-/// let config = VignetteConfig { intensity: 0.5, roundness: 0.5 };
-/// apply_vignette(&mut fb, &config);
+/// let config = `VignetteConfig` { intensity: 0.5, roundness: 0.5 };
+/// `apply_vignette(&mut` fb, &config);
 ///
 pub fn apply_vignette(fb: &mut Framebuffer, config: &VignetteConfig) {
     let width = fb.width();
@@ -656,23 +656,23 @@ impl Default for ColorAdjustConfig {
 
 /// Adjusts the brightness and contrast of the framebuffer in-place.
 ///
-/// Formula per channel: new_color = (old_color - 128) * contrast + 128 + brightness
+/// Formula per channel: `new_color` = (`old_color` - 128) * contrast + 128 + brightness
 ///
 /// # Examples
 ///
 /// rust
-/// use abrash_core::framebuffer::Framebuffer;
-/// use abrash_render::post_process::filters::{apply_color_adjust, ColorAdjustConfig};
+/// use `abrash_core::framebuffer::Framebuffer`;
+/// use `abrash_render::post_process::filters::{apply_color_adjust`, `ColorAdjustConfig`};
 ///
-/// let mut fb = Framebuffer::new(1, 1).unwrap();
-/// fb.set_pixel(0, 0, 0xFF808080); // Mid Gray (128)
+/// let mut fb = `Framebuffer::new(1`, `1).unwrap()`;
+/// `fb.set_pixel(0`, 0, 0xFF808080); // Mid Gray (128)
 ///
 /// // Increase brightness by 20, keep contrast neutral
-/// let config = ColorAdjustConfig { brightness: 20, contrast: 1.0 };
-/// apply_color_adjust(&mut fb, &config);
+/// let config = `ColorAdjustConfig` { brightness: 20, contrast: 1.0 };
+/// `apply_color_adjust(&mut` fb, &config);
 ///
 /// // Result should be 128 + 20 = 148
-/// assert_eq!(fb.get_pixel(0, 0).unwrap() & 0xFF, 148);
+/// `assert_eq!(fb.get_pixel(0`, `0).unwrap()` & 0xFF, 148);
 ///
 pub fn apply_color_adjust(fb: &mut Framebuffer, config: &ColorAdjustConfig) {
     let pixels = fb.as_mut_slice();
@@ -707,12 +707,12 @@ pub struct FilmGrainConfig {
 ///
 /// # Examples
 /// rust
-/// use abrash_core::framebuffer::Framebuffer;
-/// use abrash_render::post_process::filters::{apply_film_grain, FilmGrainConfig};
+/// use `abrash_core::framebuffer::Framebuffer`;
+/// use `abrash_render::post_process::filters::{apply_film_grain`, `FilmGrainConfig`};
 ///
-/// let mut fb = Framebuffer::new(800, 600).unwrap();
-/// let config = FilmGrainConfig { intensity: 0.1, seed: 42 };
-/// apply_film_grain(&mut fb, &config);
+/// let mut fb = `Framebuffer::new(800`, `600).unwrap()`;
+/// let config = `FilmGrainConfig` { intensity: 0.1, seed: 42 };
+/// `apply_film_grain(&mut` fb, &config);
 ///
 pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
     let width = fb.width() as usize;
