@@ -31,10 +31,12 @@ struct SsaoContext {
 impl Default for SsaoContext {
     fn default() -> Self {
         Self {
-            occlusion_buffer: Vec::new(),
-            scratch_buffer: Vec::new(),
-            acc_buffer: Vec::new(),
-            precomputed_kernel_buffer: Vec::new(),
+            // ⚡ Bolt: Pre-allocate realistic screen buffer capacities (e.g., 1024x768)
+            // to bypass initial overallocation re-sizing hits on the first frame.
+            occlusion_buffer: Vec::with_capacity(1024 * 768),
+            scratch_buffer: Vec::with_capacity(1024 * 768),
+            acc_buffer: Vec::with_capacity(1024),
+            precomputed_kernel_buffer: Vec::with_capacity(NOISE_SIZE * KERNEL_SIZE * 2 * 8),
             kernel: [Vec3::default(); KERNEL_SIZE],
             noise: [Vec3::default(); NOISE_SIZE * NOISE_SIZE],
             initialized: false,

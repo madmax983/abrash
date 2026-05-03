@@ -124,3 +124,6 @@
 **[Strict Bounds Pre-Allocation]**
 **Learning:** When pre-allocating or extending vectors where the exact required capacity or number of appended elements is known (e.g., transforming a slice of points), using `.reserve_exact()` instead of `.reserve()` bypasses standard overallocation heuristics, safely preventing unnecessary memory footprint growth for large arrays without causing performance regressions.
 **Action:** Replace `.reserve(x.len())` with `.reserve_exact(x.len())` on vectors mapped from identically sized slices.
+**[Pre-allocate SSAO Frame Buffers]**
+**Learning:** `SsaoContext::default()` initializes its large per-frame screen buffers (`occlusion_buffer`, `scratch_buffer`, etc.) with `Vec::new()`. During the first frame of rendering, `apply_ssao` resizes them to the full screen resolution (e.g., 1024x768), invoking heavy dynamic overallocation and memory copies.
+**Action:** Replace `Vec::new()` with `Vec::with_capacity(1024 * 768)` (or typical baseline screen size) inside `Default::default()` implementations for long-lived render passes to completely bypass the initial overallocation hit on the first frame.

@@ -1,5 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use abrash_core::texture::{laplacian_blend_textures, Texture};
+use abrash_core::texture::{Texture, laplacian_blend_textures};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_laplacian_blend(c: &mut Criterion) {
     let mut tex0 = Texture::new(256, 256).unwrap();
