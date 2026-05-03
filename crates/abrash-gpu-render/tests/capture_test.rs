@@ -40,6 +40,16 @@ fn contains_dominant_color(pixels: &[u8], dominant_channel: usize) -> bool {
 }
 
 #[test]
+fn test_contains_rgba() {
+    let pixels = vec![0, 0, 0, 255, 255, 0, 0, 255, 0, 255, 0, 255];
+    assert!(contains_rgba(&pixels, [255, 0, 0, 255]));
+    assert!(contains_rgba(&pixels, [0, 255, 0, 255]));
+    assert!(contains_rgba(&pixels, [0, 0, 0, 255]));
+    assert!(!contains_rgba(&pixels, [0, 0, 255, 255]));
+    assert!(!contains_rgba(&pixels, [255, 255, 255, 255]));
+}
+
+#[test]
 fn test_capture_cube_has_visible_pixels() {
     let Some(mut renderer) = try_create_renderer() else {
         eprintln!("SKIP: no GPU adapter available");
