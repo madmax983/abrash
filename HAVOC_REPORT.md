@@ -186,3 +186,14 @@ cargo test --test havoc_jelly_stress_panic --features nova
 
 ## 😈 Comment
 You fortified `update()` and `collide_sdf()` against structural changes to `mesh.vertices`, but you forgot `get_vertex_stress()`! You blindly trusted `spring_indices_a` as if the user would never modify public state. You left the back door wide open. You were wrong.
+## 👺 Havoc: Directional Blur Addition Overflow
+
+**The Trigger:** A directional blur operation where the `dx` or `dy` components (when scaled and converted to fixed-point `i32`) create extremely large step values. This is achievable by providing f32 values that round up to near `i32::MAX`.
+
+**The Mechanism:**
+- The `apply_directional_blur` iterates through the screen using fixed-point integer math.
+- The iteration calculates current coordinate bounds by running `cur_x += dx_step_fixed` and `cur_y += dy_step_fixed`.
+- Because standard addition is used, large fuzzing values cause an addition overflow panic, crashing the thread.
+- **Outcome:** Thread panic/Application crash.
+
+**The Fix:** Replaced standard addition `+=` with `.wrapping_add()` when calculating coordinate bounds in `directional_blur.rs`. This perfectly mitigates the overflow, safely wrapping the values.

@@ -14,6 +14,10 @@ use crate::framebuffer::Framebuffer;
 ///
 /// Panics if the internal framebuffer allocation fails due to memory exhaustion or extreme dimensions.
 ///
+/// # Panics
+///
+/// Panics if the internal framebuffer allocation fails due to memory exhaustion or extreme dimensions.
+///
 /// # Arguments
 ///
 /// * `fb` - The framebuffer to modify in-place.
