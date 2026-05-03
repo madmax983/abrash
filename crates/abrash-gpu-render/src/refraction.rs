@@ -20,7 +20,7 @@
 //! q_{n+1} = W + s_{n+1} * r̂
 //! ```
 //! where W is the refractive surface world position, r̂ is the unit refracted
-//! direction, and (p_n, n) are the world position and normal sampled from the opaque
+//! direction, and (`p_n`, n) are the world position and normal sampled from the opaque
 //! G-buffer at the screen-space projection of the current estimate.  Convergence is
 //! declared when the screen-space pixel error between q_{n+1} and the re-sampled
 //! G-buffer point p_{n+1} is below 1 pixel.

@@ -195,9 +195,9 @@ fn quantize_color(color: u32, levels: u32) -> u32 {
     let g = ((color >> 8) & 0xFF) as f32;
     let b = (color & 0xFF) as f32;
 
-    let qr = ((r * inv_factor).round() * factor).clamp(0.0, 255.0) as u32;
-    let qg = ((g * inv_factor).round() * factor).clamp(0.0, 255.0) as u32;
-    let qb = ((b * inv_factor).round() * factor).clamp(0.0, 255.0) as u32;
+    let qr = (((r * inv_factor) + 0.5) as i32 as f32 * factor).clamp(0.0, 255.0) as u32;
+    let qg = (((g * inv_factor) + 0.5) as i32 as f32 * factor).clamp(0.0, 255.0) as u32;
+    let qb = (((b * inv_factor) + 0.5) as i32 as f32 * factor).clamp(0.0, 255.0) as u32;
 
     a | (qr << 16) | (qg << 8) | qb
 }
