@@ -99,6 +99,11 @@ path = "src/main.rs"
 required-features = ["backend-tui"]
 
 [[example]]
+name = "droste_demo"
+path = "examples/droste_demo.rs"
+required-features = ["nova"]
+
+[[example]]
 name = "cube_3d"
 path = "examples/cube_3d.rs"
 
