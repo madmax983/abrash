@@ -68,3 +68,8 @@
 **Concept:** A post-processing effect that simulates a moving magnifying glass over the screen. It works by mapping pixels within a defined radius to a sampled source coordinate pulled closer to the lens center based on the magnification factor, complete with a dark rim.
 **Fate:** Implemented
 **Lesson:** Utilizing a thread-local intermediate source buffer efficiently prevents read-after-write aliasing artifacts when dynamically scaling and transforming pixels in-place within the same framebuffer.
+
+## [Droste Effect Filter]
+**Concept:** A recursive picture-in-picture post-processing effect. It dynamically unscales coordinates inside a loop to pull colors from increasingly shrunken nested versions of the framebuffer.
+**Fate:** Implemented
+**Lesson:** Caching the original image in a `thread_local!` `RefCell` and recursively unscaling coordinates mathematically avoids multi-pass rendering or read-after-write aliasing artifacts without requiring per-frame heap allocations.

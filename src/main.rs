@@ -370,6 +370,13 @@ Keyboard: Interactive",
         instructions: "Mouse: None\nKeyboard: ESC to exit",
         example_name: "fractal_demo",
     },
+    Demo {
+        name: "Droste Effect",
+        category: DemoCategory::Simulation,
+        description: "Recursive picture-in-picture effect.",
+        instructions: "Observe the recursive picture-in-picture.",
+        example_name: "droste_demo",
+    },
 ];
 
 fn is_gpu_render_example(example_name: &str) -> bool {
@@ -382,6 +389,7 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "vision_demo"
         || example_name == "pixel_sort_demo"
         || example_name == "directional_blur_demo"
+        || example_name == "droste_demo"
         || example_name == "god_rays_demo"
         || example_name == "jelly_demo"
         || example_name == "color_splash_demo"

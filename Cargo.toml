@@ -924,7 +924,17 @@ required-features = ["nova"]
 name = "offscreen_rect_bench"
 harness = false
 
+[[bench]]
+name = "droste_bench"
+harness = false
+required-features = ["nova"]
+
 [[example]]
 name = "magnifying_glass_demo"
 path = "examples/magnifying_glass_demo.rs"
+required-features = ["nova"]
+
+[[example]]
+name = "droste_demo"
+path = "examples/droste_demo.rs"
 required-features = ["nova"]
