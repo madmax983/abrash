@@ -2127,8 +2127,8 @@ impl TileRenderer {
                                 let mut buffers = buf.borrow_mut();
                                 let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
                                 if buffers.0.len() < tile_area {
-                                    buffers.0.resize(tile_area, 0);
-                                    buffers.1.resize(tile_area, f32::INFINITY);
+                                    buffers.0 = AlignedBuffer::new(tile_area);
+                                    buffers.1 = AlignedBuffer::new(tile_area);
                                 }
                                 let buffers_ref = &mut *buffers;
                                 let tile_pixels = &mut buffers_ref.0;
@@ -2496,14 +2496,14 @@ impl TileRenderer {
                         }
 
                         std::thread_local! {
-                            static TILE_BUFFER: std::cell::RefCell<(Vec<u32>, Vec<f32>)> = const { std::cell::RefCell::new((Vec::new(), Vec::new())) };
+                            static TILE_BUFFER: std::cell::RefCell<(AlignedBuffer<u32>, AlignedBuffer<f32>)> = std::cell::RefCell::new((AlignedBuffer::new(0), AlignedBuffer::new(0)));
                         }
                         TILE_BUFFER.with(|buf| {
                             let mut buffers = buf.borrow_mut();
                             let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
                             if buffers.0.len() < tile_area {
-                                buffers.0.resize(tile_area, 0);
-                                buffers.1.resize(tile_area, f32::INFINITY);
+                                buffers.0 = AlignedBuffer::new(tile_area);
+                                buffers.1 = AlignedBuffer::new(tile_area);
                             }
                             let buffers_ref = &mut *buffers;
                             let tile_pixels = &mut buffers_ref.0;
@@ -2745,14 +2745,14 @@ impl TileRenderer {
                         }
 
                         std::thread_local! {
-                            static TILE_BUFFER: std::cell::RefCell<(Vec<u32>, Vec<f32>)> = const { std::cell::RefCell::new((Vec::new(), Vec::new())) };
+                            static TILE_BUFFER: std::cell::RefCell<(AlignedBuffer<u32>, AlignedBuffer<f32>)> = std::cell::RefCell::new((AlignedBuffer::new(0), AlignedBuffer::new(0)));
                         }
                         TILE_BUFFER.with(|buf| {
                             let mut buffers = buf.borrow_mut();
                             let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
                             if buffers.0.len() < tile_area {
-                                buffers.0.resize(tile_area, 0);
-                                buffers.1.resize(tile_area, f32::INFINITY);
+                                buffers.0 = AlignedBuffer::new(tile_area);
+                                buffers.1 = AlignedBuffer::new(tile_area);
                             }
                             let buffers_ref = &mut *buffers;
                             let tile_pixels = &mut buffers_ref.0;
