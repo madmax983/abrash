@@ -63,3 +63,8 @@
 **Concept:** A post-processing effect that converts the framebuffer into a hexagonal mosaic (honeycomb) pattern. It determines the nearest hexagon center for each pixel and applies its color, optionally drawing a border between cells.
 **Fate:** Implemented
 **Lesson:** When calculating nearest hexagon centers in a screen-space grid, iterating over two interlocking rectangular grids and computing the nearest center based on squared distance proves much faster than complex geometry algorithms. Furthermore, checking distances to the hexagon's edge allows efficient procedural border drawing without needing separate line rendering passes.
+
+## [Magnifying Glass Filter]
+**Concept:** A post-processing effect that simulates a moving magnifying glass over the screen. It works by mapping pixels within a defined radius to a sampled source coordinate pulled closer to the lens center based on the magnification factor, complete with a dark rim.
+**Fate:** Implemented
+**Lesson:** Utilizing a thread-local intermediate source buffer efficiently prevents read-after-write aliasing artifacts when dynamically scaling and transforming pixels in-place within the same framebuffer.
