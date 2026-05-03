@@ -124,3 +124,7 @@
 **[Strict Bounds Pre-Allocation]**
 **Learning:** When pre-allocating or extending vectors where the exact required capacity or number of appended elements is known (e.g., transforming a slice of points), using `.reserve_exact()` instead of `.reserve()` bypasses standard overallocation heuristics, safely preventing unnecessary memory footprint growth for large arrays without causing performance regressions.
 **Action:** Replace `.reserve(x.len())` with `.reserve_exact(x.len())` on vectors mapped from identically sized slices.
+
+**TileBins Preallocation**
+**Learning:** TileBins is instantiated per frame, and the triangle index lists (`tris` and `nexts`) expand dynamically via `.push()` during the binning phase, causing many small O(log N) heap reallocations on the critical path. Pre-allocating these vectors with `Vec::with_capacity(512)` instead of `Vec::new()` eliminates these dynamic heap reallocations for typical scenes.
+**Action:** Use `Vec::with_capacity` to pre-allocate vectors in structures that are instantiated repeatedly (e.g., per frame) and are expected to grow.

@@ -691,11 +691,14 @@ impl TileBins {
 
     #[must_use]
     pub fn new(num_tiles: usize) -> Self {
+        // ⚡ Bolt: Pre-allocate triangle indices and next pointers for the tile bins.
+        // Assuming ~512 triangles generated across all tiles per frame on average,
+        // this eliminates dynamic heap reallocations during the hot tile binning phase.
         Self {
             heads: vec![u32::MAX; num_tiles],
             tails: vec![u32::MAX; num_tiles],
-            nexts: Vec::new(),
-            tris: Vec::new(),
+            nexts: Vec::with_capacity(512),
+            tris: Vec::with_capacity(512),
         }
     }
 
