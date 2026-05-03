@@ -102,8 +102,8 @@ pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &Directiona
                     g_sum += g;
                     b_sum += b;
 
-                    cur_x += dx_step_fixed;
-                    cur_y += dy_step_fixed;
+                    cur_x = cur_x.saturating_add(dx_step_fixed);
+                    cur_y = cur_y.saturating_add(dy_step_fixed);
                 }
 
                 // Multiply by fixed-point inverse and shift down

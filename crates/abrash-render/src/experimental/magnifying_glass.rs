@@ -97,7 +97,9 @@ pub fn apply_magnifying_glass(fb: &mut Framebuffer, config: &MagnifyingGlassConf
                 if dist2 <= r2 {
                     if dist2 >= border_inner_r2 {
                         // We are in the border
-                        dest_pixels[row_offset + x] = config.border_color;
+                        unsafe {
+                            *dest_pixels.get_unchecked_mut(row_offset + x) = config.border_color;
+                        }
                     } else {
                         // We are inside the lens, magnify
                         // The source pixel coordinate
@@ -108,7 +110,10 @@ pub fn apply_magnifying_glass(fb: &mut Framebuffer, config: &MagnifyingGlassConf
                         let clamped_x = src_x.clamp(0, width as i32 - 1) as usize;
                         let clamped_y = src_y.clamp(0, height as i32 - 1) as usize;
 
-                        dest_pixels[row_offset + x] = src_pixels[clamped_y * width + clamped_x];
+                        unsafe {
+                            *dest_pixels.get_unchecked_mut(row_offset + x) =
+                                *src_pixels.get_unchecked(clamped_y * width + clamped_x);
+                        }
                     }
                 }
             }

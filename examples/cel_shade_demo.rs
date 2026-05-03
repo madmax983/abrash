@@ -163,7 +163,7 @@ impl CelShadeDemoApp {
             .as_mut()
             .ok_or_else(|| std::io::Error::other("software presenter not initialized"))?;
         presenter.present(framebuffer)?;
-        Ok(())
+
     }
 }
 
@@ -181,7 +181,7 @@ impl WindowApp for CelShadeDemoApp {
 
     fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
-        Ok(())
+
     }
 
     fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
@@ -189,7 +189,7 @@ impl WindowApp for CelShadeDemoApp {
         for _ in 0..steps {
             self.angle += 1.0 * self.timestep.dt();
         }
-        Ok(())
+
     }
 
     fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
@@ -241,8 +241,8 @@ impl WindowApp for CelShadeDemoApp {
     }
 }
 
-fn main() -> Result<(), AppError> {
+fn main() {
     print_banner();
     run_windowed(CelShadeDemoApp::new().unwrap());
-    Ok(())
+
 }

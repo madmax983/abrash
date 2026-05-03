@@ -170,7 +170,7 @@ impl VisionDemoApp {
             .as_mut()
             .ok_or_else(|| IoError::other("software presenter not initialized"))?;
         presenter.present(framebuffer)?;
-        Ok(())
+
     }
 }
 
@@ -188,7 +188,7 @@ impl WindowApp for VisionDemoApp {
 
     fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
-        Ok(())
+
     }
 
     fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
@@ -215,7 +215,7 @@ impl WindowApp for VisionDemoApp {
             let _ = out.flush();
         }
 
-        Ok(())
+
     }
 
     fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
@@ -254,8 +254,8 @@ impl WindowApp for VisionDemoApp {
     }
 }
 
-fn main() -> Result<(), AppError> {
+fn main() {
     print_banner();
     run_windowed(VisionDemoApp::new().unwrap());
-    Ok(())
+
 }

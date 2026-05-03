@@ -1,5 +1,5 @@
 use abrash_core::framebuffer::Framebuffer;
-use abrash_render::rasterizer::rect::{draw_rect, draw_rounded_rect, fill_rect, fill_rounded_rect};
+use abrash_render::rasterizer::rect::{draw_rounded_rect, fill_rounded_rect};
 use std::time::Instant;
 
 #[test]

@@ -175,7 +175,7 @@ impl VoronoiDemoApp {
             .as_mut()
             .ok_or_else(|| IoError::other("software presenter not initialized"))?;
         presenter.present(framebuffer)?;
-        Ok(())
+
     }
 }
 
@@ -193,7 +193,7 @@ impl WindowApp for VoronoiDemoApp {
 
     fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
         self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
-        Ok(())
+
     }
 
     fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
@@ -202,7 +202,7 @@ impl WindowApp for VoronoiDemoApp {
             self.angle_y += 1.0 * self.timestep.dt();
             self.total_time += self.timestep.dt();
         }
-        Ok(())
+
     }
 
     fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
@@ -232,8 +232,8 @@ impl WindowApp for VoronoiDemoApp {
     }
 }
 
-fn main() -> Result<(), AppError> {
+fn main() {
     print_banner();
     run_windowed(VoronoiDemoApp::new().unwrap());
-    Ok(())
+
 }
