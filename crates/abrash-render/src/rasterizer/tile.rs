@@ -691,11 +691,14 @@ impl TileBins {
 
     #[must_use]
     pub fn new(num_tiles: usize) -> Self {
+        // ⚡ Bolt: Pre-allocate capacity for `nexts` and `tris` based on tile count
+        // assuming an average of 4 triangles intersecting per tile to eliminate initial heap reallocations.
+        let capacity = num_tiles * 4;
         Self {
             heads: vec![u32::MAX; num_tiles],
             tails: vec![u32::MAX; num_tiles],
-            nexts: Vec::new(),
-            tris: Vec::new(),
+            nexts: Vec::with_capacity(capacity),
+            tris: Vec::with_capacity(capacity),
         }
     }
 
