@@ -102,8 +102,10 @@ pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &Directiona
                     g_sum += g;
                     b_sum += b;
 
-                    cur_x += dx_step_fixed;
-                    cur_y += dy_step_fixed;
+                    // ⚡ Bolt: Use `wrapping_add` to prevent overflow panics in debug mode when fuzz testing
+                    // injects extreme boundary values that trigger massive deltas.
+                    cur_x = cur_x.wrapping_add(dx_step_fixed);
+                    cur_y = cur_y.wrapping_add(dy_step_fixed);
                 }
 
                 // Multiply by fixed-point inverse and shift down
