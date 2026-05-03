@@ -7033,8 +7033,9 @@ pub fn convex_hull_2d(points: &[Vec2]) -> Vec<Vec2> {
         let cmp = angle_a.total_cmp(&angle_b);
         if cmp == std::cmp::Ordering::Equal {
             // Same angle: keep farthest from pivot.
-            let da = (a.x - pivot.x).hypot(a.y - pivot.y);
-            let db = (b.x - pivot.x).hypot(b.y - pivot.y);
+            // ⚡ Bolt: Use squared distance to avoid f32::hypot() in hot sorting loop
+            let da = (a.x - pivot.x) * (a.x - pivot.x) + (a.y - pivot.y) * (a.y - pivot.y);
+            let db = (b.x - pivot.x) * (b.x - pivot.x) + (b.y - pivot.y) * (b.y - pivot.y);
             da.total_cmp(&db)
         } else {
             cmp
