@@ -44,7 +44,7 @@ impl Default for FlockConfig {
 }
 
 /// A single simulated entity.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Boid {
     pub position: Vec3,
     pub velocity: Vec3,
@@ -81,8 +81,11 @@ impl Flock {
 
     /// Updates the flock by one time step.
     pub fn update(&mut self, delta_time: f32) {
-        self.old_boids.clear();
-        self.old_boids.extend_from_slice(&self.boids);
+        // ⚡ Bolt: Use `clone_from` instead of `clear()` followed by `extend_from_slice()`.
+        // For `Copy` types like `Boid`, this falls back to a highly optimized bitwise copy
+        // while semantically expressing intent clearly. For heap-allocated types, it would
+        // optimally reuse the existing memory capacity and eliminate per-frame allocation overhead.
+        self.old_boids.clone_from(&self.boids);
 
         let old_boids = &self.old_boids;
 
