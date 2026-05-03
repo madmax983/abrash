@@ -38,16 +38,25 @@
 //!
 //! All operations use `f32` for compatibility with graphics APIs.
 
+/// High-performance trigonometric and polynomial functions for hot rendering loops.
 pub mod funcs;
+/// 2x2 Matrices, typically used for 2D rotational transforms.
 pub mod mat2;
+/// 3x3 Matrices, commonly used for normal transforms and 3D rotations without translation.
 pub mod mat3;
+/// 4x4 Homogeneous Matrices, the backbone of the 3D projection and model-view pipeline.
 pub mod mat4;
+/// Quaternions, providing gimbal-lock-free 3D rotations and smooth spherical interpolation (Slerp).
 pub mod quat;
+/// 2D Screen-space coordinates for exact pixel addressing.
 pub mod screen_point;
 #[cfg(test)]
 mod tests;
+/// 2D Vectors, essential for UV mapping and screen-space math.
 pub mod vec2;
+/// 3D Vectors, the fundamental primitive for world-space geometry, normals, and colors.
 pub mod vec3;
+/// 4D Homogeneous Vectors, used in clip-space transformations before perspective division.
 pub mod vec4;
 
 pub use funcs::*;
