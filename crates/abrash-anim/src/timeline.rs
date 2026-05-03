@@ -125,7 +125,9 @@ impl<T: Animatable + Send + Sync + 'static> Timeline<T> {
             }
         };
 
-        self.last_sample = sample.clone();
+        // ⚡ Bolt: Use `clone_from` to copy the sample, reusing the destination's pre-allocated
+        // capacity and avoiding O(N) heap allocations for Animatable types like Strings or Vectors.
+        self.last_sample.clone_from(&sample);
         sample
     }
 
