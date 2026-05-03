@@ -85,6 +85,7 @@ pub mod procedural_mesh;
 pub mod radial_blur;
 pub mod raytracer;
 pub mod reaction_diffusion;
+pub mod sepia;
 pub mod sdf;
 pub mod selective_color;
 pub mod sharpen;

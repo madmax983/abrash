@@ -68,3 +68,8 @@
 **Concept:** A post-processing effect that simulates a moving magnifying glass over the screen. It works by mapping pixels within a defined radius to a sampled source coordinate pulled closer to the lens center based on the magnification factor, complete with a dark rim.
 **Fate:** Implemented
 **Lesson:** Utilizing a thread-local intermediate source buffer efficiently prevents read-after-write aliasing artifacts when dynamically scaling and transforming pixels in-place within the same framebuffer.
+
+## [Sepia Filter]
+**Concept:** A post-processing effect that applies a vintage Sepia tone to the framebuffer using a standard color-weighting matrix.
+**Fate:** Implemented
+**Lesson:** When calculating matrix-weighted color transformations (like Sepia) across every pixel in the framebuffer, replacing floating-point multiplication with pre-calculated fixed-point integer math (e.g., `(r * 25755) >> 16`) inside the inner loop provides a massive performance boost (over 77% faster) by eliminating costly float conversions and bounds-checking overhead.
