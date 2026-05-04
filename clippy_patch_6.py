@@ -49,4 +49,3 @@ code = re.sub(
 
 with open("crates/abrash-render/src/experimental/physarum.rs", "w") as f:
     f.write(code)
-

@@ -143,3 +143,6 @@
 **2025-05-04 - Optimize ZBuffer clear_rect bounds checks**
 **Learning:** When optimizing 2D region fills over a 1D buffer, replacing safe iterator-based chunking (`.chunks_exact_mut()`) with explicit index calculations and `unsafe { slice.get_unchecked_mut(...) }` yields measurable performance gains by eliding inner-loop bounds checks. Always ensure outer coordinates are strictly clamped to prevent buffer overflows.
 **Action:** Replaced `.chunks_exact_mut()` with explicit index calculations and `unsafe { get_unchecked_mut() }` in `ZBuffer::clear_rect`.
+**2025-05-04 - Optimize Physarum Rem_Euclid**
+**Learning:** In hot loops, replacing `.rem_euclid(N)` with explicit `if/else` bound checks bypasses slow division instructions and gives significant speedups when the range of inputs is known and tightly bounded.
+**Action:** Replaced `.rem_euclid(N)` calls with explicit bounds adjustments in `apply_physarum`.
