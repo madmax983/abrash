@@ -114,3 +114,8 @@
 2. **Expose Resizing:** Added a `resize(&mut self, new_len, default_value)` method to the `AlignedBuffer` utility struct to emulate the `Vec` behavior required by the parallel iteration logic, while explicitly maintaining the 32-byte memory offset.
 
 **Stability:** Resolves a critical threading SIGSEGV crash. `AlignedBuffer` guarantees that SIMD intrinsics perform safe aligned memory accesses without trapping on hardware boundaries.
+**[Winit/TUI Backend Split]
+**Tangle:** The `abrash` workspace examples directly relied on `winit`-specific types (`WindowContext` holding an `EventLoopWindowTarget`) and `WindowApp` traits defined inside `src/platform/winit.rs`. This meant compiling with only the `backend-tui` feature failed entirely because the unified trait was gated behind `winit` dependencies.
+**Blueprint:** Abstracted `WindowApp`, `WindowContext`, and related event enums directly in the `platform::tui` module mirroring the `winit` types. Updated `mod.rs` to conditionally export `tui::*` or `winit::*` based on the active backend feature. Updated examples to conditionally import event types (`KeyEvent`, `ElementState`, `WindowEvent`, `Key`, `NamedKey`) based on the active backend feature.
+**Stability:** Decouples `backend-tui` from `winit`, enabling standalone terminal UI builds of all CPU examples. Prevents cross-contamination of backend states while presenting a unified trait to caller applications.
+**Verification:** Run `cargo check --no-default-features --features backend-tui` and ensure examples like `cube_3d` compile flawlessly.
