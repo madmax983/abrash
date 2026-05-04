@@ -137,7 +137,7 @@ mod tests {
     fn test_led_matrix_config_default() {
         let config = LedMatrixConfig::default();
         assert_eq!(config.cell_size, 10);
-        assert_eq!(config.led_radius, 4.0);
+        assert!((config.led_radius - 4.0).abs() < 1e-6);
     }
 
     #[test]

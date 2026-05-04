@@ -16,6 +16,6 @@ proptest! {
         let v0 = (Vec3::new(v0_x, v0_y, v0_z), v0_w);
         let v1 = (Vec3::new(v1_x, v1_y, v1_z), v1_w);
 
-        draw_line_3d(&mut fb, &mut zb, v0, v1, 0xFFFFFFFF);
+        draw_line_3d(&mut fb, &mut zb, v0, v1, 0xFFFF_FFFF);
     }
 }

@@ -186,13 +186,13 @@ mod tests {
         let mut fb = Framebuffer::new(width as u32, height as u32).unwrap();
 
         // Fill with white
-        fb.clear(0xFFFFFFFF);
+        fb.clear(0xFFFF_FFFF);
 
         // Draw a distinct pattern
         for y in 0..height {
             for x in 0..width {
                 if (x + y) % 2 == 0 {
-                    fb.set_pixel(x as i32, y as i32, 0xFF000000);
+                    fb.set_pixel(x as i32, y as i32, 0xFF00_0000);
                 }
             }
         }

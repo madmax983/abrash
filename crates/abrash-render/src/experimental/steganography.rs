@@ -148,7 +148,7 @@ mod tests {
     #[test]
     fn test_encode_decode_roundtrip() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
-        fb.clear(0xFFFFFFFF); // All white
+        fb.clear(0xFFFF_FFFF); // All white
 
         let message = "Hello, Nova!";
 
@@ -172,7 +172,7 @@ mod tests {
         let mut fb = Framebuffer::new(10, 10).unwrap();
         let pixels = fb.as_mut_slice();
         for i in 0..11 {
-            pixels[i] = 0xFFFFFFFF;
+            pixels[i] = 0xFFFF_FFFF;
         }
 
         let decoded = decode_message(&fb);
