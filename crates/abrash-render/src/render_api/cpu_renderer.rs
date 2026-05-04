@@ -182,10 +182,9 @@ impl CpuRenderer {
 
         draw_list.clear_color = frame.clear_color;
 
-        // ⚡ Bolt: Use `clear()` instead of `clone_from` or `std::mem::take` to retain
-        // the capacity of the lights vector, eliminating heap allocations for identical frames.
-        draw_list.lights.clear();
-        draw_list.lights.extend_from_slice(&frame.lights);
+        // ⚡ Bolt: Use `clone_from` to retain the capacity of the lights vector
+        // and copy elements, elegantly eliminating heap allocations for identical frames.
+        draw_list.lights.clone_from(&frame.lights);
 
         #[cfg(feature = "parallel")]
         {
