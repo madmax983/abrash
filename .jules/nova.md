@@ -78,3 +78,7 @@
 **Concept:** A procedural post-processing effect simulating Physarum polycephalum (slime mold). Agents move, sense trails, and deposit pheromones, which then diffuse and decay, creating self-organizing networks.
 **Fate:** Implemented
 **Lesson:** Storing the simulation state in thread-local double-buffered vectors allows for complex iterative cellular-like behavior across frames without re-allocation.
+## [CCTV Camera Filter]
+**Concept:** A retro post-processing effect simulating a cheap security camera feed with desaturation, scanlines, noise, and a blinking 'REC' overlay.
+**Fate:** Implemented
+**Lesson:** Using procedural noise based on the row and x position is a fast way to generate screen static without needing large random buffers.

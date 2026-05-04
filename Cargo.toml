@@ -952,3 +952,13 @@ required-features = ["nova"]
 name = "physarum_bench"
 harness = false
 required-features = ["nova"]
+
+[[example]]
+name = "cctv_demo"
+path = "examples/cctv_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "cctv_bench"
+harness = false
+required-features = ["nova"]
