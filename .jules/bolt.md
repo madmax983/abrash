@@ -139,3 +139,7 @@
 **Pre-allocated SsaoContext buffers**
 **Learning:** When a struct containing large `Vec`s (like `occlusion_buffer` and `scratch_buffer` in SSAO) is used as a per-frame or long-lived buffer, allocating it with `Vec::new()` causes massive overallocation penalties on the first frame. Using `Vec::with_capacity(typical_size)` bypasses this entirely.
 **Action:** Use `Vec::with_capacity` in the `Default` implementations for known large buffers.
+
+**2025-05-04 - Optimize ZBuffer clear_rect bounds checks**
+**Learning:** When optimizing 2D region fills over a 1D buffer, replacing safe iterator-based chunking (`.chunks_exact_mut()`) with explicit index calculations and `unsafe { slice.get_unchecked_mut(...) }` yields measurable performance gains by eliding inner-loop bounds checks. Always ensure outer coordinates are strictly clamped to prevent buffer overflows.
+**Action:** Replaced `.chunks_exact_mut()` with explicit index calculations and `unsafe { get_unchecked_mut() }` in `ZBuffer::clear_rect`.
