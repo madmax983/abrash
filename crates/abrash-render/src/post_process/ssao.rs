@@ -35,8 +35,8 @@ impl Default for SsaoContext {
         Self {
             occlusion_buffer: Vec::with_capacity(480_000),
             scratch_buffer: Vec::with_capacity(480_000),
-            acc_buffer: Vec::new(),
-            precomputed_kernel_buffer: Vec::new(),
+            acc_buffer: Vec::with_capacity(480_000),
+            precomputed_kernel_buffer: Vec::with_capacity(NOISE_SIZE * KERNEL_SIZE * 2 * 8),
             kernel: [Vec3::default(); KERNEL_SIZE],
             noise: [Vec3::default(); NOISE_SIZE * NOISE_SIZE],
             initialized: false,
