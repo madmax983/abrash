@@ -159,6 +159,34 @@ impl GpuRenderer {
         })
     }
 
+    fn create_buffers(
+        device: &wgpu::Device,
+        min_align: u64,
+    ) -> (wgpu::Buffer, wgpu::Buffer, wgpu::Buffer, u64) {
+        let frame_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Frame Uniforms"),
+            contents: &[0u8; std::mem::size_of::<FrameUniforms>()],
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+        let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Light Buffer"),
+            contents: &[0u8; std::mem::size_of::<GpuLightData>() * MAX_LIGHTS],
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+        let draw_uniform_stride = align_to(std::mem::size_of::<DrawUniforms>() as u64, min_align);
+        let draw_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Draw Uniform Buffer"),
+            contents: &vec![0u8; draw_uniform_stride as usize],
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+        (
+            frame_uniform_buffer,
+            light_buffer,
+            draw_uniform_buffer,
+            draw_uniform_stride,
+        )
+    }
+
     /// Construct a renderer from an already-created GPU device.
     #[must_use]
     pub fn from_gpu(gpu: GpuDevice, color_format: wgpu::TextureFormat) -> Self {
@@ -180,23 +208,8 @@ impl GpuRenderer {
         let deferred_pass =
             DeferredLightingPass::new(device, hdr_format, &shadow_map.sample_bind_group_layout);
 
-        let frame_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Frame Uniforms"),
-            contents: &[0u8; std::mem::size_of::<FrameUniforms>()],
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-        let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Light Buffer"),
-            contents: &[0u8; std::mem::size_of::<GpuLightData>() * MAX_LIGHTS],
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let draw_uniform_stride = align_to(std::mem::size_of::<DrawUniforms>() as u64, min_align);
-        let draw_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Draw Uniform Buffer"),
-            contents: &vec![0u8; draw_uniform_stride as usize],
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
+        let (frame_uniform_buffer, light_buffer, draw_uniform_buffer, draw_uniform_stride) =
+            Self::create_buffers(device, min_align);
 
         let default_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("Default Bilinear Sampler"),
@@ -1043,24 +1056,25 @@ impl GpuRenderer {
             view_proj: vp_flat,
             camera_pos: cam_pos,
             screen_size: [width as f32, height as f32],
-            _ior_fallback: 0.667,
+            ior_fallback: 0.667,
             max_iterations: 6,
         };
 
-        self.refraction_resolve_pass.encode(
-            self.gpu.device(),
-            self.gpu.queue(),
-            encoder,
-            surface,
-            &gbuffer.position_view,
-            &gbuffer.normal_view,
-            scene_view,
-            &output.color_view,
-            params,
-        );
+        self.refraction_resolve_pass
+            .encode(crate::refraction::RefractionEncodeArgs {
+                device: self.gpu.device(),
+                queue: self.gpu.queue(),
+                encoder,
+                surface,
+                opaque_position_view: &gbuffer.position_view,
+                opaque_normal_view: &gbuffer.normal_view,
+                scene_view,
+                output_view: &output.color_view,
+                params,
+            });
 
         output
-            ._texture
+            .texture
             .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
@@ -1688,23 +1702,23 @@ impl GpuRenderer {
         let hdr = self.hdr_target.as_ref().unwrap();
 
         // Priority: refraction composite > debug/TAA output > raw HDR.
-        let owned_taa_view;
-        let view: &wgpu::TextureView = if let Some(v) = refraction_override {
-            v
-        } else if !matches!(
-            self.composition_pass.debug_mode,
-            crate::composition::DebugMode::None
-        ) || self.taa_enabled
-        {
-            owned_taa_view = self
-                .taa_pass
-                .output_texture
-                .as_ref()
-                .map(|t| t.create_view(&wgpu::TextureViewDescriptor::default()));
-            owned_taa_view.as_ref().unwrap_or(&hdr.color_view)
-        } else {
-            &hdr.color_view
-        };
+        let mut owned_taa_view = None;
+        let view: &wgpu::TextureView = refraction_override.unwrap_or_else(|| {
+            if !matches!(
+                self.composition_pass.debug_mode,
+                crate::composition::DebugMode::None
+            ) || self.taa_enabled
+            {
+                owned_taa_view = self
+                    .taa_pass
+                    .output_texture
+                    .as_ref()
+                    .map(|t| t.create_view(&wgpu::TextureViewDescriptor::default()));
+                owned_taa_view.as_ref().unwrap_or(&hdr.color_view)
+            } else {
+                &hdr.color_view
+            }
+        });
 
         let tonemap_bg = self
             .tone_map_pass
