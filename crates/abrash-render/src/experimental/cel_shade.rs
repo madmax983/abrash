@@ -51,7 +51,13 @@ pub fn apply_cel_shade(fb: &mut Framebuffer, zb: &ZBuffer, config: &CelShadeConf
         return; // Too small for Sobel
     }
 
-    let src_pixels = fb.as_slice().to_vec();
+    thread_local! {
+        static SRC_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
+    let mut src_pixels_borrow = SRC_PIXELS.with(std::cell::RefCell::take);
+    src_pixels_borrow.clear();
+    src_pixels_borrow.extend_from_slice(fb.as_slice());
+    let src_pixels = src_pixels_borrow.as_slice();
     let depths = zb.as_slice();
     let dest_pixels = fb.as_mut_slice();
 
@@ -165,6 +171,12 @@ pub fn apply_cel_shade(fb: &mut Framebuffer, zb: &ZBuffer, config: &CelShadeConf
                 process_row(y, row);
             });
     }
+
+    // ⚡ Bolt: Eliminate per-frame heap allocation by replacing `fb.as_slice().to_vec()`
+    // with a thread-local static buffer that reuses its capacity.
+    SRC_PIXELS.with(|buf| {
+        buf.replace(src_pixels_borrow);
+    });
 }
 
 #[inline(always)]
