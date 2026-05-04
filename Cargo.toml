@@ -942,3 +942,13 @@ required-features = ["nova"]
 [[bench]]
 name = "zbuffer_clear_rect_extreme_bench"
 harness = false
+
+[[example]]
+name = "physarum_demo"
+path = "examples/physarum_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "physarum_bench"
+harness = false
+required-features = ["nova"]

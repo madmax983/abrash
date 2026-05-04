@@ -73,3 +73,8 @@
 **Concept:** A recursive picture-in-picture post-processing effect. It dynamically unscales coordinates inside a loop to pull colors from increasingly shrunken nested versions of the framebuffer.
 **Fate:** Implemented
 **Lesson:** Caching the original image in a `thread_local!` `RefCell` and recursively unscaling coordinates mathematically avoids multi-pass rendering or read-after-write aliasing artifacts without requiring per-frame heap allocations.
+
+## [Physarum Simulation Filter]
+**Concept:** A procedural post-processing effect simulating Physarum polycephalum (slime mold). Agents move, sense trails, and deposit pheromones, which then diffuse and decay, creating self-organizing networks.
+**Fate:** Implemented
+**Lesson:** Storing the simulation state in thread-local double-buffered vectors allows for complex iterative cellular-like behavior across frames without re-allocation.
