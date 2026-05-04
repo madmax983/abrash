@@ -99,34 +99,49 @@ impl ZBuffer {
         let sx = start_x as usize;
         let ex = end_x as usize;
 
-        // Use chunks_exact_mut to safely slice the array per row, avoiding inner-loop bounds checks
-        let start_idx = (start_y as usize) * w;
-        let end_idx = (end_y as usize) * w;
+        let sy = start_y as usize;
+        let ey = end_y as usize;
+
+        let start_idx = sy * w;
+        let end_idx = ey * w;
 
         if sx == 0 && ex == w {
             self.depths[start_idx..end_idx].fill(f32::INFINITY);
         } else {
+            let len = ex - sx;
+
             // Hot path optimization: process rows concurrently if large enough
-            // Since rows don't overlap, we can safely use rayon's par_chunks_exact_mut
             #[cfg(feature = "parallel")]
             {
                 use rayon::prelude::*;
                 // Only parallelize if the workload is large enough to overcome rayon's overhead
-                let row_count = (end_idx - start_idx) / w;
+                let row_count = ey - sy;
                 if row_count > 100 {
                     self.depths[start_idx..end_idx]
                         .par_chunks_exact_mut(w)
                         .for_each(|row| row[sx..ex].fill(f32::INFINITY));
                 } else {
-                    for row in self.depths[start_idx..end_idx].chunks_exact_mut(w) {
-                        row[sx..ex].fill(f32::INFINITY);
+                    let mut offset = start_idx + sx;
+                    let slice = self.depths.as_mut_slice();
+                    for _ in sy..ey {
+                        // SAFETY: sy..ey and sx..ex are verified to be within bounds
+                        unsafe {
+                            slice.get_unchecked_mut(offset..offset + len).fill(f32::INFINITY);
+                        }
+                        offset += w;
                     }
                 }
             }
             #[cfg(not(feature = "parallel"))]
             {
-                for row in self.depths[start_idx..end_idx].chunks_exact_mut(w) {
-                    row[sx..ex].fill(f32::INFINITY);
+                let mut offset = start_idx + sx;
+                let slice = self.depths.as_mut_slice();
+                for _ in sy..ey {
+                    // SAFETY: sy..ey and sx..ex are verified to be within bounds
+                    unsafe {
+                        slice.get_unchecked_mut(offset..offset + len).fill(f32::INFINITY);
+                    }
+                    offset += w;
                 }
             }
         }
@@ -386,6 +401,29 @@ mod tests {
                 } else {
                     assert_eq!(depth, 1.0);
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn test_clear_rect_extreme_bounds() {
+        let mut zb = ZBuffer::new(10, 10).unwrap();
+
+        // Fill buffer to verify it clears correctly
+        for y in 0..10 {
+            for x in 0..10 {
+                zb.test_and_set(x, y, 1.0);
+            }
+        }
+
+        // This should safely clamp to the buffer dimensions without overflowing or panicking
+        // due to the explicit integer casting protection inside clear_rect.
+        zb.clear_rect(-500, -500, u32::MAX, u32::MAX);
+
+        // The entire buffer should be cleared to infinity
+        for y in 0..10 {
+            for x in 0..10 {
+                assert!(zb.get_depth(x, y).unwrap().is_infinite());
             }
         }
     }

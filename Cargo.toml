@@ -938,3 +938,7 @@ required-features = ["nova"]
 name = "droste_demo"
 path = "examples/droste_demo.rs"
 required-features = ["nova"]
+
+[[bench]]
+name = "zbuffer_clear_rect_extreme_bench"
+harness = false
