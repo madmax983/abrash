@@ -1694,7 +1694,8 @@ impl GpuRenderer {
             if !matches!(
                 self.composition_pass.debug_mode,
                 crate::composition::DebugMode::None
-            ) || self.taa_enabled {
+            ) || self.taa_enabled
+            {
                 owned_taa_view = self
                     .taa_pass
                     .output_texture
