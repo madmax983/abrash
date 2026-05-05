@@ -10,7 +10,7 @@
 //! 2. **Newton resolve pass** — fullscreen triangle pass that, for each refractive
 //!    pixel, iteratively intersects the Snell-refracted ray with tangent planes
 //!    sampled from the opaque G-buffer until convergence (≤ 1 screen-space pixel of
-//!    error).  Non-refractive pixels pass through the scene colour unchanged.
+//!    error).     Non-refractive pixels pass through the scene colour unchanged.
 //!
 //! # Convergence
 //!
@@ -20,7 +20,7 @@
 //! q_{n+1} = W + s_{n+1} * r̂
 //! ```
 //! where W is the refractive surface world position, r̂ is the unit refracted
-//! direction, and (p_n, n) are the world position and normal sampled from the opaque
+//! direction, and (`p_n`, n) are the world position and normal sampled from the opaque
 //! G-buffer at the screen-space projection of the current estimate.  Convergence is
 //! declared when the screen-space pixel error between q_{n+1} and the re-sampled
 //! G-buffer point p_{n+1} is below 1 pixel.
@@ -107,7 +107,7 @@ fn fs_main(in: VsOut) -> SurfaceOutput {
 /// 2. Computes the refracted ray direction r̂ via Snell's law.
 /// 3. Iterates Newton steps against the opaque G-buffer until converged.
 /// 4. Samples the scene colour at the converged screen-space UV.
-/// Non-refractive pixels pass through unchanged.
+///    Non-refractive pixels pass through unchanged.
 pub const REFRACTION_RESOLVE_SHADER: &str = r"
 // Newton's method screen-space refraction resolve pass.
 // Reference: 'Ultrafast Screen-Space Refractions and Caustics via Newton's
@@ -395,7 +395,7 @@ impl RefractionSurfacePipeline {
 
 /// `Rgba16Float` texture that the Newton resolve pass writes its output into.
 pub struct RefractionOutput {
-    pub(crate) _texture: wgpu::Texture,
+    pub(crate) texture: wgpu::Texture,
     pub(crate) color_view: wgpu::TextureView,
     pub(crate) width: u32,
     pub(crate) height: u32,
@@ -420,7 +420,7 @@ impl RefractionOutput {
         });
         let color_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         Self {
-            _texture: texture,
+            texture,
             color_view,
             width,
             height,
@@ -439,7 +439,7 @@ pub struct RefractionParams {
     pub view_proj: [f32; 16],
     pub camera_pos: [f32; 4],
     pub screen_size: [f32; 2],
-    pub _ior_fallback: f32,
+    pub ior_fallback: f32,
     pub max_iterations: u32,
 }
 
@@ -539,6 +539,7 @@ impl RefractionResolvePass {
     ///
     /// Reads from `surface`, `opaque_gbuffer`, and `scene_view` (scene colour
     /// after deferred lighting + TAA), writes refracted output to `output_view`.
+    #[allow(clippy::too_many_arguments)]
     pub fn encode(
         &self,
         device: &wgpu::Device,
