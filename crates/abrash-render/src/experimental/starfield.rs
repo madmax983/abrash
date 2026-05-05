@@ -112,7 +112,7 @@ mod tests {
     #[test]
     fn test_starfield_render() {
         let mut fb = Framebuffer::new(100, 100).unwrap();
-        fb.clear(0xFF000000); // Black
+        fb.clear(0xFF00_0000); // Black
 
         let mut starfield = Starfield::new(10, 10.0, 100.0);
         // Put a star straight ahead, fairly close
@@ -120,6 +120,6 @@ mod tests {
         starfield.render(&mut fb);
 
         // Center pixel should not be black
-        assert_ne!(fb.get_pixel(50, 50).unwrap(), 0xFF000000);
+        assert_ne!(fb.get_pixel(50, 50).unwrap(), 0xFF00_0000);
     }
 }

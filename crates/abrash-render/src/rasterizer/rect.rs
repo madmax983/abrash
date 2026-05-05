@@ -654,7 +654,7 @@ mod tests {
     #[test]
     fn test_draw_rect_oob() {
         let mut fb = Framebuffer::new(100, 100).unwrap();
-        draw_rect(&mut fb, -10, -10, 50, 50, 0xFFFFFFFF);
-        draw_rect(&mut fb, 80, 80, 50, 50, 0xFFFFFFFF);
+        draw_rect(&mut fb, -10, -10, 50, 50, 0xFFFF_FFFF);
+        draw_rect(&mut fb, 80, 80, 50, 50, 0xFFFF_FFFF);
     }
 }

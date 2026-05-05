@@ -235,16 +235,16 @@ mod tests {
     #[test]
     fn test_harmonograph_render_modifies_framebuffer() {
         let mut fb = Framebuffer::new(200, 200).unwrap();
-        fb.clear(0xFF000000); // Clear to black
+        fb.clear(0xFF00_0000); // Clear to black
 
         let mut h = Harmonograph::default();
         h.iterations = 100;
-        h.color = 0xFFFFFFFF; // Draw white
+        h.color = 0xFFFF_FFFF; // Draw white
 
         h.render(&mut fb);
 
         // Verify that *some* pixel has been changed from black to white.
-        let has_white_pixel = fb.as_slice().iter().any(|&p| p == 0xFFFFFFFF);
+        let has_white_pixel = fb.as_slice().iter().any(|&p| p == 0xFFFF_FFFF);
         assert!(
             has_white_pixel,
             "Harmonograph should have drawn on the framebuffer"
@@ -254,12 +254,12 @@ mod tests {
     #[test]
     fn test_draw_line_2d_oob() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
-        fb.clear(0xFF000000);
+        fb.clear(0xFF00_0000);
 
         // Drawing a line that's completely out of bounds should not panic or modify the visible area
-        draw_line_2d(&mut fb, -20, -20, -10, -10, 0xFFFFFFFF);
+        draw_line_2d(&mut fb, -20, -20, -10, -10, 0xFFFF_FFFF);
 
-        let has_white = fb.as_slice().iter().any(|&p| p == 0xFFFFFFFF);
+        let has_white = fb.as_slice().iter().any(|&p| p == 0xFFFF_FFFF);
         assert!(!has_white, "OOB line should not modify the framebuffer");
     }
 }

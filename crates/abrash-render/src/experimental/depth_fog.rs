@@ -90,7 +90,7 @@ mod tests {
         let mut zb = ZBuffer::new(2, 2).unwrap();
 
         // Base color: Solid Red
-        fb.clear(0xFFFF0000);
+        fb.clear(0xFFFF_0000);
 
         // Fog Color: Solid Blue
         let config = DepthFogConfig {
@@ -113,11 +113,11 @@ mod tests {
 
         apply_depth_fog(&mut fb, &zb, &config);
 
-        assert_eq!(fb.get_pixel(0, 0), Some(0xFFFF0000)); // Still Red
+        assert_eq!(fb.get_pixel(0, 0), Some(0xFFFF_0000)); // Still Red
 
         // 50% blend of FF0000 and 0000FF is roughly 7F007F (ignoring exact lerp math rounding, let's just check it's changed and has both components)
         let blended = fb.get_pixel(1, 0).unwrap();
-        assert_ne!(blended, 0xFFFF0000);
+        assert_ne!(blended, 0xFFFF_0000);
         assert_ne!(blended, 0xFF0000FF);
 
         assert_eq!(fb.get_pixel(0, 1), Some(0xFF0000FF)); // Fully Blue

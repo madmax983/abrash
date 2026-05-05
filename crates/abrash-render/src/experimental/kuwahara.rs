@@ -342,7 +342,7 @@ mod tests {
 
         for (w, h) in sizes {
             let mut fb = Framebuffer::new(w, h).unwrap();
-            fb.clear(0xFFFFFFFF);
+            fb.clear(0xFFFF_FFFF);
 
             // Should not panic with varying radii
             for radius in [1, 2, 5, 10] {

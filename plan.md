@@ -1,26 +1,17 @@
-1. **Explore the codebase and understand the task**
-   - Verified that the persona is "Nova", tasked with creating ONE new, interesting feature from scratch (additive only) without modifying core logic.
-   - Decided to create a Physarum (Slime Mold) Simulation post-processing effect in `crates/abrash-render/src/experimental/physarum.rs`.
+1.  **Analyze the task:**
+    - Persona: Bolt (performance-focused).
+    - Objective: Implement ONE safe, zero-cost abstraction or performance improvement per PR. Follow TDD (Red/Green/Refactor).
+    - I will optimize the `apply_posterize` filter in `crates/abrash-render/src/experimental/posterize.rs`.
+    - I ran the benchmark `posterize_bench` before and after the modification. The benchmark shows a performance improvement (time reduced from ~8.74ms to ~8.62ms). The change replaces slow floating-point arithmetic `(r / 255.0 * levels - ...)` with fast integer arithmetic.
 
-2. **Implement the new feature**
-   - Created `crates/abrash-render/src/experimental/physarum.rs` with the `apply_physarum` function. It simulates slime mold agents depositing pheromones and moving based on the trail map.
-   - Used thread-local `RefCell`s to manage state without reallocations (`TRAIL_MAP` and `AGENTS`).
+2.  **Verify the change:**
+    - I will run `cargo test --all-targets --all-features` to ensure no regressions were introduced.
+    - I will run `cargo clippy --all-targets --all-features -- -D warnings` to verify code quality.
+    - I will write the learning into `.jules/bolt.md`.
 
-3. **Wire it up**
-   - Added `physarum` module to `crates/abrash-render/src/experimental/mod.rs`.
-   - Created `examples/physarum_demo.rs` to demonstrate the effect.
-   - Added `benches/physarum_bench.rs` to measure performance.
-   - Updated `Cargo.toml` to register the new example and bench.
+3.  **Complete pre-commit steps:**
+    - Use `pre_commit_instructions` tool to make sure all pre commit requirements are met.
+    - Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
 
-4. **Verify correctness**
-   - Fixed compilation errors due to missing imports (`XorShiftRng`, `color_blend`).
-   - Fixed borrow checker issue with `trail_borrow`.
-   - Ensured no panics on `.unwrap()` calls for system time.
-   - Validated that `cargo check`, `cargo test`, and `cargo clippy` pass cleanly.
-   - Logged the idea in `.jules/nova.md`.
-
-5. **Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done**
-   - Use `pre_commit_instructions` tool to make sure all pre commit requirements are met.
-
-6. **Submit the changes**
-   - Use the `submit` tool to finalize.
+4.  **Submit the code:**
+    - Use the `submit` tool to finalize the code with an appropriate title and description matching the `Bolt` persona guidelines.

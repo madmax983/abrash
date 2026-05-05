@@ -47,6 +47,7 @@ impl Default for PosterizeConfig {
 pub fn apply_posterize(fb: &mut Framebuffer, config: &PosterizeConfig) {
     let levels = config.levels.max(2.0); // Minimum of 2 levels
     let levels_minus_1 = levels - 1.0;
+    let levels_minus_1_int = levels_minus_1.max(1.0) as u32;
 
     // Use chunks_exact_mut to eliminate bounds checking and option unwrapping
     let width = fb.width() as usize;
@@ -54,30 +55,17 @@ pub fn apply_posterize(fb: &mut Framebuffer, config: &PosterizeConfig) {
         for pixel in row.iter_mut() {
             let p = *pixel;
             // Extract channels
-            let a = (p >> 24) & 0xFF;
-            let r = ((p >> 16) & 0xFF) as f32;
-            let g = ((p >> 8) & 0xFF) as f32;
-            let b = (p & 0xFF) as f32;
+            let a = p & 0xFF00_0000;
+            let r = (p >> 16) & 0xFF;
+            let g = (p >> 8) & 0xFF;
+            let b = p & 0xFF;
 
-            // ⚡ Bolt: Replace f32::round() with fast integer casting
-            // The color values are shifted to ensure they are always positive,
-            // allowing a simple `+ 0.5` cast.
-            let new_r = ((((r / 255.0 * levels_minus_1) + 16384.5) as i32 as f32 - 16384.0)
-                / levels_minus_1
-                * 255.0) as u32;
-            let new_g = ((((g / 255.0 * levels_minus_1) + 16384.5) as i32 as f32 - 16384.0)
-                / levels_minus_1
-                * 255.0) as u32;
-            let new_b = ((((b / 255.0 * levels_minus_1) + 16384.5) as i32 as f32 - 16384.0)
-                / levels_minus_1
-                * 255.0) as u32;
+            // ⚡ Bolt: Replace floating-point arithmetic and round() casting with fast, pure integer arithmetic.
+            let new_r = (((r * levels_minus_1_int + 127) / 255) * 255) / levels_minus_1_int;
+            let new_g = (((g * levels_minus_1_int + 127) / 255) * 255) / levels_minus_1_int;
+            let new_b = (((b * levels_minus_1_int + 127) / 255) * 255) / levels_minus_1_int;
 
-            // Clamp to prevent overflow on precision errors
-            let new_r = new_r.min(255);
-            let new_g = new_g.min(255);
-            let new_b = new_b.min(255);
-
-            *pixel = (a << 24) | (new_r << 16) | (new_g << 8) | new_b;
+            *pixel = a | (new_r << 16) | (new_g << 8) | new_b;
         }
     }
 }
@@ -91,8 +79,8 @@ mod tests {
     fn test_apply_posterize_reduces_colors() {
         let mut fb = Framebuffer::new(2, 1).unwrap();
         // Set two distinct bright pixels (near middle gray)
-        fb.set_pixel(0, 0, 0xFF808080); // Mid-gray (128)
-        fb.set_pixel(1, 0, 0xFF707070); // Slightly darker gray (112)
+        fb.set_pixel(0, 0, 0xFF80_8080); // Mid-gray (128)
+        fb.set_pixel(1, 0, 0xFF70_7070); // Slightly darker gray (112)
 
         let config = PosterizeConfig { levels: 2.0 };
         apply_posterize(&mut fb, &config);
@@ -106,8 +94,8 @@ mod tests {
         // 110/255 * 3 = 1.29 -> round = 1 -> 85
         // 120/255 * 3 = 1.41 -> round = 1 -> 85
 
-        fb.set_pixel(0, 0, 0xFF6E6E6E); // 110
-        fb.set_pixel(1, 0, 0xFF787878); // 120
+        fb.set_pixel(0, 0, 0xFF6E_6E6E); // 110
+        fb.set_pixel(1, 0, 0xFF78_7878); // 120
 
         let config = PosterizeConfig { levels: 4.0 };
         apply_posterize(&mut fb, &config);
@@ -116,6 +104,6 @@ mod tests {
         let p2 = fb.get_pixel(1, 0).unwrap();
 
         assert_eq!(p1, p2, "Pixels should be quantized to the same level");
-        assert_eq!(p1, 0xFF555555, "Should be quantized to exactly 85 (0x55)"); // 85 is 0x55
+        assert_eq!(p1, 0xFF55_5555, "Should be quantized to exactly 85 (0x55)"); // 85 is 0x55
     }
 }

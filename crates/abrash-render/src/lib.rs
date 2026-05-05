@@ -1,3 +1,4 @@
+#![allow(clippy::unreadable_literal, clippy::doc_markdown, clippy::float_cmp, clippy::uninlined_format_args)]
 #![allow(
     clippy::all,
     unused_variables,

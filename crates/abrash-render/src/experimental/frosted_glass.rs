@@ -122,7 +122,7 @@ mod tests {
         // Fill half with white, half with black
         for y in 0..10 {
             for x in 0..10 {
-                let color = if x < 5 { 0xFFFFFFFF } else { 0xFF000000 };
+                let color = if x < 5 { 0xFFFF_FFFF } else { 0xFF00_0000 };
                 fb.set_pixel(x, y, color);
             }
         }
@@ -144,7 +144,7 @@ mod tests {
         // Fill half with white, half with black
         for y in 0..10 {
             for x in 0..10 {
-                let color = if x < 5 { 0xFFFFFFFF } else { 0xFF000000 };
+                let color = if x < 5 { 0xFFFF_FFFF } else { 0xFF00_0000 };
                 fb.set_pixel(x, y, color);
             }
         }

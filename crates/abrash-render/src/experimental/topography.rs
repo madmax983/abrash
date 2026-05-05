@@ -122,7 +122,7 @@ mod tests {
         // Draw a bright square in the middle
         for y in 40..60 {
             for x in 40..60 {
-                fb.set_pixel(x as i32, y as i32, 0xFFFFFFFF);
+                fb.set_pixel(x as i32, y as i32, 0xFFFF_FFFF);
             }
         }
 
