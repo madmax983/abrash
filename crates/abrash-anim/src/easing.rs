@@ -1,4 +1,4 @@
-//! Easing functions with analytical derivatives for velocity computation.
+//! Easing functions for animation curves.
 
 /// Standard easing curves.
 #[derive(Debug, Clone, Copy)]
@@ -35,36 +35,6 @@ impl Easing {
         }
     }
 
-    /// Instantaneous rate of change (derivative) of the easing function.
-    ///
-    /// Used to compute velocity in `Sample<T>`.
-    #[must_use]
-    pub fn derivative(&self, t: f32) -> f32 {
-        let t = t.clamp(0.0, 1.0);
-        match self {
-            Self::Linear => 1.0,
-            Self::EaseIn => 2.0 * t,
-            Self::EaseOut => 2.0 - 2.0 * t,
-            Self::EaseInOut => {
-                if t < 0.5 {
-                    4.0 * t
-                } else {
-                    4.0 - 4.0 * t
-                }
-            }
-            Self::CubicBezier(..) => {
-                // Numerical derivative via central finite difference
-                let h = 0.0001;
-                let t0 = (t - h).max(0.0);
-                let t1 = (t + h).min(1.0);
-                let dt = t1 - t0;
-                if dt < f32::EPSILON {
-                    return 0.0;
-                }
-                (self.apply(t1) - self.apply(t0)) / dt
-            }
-        }
-    }
 }
 
 #[cfg(test)]
@@ -119,23 +89,6 @@ mod tests {
     fn ease_out_is_fast_start() {
         // EaseOut at 0.5 should be > 0.5 (starts fast)
         assert!(Easing::EaseOut.apply(0.5) > 0.5);
-    }
-
-    #[test]
-    fn linear_derivative_is_constant() {
-        assert!((Easing::Linear.derivative(0.0) - 1.0).abs() < EPSILON);
-        assert!((Easing::Linear.derivative(0.5) - 1.0).abs() < EPSILON);
-        assert!((Easing::Linear.derivative(1.0) - 1.0).abs() < EPSILON);
-    }
-
-    #[test]
-    fn ease_in_derivative_starts_at_zero() {
-        assert!(Easing::EaseIn.derivative(0.0).abs() < EPSILON);
-    }
-
-    #[test]
-    fn ease_out_derivative_ends_at_zero() {
-        assert!(Easing::EaseOut.derivative(1.0).abs() < EPSILON);
     }
 
     #[test]

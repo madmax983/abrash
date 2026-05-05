@@ -6,30 +6,17 @@ use crate::hold::Hold;
 use crate::keyframe::Keyframe;
 use crate::sequence::Sequence;
 
-/// A value paired with its instantaneous velocity.
-///
-/// Every `Evaluable` returns both value and velocity, enabling
-/// future velocity-preserving spring interruption.
+/// A sampled animation value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Sample<T: Animatable> {
     pub value: T,
-    pub velocity: T,
 }
 
 impl<T: Animatable> Sample<T> {
-    /// Create a sample with a value and velocity.
+    /// Create a new sample with the given value.
     #[must_use]
-    pub const fn new(value: T, velocity: T) -> Self {
-        Self { value, velocity }
-    }
-
-    /// Create a sample at rest (zero velocity).
-    #[must_use]
-    pub fn at_rest(value: T) -> Self {
-        Self {
-            value,
-            velocity: T::zero(),
-        }
+    pub const fn new(value: T) -> Self {
+        Self { value }
     }
 }
 
