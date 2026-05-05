@@ -97,8 +97,8 @@ mod tests {
     fn test_starfield_initialization() {
         let starfield = Starfield::new(100, 10.0, 100.0);
         assert_eq!(starfield.stars.len(), 100);
-        assert_eq!(starfield.speed, 10.0);
-        assert_eq!(starfield.max_depth, 100.0);
+        assert!((starfield.speed - 10.0).abs() < 1e-6);
+        assert!((starfield.max_depth - 100.0).abs() < 1e-6);
     }
 
     #[test]
@@ -106,13 +106,13 @@ mod tests {
         let mut starfield = Starfield::new(10, 10.0, 100.0);
         starfield.stars = vec![Vec3::new(0.0, 0.0, 50.0)];
         starfield.update(1.0);
-        assert_eq!(starfield.stars[0].z, 40.0);
+        assert!((starfield.stars[0].z - 40.0).abs() < 1e-6);
     }
 
     #[test]
     fn test_starfield_render() {
         let mut fb = Framebuffer::new(100, 100).unwrap();
-        fb.clear(0xFF000000); // Black
+        fb.clear(0xFF00_0000); // Black
 
         let mut starfield = Starfield::new(10, 10.0, 100.0);
         // Put a star straight ahead, fairly close
@@ -120,6 +120,6 @@ mod tests {
         starfield.render(&mut fb);
 
         // Center pixel should not be black
-        assert_ne!(fb.get_pixel(50, 50).unwrap(), 0xFF000000);
+        assert_ne!(fb.get_pixel(50, 50).unwrap(), 0xFF00_0000);
     }
 }

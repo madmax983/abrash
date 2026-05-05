@@ -115,7 +115,7 @@ mod tests {
 
         // Draw a vertical white line at x = 5
         for y in 0..height {
-            fb.set_pixel(5, y as i32, 0xFFFFFFFF);
+            fb.set_pixel(5, y as i32, 0xFFFF_FFFF);
         }
 
         let config = WobbleConfig {
@@ -132,11 +132,11 @@ mod tests {
         // The pixel at x = 5 shifted right by 2 -> should now be at x = 7.
         // Meaning at x = 7, the pixel is read from src_x = 7 - 2 = 5 (which is White).
         let pixel_at_7 = fb.get_pixel(7, 0).unwrap();
-        assert_eq!(pixel_at_7, 0xFFFFFFFF, "Pixel should be shifted to x=7");
+        assert_eq!(pixel_at_7, 0xFFFF_FFFF, "Pixel should be shifted to x=7");
 
         let pixel_at_5 = fb.get_pixel(5, 0).unwrap();
         assert_eq!(
-            pixel_at_5, 0xFF000000,
+            pixel_at_5, 0xFF00_0000,
             "Original pixel position should be empty/black"
         );
     }

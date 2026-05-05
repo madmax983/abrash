@@ -227,7 +227,7 @@ mod tests {
 
         let pos = h.evaluate(0.0);
         // x = 100 * sin(0) = 0
-        assert_eq!(pos.x, 0.0);
+        assert!((pos.x - 0.0).abs() < 1e-6);
         // y = 100 * sin(pi/2) = 100
         assert!((pos.y - 100.0).abs() < 0.001);
     }

@@ -215,17 +215,17 @@ mod tests {
     fn test_rd_step() {
         let mut rd = ReactionDiffusion::new(10, 10);
         // Initially B is 0 everywhere.
-        assert_eq!(rd.grid[15].b, 0.0);
+        assert!((rd.grid[15].b - 0.0).abs() < 1e-6);
 
         rd.seed(5, 5, 2);
 
         // After seeding, the center should have B.
         let center_idx = 5 * 10 + 5;
-        assert_eq!(rd.grid[center_idx].b, 1.0);
+        assert!((rd.grid[center_idx].b - 1.0).abs() < 1e-6);
 
         // A cell adjacent to the seed should initially be 0.
         let adj_idx = 5 * 10 + 3;
-        assert_eq!(rd.grid[adj_idx].b, 0.0);
+        assert!((rd.grid[adj_idx].b - 0.0).abs() < 1e-6);
 
         // Step the simulation
         rd.step();

@@ -1,5 +1,5 @@
 use abrash_core::framebuffer::Framebuffer;
-use abrash_render::rasterizer::rect::{draw_rect, draw_rounded_rect, fill_rect, fill_rounded_rect};
+use abrash_render::rasterizer::rect::{draw_rounded_rect, fill_rounded_rect};
 use std::time::Instant;
 
 #[test]
@@ -11,12 +11,12 @@ fn test_off_screen_rounded_rect_performance() {
     // Massive offscreen rounded rect
     fill_rounded_rect(
         &mut fb,
-        -2147483640,
-        -2147483640,
-        2147483000,
-        2147483000,
-        1073741000,
-        0xFFFFFFFF,
+        -2_147_483_640,
+        -2_147_483_640,
+        2_147_483_000,
+        2_147_483_000,
+        1_073_741_000,
+        0xFFFF_FFFF,
     );
 
     let duration = start.elapsed();
@@ -38,12 +38,12 @@ fn test_off_screen_draw_rounded_rect_performance() {
     // Massive offscreen rounded rect
     draw_rounded_rect(
         &mut fb,
-        -2147483640,
-        -2147483640,
-        2147483000,
-        2147483000,
-        1073741000,
-        0xFFFFFFFF,
+        -2_147_483_640,
+        -2_147_483_640,
+        2_147_483_000,
+        2_147_483_000,
+        1_073_741_000,
+        0xFFFF_FFFF,
     );
 
     let duration = start.elapsed();
