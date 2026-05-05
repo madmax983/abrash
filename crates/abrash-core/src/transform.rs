@@ -544,4 +544,338 @@ mod tests {
         let world = transform.transform_point(point);
         assert_vec3_close(transform.inverse_transform_point(world), point);
     }
+
+    #[test]
+    fn test_transform_vector() {
+        let transform = Transform::new(
+            Vec3::new(3.0, -2.0, 5.0),
+            Quat::from_euler(0.4, -0.2, 0.1),
+            Vec3::new(2.0, 3.0, 0.5),
+        );
+        let vector = Vec3::new(-1.5, 0.25, 2.0);
+
+        // Vector transform ignores translation and is only scale + rotate
+        let scaled = vector * transform.scale;
+        let expected = transform.rotation.rotate_vec3(scaled);
+        assert_vec3_close(transform.transform_vector(vector), expected);
+    }
+
+    #[test]
+    fn test_inverse_transform_vector() {
+        let transform = Transform::new(
+            Vec3::new(3.0, -2.0, 5.0),
+            Quat::from_euler(0.4, -0.2, 0.1),
+            Vec3::new(2.0, 3.0, 0.5),
+        );
+        let vector = Vec3::new(-1.5, 0.25, 2.0);
+
+        let transformed = transform.transform_vector(vector);
+        assert_vec3_close(transform.inverse_transform_vector(transformed), vector);
+    }
+
+    #[test]
+    fn test_transform_vectors() {
+        let transform = Transform::new(
+            Vec3::new(3.0, -2.0, 5.0),
+            Quat::from_euler(0.4, -0.2, 0.1),
+            Vec3::new(2.0, 3.0, 0.5),
+        );
+        let vectors = vec![
+            Vec3::new(-1.5, 0.25, 2.0),
+            Vec3::new(1.0, -1.0, 3.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ];
+
+        let expected: Vec<Vec3> = vectors
+            .iter()
+            .map(|&v| transform.transform_vector(v))
+            .collect();
+        let actual = transform.transform_vectors(&vectors);
+
+        assert_eq!(actual.len(), expected.len());
+        for (a, e) in actual.iter().zip(expected.iter()) {
+            assert_vec3_close(*a, *e);
+        }
+    }
+
+    #[test]
+    fn test_transform_vectors_into() {
+        let transform = Transform::new(
+            Vec3::new(3.0, -2.0, 5.0),
+            Quat::from_euler(0.4, -0.2, 0.1),
+            Vec3::new(2.0, 3.0, 0.5),
+        );
+        let vectors = vec![
+            Vec3::new(-1.5, 0.25, 2.0),
+            Vec3::new(1.0, -1.0, 3.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ];
+
+        let expected: Vec<Vec3> = vectors
+            .iter()
+            .map(|&v| transform.transform_vector(v))
+            .collect();
+        let mut actual = vec![];
+        transform.transform_vectors_into(&vectors, &mut actual);
+
+        assert_eq!(actual.len(), expected.len());
+        for (a, e) in actual.iter().zip(expected.iter()) {
+            assert_vec3_close(*a, *e);
+        }
+    }
+
+    #[test]
+    fn test_transform_vectors_in_place() {
+        let transform = Transform::new(
+            Vec3::new(3.0, -2.0, 5.0),
+            Quat::from_euler(0.4, -0.2, 0.1),
+            Vec3::new(2.0, 3.0, 0.5),
+        );
+        let vectors = vec![
+            Vec3::new(-1.5, 0.25, 2.0),
+            Vec3::new(1.0, -1.0, 3.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ];
+
+        let expected: Vec<Vec3> = vectors
+            .iter()
+            .map(|&v| transform.transform_vector(v))
+            .collect();
+        let mut actual = vectors.clone();
+        transform.transform_vectors_in_place(&mut actual);
+
+        assert_eq!(actual.len(), expected.len());
+        for (a, e) in actual.iter().zip(expected.iter()) {
+            assert_vec3_close(*a, *e);
+        }
+    }
+
+    #[test]
+    fn test_transform_points() {
+        let transform = Transform::new(
+            Vec3::new(3.0, -2.0, 5.0),
+            Quat::from_euler(0.4, -0.2, 0.1),
+            Vec3::new(2.0, 3.0, 0.5),
+        );
+        let points = vec![
+            Vec3::new(-1.5, 0.25, 2.0),
+            Vec3::new(1.0, -1.0, 3.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ];
+
+        let expected: Vec<Vec3> = points
+            .iter()
+            .map(|&p| transform.transform_point(p))
+            .collect();
+        let actual = transform.transform_points(&points);
+
+        assert_eq!(actual.len(), expected.len());
+        for (a, e) in actual.iter().zip(expected.iter()) {
+            assert_vec3_close(*a, *e);
+        }
+    }
+
+    #[test]
+    fn test_transform_points_into() {
+        let transform = Transform::new(
+            Vec3::new(3.0, -2.0, 5.0),
+            Quat::from_euler(0.4, -0.2, 0.1),
+            Vec3::new(2.0, 3.0, 0.5),
+        );
+        let points = vec![
+            Vec3::new(-1.5, 0.25, 2.0),
+            Vec3::new(1.0, -1.0, 3.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ];
+
+        let expected: Vec<Vec3> = points
+            .iter()
+            .map(|&p| transform.transform_point(p))
+            .collect();
+        let mut actual = vec![];
+        transform.transform_points_into(&points, &mut actual);
+
+        assert_eq!(actual.len(), expected.len());
+        for (a, e) in actual.iter().zip(expected.iter()) {
+            assert_vec3_close(*a, *e);
+        }
+    }
+
+    #[test]
+    fn test_transform_points_in_place() {
+        let transform = Transform::new(
+            Vec3::new(3.0, -2.0, 5.0),
+            Quat::from_euler(0.4, -0.2, 0.1),
+            Vec3::new(2.0, 3.0, 0.5),
+        );
+        let points = vec![
+            Vec3::new(-1.5, 0.25, 2.0),
+            Vec3::new(1.0, -1.0, 3.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ];
+
+        let expected: Vec<Vec3> = points
+            .iter()
+            .map(|&p| transform.transform_point(p))
+            .collect();
+        let mut actual = points.clone();
+        transform.transform_points_in_place(&mut actual);
+
+        assert_eq!(actual.len(), expected.len());
+        for (a, e) in actual.iter().zip(expected.iter()) {
+            assert_vec3_close(*a, *e);
+        }
+    }
+
+    #[test]
+    fn test_inverse_transform_points() {
+        let transform = Transform::new(
+            Vec3::new(3.0, -2.0, 5.0),
+            Quat::from_euler(0.4, -0.2, 0.1),
+            Vec3::new(2.0, 3.0, 0.5),
+        );
+        let points = vec![
+            Vec3::new(-1.5, 0.25, 2.0),
+            Vec3::new(1.0, -1.0, 3.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ];
+
+        let transformed = transform.transform_points(&points);
+        let actual = transform.inverse_transform_points(&transformed);
+
+        assert_eq!(actual.len(), points.len());
+        for (a, e) in actual.iter().zip(points.iter()) {
+            assert_vec3_close(*a, *e);
+        }
+    }
+
+    #[test]
+    fn test_inverse_transform_points_into() {
+        let transform = Transform::new(
+            Vec3::new(3.0, -2.0, 5.0),
+            Quat::from_euler(0.4, -0.2, 0.1),
+            Vec3::new(2.0, 3.0, 0.5),
+        );
+        let points = vec![
+            Vec3::new(-1.5, 0.25, 2.0),
+            Vec3::new(1.0, -1.0, 3.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ];
+
+        let transformed = transform.transform_points(&points);
+        let mut actual = vec![];
+        transform.inverse_transform_points_into(&transformed, &mut actual);
+
+        assert_eq!(actual.len(), points.len());
+        for (a, e) in actual.iter().zip(points.iter()) {
+            assert_vec3_close(*a, *e);
+        }
+    }
+
+    #[test]
+    fn test_inverse_transform_points_in_place() {
+        let transform = Transform::new(
+            Vec3::new(3.0, -2.0, 5.0),
+            Quat::from_euler(0.4, -0.2, 0.1),
+            Vec3::new(2.0, 3.0, 0.5),
+        );
+        let points = vec![
+            Vec3::new(-1.5, 0.25, 2.0),
+            Vec3::new(1.0, -1.0, 3.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ];
+
+        let mut transformed = transform.transform_points(&points);
+        transform.inverse_transform_points_in_place(&mut transformed);
+
+        assert_eq!(transformed.len(), points.len());
+        for (a, e) in transformed.iter().zip(points.iter()) {
+            assert_vec3_close(*a, *e);
+        }
+    }
+
+    #[test]
+    fn test_from_rotation() {
+        let rot = Quat::from_euler(0.4, -0.2, 0.1);
+        let t = Transform::from_rotation(rot);
+        assert_vec3_close(t.position, Vec3::ZERO);
+        assert_eq!(t.rotation, rot);
+        assert_vec3_close(t.scale, Vec3::ONE);
+    }
+
+    #[test]
+    fn test_from_scale() {
+        let scale = Vec3::new(2.0, 3.0, 0.5);
+        let t = Transform::from_scale(scale);
+        assert_vec3_close(t.position, Vec3::ZERO);
+        assert_eq!(t.rotation, Quat::identity());
+        assert_vec3_close(t.scale, scale);
+    }
+
+    #[test]
+    fn test_lerp() {
+        let t1 = Transform::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Quat::identity(),
+            Vec3::new(1.0, 1.0, 1.0),
+        );
+        let t2 = Transform::new(
+            Vec3::new(10.0, 20.0, 30.0),
+            Quat::from_euler(0.0, FRAC_PI_2, 0.0),
+            Vec3::new(2.0, 3.0, 4.0),
+        );
+
+        let interpolated = t1.lerp(t2, 0.5);
+        assert_vec3_close(interpolated.position, Vec3::new(5.0, 10.0, 15.0));
+        assert_vec3_close(interpolated.scale, Vec3::new(1.5, 2.0, 2.5));
+
+        // Halfway to 90 degrees around Y is 45 degrees
+        let expected_rot = Quat::from_euler(0.0, FRAC_PI_2 * 0.5, 0.0);
+        // Compare dot product for quat equality
+        assert!(
+            (interpolated.rotation.x * expected_rot.x
+                + interpolated.rotation.y * expected_rot.y
+                + interpolated.rotation.z * expected_rot.z
+                + interpolated.rotation.w * expected_rot.w)
+                .abs()
+                > 0.999
+        );
+    }
+
+    #[test]
+    fn test_then_and_mul() {
+        let t1 = Transform::new(
+            Vec3::new(10.0, 0.0, 0.0),
+            Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), FRAC_PI_2),
+            Vec3::new(2.0, 2.0, 2.0),
+        );
+        let t2 = Transform::new(
+            Vec3::new(0.0, 5.0, 0.0),
+            Quat::from_axis_angle(Vec3::new(1.0, 0.0, 0.0), FRAC_PI_2),
+            Vec3::new(1.0, 1.0, 1.0),
+        );
+
+        let composed_then = t1.then(t2);
+        let composed_mul = t1 * t2;
+
+        // They should be identical
+        assert_vec3_close(composed_then.position, composed_mul.position);
+        assert_eq!(composed_then.rotation, composed_mul.rotation);
+        assert_vec3_close(composed_then.scale, composed_mul.scale);
+
+        let point = Vec3::new(1.0, 2.0, 3.0);
+        let direct_transform = t2.transform_point(t1.transform_point(point));
+        let composed_transform = composed_then.transform_point(point);
+
+        assert_vec3_close(direct_transform, composed_transform);
+    }
+
+    #[test]
+    fn test_default() {
+        let t = Transform::default();
+        let i = Transform::identity();
+        assert_vec3_close(t.position, i.position);
+        assert_eq!(t.rotation, i.rotation);
+        assert_vec3_close(t.scale, i.scale);
+    }
 }

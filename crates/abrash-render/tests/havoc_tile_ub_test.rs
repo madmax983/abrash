@@ -1,4 +1,6 @@
-use abrash_render::rasterizer::tile::{PreparedTrianglesList, PreparedTriangle, CompactScreenPoint};
+use abrash_render::rasterizer::tile::{
+    CompactScreenPoint, PreparedTriangle, PreparedTrianglesList,
+};
 use rayon::prelude::*;
 
 #[test]
