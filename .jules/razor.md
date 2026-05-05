@@ -17,3 +17,8 @@
 **Bloat:** `Evaluable` as a trait with single implementations in `abrash-anim`, which caused dynamic dispatch (`Box<dyn Evaluable<T>>`) throughout the animation sequences, timelines and skeletal clip evaluators.
 **Cut:** Replaced `Evaluable` trait with an `enum Evaluable<T>` containing `Keyframe`, `Hold` and `Sequence`. All dynamically dispatched `Box<dyn Evaluable<T>>` occurrences were removed and replaced with concrete enum variants, achieving zero-cost abstractions and keeping memory flat.
 **Saved:** Removed the use of dynamic dispatch/`Box` completely across `abrash-anim` and `abrash-skeletal`.
+
+## [Reduction]
+**Bloat:** Speculative velocity tracking and math traits (`anim_add`, `anim_sub`, `anim_scale`) on `Animatable`.
+**Cut:** Removed the velocity calculation from the animation `Sample` and `Keyframe` and removed the math operations from the `Animatable` trait.
+**Saved:** Dozens of lines of unused arithmetic implementations on complex types like `Quat` and `Transform`, and eliminated YAGNI logic.

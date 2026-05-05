@@ -1,4 +1,4 @@
-//! Easing functions with analytical derivatives for velocity computation.
+//! Easing functions with analytical derivatives.
 
 /// Standard easing curves.
 #[derive(Debug, Clone, Copy)]
@@ -37,7 +37,6 @@ impl Easing {
 
     /// Instantaneous rate of change (derivative) of the easing function.
     ///
-    /// Used to compute velocity in `Sample<T>`.
     #[must_use]
     pub fn derivative(&self, t: f32) -> f32 {
         let t = t.clamp(0.0, 1.0);
