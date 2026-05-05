@@ -204,9 +204,10 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
         let odd_row = &mut rows[width..];
         for pixel in odd_row {
             let p = *pixel;
-            // Halve RGB components: (color >> 1) & mask
-            // Preserve Alpha: (p & 0xFF00_0000)
-            *pixel = ((p >> 1) & 0x7F7F_7F7F) | (p & 0xFF00_0000);
+            // Halve RGB components: SWAR technique (SIMD within a register)
+            // Mask out the lowest bit of each component to prevent underflow/bleeding,
+            // then shift right by 1 to divide by 2. Preserve Alpha.
+            *pixel = ((p & 0x00FE_FEFE) >> 1) | (p & 0xFF00_0000);
         }
     }
 

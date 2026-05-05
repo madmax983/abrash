@@ -51,18 +51,13 @@ fn test_verify_scanlines_correctness() {
         );
     }
 
-    // Verify Row 3 (Odd) - Darkened + Alpha Preservation (Current behavior check)
+    // Verify Row 3 (Odd) - Darkened + Alpha Preservation
     // Original: 0x8000FF00 (Alpha 128)
-    // Current Logic: ((p >> 1) & 0x7F7F7F7F) | (p & 0xFF000000)
-    // p >> 1 = 0x40007F80
-    // & Mask = 0x40007F00 (Alpha part became 0x40)
-    // | Original Alpha (0x80000000) = 0xC0007F00 (Alpha 192)
-    // The implementation accidentally increases alpha for semi-transparent pixels.
-    // We assert this behavior to ensure SIMD matches Scalar.
+    // SWAR Logic correctly preserves Alpha: 0x80007F00
     for x in 0..width {
         assert_eq!(
             fb.get_pixel(x as i32, 3).unwrap(),
-            0xC000_7F00,
+            0x8000_7F00,
             "Row 3 pixel {x} incorrect (alpha check)"
         );
     }
