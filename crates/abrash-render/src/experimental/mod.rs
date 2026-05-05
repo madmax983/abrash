@@ -58,6 +58,7 @@ pub mod fire;
 pub mod fisheye;
 pub mod frosted_glass;
 pub mod glitch;
+pub mod gradient_map;
 pub mod halftone;
 pub mod harmonograph;
 pub mod hologram;

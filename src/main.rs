@@ -377,6 +377,13 @@ Keyboard: Interactive",
         instructions: "Observe the recursive picture-in-picture.",
         example_name: "droste_demo",
     },
+    Demo {
+        name: "Gradient Map Filter",
+        category: DemoCategory::Simulation,
+        description: "Maps luminance into arbitrary color gradients",
+        instructions: "• Mouse: None\n• Keyboard: Close window to exit",
+        example_name: "gradient_map_demo",
+    },
 ];
 
 fn is_gpu_render_example(example_name: &str) -> bool {
@@ -413,6 +420,7 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "frosted_glass_demo"
         || example_name == "steganography_demo"
         || example_name == "reaction_diffusion_demo"
+        || example_name == "gradient_map_demo"
 }
 
 fn build_demo_command_args(example_name: &str, use_tui_backend: bool) -> Vec<String> {

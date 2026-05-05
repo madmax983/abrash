@@ -952,3 +952,13 @@ required-features = ["nova"]
 name = "physarum_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "gradient_map_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "gradient_map_demo"
+path = "examples/gradient_map_demo.rs"
+required-features = ["nova"]

@@ -154,6 +154,6 @@ mod tests {
         // At peak, it should be close to the wave color (White)
         let color = fb.get_pixel(0, 0).unwrap();
         let r = (color >> 16) & 0xFF;
-        assert!(r > 200, "Should be intensely lit by the wave: found {}", r);
+        assert!(r > 200, "Should be intensely lit by the wave: found {r}");
     }
 }

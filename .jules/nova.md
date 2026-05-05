@@ -78,3 +78,8 @@
 **Concept:** A procedural post-processing effect simulating Physarum polycephalum (slime mold). Agents move, sense trails, and deposit pheromones, which then diffuse and decay, creating self-organizing networks.
 **Fate:** Implemented
 **Lesson:** Storing the simulation state in thread-local double-buffered vectors allows for complex iterative cellular-like behavior across frames without re-allocation.
+
+## [Gradient Map Filter]
+**Concept:** A post-processing effect that maps the grayscale luminance of an image into colors sampled from an arbitrary color gradient (like Heat, Plasma, or Terrain).
+**Fate:** Implemented
+**Lesson:** Pre-calculating a 256-element color lookup table (`lut`) from the gradient before iterating over the pixels provides a massive performance boost by removing redundant `f32` interpolation math from the hot per-pixel rendering loop.
