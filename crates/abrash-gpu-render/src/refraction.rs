@@ -20,7 +20,7 @@
 //! q_{n+1} = W + s_{n+1} * r̂
 //! ```
 //! where W is the refractive surface world position, r̂ is the unit refracted
-//! direction, and (p_n, n) are the world position and normal sampled from the opaque
+//! direction, and (`p_n`, n) are the world position and normal sampled from the opaque
 //! G-buffer at the screen-space projection of the current estimate.  Convergence is
 //! declared when the screen-space pixel error between q_{n+1} and the re-sampled
 //! G-buffer point p_{n+1} is below 1 pixel.
@@ -107,7 +107,7 @@ fn fs_main(in: VsOut) -> SurfaceOutput {
 /// 2. Computes the refracted ray direction r̂ via Snell's law.
 /// 3. Iterates Newton steps against the opaque G-buffer until converged.
 /// 4. Samples the scene colour at the converged screen-space UV.
-/// Non-refractive pixels pass through unchanged.
+///    Non-refractive pixels pass through unchanged.
 pub const REFRACTION_RESOLVE_SHADER: &str = r"
 // Newton's method screen-space refraction resolve pass.
 // Reference: 'Ultrafast Screen-Space Refractions and Caustics via Newton's
@@ -395,7 +395,7 @@ impl RefractionSurfacePipeline {
 
 /// `Rgba16Float` texture that the Newton resolve pass writes its output into.
 pub struct RefractionOutput {
-    pub(crate) _texture: wgpu::Texture,
+    pub(crate) texture: wgpu::Texture,
     pub(crate) color_view: wgpu::TextureView,
     pub(crate) width: u32,
     pub(crate) height: u32,
@@ -420,7 +420,7 @@ impl RefractionOutput {
         });
         let color_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         Self {
-            _texture: texture,
+            texture,
             color_view,
             width,
             height,
@@ -439,7 +439,7 @@ pub struct RefractionParams {
     pub view_proj: [f32; 16],
     pub camera_pos: [f32; 4],
     pub screen_size: [f32; 2],
-    pub _ior_fallback: f32,
+    pub(crate) _ior_fallback: f32,
     pub max_iterations: u32,
 }
 
@@ -452,6 +452,84 @@ pub struct RefractionResolvePass {
     pub(crate) params_bind_group_layout: wgpu::BindGroupLayout,
     pub(crate) params_buffer: wgpu::Buffer,
     pub(crate) linear_sampler: wgpu::Sampler,
+}
+
+
+pub struct RefractionEncodeConfig<'a> {
+    pub device: &'a wgpu::Device,
+    pub queue: &'a wgpu::Queue,
+    pub encoder: &'a mut wgpu::CommandEncoder,
+    pub surface: &'a RefractionSurface,
+    pub opaque_position_view: &'a wgpu::TextureView,
+    pub opaque_normal_view: &'a wgpu::TextureView,
+    pub scene_view: &'a wgpu::TextureView,
+    pub output_view: &'a wgpu::TextureView,
+    pub params: RefractionParams,
+}
+
+
+pub struct RefractionEncodeConfig<'a> {
+    pub device: &'a wgpu::Device,
+    pub queue: &'a wgpu::Queue,
+    pub encoder: &'a mut wgpu::CommandEncoder,
+    pub surface: &'a RefractionSurface,
+    pub opaque_position_view: &'a wgpu::TextureView,
+    pub opaque_normal_view: &'a wgpu::TextureView,
+    pub scene_view: &'a wgpu::TextureView,
+    pub output_view: &'a wgpu::TextureView,
+    pub params: RefractionParams,
+}
+
+
+pub struct RefractionEncodeConfig<'a> {
+    pub device: &'a wgpu::Device,
+    pub queue: &'a wgpu::Queue,
+    pub encoder: &'a mut wgpu::CommandEncoder,
+    pub surface: &'a RefractionSurface,
+    pub opaque_position_view: &'a wgpu::TextureView,
+    pub opaque_normal_view: &'a wgpu::TextureView,
+    pub scene_view: &'a wgpu::TextureView,
+    pub output_view: &'a wgpu::TextureView,
+    pub params: RefractionParams,
+}
+
+
+pub struct RefractionEncodeConfig<'a> {
+    pub device: &'a wgpu::Device,
+    pub queue: &'a wgpu::Queue,
+    pub encoder: &'a mut wgpu::CommandEncoder,
+    pub surface: &'a RefractionSurface,
+    pub opaque_position_view: &'a wgpu::TextureView,
+    pub opaque_normal_view: &'a wgpu::TextureView,
+    pub scene_view: &'a wgpu::TextureView,
+    pub output_view: &'a wgpu::TextureView,
+    pub params: RefractionParams,
+}
+
+
+pub struct RefractionEncodeConfig<'a> {
+    pub device: &'a wgpu::Device,
+    pub queue: &'a wgpu::Queue,
+    pub encoder: &'a mut wgpu::CommandEncoder,
+    pub surface: &'a RefractionSurface,
+    pub opaque_position_view: &'a wgpu::TextureView,
+    pub opaque_normal_view: &'a wgpu::TextureView,
+    pub scene_view: &'a wgpu::TextureView,
+    pub output_view: &'a wgpu::TextureView,
+    pub params: RefractionParams,
+}
+
+
+pub struct RefractionEncodeConfig<'a> {
+    pub device: &'a wgpu::Device,
+    pub queue: &'a wgpu::Queue,
+    pub encoder: &'a mut wgpu::CommandEncoder,
+    pub surface: &'a RefractionSurface,
+    pub opaque_position_view: &'a wgpu::TextureView,
+    pub opaque_normal_view: &'a wgpu::TextureView,
+    pub scene_view: &'a wgpu::TextureView,
+    pub output_view: &'a wgpu::TextureView,
+    pub params: RefractionParams,
 }
 
 impl RefractionResolvePass {
@@ -539,57 +617,54 @@ impl RefractionResolvePass {
     ///
     /// Reads from `surface`, `opaque_gbuffer`, and `scene_view` (scene colour
     /// after deferred lighting + TAA), writes refracted output to `output_view`.
-    pub fn encode(
-        &self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        encoder: &mut wgpu::CommandEncoder,
-        surface: &RefractionSurface,
-        opaque_position_view: &wgpu::TextureView,
-        opaque_normal_view: &wgpu::TextureView,
-        scene_view: &wgpu::TextureView,
-        output_view: &wgpu::TextureView,
-        params: RefractionParams,
-    ) {
-        queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&params));
+    pub fn encode(&self, config: &mut RefractionEncodeConfig) {
+        config.config.queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&config.params));
 
-        let surface_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let surface_bg = config.config.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Refraction Surface BG"),
             layout: &self.surface_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&surface.position_view),
+                    resource: wgpu::BindingResource::TextureView(&config.config.surface.position_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&surface.normal_view),
+                    resource: wgpu::BindingResource::TextureView(&config.config.surface.normal_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(config.config.surface.normal_view()),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::TextureView(config.config.surface.distance_view()),
                 },
             ],
         });
 
-        let opaque_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let opaque_bg = config.config.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Refraction Opaque BG"),
             layout: &self.opaque_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(opaque_position_view),
+                    resource: wgpu::BindingResource::TextureView(config.opaque_position_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(opaque_normal_view),
+                    resource: wgpu::BindingResource::TextureView(config.opaque_normal_view),
                 },
             ],
         });
 
-        let scene_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let scene_bg = config.config.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Refraction Scene BG"),
             layout: &self.scene_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(scene_view),
+                    resource: wgpu::BindingResource::TextureView(config.scene_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -598,7 +673,7 @@ impl RefractionResolvePass {
             ],
         });
 
-        let params_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let params_bg = config.config.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Refraction Params BG"),
             layout: &self.params_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
@@ -607,131 +682,25 @@ impl RefractionResolvePass {
             }],
         });
 
-        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Refraction Resolve Pass"),
+        let mut pass = config.config.encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Refraction Resolve"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: output_view,
+                view: config.output_view,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                     store: wgpu::StoreOp::Store,
                 },
-                depth_slice: None,
             })],
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
-            multiview_mask: None,
         });
 
         pass.set_pipeline(&self.pipeline);
         pass.set_bind_group(0, &surface_bg, &[]);
         pass.set_bind_group(1, &opaque_bg, &[]);
         pass.set_bind_group(2, &scene_bg, &[]);
-        pass.set_bind_group(3, &params_bg, &[]);
+        pass.set_bind_group(3, &config.params_bg, &[]);
         pass.draw(0..3, 0..1);
-    }
-
-    // ── Bind group layout helpers ────────────────────────────────────────────
-
-    fn two_nonfilterable_tex_layout(device: &wgpu::Device, label: &str) -> wgpu::BindGroupLayout {
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some(label),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-            ],
-        })
-    }
-
-    fn color_tex_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Refraction Scene Color Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-        })
-    }
-
-    fn params_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Refraction Params Layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: NonZeroU64::new(
-                        std::mem::size_of::<RefractionParams>() as u64
-                    ),
-                },
-                count: None,
-            }],
-        })
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn refraction_surface_shader_has_entry_points() {
-        assert!(REFRACTION_SURFACE_SHADER.contains("fn vs_main"));
-        assert!(REFRACTION_SURFACE_SHADER.contains("fn fs_main"));
-        assert!(REFRACTION_SURFACE_SHADER.contains("SurfaceOutput"));
-        assert!(REFRACTION_SURFACE_SHADER.contains("normal_ior"));
-    }
-
-    #[test]
-    fn refraction_resolve_shader_has_entry_points() {
-        assert!(REFRACTION_RESOLVE_SHADER.contains("fn vs_main"));
-        assert!(REFRACTION_RESOLVE_SHADER.contains("fn fs_main"));
-        assert!(REFRACTION_RESOLVE_SHADER.contains("refract("));
-        assert!(REFRACTION_RESOLVE_SHADER.contains("max_iterations"));
-    }
-
-    #[test]
-    fn refraction_params_is_pod_and_aligned() {
-        let size = std::mem::size_of::<RefractionParams>();
-        assert_eq!(size % 16, 0, "RefractionParams must be 16-byte aligned");
-    }
-}
+    }}

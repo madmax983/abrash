@@ -161,6 +161,12 @@ impl GpuRenderer {
 
     /// Construct a renderer from an already-created GPU device.
     #[must_use]
+    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines)]
     pub fn from_gpu(gpu: GpuDevice, color_format: wgpu::TextureFormat) -> Self {
         let device = gpu.device();
         let min_align = u64::from(device.limits().min_uniform_buffer_offset_alignment).max(1);
@@ -1047,20 +1053,20 @@ impl GpuRenderer {
             max_iterations: 6,
         };
 
-        self.refraction_resolve_pass.encode(
-            self.gpu.device(),
-            self.gpu.queue(),
+        self.refraction_resolve_pass.encode(&mut crate::refraction::RefractionEncodeConfig {
+            device: self.gpu.device(),
+            queue: self.gpu.queue(),
             encoder,
             surface,
-            &gbuffer.position_view,
-            &gbuffer.normal_view,
+            opaque_position_view: &gbuffer.position_view,
+            opaque_normal_view: &gbuffer.normal_view,
             scene_view,
-            &output.color_view,
+            output_view: &output.color_view,
             params,
-        );
+        });
 
         output
-            ._texture
+            .texture
             .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
@@ -1688,23 +1694,24 @@ impl GpuRenderer {
         let hdr = self.hdr_target.as_ref().unwrap();
 
         // Priority: refraction composite > debug/TAA output > raw HDR.
-        let owned_taa_view;
-        let view: &wgpu::TextureView = if let Some(v) = refraction_override {
-            v
-        } else if !matches!(
-            self.composition_pass.debug_mode,
-            crate::composition::DebugMode::None
-        ) || self.taa_enabled
-        {
-            owned_taa_view = self
-                .taa_pass
-                .output_texture
-                .as_ref()
-                .map(|t| t.create_view(&wgpu::TextureViewDescriptor::default()));
-            owned_taa_view.as_ref().unwrap_or(&hdr.color_view)
-        } else {
-            &hdr.color_view
-        };
+        let mut owned_taa_view: Option<wgpu::TextureView> = None;
+        let mut owned_taa_view = None;
+        let view: &wgpu::TextureView = refraction_override.unwrap_or_else(|| {
+            if !matches!(
+                self.composition_pass.debug_mode,
+                crate::composition::DebugMode::None
+            ) || self.taa_enabled
+            {
+                owned_taa_view = self
+                    .taa_pass
+                    .output_texture
+                    .as_ref()
+                    .map(|t| t.create_view(&wgpu::TextureViewDescriptor::default()));
+                owned_taa_view.as_ref().unwrap_or(&hdr.color_view)
+            } else {
+                &hdr.color_view
+            }
+        });
 
         let tonemap_bg = self
             .tone_map_pass

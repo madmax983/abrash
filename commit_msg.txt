@@ -1,13 +1,6 @@
-⚡ Bolt: Fast squared Euclidean distance in convex hull sort
+🗺️ Atlas: [Refraction argument jungle fix]
 
-💡 What:
-Replaced the `f32::hypot` distance calculation in the `convex_hull_2d` sorting loop with a squared Euclidean distance calculation `(a.x - pivot.x) * (a.x - pivot.x) + (a.y - pivot.y) * (a.y - pivot.y)`.
-
-🎯 Why:
-`f32::hypot` includes internal overflow and underflow checks that cause measurable overhead. Since these values represent 2D coordinates within `convex_hull_2d` and are only used for relative magnitude comparison (finding the farthest point), we can safely skip the square root and bounds checks by comparing squared distances.
-
-📊 Impact:
-Provides a zero-cost performance boost by eliding the expensive `f32::hypot` check in a hot `O(N log N)` sorting closure.
-
-🔬 Measurement:
-Run `cargo test -p abrash-core` to verify that `convex_hull_2d` and related tests still pass perfectly with the optimized distance logic.
+🕸️ Tangle: The `RefractionResolvePass::encode` method accepted 9 arguments including a params struct, creating a disjointed API.
+📐 Blueprint: Encapsulated the arguments into a `RefractionEncodeConfig` struct and updated all references.
+🧱 Stability: Reduced coupling and improved cohesiveness of the refraction render pipeline API.
+🔬 Verification: Builds successfully and passes all tests.

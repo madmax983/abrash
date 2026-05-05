@@ -119,3 +119,11 @@
 **Blueprint:** Abstracted `WindowApp`, `WindowContext`, and related event enums directly in the `platform::tui` module mirroring the `winit` types. Updated `mod.rs` to conditionally export `tui::*` or `winit::*` based on the active backend feature. Updated examples to conditionally import event types (`KeyEvent`, `ElementState`, `WindowEvent`, `Key`, `NamedKey`) based on the active backend feature.
 **Stability:** Decouples `backend-tui` from `winit`, enabling standalone terminal UI builds of all CPU examples. Prevents cross-contamination of backend states while presenting a unified trait to caller applications.
 **Verification:** Run `cargo check --no-default-features --features backend-tui` and ensure examples like `cube_3d` compile flawlessly.
+
+## [Argument Jungle Fix for Refraction Encode]
+**Tangle:** The `RefractionResolvePass::encode` method accepted 9 arguments (including a params struct and multiple views), creating a disjointed and brittle API (The "Argument Jungle" anti-pattern).
+**Blueprint:**
+1. **Extract Config:** Encapsulated the arguments into a `RefractionEncodeConfig` struct in `crates/abrash-gpu-render/src/refraction.rs`.
+2. **Refactor Signatures:** Modified the `encode` method to accept a mutable reference to this configuration struct.
+3. **Update Callers:** Updated `crates/abrash-gpu-render/src/renderer.rs` to construct and pass the config.
+**Stability:** Lowered argument count and reduced coupling, making the rendering pipeline API cleaner and easier to maintain.
