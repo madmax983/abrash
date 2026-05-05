@@ -46,7 +46,7 @@ impl Default for PosterizeConfig {
 /// ```
 pub fn apply_posterize(fb: &mut Framebuffer, config: &PosterizeConfig) {
     let levels = config.levels.max(2.0); // Minimum of 2 levels
-    let levels_minus_1 = levels - 1.0;
+    let levels_minus_1 = (levels as u32).saturating_sub(1).max(1);
 
     // Use chunks_exact_mut to eliminate bounds checking and option unwrapping
     let width = fb.width() as usize;
@@ -54,30 +54,21 @@ pub fn apply_posterize(fb: &mut Framebuffer, config: &PosterizeConfig) {
         for pixel in row.iter_mut() {
             let p = *pixel;
             // Extract channels
-            let a = (p >> 24) & 0xFF;
-            let r = ((p >> 16) & 0xFF) as f32;
-            let g = ((p >> 8) & 0xFF) as f32;
-            let b = (p & 0xFF) as f32;
+            let a = p & 0xFF00_0000;
+            let r = (p >> 16) & 0xFF;
+            let g = (p >> 8) & 0xFF;
+            let b = p & 0xFF;
 
-            // ⚡ Bolt: Replace f32::round() with fast integer casting
-            // The color values are shifted to ensure they are always positive,
-            // allowing a simple `+ 0.5` cast.
-            let new_r = ((((r / 255.0 * levels_minus_1) + 16384.5) as i32 as f32 - 16384.0)
-                / levels_minus_1
-                * 255.0) as u32;
-            let new_g = ((((g / 255.0 * levels_minus_1) + 16384.5) as i32 as f32 - 16384.0)
-                / levels_minus_1
-                * 255.0) as u32;
-            let new_b = ((((b / 255.0 * levels_minus_1) + 16384.5) as i32 as f32 - 16384.0)
-                / levels_minus_1
-                * 255.0) as u32;
+            // ⚡ Bolt: Replace floating-point arithmetic with pure scaled integer math
+            let posterized_r = (r * levels_minus_1 + 127) / 255;
+            let posterized_g = (g * levels_minus_1 + 127) / 255;
+            let posterized_b = (b * levels_minus_1 + 127) / 255;
 
-            // Clamp to prevent overflow on precision errors
-            let new_r = new_r.min(255);
-            let new_g = new_g.min(255);
-            let new_b = new_b.min(255);
+            let new_r = (posterized_r * 255) / levels_minus_1;
+            let new_g = (posterized_g * 255) / levels_minus_1;
+            let new_b = (posterized_b * 255) / levels_minus_1;
 
-            *pixel = (a << 24) | (new_r << 16) | (new_g << 8) | new_b;
+            *pixel = a | (new_r << 16) | (new_g << 8) | new_b;
         }
     }
 }
