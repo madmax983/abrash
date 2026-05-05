@@ -230,6 +230,7 @@ impl WindowApp for NightVisionDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), AppError> {
     print_banner();
     run_windowed(NightVisionDemoApp::new().unwrap());

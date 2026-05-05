@@ -3,9 +3,9 @@
 //! Demonstrates GPU-Friendly Laplacian Texture Blending
 //! (JCGT Vol. 14, No. 1, 2025) vs. naive linear blending.
 //!
-//! Left quad:  Direct linear blend (num_levels = 0). Shows contrast loss and
+//! Left quad:  Direct linear blend (`num_levels` = 0). Shows contrast loss and
 //!             ghosting where the two textures overlap.
-//! Right quad: Laplacian pyramid blend (num_levels = 4). Preserves sharp local
+//! Right quad: Laplacian pyramid blend (`num_levels` = 4). Preserves sharp local
 //!             features and avoids contrast loss at the blend boundary.
 //!
 //! Both quads use identical textures and the same smooth blend mask.
@@ -284,7 +284,7 @@ impl WindowApp for LaplacianBlendDemoApp {
             Vec2::new(1.0, 0.0),
         ];
 
-        // Left quad — direct linear blend (num_levels = 0, no Laplacian)
+        // Left quad — direct linear blend (`num_levels` = 0, no Laplacian)
         let model_left = Mat4::rotation_y(self.angle * 0.7) * Mat4::translation(-1.6, 0.0, 0.0);
         draw_quad_laplacian(
             &mut self.framebuffer,
@@ -299,7 +299,7 @@ impl WindowApp for LaplacianBlendDemoApp {
             0, // Direct linear blend
         );
 
-        // Right quad — Laplacian pyramid blend (num_levels = 4)
+        // Right quad — Laplacian pyramid blend (`num_levels` = 4)
         let model_right = Mat4::rotation_y(self.angle * 0.7) * Mat4::translation(1.6, 0.0, 0.0);
         draw_quad_laplacian(
             &mut self.framebuffer,
@@ -318,6 +318,7 @@ impl WindowApp for LaplacianBlendDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), AppError> {
     print_banner();
     run_windowed(LaplacianBlendDemoApp::new().unwrap());

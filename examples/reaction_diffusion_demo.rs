@@ -163,6 +163,7 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_banner();
     run_windowed(ReactionDiffusionDemo::new());

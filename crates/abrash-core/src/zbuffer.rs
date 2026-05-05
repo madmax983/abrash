@@ -126,7 +126,9 @@ impl ZBuffer {
                     for _ in sy..ey {
                         // SAFETY: sy..ey and sx..ex are verified to be within bounds
                         unsafe {
-                            slice.get_unchecked_mut(offset..offset + len).fill(f32::INFINITY);
+                            slice
+                                .get_unchecked_mut(offset..offset + len)
+                                .fill(f32::INFINITY);
                         }
                         offset += w;
                     }
@@ -139,7 +141,9 @@ impl ZBuffer {
                 for _ in sy..ey {
                     // SAFETY: sy..ey and sx..ex are verified to be within bounds
                     unsafe {
-                        slice.get_unchecked_mut(offset..offset + len).fill(f32::INFINITY);
+                        slice
+                            .get_unchecked_mut(offset..offset + len)
+                            .fill(f32::INFINITY);
                     }
                     offset += w;
                 }

@@ -10,16 +10,16 @@ fn bench_hypot_vs_sqrt(c: &mut Criterion) {
         b.iter(|| {
             let dist = black_box(dx).hypot(black_box(dy));
             black_box(dist);
-        })
+        });
     });
 
     group.bench_function("sqrt", |b| {
         b.iter(|| {
             let x = black_box(dx);
             let y = black_box(dy);
-            let dist = (x * x + y * y).sqrt();
+            let dist = x.hypot(y);
             black_box(dist);
-        })
+        });
     });
 
     group.finish();

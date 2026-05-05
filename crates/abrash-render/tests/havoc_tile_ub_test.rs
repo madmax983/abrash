@@ -1,4 +1,7 @@
-use abrash_render::rasterizer::tile::{PreparedTrianglesList, PreparedTriangle, CompactScreenPoint};
+#![cfg(feature = "parallel")]
+use abrash_render::rasterizer::tile::{
+    CompactScreenPoint, PreparedTriangle, PreparedTrianglesList,
+};
 use rayon::prelude::*;
 
 #[test]

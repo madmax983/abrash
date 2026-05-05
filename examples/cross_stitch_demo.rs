@@ -92,7 +92,7 @@ impl CrossStitchApp {
             for x in 0..width {
                 let dx = x as f32 - cx as f32;
                 let dy = y as f32 - cy as f32;
-                let dist = (dx * dx + dy * dy).sqrt();
+                let dist = dx.hypot(dy);
 
                 if dist < radius {
                     let r = ((self.time * 2.0).sin() * 127.0 + 128.0) as u32;
@@ -121,7 +121,7 @@ impl WindowApp for CrossStitchApp {
     }
 
     fn init(&mut self, context: WindowContext<'_>) -> Result<(), Self::Error> {
-        self.presenter = Some(SoftwarePresenter::new(context.window.clone())?);
+        self.presenter = Some(SoftwarePresenter::new(context.window)?);
         print_banner();
         Ok(())
     }
