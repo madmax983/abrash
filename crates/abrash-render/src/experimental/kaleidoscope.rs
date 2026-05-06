@@ -228,22 +228,22 @@ mod tests {
     #[test]
     fn test_kaleidoscope_segments_zero_one() {
         let mut fb = Framebuffer::new(100, 100).unwrap();
-        fb.clear(0xFFFFFFFF);
+        fb.clear(0xFFFF_FFFF);
         // Original logic: 1 segment or 0 should do nothing
         apply_kaleidoscope(&mut fb, 0);
-        assert_eq!(fb.get_pixel(50, 50), Some(0xFFFFFFFF));
+        assert_eq!(fb.get_pixel(50, 50), Some(0xFFFF_FFFF));
         apply_kaleidoscope(&mut fb, 1);
-        assert_eq!(fb.get_pixel(50, 50), Some(0xFFFFFFFF));
+        assert_eq!(fb.get_pixel(50, 50), Some(0xFFFF_FFFF));
     }
 
     #[test]
     fn test_kaleidoscope_symmetry() {
         let mut fb = Framebuffer::new(100, 100).unwrap();
-        fb.clear(0xFF000000); // Black
+        fb.clear(0xFF00_0000); // Black
         // Draw something non-symmetric in the base segment [0, 60 degrees], which is roughly x > 50, y > 50
         for y in 50..100 {
             for x in 50..100 {
-                fb.set_pixel(x, y, 0xFFFFFFFF); // White bottom-right
+                fb.set_pixel(x, y, 0xFFFF_FFFF); // White bottom-right
             }
         }
 
@@ -257,7 +257,7 @@ mod tests {
         let mut found_white_elsewhere = false;
         for y in 0..50 {
             for x in 0..50 {
-                if fb.get_pixel(x, y) == Some(0xFFFFFFFF) {
+                if fb.get_pixel(x, y) == Some(0xFFFF_FFFF) {
                     found_white_elsewhere = true;
                     break;
                 }

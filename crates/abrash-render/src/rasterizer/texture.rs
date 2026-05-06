@@ -4883,7 +4883,7 @@ mod tests {
         tex.set_pixel(0, 0, 0xFFFF_0000);
         tex.set_pixel(1, 0, 0xFF00_FF00);
         tex.set_pixel(0, 1, 0xFF00_00FF);
-        tex.set_pixel(1, 1, 0xFFFFFFFF);
+        tex.set_pixel(1, 1, 0xFFFF_FFFF);
 
         // Simple gradient: z=1, q=1 (w=1), u=0..1, v=0
         let start = PerspectiveSpanStart {
@@ -4942,9 +4942,9 @@ mod tests {
         tex.filter_mode = crate::texture::FilterMode::Bilinear;
 
         // 0,0: Black (0x00000000)
-        // 1,0: White (0xFFFFFFFF)
-        tex.set_pixel(0, 0, 0xFF000000);
-        tex.set_pixel(1, 0, 0xFFFFFFFF);
+        // 1,0: White (0xFFFF_FFFF)
+        tex.set_pixel(0, 0, 0xFF00_0000);
+        tex.set_pixel(1, 0, 0xFFFF_FFFF);
 
         let start = PerspectiveSpanStart {
             z: 1.0,
@@ -5071,7 +5071,7 @@ mod tests {
         // Fill white to avoid sampling issues
         for y in 0..2 {
             for x in 0..2 {
-                tex.set_pixel(x, y, 0xFFFFFFFF);
+                tex.set_pixel(x, y, 0xFFFF_FFFF);
             }
         }
 
@@ -5093,7 +5093,7 @@ mod tests {
 
         // Check pixel (5, 5)
         let p = fb.get_pixel(5, 5).unwrap();
-        assert_eq!(p, 0xFFFFFFFF, "Center pixel should be set");
+        assert_eq!(p, 0xFFFF_FFFF, "Center pixel should be set");
     }
 }
 
@@ -5440,13 +5440,13 @@ fn test_fill_triangle_laplacian_blend_runs_without_panic() {
 
     for y in 0..8_u32 {
         for x in 0..8_u32 {
-            tex0.set_pixel(x, y, 0xFFFF0000); // red
+            tex0.set_pixel(x, y, 0xFFFF_0000); // red
             tex1.set_pixel(x, y, 0xFF0000FF); // blue
             // Horizontal gradient mask: left = tex0, right = tex1
             mask.set_pixel(
                 x,
                 y,
-                0xFF000000 | ((x * 32) << 16) | ((x * 32) << 8) | (x * 32),
+                0xFF00_0000 | ((x * 32) << 16) | ((x * 32) << 8) | (x * 32),
             );
         }
     }
@@ -5472,10 +5472,10 @@ fn test_draw_scanline_trilinear() {
     // Level 0:
     // B W
     // W B
-    tex.set_pixel(0, 0, 0xFF000000); // Black
-    tex.set_pixel(1, 0, 0xFFFFFFFF); // White
-    tex.set_pixel(0, 1, 0xFFFFFFFF); // White
-    tex.set_pixel(1, 1, 0xFF000000); // Black
+    tex.set_pixel(0, 0, 0xFF00_0000); // Black
+    tex.set_pixel(1, 0, 0xFFFF_FFFF); // White
+    tex.set_pixel(0, 1, 0xFFFF_FFFF); // White
+    tex.set_pixel(1, 1, 0xFF00_0000); // Black
 
     tex.generate_mipmaps();
     // Level 1 (1x1) should be Grey (approx 127/128)
@@ -5533,7 +5533,7 @@ fn test_draw_span_nearest_overflow_vulnerability() {
     let mut tex = Texture::new(2, 2).unwrap();
     for y in 0..2 {
         for x in 0..2 {
-            tex.set_pixel(x, y, 0xFFFFFFFF);
+            tex.set_pixel(x, y, 0xFFFF_FFFF);
         }
     }
 

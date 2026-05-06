@@ -91,8 +91,8 @@ mod tests {
     fn test_apply_posterize_reduces_colors() {
         let mut fb = Framebuffer::new(2, 1).unwrap();
         // Set two distinct bright pixels (near middle gray)
-        fb.set_pixel(0, 0, 0xFF808080); // Mid-gray (128)
-        fb.set_pixel(1, 0, 0xFF707070); // Slightly darker gray (112)
+        fb.set_pixel(0, 0, 0xFF80_8080); // Mid-gray (128)
+        fb.set_pixel(1, 0, 0xFF70_7070); // Slightly darker gray (112)
 
         let config = PosterizeConfig { levels: 2.0 };
         apply_posterize(&mut fb, &config);
@@ -106,8 +106,8 @@ mod tests {
         // 110/255 * 3 = 1.29 -> round = 1 -> 85
         // 120/255 * 3 = 1.41 -> round = 1 -> 85
 
-        fb.set_pixel(0, 0, 0xFF6E6E6E); // 110
-        fb.set_pixel(1, 0, 0xFF787878); // 120
+        fb.set_pixel(0, 0, 0xFF6E_6E6E); // 110
+        fb.set_pixel(1, 0, 0xFF78_7878); // 120
 
         let config = PosterizeConfig { levels: 4.0 };
         apply_posterize(&mut fb, &config);
@@ -116,6 +116,6 @@ mod tests {
         let p2 = fb.get_pixel(1, 0).unwrap();
 
         assert_eq!(p1, p2, "Pixels should be quantized to the same level");
-        assert_eq!(p1, 0xFF555555, "Should be quantized to exactly 85 (0x55)"); // 85 is 0x55
+        assert_eq!(p1, 0xFF55_5555, "Should be quantized to exactly 85 (0x55)"); // 85 is 0x55
     }
 }

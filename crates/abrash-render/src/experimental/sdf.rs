@@ -113,7 +113,7 @@ impl SdfScene {
     #[must_use]
     pub fn map(&self, p: Vec3) -> (f32, u32) {
         let mut min_dist = f32::MAX;
-        let mut min_color = 0xFF000000;
+        let mut min_color = 0xFF00_0000;
 
         for obj in &self.objects {
             let d = obj.distance(p);
@@ -242,7 +242,7 @@ pub fn render_sdf(
                     let b = (hit_color & 0xFF) as f32 * intensity;
 
                     let final_color =
-                        0xFF000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
+                        0xFF00_0000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
                     fb.set_pixel(x as i32, y as i32, final_color);
                 }
             }
@@ -261,7 +261,7 @@ mod tests {
                 radius: 1.0,
                 center: Vec3::new(0.0, 0.0, 0.0),
             },
-            color: 0xFFFFFFFF,
+            color: 0xFFFF_FFFF,
         };
 
         struct TestCase {
@@ -301,7 +301,7 @@ mod tests {
                 size: Vec3::new(1.0, 1.0, 1.0),
                 center: Vec3::new(0.0, 0.0, 0.0),
             },
-            color: 0xFFFFFFFF,
+            color: 0xFFFF_FFFF,
         };
 
         struct TestCase {
@@ -342,7 +342,7 @@ mod tests {
                 minor_radius: 0.5,
                 center: Vec3::new(0.0, 0.0, 0.0),
             },
-            color: 0xFFFFFFFF,
+            color: 0xFFFF_FFFF,
         };
 
         struct TestCase {
@@ -386,7 +386,7 @@ mod tests {
                 normal: Vec3::new(0.0, 1.0, 0.0),
                 distance: 1.0,
             },
-            color: 0xFFFFFFFF,
+            color: 0xFFFF_FFFF,
         };
 
         struct TestCase {
@@ -426,7 +426,7 @@ mod tests {
                 end: Vec3::new(0.0, 1.0, 0.0),
                 radius: 0.5,
             },
-            color: 0xFFFFFFFF,
+            color: 0xFFFF_FFFF,
         };
 
         struct TestCase {
@@ -492,7 +492,7 @@ mod tests {
                 radius: 1.0,
                 center: Vec3::new(0.0, 0.0, 0.0),
             },
-            color: 0xFFFFFFFF,
+            color: 0xFFFF_FFFF,
         });
 
         // Normal on top
@@ -519,7 +519,7 @@ mod tests {
                 radius: 1.0,
                 center: Vec3::new(0.0, 0.0, 0.0),
             },
-            color: 0xFFFFFFFF,
+            color: 0xFFFF_FFFF,
         });
 
         // Camera at (0,0,5) looking at (0,0,0)
@@ -533,7 +533,7 @@ mod tests {
 
         // Center pixel should hit sphere
         let p = fb.get_pixel(5, 5).unwrap_or(0);
-        assert_ne!(p, 0xFF000000, "Center pixel should not be black");
+        assert_ne!(p, 0xFF00_0000, "Center pixel should not be black");
 
         Ok(())
     }
