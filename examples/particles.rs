@@ -260,9 +260,8 @@ impl WindowApp for ParticleDemoApp {
 }
 
 #[allow(clippy::unnecessary_wraps)]
-fn main() -> Result<(), AppError> {
+fn main() {
     let args = Args::parse();
     print_banner(&args);
     run_windowed(ParticleDemoApp::new(&args).unwrap());
-    Ok(())
 }

@@ -21,6 +21,7 @@ mod demo {
     const WIDTH: usize = 800;
     const HEIGHT: usize = 600;
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         let mut window = Window::new("Abrash - Cloth Simulation", WIDTH as u32, HEIGHT as u32)?;
         let mut fb = Framebuffer::new(WIDTH as u32, HEIGHT as u32)?;
@@ -144,6 +145,7 @@ mod winit_demo {
     const WIDTH: u32 = 800;
     const HEIGHT: u32 = 600;
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         run_windowed(ClothApp::new().unwrap());
         Ok(())
@@ -345,6 +347,7 @@ fn print_banner() {
 }
 
 #[cfg(feature = "backend-winit")]
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), Box<dyn Error>> {
     print_banner();
 
@@ -378,6 +381,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 #[cfg(not(feature = "backend-winit"))]
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), Box<dyn Error>> {
     print_banner();
 

@@ -231,8 +231,7 @@ impl WindowApp for PixelSortDemoApp {
     }
 }
 
-fn main() -> Result<(), AppError> {
+fn main() {
     print_banner();
     run_windowed(PixelSortDemoApp::new().unwrap());
-    Ok(())
 }

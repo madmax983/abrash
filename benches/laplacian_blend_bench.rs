@@ -11,7 +11,7 @@ fn bench_laplacian_blend(c: &mut Criterion) {
 
     c.bench_function("laplacian_blend", |b| {
         b.iter(|| {
-            laplacian_blend_textures(
+            let _ = laplacian_blend_textures(
                 black_box(&tex0),
                 black_box(&tex1),
                 black_box(&mask),
@@ -19,8 +19,8 @@ fn bench_laplacian_blend(c: &mut Criterion) {
                 black_box(0.5),
                 black_box(5),
                 black_box(0.0),
-            )
-        })
+            );
+        });
     });
 }
 

@@ -319,8 +319,7 @@ impl WindowApp for LaplacianBlendDemoApp {
 }
 
 #[allow(clippy::unnecessary_wraps)]
-fn main() -> Result<(), AppError> {
+fn main() {
     print_banner();
     run_windowed(LaplacianBlendDemoApp::new().unwrap());
-    Ok(())
 }
