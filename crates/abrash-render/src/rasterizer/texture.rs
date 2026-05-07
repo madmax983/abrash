@@ -1733,7 +1733,7 @@ pub fn fill_triangle_textured(
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
+    for i in 0..clipped.count() {
         let base = i * 3;
         let v0 = clipped[base];
         let v1 = clipped[base + 1];
@@ -3311,7 +3311,7 @@ pub fn fill_triangle_normal_mapped(
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
+    for i in 0..clipped.count() {
         let base = i * 3;
         let v0 = clipped[base];
         let v1 = clipped[base + 1];
@@ -4652,7 +4652,7 @@ pub fn fill_triangle_textured_gouraud(
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
+    for i in 0..clipped.count() {
         let base = i * 3;
         let v0 = clipped[base];
         let v1 = clipped[base + 1];
@@ -5301,7 +5301,7 @@ pub fn fill_triangle_laplacian_blend(
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for ci in 0..clipped.count {
+    for ci in 0..clipped.count() {
         let base = ci * 3;
         let cv0 = clipped[base];
         let cv1 = clipped[base + 1];

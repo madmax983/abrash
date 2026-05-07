@@ -420,7 +420,7 @@ pub fn fill_triangle_reflection(
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
+    for i in 0..clipped.count() {
         let base = i * 3;
         let v0 = clipped[base];
         let v1 = clipped[base + 1];

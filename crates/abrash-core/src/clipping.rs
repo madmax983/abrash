@@ -40,17 +40,21 @@ use crate::math::Vec3;
 pub struct ClippedTriangles<V> {
     tris: [MaybeUninit<V>; 24], // Max 8 triangles = 24 vertices
     /// Number of triangles currently in the list
-    pub count: usize,
+    count: usize,
 }
 
 impl<V> ClippedTriangles<V> {
     // Unsafe because it returns uninitialized data structure
     const fn new_uninit() -> Self {
         Self {
-            // SAFETY: An array of MaybeUninit is safe to be uninitialized.
-            tris: unsafe { MaybeUninit::<[MaybeUninit<V>; 24]>::uninit().assume_init() },
+            tris: [const { MaybeUninit::uninit() }; 24],
             count: 0,
         }
+    }
+
+    /// Returns the number of clipped triangles.
+    pub const fn count(&self) -> usize {
+        self.count
     }
 }
 
@@ -109,7 +113,7 @@ const NEAR: f32 = 0.001;
 /// let result = clip_triangle_to_frustum(v0, v1, v2, get_pos, |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t));
 ///
 /// // The triangle is clipped into a quad, which is triangulated into 2 triangles.
-/// assert_eq!(result.count, 2);
+/// assert_eq!(result.count(), 2);
 /// ```
 pub fn clip_triangle_to_frustum<V: Copy>(
     v0: V,
@@ -317,8 +321,8 @@ pub fn clip_triangle_to_frustum<V: Copy>(
     // A triangle clipped by 6 planes can have at most 9 vertices (usually).
     // We use a safe upper bound of 12 for the polygon vertices.
     // SAFETY: Arrays of MaybeUninit do not require initialization.
-    let mut buf1: [MaybeUninit<V>; 12] = unsafe { MaybeUninit::uninit().assume_init() };
-    let mut buf2: [MaybeUninit<V>; 12] = unsafe { MaybeUninit::uninit().assume_init() };
+    let mut buf1: [MaybeUninit<V>; 12] = [const { MaybeUninit::uninit() }; 12];
+    let mut buf2: [MaybeUninit<V>; 12] = [const { MaybeUninit::uninit() }; 12];
 
     // Initialize input buffer
     buf1[0].write(v0);
@@ -594,7 +598,7 @@ pub fn clip_triangle_against_near_plane<V: Copy>(
     let inside = [inside0, inside1, inside2];
 
     // Max 4 vertices for a clipped triangle (quad)
-    let mut out_verts: [MaybeUninit<V>; 4] = unsafe { MaybeUninit::uninit().assume_init() };
+    let mut out_verts: [MaybeUninit<V>; 4] = [const { MaybeUninit::uninit() }; 4];
     let mut out_count = 0;
 
     for i in 0..3 {
@@ -708,7 +712,7 @@ mod tests {
             (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
         });
 
-        assert_eq!(result.count, 1);
+        assert_eq!(result.count(), 1);
         assert_eq!(result[0], v0);
         assert_eq!(result[1], v1);
         assert_eq!(result[2], v2);
@@ -725,7 +729,7 @@ mod tests {
             (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
         });
 
-        assert_eq!(result.count, 0);
+        assert_eq!(result.count(), 0);
     }
 
     #[test]
@@ -738,7 +742,7 @@ mod tests {
             (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
         });
 
-        assert_eq!(result.count, 1);
+        assert_eq!(result.count(), 1);
         assert_eq!(result[0], v0);
         assert_eq!(result[1], v1);
         assert_eq!(result[2], v2);
@@ -754,7 +758,7 @@ mod tests {
             (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
         });
 
-        assert_eq!(result.count, 0);
+        assert_eq!(result.count(), 0);
     }
 
     #[test]
@@ -769,7 +773,7 @@ mod tests {
         });
 
         // Should return 1 triangle
-        assert_eq!(result.count, 1);
+        assert_eq!(result.count(), 1);
 
         // Check vertices
         // The first vertex should be v0
@@ -792,7 +796,7 @@ mod tests {
         });
 
         // Should return 2 triangles (quad)
-        assert_eq!(result.count, 2);
+        assert_eq!(result.count(), 2);
 
         // Verify structure of returned triangles
         // First triangle: v0, v1, intersect(v1, v2)
@@ -835,7 +839,7 @@ mod tests {
         });
 
         // Should be considered inside
-        assert_eq!(result.count, 1);
+        assert_eq!(result.count(), 1);
     }
 
     #[test]
@@ -851,7 +855,7 @@ mod tests {
         });
 
         // Should clip to 2 triangles (quad) since 2 are inside
-        assert_eq!(result.count, 2);
+        assert_eq!(result.count(), 2);
     }
 
     #[test]
