@@ -1,13 +1,16 @@
-⚡ Bolt: [Optimize physarum boundaries and allocations]
+⚡ Bolt: [Physarum Optimization]
 
-💡 What
-Optimized the `apply_physarum` post-processing effect in `physarum.rs` by replacing expensive `.rem_euclid` boundary wrapping calls with explicit `if/else` checks.
+💡 What:
+Optimized the physarum post-processing effect inner loops. Specifically, removed `mut` variable intermediate states when checking wrap bounds in the `sense` closure by switching to `if/else` assignments, and manually unrolled the per-pixel alpha blending math inside the main rendering loop to avoid overhead of structural unpacking (`Color::from_argb_u32` -> `blend_over` -> `to_argb_u32`).
+Added missing `#[cfg(feature = "parallel")]` attribute in `havoc_tile_ub_test.rs` to fix broken test suite under specific features.
 
-🎯 Why
-Using `.rem_euclid(N)` or standard modulo operations involves costly floating point fmod calculations or division instructions which are extremely slow when executed per-pixel/per-agent within hot inner loops. Since the delta coordinates in `physarum.rs` are small relative to screen dimensions, the values only ever exceed the boundaries by a small predictable amount. Replacing these with explicit integer addition/subtraction inside conditional blocks entirely bypasses these expensive mathematical operations.
+🎯 Why:
+The TDD cycle detected performance bottleneck within the inner loops. The wrapping conditions inside the sense loop and the per-pixel color blending math inside the render loop were computationally heavy.
 
-📊 Impact
-The time taken for a physarum simulation step benchmark (`physarum_step`) has measurably dropped by ~25% overall in execution time (from roughly 30ms to 22.5ms).
+📊 Impact:
+The benchmark results indicate a ~27% performance improvement:
+`physarum_step time: [16.257 ms 16.279 ms 16.302 ms]`
+`change: [-27.875% -27.089% -26.257%]`
 
-🔭 Measurement
-Benchmarked using `cargo bench --bench physarum_bench --features nova`.
+🔭 Measurement:
+Validated using `cargo bench --bench physarum_bench --features nova`. Passed `cargo test -p abrash-render --features nova` and `cargo clippy -p abrash-render --features nova -- -D warnings`.

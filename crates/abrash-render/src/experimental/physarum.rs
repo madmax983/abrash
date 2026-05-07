@@ -132,34 +132,38 @@ pub fn apply_physarum(fb: &mut Framebuffer, config: &PhysarumConfig) {
                         .as_nanos() as u64,
                 );
 
+                let w_i32 = width as i32;
+                let h_i32 = height as i32;
+
                 for agent in agents_borrow.iter_mut() {
                     let sense = |angle_offset: f32, trail_slice: &[f32]| -> f32 {
                         let sensor_angle = agent.angle + angle_offset;
                         let (sin_a, cos_a) = sensor_angle.sin_cos();
-                        let sensor_pos_x = agent.position.x + cos_a * config.sensor_offset_dist;
-                        let sensor_pos_y = agent.position.y + sin_a * config.sensor_offset_dist;
-
-                        let sx = sensor_pos_x as i32;
-                        let sy = sensor_pos_y as i32;
+                        let sx = (agent.position.x + cos_a * config.sensor_offset_dist) as i32;
+                        let sy = (agent.position.y + sin_a * config.sensor_offset_dist) as i32;
 
                         let mut sum = 0.0;
                         let size = config.sensor_size;
                         for dy in -size..=size {
-                            let mut ny = sy + dy;
-                            if ny < 0 {
-                                ny += height as i32;
-                            } else if ny >= height as i32 {
-                                ny -= height as i32;
-                            }
+                            let ny = sy + dy;
+                            let ny = if ny < 0 {
+                                ny + h_i32
+                            } else if ny >= h_i32 {
+                                ny - h_i32
+                            } else {
+                                ny
+                            };
                             let row_idx = ny as usize * width;
 
                             for dx in -size..=size {
-                                let mut nx = sx + dx;
-                                if nx < 0 {
-                                    nx += width as i32;
-                                } else if nx >= width as i32 {
-                                    nx -= width as i32;
-                                }
+                                let nx = sx + dx;
+                                let nx = if nx < 0 {
+                                    nx + w_i32
+                                } else if nx >= w_i32 {
+                                    nx - w_i32
+                                } else {
+                                    nx
+                                };
 
                                 sum += trail_slice[row_idx + nx as usize];
                             }
@@ -259,19 +263,23 @@ pub fn apply_physarum(fb: &mut Framebuffer, config: &PhysarumConfig) {
 
                 // Step 3: Render trail map to framebuffer
                 let fb_slice = fb.as_mut_slice();
+
+                let tc = config.trail_color;
+
                 for i in 0..grid_size {
                     let intensity = trail_borrow[i];
                     if intensity > 0.01 {
                         // Map intensity to alpha 0-255
                         let alpha = (intensity * 255.0).clamp(0.0, 255.0) as u32;
-                        let color_with_alpha = (alpha << 24) | (config.trail_color & 0x00_FF_FF_FF);
+                        let inv_alpha = 255 - alpha;
 
-                        let bg = Color::from_argb_u32(fb_slice[i]);
-                        let fg = Color::from_argb_u32(color_with_alpha);
+                        let bg_c = fb_slice[i];
 
-                        let blend = Color::blend_over(fg, bg);
+                        let r = (((tc >> 16) & 0xFF) * alpha + ((bg_c >> 16) & 0xFF) * inv_alpha) / 255;
+                        let g = (((tc >> 8) & 0xFF) * alpha + ((bg_c >> 8) & 0xFF) * inv_alpha) / 255;
+                        let b = ((tc & 0xFF) * alpha + (bg_c & 0xFF) * inv_alpha) / 255;
 
-                        fb_slice[i] = blend.to_argb_u32();
+                        fb_slice[i] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
                     }
                 }
             });
