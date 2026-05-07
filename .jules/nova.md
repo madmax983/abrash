@@ -79,6 +79,10 @@
 **Fate:** Implemented
 **Lesson:** Storing the simulation state in thread-local double-buffered vectors allows for complex iterative cellular-like behavior across frames without re-allocation.
 
+## [Depth-Aware Precipitation Filter]
+**Concept:** A post-processing effect that simulates 2D rain falling over the screen. It reads the 3D Z-Buffer and detects when a raindrop passes behind the scene geometry. When this happens, the raindrop "hits" the surface and turns into a splash, creating an immersive, depth-aware weather effect without full 3D particles.
+**Fate:** Implemented
+**Lesson:** By checking if `drop_z > scene_z`, 2D particles can accurately interact with 3D boundaries, seamlessly merging screen-space effects with the depth buffer.
 ## [Infinite Tunnel Filter]
 **Concept:** A classic demoscene effect that maps Cartesian screen coordinates to polar coordinates, sampling a 2D texture to create the illusion of flying through an infinite 3D tunnel.
 **Fate:** Implemented
