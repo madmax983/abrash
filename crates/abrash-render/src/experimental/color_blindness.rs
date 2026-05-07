@@ -86,7 +86,7 @@ mod tests {
     fn test_apply_color_blindness_achromatopsia() {
         let mut fb = Framebuffer::new(2, 1).unwrap();
         // Red pixel
-        fb.set_pixel(0, 0, 0xFFFF0000);
+        fb.set_pixel(0, 0, 0xFFFF_0000);
         // Blue pixel
         fb.set_pixel(1, 0, 0xFF0000FF);
 
@@ -107,7 +107,7 @@ mod tests {
     fn test_apply_color_blindness_protanopia() {
         let mut fb = Framebuffer::new(1, 1).unwrap();
         // Red pixel
-        fb.set_pixel(0, 0, 0xFFFF0000);
+        fb.set_pixel(0, 0, 0xFFFF_0000);
 
         apply_color_blindness(&mut fb, ColorBlindnessType::Protanopia);
 
@@ -117,7 +117,7 @@ mod tests {
 
         // For Protanopia, red and green should be severely shifted.
         // A pure red should map to a brownish/dark yellow hue.
-        assert_ne!(p, 0xFFFF0000, "Protanopia should alter pure red.");
+        assert_ne!(p, 0xFFFF_0000, "Protanopia should alter pure red.");
         assert!(r > 0 && g > 0, "Red should map to some mix of R and G.");
     }
 }

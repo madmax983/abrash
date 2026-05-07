@@ -149,7 +149,7 @@ impl Frame {
     /// use abrash_core::math::{Mat4, Vec3};
     /// let camera = FrameCamera::new(Mat4::identity(), Mat4::identity());
     /// let mut frame = Frame::new(camera);
-    /// frame.add_light(Light::Directional(DirectionalLight { direction: Vec3::new(0.0, -1.0, 0.0), color: 0xFFFFFFFF, intensity: 1.0 }));
+    /// frame.add_light(Light::Directional(DirectionalLight { direction: Vec3::new(0.0, -1.0, 0.0), color: 0xFFFF_FFFF, intensity: 1.0 }));
     /// ```
     pub fn add_light(&mut self, light: Light) {
         self.lights.push(light);

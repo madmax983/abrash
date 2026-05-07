@@ -240,7 +240,7 @@ mod tests {
         dl.push(DrawBatch::new(
             0..1,
             std::sync::Arc::new([[0, 1, 2]]),
-            0xFF000000,
+            0xFF00_0000,
         ));
 
         dl.clear(cam);

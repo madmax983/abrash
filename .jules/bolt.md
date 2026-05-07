@@ -146,3 +146,7 @@
 **2025-05-04 - Optimize Physarum Rem_Euclid**
 **Learning:** In hot loops, replacing `.rem_euclid(N)` with explicit `if/else` bound checks bypasses slow division instructions and gives significant speedups when the range of inputs is known and tightly bounded.
 **Action:** Replaced `.rem_euclid(N)` calls with explicit bounds adjustments in `apply_physarum`.
+**[Posterize Float to Integer Math Optimization]**
+**Learning:** In hot per-pixel rendering loops (like posterization filters), floating-point arithmetic `(r / 255.0 * levels)` and `f32::round()` casting are extremely slow. Replacing them with pure, scaled integer arithmetic `((r * levels_minus_1 + 127) / 255 * 255) / levels_minus_1` eliminates float conversion overhead entirely and significantly speeds up rendering, while preserving behavior.
+**Action:** When mapping continuous values or doing scale/rounding math across every pixel in a framebuffer, replace floating-point operations with pre-calculated fixed-point integer math inside the inner loop for a massive performance boost.
+**[Posterize Float to Integer scaling]**\n**Learning:** In hot per-pixel rendering loops (like posterization filters), floating-point arithmetic (e.g. `r / 255.0 * levels`) and `f32::round()` casting are extremely slow. Replace them with pure, scaled integer arithmetic (e.g., `((r * levels_minus_1 + 127) / 255 * 255 + (levels_minus_1 / 2)) / levels_minus_1`) to eliminate float conversion overhead.\n**Action:** Replaced f32 arithmetic and `round()` with scaled integer division in `posterize.rs`.
