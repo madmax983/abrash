@@ -99,6 +99,7 @@ pub mod swirl;
 pub mod thermal;
 pub mod tilt_shift;
 pub mod topography;
+pub mod tunnel;
 pub mod vhs;
 pub mod vision;
 pub mod volume;

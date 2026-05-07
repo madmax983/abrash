@@ -78,3 +78,8 @@
 **Concept:** A procedural post-processing effect simulating Physarum polycephalum (slime mold). Agents move, sense trails, and deposit pheromones, which then diffuse and decay, creating self-organizing networks.
 **Fate:** Implemented
 **Lesson:** Storing the simulation state in thread-local double-buffered vectors allows for complex iterative cellular-like behavior across frames without re-allocation.
+
+## [Infinite Tunnel Filter]
+**Concept:** A classic demoscene effect that maps Cartesian screen coordinates to polar coordinates, sampling a 2D texture to create the illusion of flying through an infinite 3D tunnel.
+**Fate:** Implemented
+**Lesson:** Iterating through rows explicitly in chunks helps apply mathematical polar coordinate transforms safely, allowing for quick pixel mapping while avoiding complex geometry rendering.
