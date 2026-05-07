@@ -293,6 +293,10 @@ impl ObjParser {
 
         let new_idx = self.final_vertices.len();
 
+        if new_idx >= MAX_VERTICES {
+            return Err(format!("Line {line_num}: Maximum vertices exceeded during triangulated assembly"));
+        }
+
         // Push vertex
         self.final_vertices.push(self.raw_positions[v_idx]);
 
@@ -387,8 +391,7 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
         if d > 9 {
             return None;
         }
-        // No checked_mul/add needed because of MAX_DIGITS check
-        n = n * 10 + (d as usize);
+        n = n.checked_mul(10)?.checked_add(d as usize)?;
     }
     Some(n)
 }
