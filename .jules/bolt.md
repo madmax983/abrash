@@ -146,3 +146,10 @@
 **2025-05-04 - Optimize Physarum Rem_Euclid**
 **Learning:** In hot loops, replacing `.rem_euclid(N)` with explicit `if/else` bound checks bypasses slow division instructions and gives significant speedups when the range of inputs is known and tightly bounded.
 **Action:** Replaced `.rem_euclid(N)` calls with explicit bounds adjustments in `apply_physarum`.
+## [Eliding f32::hypot in Examples]
+**Learning:** Benchmarks showed that  is a performance bottleneck in per-pixel hot loops because of overflow checks.
+**Action:** Replaced  with  in demo examples like black hole, particles, normal mapping, and topography.
+
+## [Eliding f32::hypot in Examples]
+**Learning:** Benchmarks showed that `f32::hypot` is a performance bottleneck in per-pixel hot loops because of overflow checks.
+**Action:** Replaced `dx.hypot(dy)` with `(dx * dx + dy * dy).sqrt()` in demo examples like black hole, particles, normal mapping, and topography.
