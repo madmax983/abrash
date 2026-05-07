@@ -92,7 +92,8 @@ fn create_particle_texture() -> Texture {
         for x in 0..size {
             let dx = x as f32 - center;
             let dy = y as f32 - center;
-            let dist = dx.hypot(dy);
+            #[allow(clippy::imprecise_flops)]
+            let dist = (dx * dx + dy * dy).sqrt();
 
             if dist > max_dist {
                 tex.set_pixel(x, y, 0x0000_0000);
@@ -258,6 +259,7 @@ impl WindowApp for ParticleDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), AppError> {
     let args = Args::parse();
     print_banner(&args);
