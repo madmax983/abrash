@@ -122,7 +122,7 @@ mod tests {
         let mut fb = Framebuffer::new(1, 1).unwrap();
         let mut zb = ZBuffer::new(1, 1).unwrap();
 
-        fb.clear(0xFFFF0000); // Red
+        fb.clear(0xFFFF_0000); // Red
 
         let config = SonarConfig::default();
         apply_sonar(&mut fb, &zb, &config);

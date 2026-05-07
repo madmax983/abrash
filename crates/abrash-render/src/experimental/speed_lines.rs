@@ -198,7 +198,7 @@ mod tests {
         config.min_length = 5.0;
         config.max_length = 5.0;
         // Semi-transparent red: A=128 (approx 50%), R=255
-        config.line_color = 0x80FF0000;
+        config.line_color = 0x80FF_0000;
 
         apply_speed_lines(&mut fb, &config);
 
