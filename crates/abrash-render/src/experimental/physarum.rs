@@ -132,33 +132,45 @@ pub fn apply_physarum(fb: &mut Framebuffer, config: &PhysarumConfig) {
                         .as_nanos() as u64,
                 );
 
+                let width_i32 = width as i32;
+                let height_i32 = height as i32;
+                let sensor_dist = config.sensor_offset_dist;
+                let sensor_size = config.sensor_size;
+
                 for agent in agents_borrow.iter_mut() {
                     let sense = |angle_offset: f32, trail_slice: &[f32]| -> f32 {
                         let sensor_angle = agent.angle + angle_offset;
                         let (sin_a, cos_a) = sensor_angle.sin_cos();
-                        let sensor_pos_x = agent.position.x + cos_a * config.sensor_offset_dist;
-                        let sensor_pos_y = agent.position.y + sin_a * config.sensor_offset_dist;
+                        let sensor_pos_x = agent.position.x + cos_a * sensor_dist;
+                        let sensor_pos_y = agent.position.y + sin_a * sensor_dist;
 
                         let sx = sensor_pos_x as i32;
                         let sy = sensor_pos_y as i32;
 
                         let mut sum = 0.0;
-                        let size = config.sensor_size;
-                        for dy in -size..=size {
+                        for dy in -sensor_size..=sensor_size {
                             let mut ny = sy + dy;
-                            if ny < 0 {
-                                ny += height as i32;
-                            } else if ny >= height as i32 {
-                                ny -= height as i32;
+
+                            // Optimize wrapping logic
+                            if (ny as u32) >= height as u32 {
+                                if ny < 0 {
+                                    ny += height_i32;
+                                } else {
+                                    ny -= height_i32;
+                                }
                             }
+
                             let row_idx = ny as usize * width;
 
-                            for dx in -size..=size {
+                            for dx in -sensor_size..=sensor_size {
                                 let mut nx = sx + dx;
-                                if nx < 0 {
-                                    nx += width as i32;
-                                } else if nx >= width as i32 {
-                                    nx -= width as i32;
+
+                                if (nx as u32) >= width as u32 {
+                                    if nx < 0 {
+                                        nx += width_i32;
+                                    } else {
+                                        nx -= width_i32;
+                                    }
                                 }
 
                                 sum += trail_slice[row_idx + nx as usize];
