@@ -132,12 +132,12 @@ mod tests {
         fb.clear(0xFF00_0000);
         // Draw a white border
         for x in 0..100 {
-            fb.set_pixel(x, 0, 0xFFFFFFFF);
-            fb.set_pixel(x, 99, 0xFFFFFFFF);
+            fb.set_pixel(x, 0, 0xFFFF_FFFF);
+            fb.set_pixel(x, 99, 0xFFFF_FFFF);
         }
         for y in 0..100 {
-            fb.set_pixel(0, y, 0xFFFFFFFF);
-            fb.set_pixel(99, y, 0xFFFFFFFF);
+            fb.set_pixel(0, y, 0xFFFF_FFFF);
+            fb.set_pixel(99, y, 0xFFFF_FFFF);
         }
 
         let config = DrosteConfig {
@@ -151,6 +151,6 @@ mod tests {
 
         // Expect the inner border to exist at scaled coordinates
         // At scale 0.5, centered, the inner picture starts at (25, 25) and ends at (74, 74)
-        assert_eq!(fb.get_pixel(25, 25).unwrap(), 0xFFFFFFFF);
+        assert_eq!(fb.get_pixel(25, 25).unwrap(), 0xFFFF_FFFF);
     }
 }

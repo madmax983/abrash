@@ -45,7 +45,7 @@ use crate::zbuffer::ZBuffer;
 /// let v1 = (Vec3::new(0.5, 0.0, 0.5), 1.0);
 ///
 /// // Draw a white line between them
-/// draw_line_3d(&mut fb, &mut zb, v0, v1, 0xFFFFFFFF);
+/// draw_line_3d(&mut fb, &mut zb, v0, v1, 0xFFFF_FFFF);
 /// ```
 ///
 /// ## Parameters
@@ -166,7 +166,7 @@ pub fn draw_line_3d(
 /// let v1 = (Vec3::new(-0.5, -0.5, 0.5), 1.0);
 /// let v2 = (Vec3::new(0.5, -0.5, 0.5), 1.0);
 ///
-/// fill_triangle_wireframe(&mut fb, &mut zb, v0, v1, v2, 0xFFFFFFFF);
+/// fill_triangle_wireframe(&mut fb, &mut zb, v0, v1, v2, 0xFFFF_FFFF);
 /// ```
 pub fn fill_triangle_wireframe(
     fb: &mut Framebuffer,

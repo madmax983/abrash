@@ -952,3 +952,13 @@ required-features = ["nova"]
 name = "physarum_bench"
 harness = false
 required-features = ["nova"]
+
+[[example]]
+name = "tunnel_demo"
+path = "examples/tunnel_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "tunnel_bench"
+harness = false
+required-features = ["nova"]

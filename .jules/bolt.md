@@ -153,3 +153,7 @@
 ## [Eliding f32::hypot in Examples]
 **Learning:** Benchmarks showed that `f32::hypot` is a performance bottleneck in per-pixel hot loops because of overflow checks.
 **Action:** Replaced `dx.hypot(dy)` with `(dx * dx + dy * dy).sqrt()` in demo examples like black hole, particles, normal mapping, and topography.
+**[Posterize Float to Integer Math Optimization]**
+**Learning:** In hot per-pixel rendering loops (like posterization filters), floating-point arithmetic `(r / 255.0 * levels)` and `f32::round()` casting are extremely slow. Replacing them with pure, scaled integer arithmetic `((r * levels_minus_1 + 127) / 255 * 255) / levels_minus_1` eliminates float conversion overhead entirely and significantly speeds up rendering, while preserving behavior.
+**Action:** When mapping continuous values or doing scale/rounding math across every pixel in a framebuffer, replace floating-point operations with pre-calculated fixed-point integer math inside the inner loop for a massive performance boost.
+**[Posterize Float to Integer scaling]**\n**Learning:** In hot per-pixel rendering loops (like posterization filters), floating-point arithmetic (e.g. `r / 255.0 * levels`) and `f32::round()` casting are extremely slow. Replace them with pure, scaled integer arithmetic (e.g., `((r * levels_minus_1 + 127) / 255 * 255 + (levels_minus_1 / 2)) / levels_minus_1`) to eliminate float conversion overhead.\n**Action:** Replaced f32 arithmetic and `round()` with scaled integer division in `posterize.rs`.

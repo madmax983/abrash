@@ -2845,7 +2845,7 @@ impl TileRenderer {
         );
         let mut results = PreparedGouraudTrianglesList::new();
 
-        for i in 0..clipped.count {
+        for i in 0..clipped.count() {
             let base = i * 3;
             let v0 = clipped[base];
             let v1 = clipped[base + 1];
@@ -3075,7 +3075,7 @@ impl TileRenderer {
         );
         let mut results = PreparedTexturedTrianglesList::new();
 
-        for i in 0..clipped.count {
+        for i in 0..clipped.count() {
             let base = i * 3;
             let cv0 = clipped[base];
             let cv1 = clipped[base + 1];
@@ -3229,7 +3229,7 @@ impl TileRenderer {
         );
         let mut results = PreparedTrianglesList::new();
 
-        for i in 0..clipped.count {
+        for i in 0..clipped.count() {
             let base = i * 3;
             let cv0 = clipped[base];
             let cv1 = clipped[base + 1];

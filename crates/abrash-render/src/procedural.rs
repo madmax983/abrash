@@ -41,7 +41,7 @@ pub fn xor_pattern(width: u32, height: u32) -> Result<Texture, &'static str> {
 /// ```
 /// use abrash_render::procedural::grid_pattern;
 ///
-/// let tex = grid_pattern(32, 32, 8, 0xFFFFFFFF, 0xFF000000).unwrap();
+/// let tex = grid_pattern(32, 32, 8, 0xFFFF_FFFF, 0xFF00_0000).unwrap();
 /// assert_eq!(tex.width(), 32);
 /// assert_eq!(tex.height(), 32);
 /// ```

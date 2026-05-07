@@ -160,10 +160,10 @@ mod tests {
     #[test]
     fn test_directional_blur_horizontal() {
         let mut fb = Framebuffer::new(4, 1).unwrap();
-        fb.set_pixel(0, 0, 0xFFFFFFFF); // White pixel
-        fb.set_pixel(1, 0, 0xFF000000); // Black pixels
-        fb.set_pixel(2, 0, 0xFF000000);
-        fb.set_pixel(3, 0, 0xFF000000);
+        fb.set_pixel(0, 0, 0xFFFF_FFFF); // White pixel
+        fb.set_pixel(1, 0, 0xFF00_0000); // Black pixels
+        fb.set_pixel(2, 0, 0xFF00_0000);
+        fb.set_pixel(3, 0, 0xFF00_0000);
 
         // Blur rightwards by 3 pixels, 3 samples
         let config = DirectionalBlurConfig {
@@ -178,10 +178,10 @@ mod tests {
         let p1 = fb.get_pixel(1, 0).unwrap();
 
         // At x=0, samples at x=0, 1, 2. (White, Black, Black) -> ~1/3 White
-        assert!(p0 != 0xFFFFFFFF);
-        assert!(p0 != 0xFF000000);
+        assert!(p0 != 0xFFFF_FFFF);
+        assert!(p0 != 0xFF00_0000);
 
         // At x=1, samples at x=1, 2, 3. (Black, Black, Black) -> Black
-        assert_eq!(p1, 0xFF000000);
+        assert_eq!(p1, 0xFF00_0000);
     }
 }

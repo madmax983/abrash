@@ -261,7 +261,7 @@ mod tests {
     fn test_ordered_dither_changes_pixels() {
         let mut fb = Framebuffer::new(4, 4).unwrap();
         // Set to mid-gray
-        fb.clear(0xFF808080);
+        fb.clear(0xFF80_8080);
 
         let config = DitherConfig {
             mode: DitherMode::Ordered2x2,
@@ -299,7 +299,7 @@ mod tests {
         // Gradient
         for x in 0..width {
             let val = (x as f32 / width as f32 * 255.0) as u32;
-            let color = 0xFF000000 | (val << 16) | (val << 8) | val;
+            let color = 0xFF00_0000 | (val << 16) | (val << 8) | val;
             fb.set_pixel(x as i32, 0, color);
             fb.set_pixel(x as i32, 1, color);
         }

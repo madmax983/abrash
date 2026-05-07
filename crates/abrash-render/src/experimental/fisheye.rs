@@ -97,26 +97,26 @@ mod tests {
     #[test]
     fn test_fisheye_identity() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
-        fb.clear(0xFFFFFFFF);
+        fb.clear(0xFFFF_FFFF);
         // Apply with 0 strength should do nothing
         apply_fisheye(&mut fb, 0.0);
         for &pixel in fb.as_slice() {
-            assert_eq!(pixel, 0xFFFFFFFF);
+            assert_eq!(pixel, 0xFFFF_FFFF);
         }
     }
 
     #[test]
     fn test_fisheye_distortion() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
-        fb.clear(0xFFFFFFFF);
+        fb.clear(0xFFFF_FFFF);
         // Draw a black dot in the center
-        fb.set_pixel(5, 5, 0xFF000000);
+        fb.set_pixel(5, 5, 0xFF00_0000);
 
         // Apply strong fisheye
         apply_fisheye(&mut fb, 0.5);
 
         // It shouldn't crash and the buffer should still be primarily white
-        let has_black = fb.as_slice().iter().any(|&p| p == 0xFF000000);
+        let has_black = fb.as_slice().iter().any(|&p| p == 0xFF00_0000);
         assert!(has_black);
     }
 }

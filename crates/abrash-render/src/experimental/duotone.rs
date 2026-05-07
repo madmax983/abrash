@@ -85,11 +85,11 @@ mod tests {
     fn test_apply_duotone() {
         let mut fb = Framebuffer::new(2, 2).unwrap();
         // Set pixels to black, gray, white
-        fb.set_pixel(0, 0, 0xFF000000); // Black
-        fb.set_pixel(1, 0, 0xFF808080); // Mid Gray
-        fb.set_pixel(0, 1, 0xFFFFFFFF); // White
+        fb.set_pixel(0, 0, 0xFF00_0000); // Black
+        fb.set_pixel(1, 0, 0xFF80_8080); // Mid Gray
+        fb.set_pixel(0, 1, 0xFFFF_FFFF); // White
 
-        let color1 = 0xFFFF0000; // Red (mapped to darkest)
+        let color1 = 0xFFFF_0000; // Red (mapped to darkest)
         let color2 = 0xFF0000FF; // Blue (mapped to lightest)
 
         apply_duotone(&mut fb, color1, color2);
@@ -98,7 +98,7 @@ mod tests {
         assert_eq!(fb.get_pixel(0, 1).unwrap(), color2);
         // Gray should be a mix of Red and Blue (approx Purple)
         let mid = fb.get_pixel(1, 0).unwrap();
-        assert!(mid != 0xFF808080, "Pixel was not modified");
+        assert!(mid != 0xFF80_8080, "Pixel was not modified");
         assert_eq!(mid, 0xFF7F0080); // Expected mix
     }
 }
