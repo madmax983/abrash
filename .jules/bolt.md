@@ -157,3 +157,11 @@
 **Learning:** In hot per-pixel rendering loops (like posterization filters), floating-point arithmetic `(r / 255.0 * levels)` and `f32::round()` casting are extremely slow. Replacing them with pure, scaled integer arithmetic `((r * levels_minus_1 + 127) / 255 * 255) / levels_minus_1` eliminates float conversion overhead entirely and significantly speeds up rendering, while preserving behavior.
 **Action:** When mapping continuous values or doing scale/rounding math across every pixel in a framebuffer, replace floating-point operations with pre-calculated fixed-point integer math inside the inner loop for a massive performance boost.
 **[Posterize Float to Integer scaling]**\n**Learning:** In hot per-pixel rendering loops (like posterization filters), floating-point arithmetic (e.g. `r / 255.0 * levels`) and `f32::round()` casting are extremely slow. Replace them with pure, scaled integer arithmetic (e.g., `((r * levels_minus_1 + 127) / 255 * 255 + (levels_minus_1 / 2)) / levels_minus_1`) to eliminate float conversion overhead.\n**Action:** Replaced f32 arithmetic and `round()` with scaled integer division in `posterize.rs`.
+
+**[Optimal Vec Initialization for Pixel Buffers]**
+**Learning:** In hot pixel conversion loops (e.g., mapping `0xAARRGGBB` to RGBA byte slices for the GPU), dynamically building a `Vec<u8>` via `.extend_from_slice()` requires capacity and bounds checks on every iteration.
+**Action:** Replace dynamic extension by pre-allocating a zeroed vector (`vec![0u8; size]`) and using `.zip(rgba.chunks_exact_mut(4))` over the pixels iterator. This safely guarantees exact sizes and allows the compiler to elide bounds checks for direct assignments in the inner loop, yielding a measurable performance boost.
+
+**[Iterator::collect Capacity Elision]**
+**Learning:** In Rust, calling `.collect::<Vec<_>>()` on iterators automatically relies on `FromIterator`, which utilizes the iterator's `size_hint()` internally to pre-allocate capacity. Therefore, manually replacing `.collect()` with `let mut vec = Vec::with_capacity(iter.size_hint().0); vec.extend(iter);` on simple mapped sequences provides exactly zero performance benefit, adds boilerplate, and was flagged as unnecessary in code review.
+**Action:** Trust `.collect()` for intermediate capacity estimations unless the iterator adapter inherently masks the correct size hint.
