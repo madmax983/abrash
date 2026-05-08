@@ -87,3 +87,8 @@
 **Concept:** A classic demoscene effect that maps Cartesian screen coordinates to polar coordinates, sampling a 2D texture to create the illusion of flying through an infinite 3D tunnel.
 **Fate:** Implemented
 **Lesson:** Iterating through rows explicitly in chunks helps apply mathematical polar coordinate transforms safely, allowing for quick pixel mapping while avoiding complex geometry rendering.
+
+## [Synthwave Filter]
+**Concept:** A synthwave grid post-processing filter that renders a classic retro-futuristic 3D wireframe floor grid with a horizon and a glowing "sun".
+**Fate:** Implemented
+**Lesson:** Drawing an infinite perspective 3D grid in a 2D post-processing pass can be done efficiently by calculating the depth per-row and mapping the horizontal coordinates dynamically with modulo operations, completely avoiding traditional 3D vertex rendering.

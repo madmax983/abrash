@@ -962,3 +962,13 @@ required-features = ["nova"]
 name = "tunnel_bench"
 harness = false
 required-features = ["nova"]
+
+[[example]]
+name = "synthwave_demo"
+path = "examples/synthwave_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "synthwave_bench"
+harness = false
+required-features = ["nova"]
