@@ -962,3 +962,13 @@ required-features = ["nova"]
 name = "tunnel_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "kintsugi_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "kintsugi_demo"
+path = "examples/kintsugi_demo.rs"
+required-features = ["nova"]

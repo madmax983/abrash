@@ -92,7 +92,7 @@ fn clip_plane<V: Copy>(
 // Convert ClippedTriangles to Vec<V> for comparison
 fn clipped_to_vec<V: Copy>(clipped: &ClippedTriangles<V>) -> Vec<V> {
     let mut v = Vec::new();
-    for i in 0..clipped.count * 3 {
+    for i in 0..clipped.count() * 3 {
         v.push(clipped[i]);
     }
     v

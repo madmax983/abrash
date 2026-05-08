@@ -87,3 +87,8 @@
 **Concept:** A classic demoscene effect that maps Cartesian screen coordinates to polar coordinates, sampling a 2D texture to create the illusion of flying through an infinite 3D tunnel.
 **Fate:** Implemented
 **Lesson:** Iterating through rows explicitly in chunks helps apply mathematical polar coordinate transforms safely, allowing for quick pixel mapping while avoiding complex geometry rendering.
+
+## [Kintsugi Filter]
+**Concept:** A post-processing effect that simulates Kintsugi (repairing broken pottery with gold). It finds edges using Sobel detection and renders them in shimmering gold while desaturating non-edge pixels.
+**Fate:** Implemented
+**Lesson:** Safely replacing `f32` color mixing with fast integer arithmetic (`(l * 3 + orig_r) / 4`) in a hot loop allows visually pleasing tinting/desaturation without floating-point conversion overhead. Coordinate-based procedurally generated shimmer acts as an excellent substitute for RNG in purely aesthetic pixel shaders.
