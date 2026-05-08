@@ -377,6 +377,13 @@ Keyboard: Interactive",
         instructions: "Observe the recursive picture-in-picture.",
         example_name: "droste_demo",
     },
+    Demo {
+        name: "CRT Filter",
+        category: DemoCategory::Simulation,
+        description: "Simulates a retro CRT monitor with barrel distortion",
+        instructions: "Mouse: None\nKeyboard: Auto-animates",
+        example_name: "crt_demo",
+    },
 ];
 
 fn is_gpu_render_example(example_name: &str) -> bool {
@@ -404,6 +411,7 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "tilt_shift_demo"
         || example_name == "posterize_demo"
         || example_name == "emboss_demo"
+        || example_name == "crt_demo"
         || example_name == "edge_glow_demo"
         || example_name == "glitch_demo"
         || example_name == "halftone_demo"

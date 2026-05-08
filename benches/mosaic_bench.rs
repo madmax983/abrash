@@ -20,9 +20,9 @@ fn bench_mosaic(c: &mut Criterion) {
                 black_box(&mut fb),
                 black_box(10.0),
                 black_box(1.0),
-                black_box(0xFF000000),
+                black_box(0xFF00_0000),
             );
-        })
+        });
     });
 }
 

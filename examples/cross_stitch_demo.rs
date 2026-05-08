@@ -92,6 +92,7 @@ impl CrossStitchApp {
             for x in 0..width {
                 let dx = x as f32 - cx as f32;
                 let dy = y as f32 - cy as f32;
+                #[allow(clippy::imprecise_flops)]
                 let dist = (dx * dx + dy * dy).sqrt();
 
                 if dist < radius {
@@ -121,7 +122,7 @@ impl WindowApp for CrossStitchApp {
     }
 
     fn init(&mut self, context: WindowContext<'_>) -> Result<(), Self::Error> {
-        self.presenter = Some(SoftwarePresenter::new(context.window.clone())?);
+        self.presenter = Some(SoftwarePresenter::new(context.window)?);
         print_banner();
         Ok(())
     }

@@ -23,7 +23,7 @@ fn bench_cel_shade(c: &mut Criterion) {
     c.bench_function("cel_shade_800x600", |b| {
         b.iter(|| {
             apply_cel_shade(black_box(&mut fb), black_box(&zb), black_box(&config));
-        })
+        });
     });
 }
 

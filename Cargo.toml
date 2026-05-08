@@ -962,3 +962,8 @@ required-features = ["nova"]
 name = "tunnel_bench"
 harness = false
 required-features = ["nova"]
+
+[[example]]
+name = "crt_demo"
+path = "examples/crt_demo.rs"
+required-features = ["nova"]
