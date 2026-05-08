@@ -7,6 +7,7 @@ use abrash_core::texture::Texture;
 ///
 /// Maps Cartesian screen coordinates to polar coordinates (angle and distance),
 /// transforming them into texture coordinates to create a perspective tunnel.
+#[allow(clippy::imprecise_flops)]
 pub fn apply_tunnel(framebuffer: &mut Framebuffer, time: f32, texture: &Texture) {
     let width = framebuffer.width() as usize;
     let height = framebuffer.height() as usize;
@@ -26,7 +27,7 @@ pub fn apply_tunnel(framebuffer: &mut Framebuffer, time: f32, texture: &Texture)
                 let dx = x as f32 - center_x;
 
                 // Distance from center
-                let distance = f32::hypot(dx, dy).max(1.0);
+                let distance = (dx * dx + dy * dy).sqrt().max(1.0);
 
                 // Angle
                 let angle = f32::atan2(dy, dx);

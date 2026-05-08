@@ -35,7 +35,7 @@ thread_local! {
 /// use `abrash_render::post_process::filters::apply_gamma_correction`;
 ///
 /// let mut fb = `Framebuffer::new(1`, `1).unwrap()`;
-/// `fb.set_pixel(0`, 0, 0xFF80_8080); // Mid-gray (128)
+/// `fb.set_pixel(0`, 0, `0xFF80_8080`); // Mid-gray (128)
 /// `apply_gamma_correction(&mut` fb, 2.2);
 /// // With gamma 2.2, mid-gray becomes roughly 186.
 /// let p = `fb.get_pixel(0`, `0).unwrap()`;
@@ -96,7 +96,7 @@ pub fn apply_gamma_correction(fb: &mut Framebuffer, gamma: f32) {
 /// use `abrash_render::post_process::filters::apply_grayscale`;
 ///
 /// let mut fb = `Framebuffer::new(1`, `1).unwrap()`;
-/// `fb.set_pixel(0`, 0, 0xFFFF_0000); // Red
+/// `fb.set_pixel(0`, 0, `0xFFFF_0000`); // Red
 /// `apply_grayscale(&mut` fb);
 /// // Red component is 255. 77*255/256 = 76.
 /// // Result should be grey (76, 76, 76).
@@ -231,11 +231,11 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 /// use `abrash_render::post_process::filters::apply_invert`;
 ///
 /// let mut fb = `Framebuffer::new(1`, `1).unwrap()`;
-/// `fb.set_pixel(0`, 0, 0xFF00_0000); // Black
+/// `fb.set_pixel(0`, 0, `0xFF00_0000`); // Black
 /// `apply_invert(&mut` fb);
 ///
 /// // Alpha is preserved (FF), color is inverted (000000 -> FFFFFF)
-/// `assert_eq!(fb.get_pixel(0`, `0).unwrap()`, 0xFFFF_FFFF); // White
+/// `assert_eq!(fb.get_pixel(0`, `0).unwrap()`, `0xFFFF_FFFF`); // White
 /// Applies a solarize filter to the framebuffer in-place.
 ///
 /// Colors with a value above the given threshold will be inverted.
@@ -320,7 +320,7 @@ pub fn apply_invert(fb: &mut Framebuffer) {
 /// use `abrash_render::post_process::filters::apply_sepia`;
 ///
 /// let mut fb = `Framebuffer::new(1`, `1).unwrap()`;
-/// `fb.set_pixel(0`, 0, 0xFFFF_FFFF); // White
+/// `fb.set_pixel(0`, 0, `0xFFFF_FFFF`); // White
 /// `apply_sepia(&mut` fb);
 /// // Result is tinted yellowish-brown.
 ///
@@ -387,7 +387,7 @@ pub struct ChromaticAberrationConfig {
 /// use `abrash_render::post_process::filters::{apply_chromatic_aberration`, `ChromaticAberrationConfig`};
 ///
 /// let mut fb = `Framebuffer::new(100`, `100).unwrap()`;
-/// `fb.set_pixel(50`, 50, 0xFFFF_FFFF); // White
+/// `fb.set_pixel(50`, 50, `0xFFFF_FFFF`); // White
 /// `apply_chromatic_aberration(&mut` fb, &`ChromaticAberrationConfig` { offset: 5 });
 ///
 
@@ -665,7 +665,7 @@ impl Default for ColorAdjustConfig {
 /// use `abrash_render::post_process::filters::{apply_color_adjust`, `ColorAdjustConfig`};
 ///
 /// let mut fb = `Framebuffer::new(1`, `1).unwrap()`;
-/// `fb.set_pixel(0`, 0, 0xFF80_8080); // Mid Gray (128)
+/// `fb.set_pixel(0`, 0, `0xFF80_8080`); // Mid Gray (128)
 ///
 /// // Increase brightness by 20, keep contrast neutral
 /// let config = `ColorAdjustConfig` { brightness: 20, contrast: 1.0 };
