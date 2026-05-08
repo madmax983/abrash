@@ -87,3 +87,8 @@
 **Concept:** A classic demoscene effect that maps Cartesian screen coordinates to polar coordinates, sampling a 2D texture to create the illusion of flying through an infinite 3D tunnel.
 **Fate:** Implemented
 **Lesson:** Iterating through rows explicitly in chunks helps apply mathematical polar coordinate transforms safely, allowing for quick pixel mapping while avoiding complex geometry rendering.
+
+## [Braille Display Filter]
+**Concept:** A module that converts the framebuffer into a Braille art representation. Each Unicode Braille character encodes a 2x4 grid of pixels based on a luminance threshold, which drastically increases the perceived resolution for text environments.
+**Fate:** Implemented
+**Lesson:** Iterating over 2x4 blocks of pixels and applying a bitmask based on Unicode Braille dot patterns (U+2800 to U+28FF) enables efficient high-resolution image-to-text conversion.
