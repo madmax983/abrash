@@ -63,44 +63,39 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     let range = (max_z - min_z).max(0.0001);
     let inv_range = 1.0 / range;
 
+    // ⚡ Bolt: Pre-calculate a 257-element Lookup Table (LUT) for the gradient to eliminate
+    // per-pixel floating point branching and color math in the hot loop.
+    // 257 elements to correctly map 0.0..1.0 where 1.0 is exactly index 256.
+    let mut lut = [0u32; 257];
+    for (i, entry) in lut.iter_mut().enumerate() {
+        let normalized = i as f32 / 256.0;
+        let (r, g, b) = if normalized < 0.25 {
+            let t = normalized * 4.0;
+            (255, (t * 255.0) as u32, 0)
+        } else if normalized < 0.5 {
+            let t = (normalized - 0.25) * 4.0;
+            (((1.0 - t) * 255.0) as u32, 255, 0)
+        } else if normalized < 0.75 {
+            let t = (normalized - 0.5) * 4.0;
+            (0, 255, (t * 255.0) as u32)
+        } else {
+            let t = (normalized - 0.75) * 4.0;
+            (0, ((1.0 - t) * 255.0) as u32, 255)
+        };
+        *entry = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+    }
+
+    let scale = inv_range * 256.0;
+
     for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
         if depth == f32::INFINITY {
             *pixel = 0xFF00_0010; // Very Dark Blue Background
             continue;
         }
 
-        // Normalize Z to [0.0, 1.0]
-        // 0.0 = Closest (Hot)
-        // 1.0 = Furthest (Cold)
-        let normalized = ((depth - min_z) * inv_range).clamp(0.0, 1.0);
-
-        // Heat Map Gradient
-        // 0.0 (Hot) -> Red (255, 0, 0)
-        // 0.25      -> Yellow (255, 255, 0)
-        // 0.5       -> Green (0, 255, 0)
-        // 0.75      -> Cyan (0, 255, 255)
-        // 1.0 (Cold)-> Blue (0, 0, 255)
-
-        let (r, g, b) = if normalized < 0.25 {
-            // Red -> Yellow
-            let t = normalized * 4.0;
-            (255, (t * 255.0) as u32, 0)
-        } else if normalized < 0.5 {
-            // Yellow -> Green
-            let t = (normalized - 0.25) * 4.0;
-            (((1.0 - t) * 255.0) as u32, 255, 0)
-        } else if normalized < 0.75 {
-            // Green -> Cyan
-            let t = (normalized - 0.5) * 4.0;
-            (0, 255, (t * 255.0) as u32)
-        } else {
-            // Cyan -> Blue
-            let t = (normalized - 0.75) * 4.0;
-            (0, ((1.0 - t) * 255.0) as u32, 255)
-        };
-
-        // Combine into ARGB
-        *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+        // Map Z to [0.0, 256.0] and cast to integer index
+        let idx = ((depth - min_z) * scale).clamp(0.0, 256.0) as usize;
+        *pixel = lut[idx];
     }
 }
 

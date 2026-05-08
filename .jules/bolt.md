@@ -157,3 +157,11 @@
 **Learning:** In hot per-pixel rendering loops (like posterization filters), floating-point arithmetic `(r / 255.0 * levels)` and `f32::round()` casting are extremely slow. Replacing them with pure, scaled integer arithmetic `((r * levels_minus_1 + 127) / 255 * 255) / levels_minus_1` eliminates float conversion overhead entirely and significantly speeds up rendering, while preserving behavior.
 **Action:** When mapping continuous values or doing scale/rounding math across every pixel in a framebuffer, replace floating-point operations with pre-calculated fixed-point integer math inside the inner loop for a massive performance boost.
 **[Posterize Float to Integer scaling]**\n**Learning:** In hot per-pixel rendering loops (like posterization filters), floating-point arithmetic (e.g. `r / 255.0 * levels`) and `f32::round()` casting are extremely slow. Replace them with pure, scaled integer arithmetic (e.g., `((r * levels_minus_1 + 127) / 255 * 255 + (levels_minus_1 / 2)) / levels_minus_1`) to eliminate float conversion overhead.\n**Action:** Replaced f32 arithmetic and `round()` with scaled integer division in `posterize.rs`.
+
+**[Pre-calculated Color Gradient LUT]**
+**Learning:** In hot per-pixel rendering loops (like heat vision), calculating continuous gradients using floating-point math and branching (`if/else`) is extremely slow. Pre-calculating the continuous gradient into a fixed-size array Lookup Table (LUT) avoids redundant floating-point interpolation math and significantly improves performance.
+**Action:** Replace per-pixel gradient calculation logic with a pre-calculated `lut` array and index into it.
+
+**[LUT Array Sizing for Normalized Bounds]**
+**Learning:** When using a Lookup Table (LUT) to map normalized floating-point values (0.0 to 1.0) to array indices by multiplying by a factor N (e.g., 256.0), the array must be sized N+1 (e.g., 257) to safely accommodate the inclusive 1.0 bound. If the array is sized exactly N (e.g., 256), scaling 1.0 will map to index 256, causing an immediate out-of-bounds panic.
+**Action:** Ensure LUT arrays meant to encompass inclusive bounds are sized N+1 when mapping via direct float scaling to prevent out-of-bounds panics.
