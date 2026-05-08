@@ -187,7 +187,7 @@ impl<T: Default + Copy> AlignedBuffer<T> {
         // Assume elem_size divides align_bytes or at least offset_bytes (true for u32/f32 and align 32)
         let offset_elements = offset_bytes / elem_size;
 
-        let ptr = unsafe { start_ptr.add(offset_elements) };
+        let ptr = start_ptr.wrapping_add(offset_elements);
 
         Self { data, ptr, len }
     }
@@ -206,7 +206,7 @@ impl<T: Default + Copy> AlignedBuffer<T> {
                 let start_addr = start_ptr as usize;
                 let offset_bytes = (align_bytes - (start_addr % align_bytes)) % align_bytes;
                 let offset_elements = offset_bytes / elem_size;
-                self.ptr = unsafe { start_ptr.add(offset_elements) };
+                self.ptr = start_ptr.wrapping_add(offset_elements);
             }
         }
         self.len = new_len;
@@ -3374,9 +3374,10 @@ impl TileRenderer {
                     max_depth: tri.max_depth,
                 };
 
-                // SAFETY: has_hiz is true, so hiz_buffer_ref is Some
-                if !unsafe { hiz_buffer_ref.unwrap_unchecked() }.is_potentially_visible(aabb) {
-                    continue;
+                if let Some(hiz) = hiz_buffer_ref {
+                    if !hiz.is_potentially_visible(aabb) {
+                        continue;
+                    }
                 }
             }
 
@@ -3465,11 +3466,10 @@ impl TileRenderer {
                         max_depth: ctx.tri_max_depth,
                     };
 
-                    // SAFETY: has_hiz is true, so hiz_buffer_ref is Some
-                    if !unsafe { ctx.hiz_buffer_ref.unwrap_unchecked() }
-                        .is_potentially_visible(bin_aabb)
-                    {
-                        visible = false;
+                    if let Some(hiz) = ctx.hiz_buffer_ref {
+                        if !hiz.is_potentially_visible(bin_aabb) {
+                            visible = false;
+                        }
                     }
                 }
 

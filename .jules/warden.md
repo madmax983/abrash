@@ -24,3 +24,11 @@
 ## 2026-04-18 - [Heap Buffer Overflow in Pixel Sort via Unchecked SendPtr]
 **Threat:** The `SendPtr` wrapper inside `crates/abrash-render/src/experimental/pixel_sort.rs` lacked a length parameter and blindly added indices to the raw pointer via `*ptr.0.add(...)`. If a framebuffer lied about its dimensions or if sorting logic failed, it would lead to a catastrophic out-of-bounds heap read/write.
 **Defense:** Rewrote `SendPtr` to capture and store the length of the slice at instantiation. Replaced direct raw pointer dereferencing with safe `read()` and `write()` methods containing an `assert!(index < self.1, "Index out of bounds")` guard before evaluating the `unsafe` block.
+
+**2026-04-18 - Out-of-Bounds pointer arithmetic in AlignedBuffer**
+**Threat:** The `AlignedBuffer::new()` and `resize()` methods in `crates/abrash-render/src/rasterizer/tile.rs` blindly used `unsafe { start_ptr.add(offset_elements) }`. Under adversarial allocation conditions or massive sizes, this could overflow the pointer boundary, causing memory corruption or Undefined Behavior.
+**Defense:** Replaced the unsafe arithmetic with safe `start_ptr.wrapping_add(offset_elements)`.
+
+**2026-04-18 - Unchecked Unwraps in Hi-Z Culling**
+**Threat:** The Tile renderer used `unsafe { hiz_buffer_ref.unwrap_unchecked() }` based on a decoupled `has_hiz` boolean flag. This pattern is fragile and bypasses the type system, creating an attack vector if logic is ever refactored incorrectly.
+**Defense:** Replaced the boolean and unchecked unwrap with a safe, idiomatic `if let Some(hiz) = hiz_buffer_ref` pattern.

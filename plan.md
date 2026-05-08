@@ -1,26 +1,29 @@
-1. **Explore the codebase and understand the task**
-   - Verified that the persona is "Nova", tasked with creating ONE new, interesting feature from scratch (additive only) without modifying core logic.
-   - Decided to create a Physarum (Slime Mold) Simulation post-processing effect in `crates/abrash-render/src/experimental/physarum.rs`.
+1. **Explore and Identify**
+   - Review Sentry guidelines requiring strict code safety and `cargo audit` zero-vulnerability limits.
+   - Investigate vulnerable dependencies via `cargo audit` (`rand`, `imageproc`, `paste` etc). Note that many are upstream inside `fyrox` or `bevy` sub-trees and cannot be simply eliminated via `cargo update` without breaking semantic compatibility in those workspaces. As per instructions, focus strictly on direct application logic fixes.
 
-2. **Implement the new feature**
-   - Created `crates/abrash-render/src/experimental/physarum.rs` with the `apply_physarum` function. It simulates slime mold agents depositing pheromones and moving based on the trail map.
-   - Used thread-local `RefCell`s to manage state without reallocations (`TRAIL_MAP` and `AGENTS`).
+2. **UB in Tile Initialization**
+   - Audit `PreparedGouraudTrianglesList`, `PreparedTrianglesList`, and `PreparedTexturedTrianglesList` in `crates/abrash-render/src/rasterizer/tile.rs`. Their `count` field is marked `pub`, allowing safe code to arbitrarily inflate the active element length. Since these wrap `MaybeUninit` arrays, any safe consumer can force the list to execute `.assume_init()` on uninitialized memory, triggering UB.
+   - Refactor these structs to make the `count` field private and expose a safe `.count()` getter method.
+   - Update usages across the test suite (`sentry_clipping_fuzz.rs`).
 
-3. **Wire it up**
-   - Added `physarum` module to `crates/abrash-render/src/experimental/mod.rs`.
-   - Created `examples/physarum_demo.rs` to demonstrate the effect.
-   - Added `benches/physarum_bench.rs` to measure performance.
-   - Updated `Cargo.toml` to register the new example and bench.
+3. **Out-of-Bounds Pointer Arithmetic in AlignedBuffer**
+   - In `AlignedBuffer::new()` and `resize()`, pointer addition uses the unguarded `unsafe { start_ptr.add(offset_elements) }`.
+   - Update this to safely use `start_ptr.wrapping_add(offset_elements)` so massive capacity calculations safely wrap and panic organically downstream instead of manifesting as silent memory layout corruption.
 
-4. **Verify correctness**
-   - Fixed compilation errors due to missing imports (`XorShiftRng`, `color_blend`).
-   - Fixed borrow checker issue with `trail_borrow`.
-   - Ensured no panics on `.unwrap()` calls for system time.
-   - Validated that `cargo check`, `cargo test`, and `cargo clippy` pass cleanly.
-   - Logged the idea in `.jules/nova.md`.
+4. **Unchecked Unwraps in Hi-Z Culling**
+   - The method `process_triangles` uses `unsafe { hiz_buffer_ref.unwrap_unchecked() }` conditioned on an unrelated boolean flag (`has_hiz`).
+   - Rewrite this to standard idiomatic rust `if let Some(hiz) = hiz_buffer_ref` to safely bind the scope.
 
-5. **Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done**
-   - Use `pre_commit_instructions` tool to make sure all pre commit requirements are met.
+5. **Clippy Pedantic Cleanup (`-D warnings`)**
+   - Run `cargo clippy --all-targets --all-features -- -D warnings`.
+   - Resolve various syntax and formatting lint issues, including missing document backticks (`clippy::doc_markdown`), unnecessary Result wraps (`clippy::unnecessary_wraps`), missing trailing semicolons in Criterion benchmarks (`clippy::semicolon_if_nothing_returned`), long unreadable hexadecimal literals (`clippy::unreadable_literal`), missing type casting (`clippy::cast_lossless`), missing `#allow(clippy::imprecise_flops)` over `sqrt()`, etc.
 
-6. **Submit the changes**
-   - Use the `submit` tool to finalize.
+6. **Verify Constraints**
+   - Run `cargo test --all-targets --all-features` to ensure no runtime regressions occurred due to the struct field privacy modifications and macro refactoring.
+   - Run `cargo clippy --all-targets --all-features -- -D warnings` and confirm 0 warnings.
+   - Re-run `cargo fmt --all`.
+   - Complete pre-commit verifications.
+
+7. **Submit Changes**
+   - Submit under branch `warden-safety-audit` with a detailed PR adhering to the Warden persona reporting guidelines.
