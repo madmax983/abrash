@@ -1,26 +1,20 @@
-1. **Explore the codebase and understand the task**
-   - Verified that the persona is "Nova", tasked with creating ONE new, interesting feature from scratch (additive only) without modifying core logic.
-   - Decided to create a Physarum (Slime Mold) Simulation post-processing effect in `crates/abrash-render/src/experimental/physarum.rs`.
+1. **Refactor `Evaluable` and `Sample` in `abrash-anim` and `abrash-core`**
+   - **Target:** `crates/abrash-core/src/animatable.rs`, `crates/abrash-anim/src/evaluable.rs`, `crates/abrash-anim/src/hold.rs`, `crates/abrash-anim/src/keyframe.rs`, `crates/abrash-anim/src/sequence.rs`, `crates/abrash-anim/src/timeline.rs`, `crates/abrash-anim/src/easing.rs`
+   - **Action:** Remove the `velocity` field from `Sample<T>` because it is YAGNI (speculative generality for "future velocity-preserving spring interruption" as stated in the comments). It complicates the `Animatable` trait, which forces implementors to provide `anim_scale`, `anim_add`, `anim_sub`, and `zero` purely to calculate this unused velocity.
+   - Remove `anim_scale`, `anim_add`, `anim_sub`, and `zero` from the `Animatable` trait in `crates/abrash-core/src/animatable.rs`.
+   - Update implementations of `Animatable` to only include `interpolate` and `distance_squared`.
+   - Remove `velocity` field from `Sample<T>` in `crates/abrash-anim/src/evaluable.rs`.
+   - Update `Hold::evaluate` and tests.
+   - Update `Keyframe::evaluate` and tests.
+   - Log reduction to `.jules/razor.md`.
 
-2. **Implement the new feature**
-   - Created `crates/abrash-render/src/experimental/physarum.rs` with the `apply_physarum` function. It simulates slime mold agents depositing pheromones and moving based on the trail map.
-   - Used thread-local `RefCell`s to manage state without reallocations (`TRAIL_MAP` and `AGENTS`).
+2. **Verify Changes**
+   - Run `cargo test` to ensure tests pass.
+   - Run `cargo clippy --all-targets --all-features -- -D warnings` and `cargo fmt --all`.
+   - Fix `tests/sentry_clipping_fuzz.rs` compilation error (`clipped.count` -> `clipped.count()`).
 
-3. **Wire it up**
-   - Added `physarum` module to `crates/abrash-render/src/experimental/mod.rs`.
-   - Created `examples/physarum_demo.rs` to demonstrate the effect.
-   - Added `benches/physarum_bench.rs` to measure performance.
-   - Updated `Cargo.toml` to register the new example and bench.
+3. **Pre-commit step**
+   - Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
 
-4. **Verify correctness**
-   - Fixed compilation errors due to missing imports (`XorShiftRng`, `color_blend`).
-   - Fixed borrow checker issue with `trail_borrow`.
-   - Ensured no panics on `.unwrap()` calls for system time.
-   - Validated that `cargo check`, `cargo test`, and `cargo clippy` pass cleanly.
-   - Logged the idea in `.jules/nova.md`.
-
-5. **Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done**
-   - Use `pre_commit_instructions` tool to make sure all pre commit requirements are met.
-
-6. **Submit the changes**
-   - Use the `submit` tool to finalize.
+4. **Submit**
+   - Submit the refactoring using `submit`.

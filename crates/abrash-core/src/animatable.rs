@@ -13,21 +13,6 @@ pub trait Animatable: Clone + 'static {
     #[must_use]
     fn interpolate(&self, other: &Self, t: f32) -> Self;
 
-    /// Scale the value by a scalar factor.
-    #[must_use]
-    fn anim_scale(&self, scalar: f32) -> Self;
-
-    /// Add another value to this one.
-    #[must_use]
-    fn anim_add(&self, other: &Self) -> Self;
-
-    /// Subtract another value from this one.
-    #[must_use]
-    fn anim_sub(&self, other: &Self) -> Self;
-
-    /// The additive identity (zero value).
-    fn zero() -> Self;
-
     /// Squared distance between two values. Used for settling detection.
     fn distance_squared(&self, other: &Self) -> f32;
 }
@@ -35,22 +20,6 @@ pub trait Animatable: Clone + 'static {
 impl Animatable for f32 {
     fn interpolate(&self, other: &Self, t: f32) -> Self {
         self + (other - self) * t
-    }
-
-    fn anim_scale(&self, scalar: f32) -> Self {
-        self * scalar
-    }
-
-    fn anim_add(&self, other: &Self) -> Self {
-        self + other
-    }
-
-    fn anim_sub(&self, other: &Self) -> Self {
-        self - other
-    }
-
-    fn zero() -> Self {
-        0.0
     }
 
     fn distance_squared(&self, other: &Self) -> f32 {
@@ -63,22 +32,6 @@ impl Animatable for Vec2 {
         self.lerp(*other, t)
     }
 
-    fn anim_scale(&self, scalar: f32) -> Self {
-        *self * scalar
-    }
-
-    fn anim_add(&self, other: &Self) -> Self {
-        *self + *other
-    }
-
-    fn anim_sub(&self, other: &Self) -> Self {
-        *self - *other
-    }
-
-    fn zero() -> Self {
-        Self::new(0.0, 0.0)
-    }
-
     fn distance_squared(&self, other: &Self) -> f32 {
         let dx = self.x - other.x;
         let dy = self.y - other.y;
@@ -89,22 +42,6 @@ impl Animatable for Vec2 {
 impl Animatable for Vec3 {
     fn interpolate(&self, other: &Self, t: f32) -> Self {
         self.lerp(*other, t)
-    }
-
-    fn anim_scale(&self, scalar: f32) -> Self {
-        *self * scalar
-    }
-
-    fn anim_add(&self, other: &Self) -> Self {
-        *self + *other
-    }
-
-    fn anim_sub(&self, other: &Self) -> Self {
-        *self - *other
-    }
-
-    fn zero() -> Self {
-        Self::ZERO
     }
 
     fn distance_squared(&self, other: &Self) -> f32 {
@@ -120,22 +57,6 @@ impl Animatable for Quat {
         self.slerp(other, t)
     }
 
-    fn anim_scale(&self, scalar: f32) -> Self {
-        Self::identity().slerp(self, scalar)
-    }
-
-    fn anim_add(&self, other: &Self) -> Self {
-        *self * *other
-    }
-
-    fn anim_sub(&self, other: &Self) -> Self {
-        *self * other.conjugate()
-    }
-
-    fn zero() -> Self {
-        Self::identity()
-    }
-
     fn distance_squared(&self, other: &Self) -> f32 {
         let dot = self.dot(*other).abs();
         1.0 - dot * dot
@@ -149,34 +70,6 @@ impl Animatable for Transform {
             rotation: self.rotation.interpolate(&other.rotation, t),
             scale: self.scale.interpolate(&other.scale, t),
         }
-    }
-
-    fn anim_scale(&self, scalar: f32) -> Self {
-        Self {
-            position: self.position.anim_scale(scalar),
-            rotation: self.rotation.anim_scale(scalar),
-            scale: self.scale.anim_scale(scalar),
-        }
-    }
-
-    fn anim_add(&self, other: &Self) -> Self {
-        Self {
-            position: self.position.anim_add(&other.position),
-            rotation: self.rotation.anim_add(&other.rotation),
-            scale: self.scale.anim_add(&other.scale),
-        }
-    }
-
-    fn anim_sub(&self, other: &Self) -> Self {
-        Self {
-            position: self.position.anim_sub(&other.position),
-            rotation: self.rotation.anim_sub(&other.rotation),
-            scale: self.scale.anim_sub(&other.scale),
-        }
-    }
-
-    fn zero() -> Self {
-        Self::identity()
     }
 
     fn distance_squared(&self, other: &Self) -> f32 {
@@ -206,26 +99,6 @@ mod tests {
     }
 
     #[test]
-    fn f32_zero() {
-        assert!((f32::zero()).abs() < f32::EPSILON);
-    }
-
-    #[test]
-    fn f32_add_sub_roundtrip() {
-        let a: f32 = 3.0;
-        let b: f32 = 7.0;
-        let sum = a.anim_add(&b);
-        let diff = sum.anim_sub(&b);
-        assert!((diff - a).abs() < f32::EPSILON);
-    }
-
-    #[test]
-    fn f32_scale() {
-        let a: f32 = 5.0;
-        assert!((a.anim_scale(2.0) - 10.0).abs() < f32::EPSILON);
-    }
-
-    #[test]
     fn f32_distance_squared() {
         let a: f32 = 3.0;
         let b: f32 = 7.0;
@@ -244,13 +117,6 @@ mod tests {
     }
 
     #[test]
-    fn vec2_zero() {
-        let z = Vec2::zero();
-        assert!((z.x).abs() < f32::EPSILON);
-        assert!((z.y).abs() < f32::EPSILON);
-    }
-
-    #[test]
     fn vec3_interpolate_midpoint() {
         let a = Vec3::new(0.0, 0.0, 0.0);
         let b = Vec3::new(10.0, 20.0, 30.0);
@@ -258,17 +124,6 @@ mod tests {
         assert!((mid.x - 5.0).abs() < f32::EPSILON);
         assert!((mid.y - 10.0).abs() < f32::EPSILON);
         assert!((mid.z - 15.0).abs() < f32::EPSILON);
-    }
-
-    #[test]
-    fn vec3_add_sub_roundtrip() {
-        let a = Vec3::new(1.0, 2.0, 3.0);
-        let b = Vec3::new(4.0, 5.0, 6.0);
-        let sum = a.anim_add(&b);
-        let diff = sum.anim_sub(&b);
-        assert!((diff.x - a.x).abs() < f32::EPSILON);
-        assert!((diff.y - a.y).abs() < f32::EPSILON);
-        assert!((diff.z - a.z).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -288,12 +143,6 @@ mod tests {
         let v = mid.rotate_vec3(Vec3::new(1.0, 0.0, 0.0));
         let expected_x = (std::f32::consts::FRAC_PI_2 / 2.0).cos();
         assert!((v.x - expected_x).abs() < 1e-5);
-    }
-
-    #[test]
-    fn quat_zero_is_identity() {
-        let z = Quat::zero();
-        assert!((z.w - 1.0).abs() < 1e-5);
     }
 
     #[test]
@@ -339,13 +188,5 @@ mod tests {
         assert!((mid.scale.x - 2.0).abs() < 1e-5);
         assert!((mid.scale.y - 2.0).abs() < 1e-5);
         assert!((mid.scale.z - 2.0).abs() < 1e-5);
-    }
-
-    #[test]
-    fn transform_zero_is_identity() {
-        let z = Transform::zero();
-        assert!((z.position.x).abs() < 1e-5);
-        assert!((z.rotation.w - 1.0).abs() < 1e-5);
-        assert!((z.scale.x - 1.0).abs() < 1e-5);
     }
 }

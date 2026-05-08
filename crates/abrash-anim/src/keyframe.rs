@@ -7,7 +7,6 @@ use crate::evaluable::Sample;
 
 /// A tween segment that interpolates from one value to another with easing.
 ///
-/// Velocity is derived analytically from the easing function's derivative.
 pub struct Keyframe<T: Animatable> {
     pub from: T,
     pub to: T,
@@ -33,15 +32,7 @@ impl<T: Animatable + Send + Sync> Keyframe<T> {
         let eased = self.easing.apply(phase);
         let value = self.from.interpolate(&self.to, eased);
 
-        let deriv = self.easing.derivative(phase);
-        let delta = self.to.anim_sub(&self.from);
-        let velocity = if self.duration > f32::EPSILON {
-            delta.anim_scale(deriv / self.duration)
-        } else {
-            T::zero()
-        };
-
-        Sample::new(value, velocity)
+        Sample::new(value)
     }
 
     pub const fn natural_duration(&self) -> f32 {
@@ -75,21 +66,6 @@ mod tests {
         let s = kf.evaluate(0.5);
         assert!((s.value - 5.0).abs() < EPSILON);
     }
-
-    #[test]
-    fn velocity_nonzero_at_midpoint() {
-        let kf = Keyframe::new(0.0_f32, 10.0, Easing::Linear, 1.0);
-        let s = kf.evaluate(0.5);
-        assert!(s.velocity.abs() > EPSILON);
-    }
-
-    #[test]
-    fn velocity_is_zero_at_ease_in_start() {
-        let kf = Keyframe::new(0.0_f32, 10.0, Easing::EaseIn, 1.0);
-        let s = kf.evaluate(0.0);
-        assert!(s.velocity.abs() < EPSILON);
-    }
-
     #[test]
     fn natural_duration_matches() {
         let kf = Keyframe::new(0.0_f32, 10.0, Easing::Linear, 2.5);

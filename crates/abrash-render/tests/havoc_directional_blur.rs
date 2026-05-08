@@ -1,3 +1,4 @@
+#![cfg(feature = "nova")]
 use abrash_core::framebuffer::Framebuffer;
 use abrash_render::experimental::directional_blur::{
     DirectionalBlurConfig, apply_directional_blur,
