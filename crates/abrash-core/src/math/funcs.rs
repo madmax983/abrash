@@ -6080,7 +6080,11 @@ pub fn givens_rotation(a: f32, b: f32) -> (f32, f32) {
     if b == 0.0 {
         return (1.0, 0.0);
     }
-    let r = a.hypot(b).max(1e-30);
+    // ⚡ Bolt: Replaced `f32::hypot` with Euclidean distance `(a * a + b * b).sqrt()`
+    // to avoid internal underflow/overflow checks in hot math loops since the expected
+    // values for Givens rotations are within normal f32 bounds.
+    #[allow(clippy::imprecise_flops)]
+    let r = (a * a + b * b).sqrt().max(1e-30);
     (a / r, b / r)
 }
 
