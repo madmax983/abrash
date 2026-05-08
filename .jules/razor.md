@@ -17,3 +17,7 @@
 **Bloat:** `Evaluable` as a trait with single implementations in `abrash-anim`, which caused dynamic dispatch (`Box<dyn Evaluable<T>>`) throughout the animation sequences, timelines and skeletal clip evaluators.
 **Cut:** Replaced `Evaluable` trait with an `enum Evaluable<T>` containing `Keyframe`, `Hold` and `Sequence`. All dynamically dispatched `Box<dyn Evaluable<T>>` occurrences were removed and replaced with concrete enum variants, achieving zero-cost abstractions and keeping memory flat.
 **Saved:** Removed the use of dynamic dispatch/`Box` completely across `abrash-anim` and `abrash-skeletal`.
+## [Reduction]
+**Bloat:** Unreadable literals, imprecise floating point math, unnecessary return types.
+**Cut:** Formatted literals, removed Result where returning () is fine, applied hypot, added trailing semicolons.
+**Saved:** Multiple Clippy warnings fixed, keeping codebase clean and simple.

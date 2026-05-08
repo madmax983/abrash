@@ -96,7 +96,7 @@ fn render_cube(fb: &mut Framebuffer, zb: &mut ZBuffer, cube: &Mesh, model: Mat4,
         }
 
         // Just use white as the base rendering color; sonar replaces it anyway
-        fill_triangle_3d(fb, zb, (clip0, w0), (clip1, w1), (clip2, w2), 0xFFFFFFFF);
+        fill_triangle_3d(fb, zb, (clip0, w0), (clip1, w1), (clip2, w2), 0xFFFF_FFFF);
     }
 }
 
@@ -170,7 +170,7 @@ impl WindowApp for SonarDemoApp {
     }
 
     fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        self.framebuffer.clear(0xFF000000);
+        self.framebuffer.clear(0xFF00_0000);
         self.zbuffer.clear();
 
         // Render a line of cubes to show off depth
@@ -189,11 +189,15 @@ impl WindowApp for SonarDemoApp {
         }
 
         // Apply post-processing filter
-        let mut config = SonarConfig::default();
-        config.time = self.time;
-        config.wave_spacing = 5.0; // closer waves
-        config.wave_speed = 3.0;
-        config.wave_color = 0xFF_00_FF_AA;
+        let config = SonarConfig {
+            time: self.time,
+            wave_spacing: 5.0,
+            wave_speed: 3.0,
+            wave_color: 0xFF_00_FF_AA,
+            ..Default::default()
+        };
+
+        // closer waves
 
         apply_sonar(&mut self.framebuffer, &self.zbuffer, &config);
 
@@ -201,6 +205,7 @@ impl WindowApp for SonarDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), AppError> {
     print_banner();
     run_windowed(SonarDemoApp::new().unwrap());

@@ -7,19 +7,21 @@ fn bench_hypot_vs_sqrt(c: &mut Criterion) {
     let mut group = c.benchmark_group("speed_lines_distance_calc");
 
     group.bench_function("hypot", |b| {
+        #[allow(clippy::imprecise_flops)]
         b.iter(|| {
             let dist = black_box(dx).hypot(black_box(dy));
             black_box(dist);
-        })
+        });
     });
 
     group.bench_function("sqrt", |b| {
+        #[allow(clippy::imprecise_flops)]
         b.iter(|| {
             let x = black_box(dx);
             let y = black_box(dy);
             let dist = (x * x + y * y).sqrt();
             black_box(dist);
-        })
+        });
     });
 
     group.finish();
