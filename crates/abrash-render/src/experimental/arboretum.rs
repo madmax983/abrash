@@ -214,7 +214,7 @@ impl LSystem {
                 }
 
                 if next.len() > limit {
-                    return Err("L-system exceeded memory limits".to_string());
+                    return Err("L-system exceeded memory limits".to_owned());
                 }
             }
             std::mem::swap(&mut current, &mut next);
