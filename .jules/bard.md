@@ -13,3 +13,6 @@
 ## 2024-05-14 - [Core and Render Undocumented Items]
 **Confusion:** Several public structs (`Cylinder`), modules (math primitives), and thread-locals (`CPU_RENDERER_DRAW_LIST`) were lacking documentation, generating missing_docs warnings and leaving their use-cases unclear.
 **Clarification:** Added appropriate module and struct level documentation to clarify their purpose in the larger 3D graphics pipeline context.
+## 2024-05-18 - [Missing Documentation for Public Modules]
+**Confusion:** Several experimental modules and internal fuzzing functions lacked proper documentation or were exposed to the public API unnecessarily, leading to a poorer `cargo doc` output and `clippy::missing_docs` / `clippy::doc_markdown` warnings.
+**Clarification:** Added missing module-level `//!` and function-level `///` docs to `tunnel.rs`, `mandelbrot.rs`, `precipitation.rs`, `water_ripple.rs`, `kaleidoscope.rs`, and `modifiers.rs`. Also applied `#[doc(hidden)]` to `fuzz_load_obj` in `obj_loader_fuzz.rs` to keep the public manual clean. Fixed unescaped hex literals in doc comments by wrapping them in backticks to resolve `clippy::doc_markdown`.

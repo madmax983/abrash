@@ -1,9 +1,20 @@
+//! Infinite Tunnel Post-Processing Filter
+//!
+//! Applies a perspective 3D tunnel effect by mapping screen coordinates
+//! to polar coordinates to fetch texture data.
+
 #![cfg(feature = "nova")]
 
 use abrash_core::framebuffer::Framebuffer;
 use abrash_core::texture::Texture;
 
 /// Applies an infinite 3D tunnel effect.
+///
+/// # Arguments
+///
+/// * `framebuffer` - The framebuffer to modify in-place.
+/// * `time` - The current animation time.
+/// * `texture` - The texture mapped to the walls of the tunnel.
 ///
 /// Maps Cartesian screen coordinates to polar coordinates (angle and distance),
 /// transforming them into texture coordinates to create a perspective tunnel.
