@@ -139,7 +139,13 @@ fn flatten_indices(mesh: &Mesh) -> Result<Vec<u32>, String> {
         let [i0, i1, i2] = *triangle;
 
         if i0 >= vertices_len || i1 >= vertices_len || i2 >= vertices_len {
-            let bad_index = if i0 >= vertices_len { i0 } else if i1 >= vertices_len { i1 } else { i2 };
+            let bad_index = if i0 >= vertices_len {
+                i0
+            } else if i1 >= vertices_len {
+                i1
+            } else {
+                i2
+            };
             return Err(format!(
                 "triangle {triangle_index} references vertex {bad_index}, but only {vertices_len} vertices exist"
             ));

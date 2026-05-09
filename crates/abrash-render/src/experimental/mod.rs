@@ -61,6 +61,7 @@ pub mod glitch;
 pub mod halftone;
 pub mod harmonograph;
 pub mod hologram;
+pub mod infinite_grid;
 pub mod isosurface;
 pub mod jelly;
 pub mod kaleidoscope;

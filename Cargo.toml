@@ -962,3 +962,8 @@ required-features = ["nova"]
 name = "tunnel_bench"
 harness = false
 required-features = ["nova"]
+
+[[example]]
+name = "infinite_grid_demo"
+path = "examples/infinite_grid_demo.rs"
+required-features = ["nova", "backend-winit"]
