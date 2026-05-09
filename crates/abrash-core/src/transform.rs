@@ -227,7 +227,9 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
-        out.reserve_exact(points.len());
+        // ⚡ Bolt: Removed `.reserve_exact(points.len())` here because `extend` on iterators with
+        // a known `size_hint` automatically and optimally handles capacity via `FromIterator` heuristics.
+        // Forcing `reserve_exact` defeated capacity preservation when vectors shrink or cycle across frames.
         out.extend(points.iter().map(|p| {
             Vec3::new(
                 p.x * m00 + p.y * m10 + p.z * m20 + self.position.x,
@@ -284,7 +286,8 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
-        out.reserve_exact(vectors.len());
+        // ⚡ Bolt: Removed `.reserve_exact(vectors.len())` to allow `extend` to natively and optimally
+        // manage the target's capacity reuse.
         out.extend(vectors.iter().map(|v| {
             Vec3::new(
                 v.x * m00 + v.y * m10 + v.z * m20,
@@ -342,7 +345,8 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
-        out.reserve_exact(points.len());
+        // ⚡ Bolt: Removed `.reserve_exact(points.len())` to allow `extend` to natively and optimally
+        // manage the target's capacity reuse.
         out.extend(points.iter().map(|p| {
             let local = *p - self.position;
             Vec3::new(

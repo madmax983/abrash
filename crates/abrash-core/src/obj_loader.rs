@@ -294,7 +294,9 @@ impl ObjParser {
         let new_idx = self.final_vertices.len();
 
         if new_idx >= MAX_VERTICES {
-            return Err(format!("Line {line_num}: Maximum vertices exceeded during triangulated assembly"));
+            return Err(format!(
+                "Line {line_num}: Maximum vertices exceeded during triangulated assembly"
+            ));
         }
 
         // Push vertex

@@ -530,20 +530,18 @@ impl Framebuffer {
 
         // Write pixel data
         let pixels = self.as_slice();
-        let mut row_buffer = Vec::with_capacity((self.width() * 3) as usize);
+        let mut row_buffer = vec![0u8; (self.width() * 3) as usize];
 
         for row in pixels
             .chunks_exact(self.width() as usize)
             .take(self.height() as usize)
         {
-            row_buffer.clear();
-            for &pixel in row {
-                let bytes = [
-                    ((pixel >> 16) & 0xFF) as u8,
-                    ((pixel >> 8) & 0xFF) as u8,
-                    (pixel & 0xFF) as u8,
-                ];
-                row_buffer.extend_from_slice(&bytes);
+            // ⚡ Bolt: Eliminate dynamic `extend_from_slice` capacity checks by pre-allocating
+            // a zeroed row buffer and writing directly via iterators to elide bounds checks.
+            for (&pixel, out) in row.iter().zip(row_buffer.chunks_exact_mut(3)) {
+                out[0] = ((pixel >> 16) & 0xFF) as u8;
+                out[1] = ((pixel >> 8) & 0xFF) as u8;
+                out[2] = (pixel & 0xFF) as u8;
             }
             writer.write_all(&row_buffer)?;
         }
@@ -585,20 +583,18 @@ impl Framebuffer {
 
         // Write pixel data (TGA stores data in BGR format)
         let pixels = self.as_slice();
-        let mut row_buffer = Vec::with_capacity((self.width() * 3) as usize);
+        let mut row_buffer = vec![0u8; (self.width() * 3) as usize];
 
         for row in pixels
             .chunks_exact(self.width() as usize)
             .take(self.height() as usize)
         {
-            row_buffer.clear();
-            for &pixel in row {
-                let bytes = [
-                    (pixel & 0xFF) as u8,
-                    ((pixel >> 8) & 0xFF) as u8,
-                    ((pixel >> 16) & 0xFF) as u8,
-                ];
-                row_buffer.extend_from_slice(&bytes);
+            // ⚡ Bolt: Eliminate dynamic `extend_from_slice` capacity checks by pre-allocating
+            // a zeroed row buffer and writing directly via iterators to elide bounds checks.
+            for (&pixel, out) in row.iter().zip(row_buffer.chunks_exact_mut(3)) {
+                out[0] = (pixel & 0xFF) as u8;
+                out[1] = ((pixel >> 8) & 0xFF) as u8;
+                out[2] = ((pixel >> 16) & 0xFF) as u8;
             }
             writer.write_all(&row_buffer)?;
         }
