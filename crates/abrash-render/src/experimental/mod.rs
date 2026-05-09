@@ -97,6 +97,7 @@ pub mod speed_lines;
 pub mod starfield;
 pub mod steganography;
 pub mod swirl;
+pub mod synthwave_grid;
 pub mod thermal;
 pub mod tilt_shift;
 pub mod topography;

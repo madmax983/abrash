@@ -71,6 +71,13 @@ struct Demo {
 
 const DEMOS: &[Demo] = &[
     Demo {
+        name: "Synthwave Grid",
+        category: DemoCategory::Simulation,
+        description: "Post-processing 3D perspective grid",
+        instructions: "Mouse: None\nKeyboard: Auto-scrolling",
+        example_name: "synthwave_grid_demo",
+    },
+    Demo {
         name: "Lit Cube",
         category: DemoCategory::Cpu3D,
         description: "Flat shaded cube with directional lighting",
@@ -388,6 +395,7 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "raytracer_demo"
         || example_name == "vision_demo"
         || example_name == "pixel_sort_demo"
+        || example_name == "synthwave_grid_demo"
         || example_name == "directional_blur_demo"
         || example_name == "droste_demo"
         || example_name == "god_rays_demo"
