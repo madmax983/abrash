@@ -20,7 +20,8 @@ fn bench_laplacian_blend(c: &mut Criterion) {
                 black_box(5),
                 black_box(0.0),
             )
-        })
+        });
+
     });
 }
 

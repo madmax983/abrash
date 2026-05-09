@@ -1,5 +1,6 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
+#[allow(clippy::imprecise_flops)]
 fn bench_hypot_vs_sqrt(c: &mut Criterion) {
     let dx = 300.0f32;
     let dy = 400.0f32;
@@ -10,7 +11,8 @@ fn bench_hypot_vs_sqrt(c: &mut Criterion) {
         b.iter(|| {
             let dist = black_box(dx).hypot(black_box(dy));
             black_box(dist);
-        })
+        });
+
     });
 
     group.bench_function("sqrt", |b| {
@@ -19,7 +21,8 @@ fn bench_hypot_vs_sqrt(c: &mut Criterion) {
             let y = black_box(dy);
             let dist = (x * x + y * y).sqrt();
             black_box(dist);
-        })
+        });
+
     });
 
     group.finish();

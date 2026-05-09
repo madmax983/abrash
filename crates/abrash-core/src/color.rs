@@ -298,6 +298,47 @@ impl Color {
     /// `src.a = 1.0` fully replaces `dst`.
     #[must_use]
     #[inline]
+
+    /// Blends two raw ARGB `u32` colors using SWAR (SIMD Within A Register) integer math.
+    ///
+    /// This is significantly faster than converting to `Color` floats, performing
+    /// float math, and converting back to `u32`. It avoids unpacking all 4 channels
+    /// by computing Red and Blue simultaneously in a single 32-bit register.
+    ///
+    /// Both colors should be in **straight** (non-premultiplied) alpha.
+
+
+
+
+    pub const fn blend_over_u32_swar(src: u32, dst: u32) -> u32 {
+        let alpha = src >> 24;
+        if alpha == 0 {
+            return dst;
+        }
+        if alpha == 255 {
+            return src;
+        }
+
+        let inv_alpha = 255 - alpha;
+
+        // Extract G and Alpha from src and dst
+        let src_ag = (src >> 8) & 0x00FF_00FF;
+        let dst_ag = (dst >> 8) & 0x00FF_00FF;
+
+        // Extract R and B from src and dst
+        let src_rb = src & 0x00FF_00FF;
+        let dst_rb = dst & 0x00FF_00FF;
+
+        // Blend R and B together (SWAR)
+        let out_rb = ((src_rb * alpha + dst_rb * inv_alpha) >> 8) & 0x00FF_00FF;
+
+        // Blend Alpha and G together
+        let out_ag = ((src_ag * alpha + dst_ag * inv_alpha) >> 8) & 0x00FF_00FF;
+
+        (out_ag << 8) | out_rb
+    }
+
+    #[must_use]
     pub fn blend_over(src: Self, dst: Self) -> Self {
         let inv = 1.0 - src.a;
         Self {
@@ -1195,6 +1236,46 @@ fn hue_to_rgb(p: f32, q: f32, mut t: f32) -> f32 {
     }
     p
 }
+
+
+    /// Blends two raw ARGB `u32` colors using SWAR (SIMD Within A Register) integer math.
+    ///
+    /// This is significantly faster than converting to `Color` floats, performing
+    /// float math, and converting back to `u32`. It avoids unpacking all 4 channels
+    /// by computing Red and Blue simultaneously in a single 32-bit register.
+    ///
+    /// Both colors should be in **straight** (non-premultiplied) alpha.
+    #[must_use]
+    #[inline]
+
+
+    pub const fn blend_over_u32_swar(src: u32, dst: u32) -> u32 {
+        let alpha = src >> 24;
+        if alpha == 0 {
+            return dst;
+        }
+        if alpha == 255 {
+            return src;
+        }
+
+        let inv_alpha = 255 - alpha;
+
+        // Extract G and Alpha from src and dst
+        let src_ag = (src >> 8) & 0x00FF_00FF;
+        let dst_ag = (dst >> 8) & 0x00FF_00FF;
+
+        // Extract R and B from src and dst
+        let src_rb = src & 0x00FF_00FF;
+        let dst_rb = dst & 0x00FF_00FF;
+
+        // Blend R and B together (SWAR)
+        let out_rb = ((src_rb * alpha + dst_rb * inv_alpha) >> 8) & 0x00FF_00FF;
+
+        // Blend Alpha and G together
+        let out_ag = (src_ag * alpha + dst_ag * inv_alpha) & 0xFF00_FF00;
+
+        out_ag | out_rb
+    }
 
 #[cfg(test)]
 mod tests {

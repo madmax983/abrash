@@ -11,7 +11,8 @@ fn bench_physarum(c: &mut Criterion) {
     c.bench_function("physarum_step", |b| {
         b.iter(|| {
             apply_physarum(black_box(&mut fb), black_box(&config));
-        })
+        });
+
     });
 }
 

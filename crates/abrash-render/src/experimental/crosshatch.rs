@@ -41,32 +41,17 @@ pub fn apply_crosshatch(fb: &mut Framebuffer, spacing: usize) {
                     let lum = pixel_luminance(*pixel);
                     let original_alpha = *pixel & 0xFF00_0000;
 
-                    let mut is_ink = false;
-
-                    if lum < 200 {
-                        // T4: Light - Top-left to bottom-right hatch
-                        if (x + y) % spacing == 0 {
-                            is_ink = true;
-                        }
-                    }
-                    if lum < 150 {
-                        // T3: Medium Light - Top-right to bottom-left hatch
-                        if x.abs_diff(y) % spacing == 0 {
-                            is_ink = true;
-                        }
-                    }
-                    if lum < 100 {
-                        // T2: Medium Dark - Horizontal lines
-                        if y % spacing == 0 {
-                            is_ink = true;
-                        }
-                    }
-                    if lum < 50 {
-                        // T1: Darkest - Vertical lines
-                        if x % spacing == 0 {
-                            is_ink = true;
-                        }
-                    }
+                                        let is_ink = if lum < 50 && x % spacing == 0 {
+                        true
+                    } else if lum < 100 && y % spacing == 0 {
+                        true
+                    } else if lum < 150 && x.abs_diff(y) % spacing == 0 {
+                        true
+                    } else if lum < 200 && (x + y) % spacing == 0 {
+                        true
+                    } else {
+                        false
+                    };
 
                     if is_ink {
                         *pixel = original_alpha; // Black
@@ -84,28 +69,17 @@ pub fn apply_crosshatch(fb: &mut Framebuffer, spacing: usize) {
                 let lum = pixel_luminance(*pixel);
                 let original_alpha = *pixel & 0xFF00_0000;
 
-                let mut is_ink = false;
-
-                if lum < 200 {
-                    if (x + y) % spacing == 0 {
-                        is_ink = true;
-                    }
-                }
-                if lum < 150 {
-                    if x.abs_diff(y) % spacing == 0 {
-                        is_ink = true;
-                    }
-                }
-                if lum < 100 {
-                    if y % spacing == 0 {
-                        is_ink = true;
-                    }
-                }
-                if lum < 50 {
-                    if x % spacing == 0 {
-                        is_ink = true;
-                    }
-                }
+                                let is_ink = if lum < 50 && x % spacing == 0 {
+                    true
+                } else if lum < 100 && y % spacing == 0 {
+                    true
+                } else if lum < 150 && x.abs_diff(y) % spacing == 0 {
+                    true
+                } else if lum < 200 && (x + y) % spacing == 0 {
+                    true
+                } else {
+                    false
+                };
 
                 if is_ink {
                     *pixel = original_alpha;
