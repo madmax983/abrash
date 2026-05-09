@@ -130,20 +130,26 @@ pub fn prepare_textured_mesh_data(mesh: &Mesh) -> Result<(Vec<TexturedVertex>, V
 
 fn flatten_indices(mesh: &Mesh) -> Result<Vec<u32>, String> {
     let mut indices = Vec::with_capacity(mesh.indices.len() * 3);
-    for (triangle_index, triangle) in mesh.indices.iter().enumerate() {
-        for &index in triangle {
-            if index >= mesh.vertices.len() {
-                return Err(format!(
-                    "triangle {triangle_index} references vertex {index}, but only {} vertices exist",
-                    mesh.vertices.len()
-                ));
-            }
+    let vertices_len = mesh.vertices.len();
 
-            indices.push(
-                u32::try_from(index)
-                    .map_err(|_| format!("vertex index {index} does not fit in u32"))?,
-            );
+    // ⚡ Bolt: Destructure the triangle and validate indices with a single branch,
+    // then use `extend` to append elements in bulk. This eliminates repetitive loop
+    // overhead and bounds-checking inside the hot index flattening path.
+    for (triangle_index, triangle) in mesh.indices.iter().enumerate() {
+        let [i0, i1, i2] = *triangle;
+
+        if i0 >= vertices_len || i1 >= vertices_len || i2 >= vertices_len {
+            let bad_index = if i0 >= vertices_len { i0 } else if i1 >= vertices_len { i1 } else { i2 };
+            return Err(format!(
+                "triangle {triangle_index} references vertex {bad_index}, but only {vertices_len} vertices exist"
+            ));
         }
+
+        indices.extend([
+            u32::try_from(i0).map_err(|_| format!("vertex index {i0} does not fit in u32"))?,
+            u32::try_from(i1).map_err(|_| format!("vertex index {i1} does not fit in u32"))?,
+            u32::try_from(i2).map_err(|_| format!("vertex index {i2} does not fit in u32"))?,
+        ]);
     }
     Ok(indices)
 }
