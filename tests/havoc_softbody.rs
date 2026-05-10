@@ -39,7 +39,7 @@ fn test_havoc_softbody_panic() {
             radius: 10.0,
             center: Vec3::new(0.0, 0.0, 0.0),
         },
-        color: 0xFFFFFFFF,
+        color: 0xFFFF_FFFF,
     });
 
     jelly.velocities.clear();
