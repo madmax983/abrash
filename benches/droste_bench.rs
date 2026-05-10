@@ -20,7 +20,7 @@ fn bench_droste(c: &mut Criterion) {
     };
 
     c.bench_function("apply_droste 800x600", |b| {
-        b.iter(|| apply_droste(&mut fb, &config))
+        b.iter(|| apply_droste(&mut fb, &config));
     });
 }
 

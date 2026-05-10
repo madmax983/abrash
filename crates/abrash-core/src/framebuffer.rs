@@ -529,21 +529,20 @@ impl Framebuffer {
         writeln!(writer, "255")?;
 
         // Write pixel data
+        // ⚡ Bolt: Using pre-allocated zeroed vec and writing via chunks_exact_mut(3)
+        // allows the compiler to elide bounds checks, significantly improving pixel
+        // conversion performance over extend_from_slice.
         let pixels = self.as_slice();
-        let mut row_buffer = Vec::with_capacity((self.width() * 3) as usize);
+        let mut row_buffer = vec![0u8; (self.width() * 3) as usize];
 
         for row in pixels
             .chunks_exact(self.width() as usize)
             .take(self.height() as usize)
         {
-            row_buffer.clear();
-            for &pixel in row {
-                let bytes = [
-                    ((pixel >> 16) & 0xFF) as u8,
-                    ((pixel >> 8) & 0xFF) as u8,
-                    (pixel & 0xFF) as u8,
-                ];
-                row_buffer.extend_from_slice(&bytes);
+            for (pixel, chunk) in row.iter().zip(row_buffer.chunks_exact_mut(3)) {
+                chunk[0] = ((*pixel >> 16) & 0xFF) as u8;
+                chunk[1] = ((*pixel >> 8) & 0xFF) as u8;
+                chunk[2] = (*pixel & 0xFF) as u8;
             }
             writer.write_all(&row_buffer)?;
         }
@@ -584,21 +583,20 @@ impl Framebuffer {
         writer.write_all(&header)?;
 
         // Write pixel data (TGA stores data in BGR format)
+        // ⚡ Bolt: Using pre-allocated zeroed vec and writing via chunks_exact_mut(3)
+        // allows the compiler to elide bounds checks, significantly improving pixel
+        // conversion performance over extend_from_slice.
         let pixels = self.as_slice();
-        let mut row_buffer = Vec::with_capacity((self.width() * 3) as usize);
+        let mut row_buffer = vec![0u8; (self.width() * 3) as usize];
 
         for row in pixels
             .chunks_exact(self.width() as usize)
             .take(self.height() as usize)
         {
-            row_buffer.clear();
-            for &pixel in row {
-                let bytes = [
-                    (pixel & 0xFF) as u8,
-                    ((pixel >> 8) & 0xFF) as u8,
-                    ((pixel >> 16) & 0xFF) as u8,
-                ];
-                row_buffer.extend_from_slice(&bytes);
+            for (pixel, chunk) in row.iter().zip(row_buffer.chunks_exact_mut(3)) {
+                chunk[0] = (*pixel & 0xFF) as u8;
+                chunk[1] = ((*pixel >> 8) & 0xFF) as u8;
+                chunk[2] = ((*pixel >> 16) & 0xFF) as u8;
             }
             writer.write_all(&row_buffer)?;
         }
