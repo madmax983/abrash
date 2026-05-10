@@ -5,15 +5,15 @@
 use crate::experimental::procedural_mesh::noise;
 use crate::mesh::Mesh;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 /// Twists the mesh around the Y axis based on the vertex Y coordinate.
 ///
 /// # Arguments
 ///
 /// * `mesh` - The mesh to twist.
 /// * `total_angle` - The total angle to twist from top to bottom (y = -0.5 to y = 0.5).
-#[cfg(feature = "parallel")]
-use rayon::prelude::*;
-
 pub fn twist(mesh: &mut Mesh, total_angle: f32) {
     #[cfg(feature = "parallel")]
     let iter = mesh.vertices.par_iter_mut();

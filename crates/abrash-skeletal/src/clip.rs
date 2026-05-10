@@ -8,16 +8,22 @@ use crate::skeleton::JointId;
 /// Which property of a joint is being animated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChannelTarget {
+    /// The 3D position (translation) of the joint.
     Translation,
+    /// The 3D rotation of the joint, stored as a Quaternion.
     Rotation,
+    /// The 3D scale of the joint.
     Scale,
 }
 
 /// Typed keyframe values matching the target property.
 #[derive(Debug, Clone)]
 pub enum ChannelValues {
+    /// A sequence of 3D positions (translations).
     Translation(Vec<Vec3>),
+    /// A sequence of 3D rotations, represented as Quaternions.
     Rotation(Vec<Quat>),
+    /// A sequence of 3D scales.
     Scale(Vec<Vec3>),
 }
 
@@ -41,7 +47,9 @@ impl ChannelValues {
 /// A single animation channel: keyframes for one property of one joint.
 #[derive(Debug, Clone)]
 pub struct AnimationChannel {
+    /// The ID of the joint this channel animates.
     pub joint: JointId,
+    /// The property of the joint being animated (e.g., Translation, Rotation, or Scale).
     pub target: ChannelTarget,
     /// Timestamps in seconds, sorted ascending.
     pub timestamps: Vec<f32>,
@@ -93,10 +101,41 @@ impl AnimationChannel {
 }
 
 /// A complete animation clip containing multiple channels.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_skeletal::clip::{AnimationClip, AnimationChannel, ChannelTarget, ChannelValues};
+/// use abrash_skeletal::skeleton::JointId;
+/// use abrash_core::math::Vec3;
+///
+/// let clip = AnimationClip {
+///     name: "WalkCycle".to_string(),
+///     duration: 1.0,
+///     channels: vec![
+///         AnimationChannel {
+///             joint: JointId(0),
+///             target: ChannelTarget::Translation,
+///             timestamps: vec![0.0, 0.5, 1.0],
+///             values: ChannelValues::Translation(vec![
+///                 Vec3::new(0.0, 0.0, 0.0),
+///                 Vec3::new(0.0, 1.0, 0.0),
+///                 Vec3::new(0.0, 0.0, 0.0),
+///             ]),
+///         }
+///     ],
+/// };
+///
+/// assert_eq!(clip.duration, 1.0);
+/// assert_eq!(clip.channels.len(), 1);
+/// ```
 #[derive(Debug, Clone)]
 pub struct AnimationClip {
+    /// The name of the animation clip.
     pub name: String,
+    /// The total duration of the clip in seconds.
     pub duration: f32,
+    /// The individual animation channels (e.g., position/rotation tracks for each joint).
     pub channels: Vec<AnimationChannel>,
 }
 

@@ -1,20 +1,8 @@
-**[Title]
-**Learning:** When replacing `Mesh::new()` with `Mesh::with_capacity()` to avoid vector reallocations during procedural generation (e.g., in a voxelizer), ensure the exact index count math is correct: a quadrilateral face consists of 2 triangles, which equates to 6 indices (not 2). Miscalculating capacity multipliers will still result in reallocations or excess memory usage.
-**Action:** Always map geometric concepts (faces, triangles) explicitly back to array elements (vertices, indices) mathematically before allocating capacity.
-## Scene Culling Optimization
-**Learning:** Pre-allocating `world_aabbs` capacity to match `num_objects` in `Scene::extract` avoids potential reallocations before `extend` is called in the hot path.
-**Action:** Added `world_aabbs.reserve(num_objects)` after `clear()` inside `extract_into`.
+## 2024-05-14 - Replace Sequential Push with Extend for Arrays
 
-## Scene Culling Optimization
-**Learning:** Pre-allocating `world_aabbs` capacity to match `num_objects` in `Scene::extract` avoids potential reallocations before `extend` is called in the hot path.
-**Action:** Added `world_aabbs.reserve(num_objects)` after `clear()` inside `extract_into`.
-**[Eliminate bounds check panics with min/max chaining]**
-**Learning:** Replacing `.clamp(min, max)` with `.max(min).min(max)` on integers provides zero performance benefit, as LLVM optimizes both to the exact same assembly instructions. Furthermore, this anti-pattern triggers the `clippy::manual_clamp` lint.
-**Action:** Do not replace `clamp` with `.max(min).min(max)` on integers for performance.
+**Learning:** Replacing sequential `.push()` calls within a hot loop (like unpacking 3 vertex indices) with a single `.extend([a, b, c])` call combined with array destructuring allows the compiler to elide repetitive vector bounds checking, resulting in measurable performance gains in hot paths.
 
-**[Cache expensive Mathematical Look-Up Tables]**
-**Learning:** In post-processing filters, precomputing mathematical Look-Up Tables (LUTs) using expensive operations like `f32::powf` on every frame call is a major bottleneck. Caching these LUTs per-thread (e.g., using `thread_local!` and `std::cell::RefCell`) for mostly-static parameters like gamma or contrast eliminates per-frame recalculations and provides significant speedups without modifying function signatures.
-**Action:** Use `thread_local!` and `std::cell::RefCell` to cache static configurations in rendering filters to eliminate unnecessary loop calculations.
+**Action:** Whenever iterating over fixed-size inner arrays to populate a `Vec` in a hot loop, destructure the array elements first and append them in bulk using `.extend([])` instead of individual `.push()` calls.
 
 **[Workspace vs Child Crate Dependencies]**
 **Learning:** Inherited workspace dependencies (like `foldhash`) cannot be used inside individual child crates without explicitly adding them to that specific crate's `Cargo.toml`. If a rule forbids modifying `Cargo.toml` without instruction, optimizing via such dependencies is blocked and must be avoided.
@@ -160,3 +148,6 @@
 **[Eliding slow f32::hypot]
 **Learning:** In tight inner loops, `f32::hypot(a, b)` is notoriously slow because it performs internal overflow/underflow checks. When calculating Euclidean distance on values known to be bounded (like screen coordinates), replacing it with manual `(a * a + b * b).sqrt()` yields significant performance speedups.
 **Action:** Replace `f32::hypot(a, b)` with `(a * a + b * b).sqrt()` when the inputs are guaranteed not to overflow the float range. Suppress the resulting lint with `#[allow(clippy::imprecise_flops)]`.
+## 2024-05-09 - [Eliding Bounds Checks on Pixel Conversion Loops]
+**Learning:** In hot pixel conversion loops (e.g., extracting RGBA channels), building a `Vec` dynamically with `.extend_from_slice()` introduces capacity check overhead.
+**Action:** Pre-allocating a zeroed vector (`vec![0u8; size]`) and writing directly via `.chunks_exact_mut(4)` paired with `.zip()` allows the compiler to elide bounds checks and significantly improves performance.

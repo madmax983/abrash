@@ -9,7 +9,7 @@ use abrash_core::random::Rng;
 ///
 /// * `fb`: The Framebuffer where particles are drawn.
 /// * `sand_color`: The ARGB color representing sand (e.g. 0xFFEEDD88).
-/// * `empty_color`: The ARGB color representing empty space (e.g. 0xFF00_0000).
+/// * `empty_color`: The ARGB color representing empty space (e.g. `0xFF00_0000`).
 /// * `seed`: A random seed to randomize horizontal processing direction.
 pub fn update_falling_sand(fb: &mut Framebuffer, sand_color: u32, empty_color: u32, seed: u64) {
     let width = fb.width() as usize;

@@ -17,8 +17,11 @@ use crate::skeleton::Skeleton;
 
 /// Per-bone animation timelines for position, rotation, and scale.
 pub struct BoneAnimator {
+    /// An optional timeline controlling the 3D position (translation) of the bone over time.
     pub position: Option<Timeline<Vec3>>,
+    /// An optional timeline controlling the 3D rotation of the bone over time, represented as a Quaternion.
     pub rotation: Option<Timeline<Quat>>,
+    /// An optional timeline controlling the 3D scale of the bone over time.
     pub scale: Option<Timeline<Vec3>>,
 }
 

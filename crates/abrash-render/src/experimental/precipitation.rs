@@ -9,12 +9,14 @@ use abrash_core::utils::XorShift32;
 use abrash_core::zbuffer::ZBuffer;
 use std::cell::RefCell;
 
+/// The state of a single precipitation drop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DropState {
     Falling,
     Splashing,
 }
 
+/// A single drop of precipitation.
 #[derive(Debug, Clone, Copy)]
 pub struct Drop {
     pub x: f32,
@@ -27,6 +29,7 @@ pub struct Drop {
     pub color: u32,
 }
 
+/// Configuration for the precipitation effect.
 #[derive(Debug, Clone, Copy)]
 pub struct PrecipitationConfig {
     pub max_drops: usize,
@@ -58,6 +61,7 @@ impl Default for PrecipitationConfig {
     }
 }
 
+/// The state of the precipitation simulation.
 pub struct PrecipitationState {
     pub drops: Vec<Drop>,
     pub rng: XorShift32,

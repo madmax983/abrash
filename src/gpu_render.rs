@@ -37,10 +37,10 @@ pub fn mesh_to_gpu(mesh: &crate::mesh::Mesh) -> Result<(Vec<GpuVertex>, Vec<u16>
     // Mesh uses [usize; 3], Gpu uses flat u16 buffer
     let mut indices = Vec::with_capacity(mesh.indices.len() * 3);
     for tri in &mesh.indices {
-        // We already checked bounds above, so cast is safe
-        indices.push(tri[0] as u16);
-        indices.push(tri[1] as u16);
-        indices.push(tri[2] as u16);
+        // ⚡ Bolt: Use `extend` instead of sequential `push` calls to eliminate
+        // repetitive bounds-checking inside the hot index conversion loop.
+        // We already checked bounds above, so cast is safe.
+        indices.extend([tri[0] as u16, tri[1] as u16, tri[2] as u16]);
     }
 
     Ok((vertices, indices))
