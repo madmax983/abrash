@@ -4,6 +4,7 @@ use abrash_core::framebuffer::Framebuffer;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
+/// Configuration for rendering the Mandelbrot set.
 pub struct MandelbrotConfig {
     pub center_x: f64,
     pub center_y: f64,
@@ -55,6 +56,10 @@ fn map_iterations_to_color(iteration: u32, max_iterations: u32) -> u32 {
     }
 }
 
+/// Renders the Mandelbrot set to the given framebuffer.
+///
+/// Iterates over every pixel, mapping it to the complex plane based on `config`,
+/// and evaluates the Mandelbrot sequence to determine the pixel's color.
 pub fn render_mandelbrot(fb: &mut Framebuffer, config: &MandelbrotConfig) {
     let width = f64::from(fb.width());
     let height = f64::from(fb.height());

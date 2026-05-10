@@ -1,9 +1,20 @@
+//! Infinite Tunnel Post-Processing Filter
+//!
+//! Applies a perspective 3D tunnel effect by mapping screen coordinates
+//! to polar coordinates to fetch texture data.
+
 #![cfg(feature = "nova")]
 
 use abrash_core::framebuffer::Framebuffer;
 use abrash_core::texture::Texture;
 
 /// Applies an infinite 3D tunnel effect.
+///
+/// # Arguments
+///
+/// * `framebuffer` - The framebuffer to modify in-place.
+/// * `time` - The current animation time.
+/// * `texture` - The texture mapped to the walls of the tunnel.
 ///
 /// Maps Cartesian screen coordinates to polar coordinates (angle and distance),
 /// transforming them into texture coordinates to create a perspective tunnel.
@@ -26,7 +37,8 @@ pub fn apply_tunnel(framebuffer: &mut Framebuffer, time: f32, texture: &Texture)
                 let dx = x as f32 - center_x;
 
                 // Distance from center
-                let distance = f32::hypot(dx, dy).max(1.0);
+                #[allow(clippy::imprecise_flops)]
+                let distance = (dx * dx + dy * dy).sqrt().max(1.0);
 
                 // Angle
                 let angle = f32::atan2(dy, dx);
