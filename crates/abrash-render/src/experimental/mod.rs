@@ -82,6 +82,7 @@ pub mod physarum;
 pub mod pixel_sort;
 pub mod pixelate;
 pub mod plasma;
+pub mod pointillism;
 pub mod pop_art;
 pub mod posterize;
 pub mod precipitation;

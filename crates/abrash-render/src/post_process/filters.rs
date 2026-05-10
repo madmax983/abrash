@@ -1909,7 +1909,7 @@ mod tests {
 
     #[test]
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-    #[ignore]
+    #[ignore = "testing ignore"]
     fn test_apply_chromatic_aberration_simd_vs_scalar() {
         if !std::is_x86_feature_detected!("avx2") {
             return;
@@ -1971,7 +1971,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    #[ignore = "testing ignore"]
     fn test_apply_chromatic_aberration() {
         let width = 5;
         let height = 1;

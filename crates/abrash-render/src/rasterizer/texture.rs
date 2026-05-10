@@ -5441,7 +5441,7 @@ fn test_fill_triangle_laplacian_blend_runs_without_panic() {
     for y in 0..8_u32 {
         for x in 0..8_u32 {
             tex0.set_pixel(x, y, 0xFFFF_0000); // red
-            tex1.set_pixel(x, y, 0xFF0000FF); // blue
+            tex1.set_pixel(x, y, 0xFF00_00FF); // blue
             // Horizontal gradient mask: left = tex0, right = tex1
             mask.set_pixel(
                 x,

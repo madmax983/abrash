@@ -94,7 +94,7 @@ mod tests {
 
         // Fog Color: Solid Blue
         let config = DepthFogConfig {
-            fog_color: 0xFF0000FF,
+            fog_color: 0xFF00_00FF,
             fog_start: 10.0,
             fog_end: 20.0,
         };
@@ -118,9 +118,9 @@ mod tests {
         // 50% blend of FF0000 and 0000FF is roughly 7F007F (ignoring exact lerp math rounding, let's just check it's changed and has both components)
         let blended = fb.get_pixel(1, 0).unwrap();
         assert_ne!(blended, 0xFFFF_0000);
-        assert_ne!(blended, 0xFF0000FF);
+        assert_ne!(blended, 0xFF00_00FF);
 
-        assert_eq!(fb.get_pixel(0, 1), Some(0xFF0000FF)); // Fully Blue
-        assert_eq!(fb.get_pixel(1, 1), Some(0xFF0000FF)); // Fully Blue
+        assert_eq!(fb.get_pixel(0, 1), Some(0xFF00_00FF)); // Fully Blue
+        assert_eq!(fb.get_pixel(1, 1), Some(0xFF00_00FF)); // Fully Blue
     }
 }

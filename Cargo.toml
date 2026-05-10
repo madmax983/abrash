@@ -963,6 +963,11 @@ name = "tunnel_bench"
 harness = false
 required-features = ["nova"]
 
+[[bench]]
+name = "pointillism_bench"
+harness = false
+required-features = ["nova"]
+
 [[example]]
 name = "infinite_grid_demo"
 path = "examples/infinite_grid_demo.rs"

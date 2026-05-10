@@ -198,12 +198,12 @@ mod tests {
         let mut frame = Frame::new(test_camera());
         frame.add_light(Light::Directional(DirectionalLight {
             direction: Vec3::new(0.0, -1.0, 0.0),
-            color: 0xFFFFFF,
+            color: 0x00FF_FFFF,
             intensity: 1.0,
         }));
         frame.add_light(Light::Point(PointLight {
             position: Vec3::new(5.0, 5.0, 5.0),
-            color: 0xFF0000,
+            color: 0x00FF_0000,
             intensity: 2.0,
             radius: 10.0,
         }));

@@ -8,7 +8,7 @@ use abrash_core::random::Rng;
 /// Simulates falling sand physics on a framebuffer.
 ///
 /// * `fb`: The Framebuffer where particles are drawn.
-/// * `sand_color`: The ARGB color representing sand (e.g. 0xFFEEDD88).
+/// * `sand_color`: The ARGB color representing sand (e.g. `0xFFEE_DD88`).
 /// * `empty_color`: The ARGB color representing empty space (e.g. `0xFF00_0000`).
 /// * `seed`: A random seed to randomize horizontal processing direction.
 pub fn update_falling_sand(fb: &mut Framebuffer, sand_color: u32, empty_color: u32, seed: u64) {
@@ -100,9 +100,9 @@ pub fn update_falling_sand(fb: &mut Framebuffer, sand_color: u32, empty_color: u
 mod tests {
     use super::*;
 
-    const SAND: u32 = 0xFFEEDD88;
+    const SAND: u32 = 0xFFEE_DD88;
     const EMPTY: u32 = 0xFF00_0000;
-    const ROCK: u32 = 0xFF888888;
+    const ROCK: u32 = 0xFF88_8888;
 
     #[test]
     fn test_sand_falls_down() {
