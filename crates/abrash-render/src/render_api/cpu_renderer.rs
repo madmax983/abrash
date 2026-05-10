@@ -399,6 +399,25 @@ impl CpuRenderer {
         Ok(())
     }
 
+    /// Update an existing texture resource with new data.
+    ///
+    /// This is used for dynamically updated textures like procedural content or video frames.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::StaleHandle`] if the handle is invalid.
+    pub fn update_texture(&mut self, handle: TextureHandle, texture: &Texture) -> Result<(), RenderError> {
+        let cpu_texture = self
+            .textures
+            .get_mut(from_texture_handle(handle))
+            .ok_or(RenderError::StaleHandle("texture"))?;
+
+        // ⚡ Bolt: Use `clone_from` instead of `clone()` to reuse the destination Texture's pre-allocated
+        // Vec capacities (for both pixels and mips), eliminating large heap allocations per frame.
+        cpu_texture.clone_from(texture);
+        Ok(())
+    }
+
     /// Upload a texture and return a handle.
     ///
     /// # Errors
@@ -749,6 +768,39 @@ mod tests {
 
         let handle2 = renderer.create_texture_owned(tex);
         assert!(handle2.is_ok());
+    }
+
+    #[test]
+    fn test_update_texture() {
+        let mut renderer = CpuRenderer::new(100, 100);
+        let mut tex = Texture::new(2, 2).unwrap();
+        tex.set_pixel(0, 0, 0xFFFF_0000);
+
+        let handle = renderer.create_texture(&tex).unwrap();
+
+        // Update texture
+        let mut updated = Texture::new(2, 2).unwrap();
+        updated.set_pixel(0, 0, 0xFF00_FF00);
+
+        let result = renderer.update_texture(handle, &updated);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_update_texture_stale_handle() {
+        let mut renderer = CpuRenderer::new(100, 100);
+        let tex = Texture::new(2, 2).unwrap();
+        let handle = renderer.create_texture(&tex).unwrap();
+
+        renderer.destroy_texture(handle);
+
+        let updated = Texture::new(2, 2).unwrap();
+        let result = renderer.update_texture(handle, &updated);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            RenderError::StaleHandle(kind) => assert_eq!(kind, "texture"),
+            other => panic!("Expected StaleHandle, got {other}"),
+        }
     }
 
     #[test]
