@@ -160,7 +160,6 @@ impl LSystem {
                     /// and then use `std::mem::swap`. This double-buffering completely eliminates O(N)
                     /// memory allocations and drops that were previously happening on every single iteration.
                     next_bytes.clear();
-                    next_bytes.reserve(current_bytes.len() * 2);
                     for &b in &*current_bytes {
                         if let Some(replacement) = rules_array[(b as usize) & 127] {
                             next_bytes.extend_from_slice(replacement);
@@ -198,7 +197,6 @@ impl LSystem {
             /// Moving the `next` String allocation out of the loop and reusing it via `swap`
             /// and `clear`/`reserve` eliminates continuous string re-allocations on every iteration.
             next.clear();
-            next.reserve(current.len() * 2);
             for c in current.chars() {
                 let u = c as usize;
                 if u < 128 {

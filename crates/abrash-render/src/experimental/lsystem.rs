@@ -101,7 +101,6 @@ impl LSystem {
 
                 for _ in 0..iterations {
                     next_bytes.clear();
-                    next_bytes.reserve(current_bytes.len() * 2);
                     for &b in &*current_bytes {
                         if let Some(replacement) = rules_array[(b as usize) & 127] {
                             next_bytes.extend_from_slice(replacement);
@@ -146,7 +145,6 @@ impl LSystem {
             // When `current` and `next_string` are swapped, the smaller buffer is recycled.
             // By reserving capacity before pushing new characters, we prevent continuous O(N)
             // heap reallocations as the string expands exponentially.
-            next_string.reserve(current_string.len() * 2);
 
             for c in current_string.chars() {
                 let u = c as u32;
