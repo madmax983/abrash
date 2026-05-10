@@ -967,3 +967,7 @@ required-features = ["nova"]
 name = "infinite_grid_demo"
 path = "examples/infinite_grid_demo.rs"
 required-features = ["nova", "backend-winit"]
+
+[[bench]]
+name = "strange_attractor_bench"
+harness = false

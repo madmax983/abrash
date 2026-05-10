@@ -406,7 +406,11 @@ impl CpuRenderer {
     /// # Errors
     ///
     /// Returns [`RenderError::StaleHandle`] if the handle is invalid.
-    pub fn update_texture(&mut self, handle: TextureHandle, texture: &Texture) -> Result<(), RenderError> {
+    pub fn update_texture(
+        &mut self,
+        handle: TextureHandle,
+        texture: &Texture,
+    ) -> Result<(), RenderError> {
         let cpu_texture = self
             .textures
             .get_mut(from_texture_handle(handle))
