@@ -90,7 +90,7 @@ mod tests {
         fb.set_pixel(0, 1, 0xFFFF_FFFF); // White
 
         let color1 = 0xFFFF_0000; // Red (mapped to darkest)
-        let color2 = 0xFF0000FF; // Blue (mapped to lightest)
+        let color2 = 0xFF00_00FF; // Blue (mapped to lightest)
 
         apply_duotone(&mut fb, color1, color2);
 
@@ -99,6 +99,6 @@ mod tests {
         // Gray should be a mix of Red and Blue (approx Purple)
         let mid = fb.get_pixel(1, 0).unwrap();
         assert!(mid != 0xFF80_8080, "Pixel was not modified");
-        assert_eq!(mid, 0xFF7F0080); // Expected mix
+        assert_eq!(mid, 0xFF7F_0080); // Expected mix
     }
 }

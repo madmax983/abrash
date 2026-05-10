@@ -162,3 +162,7 @@
 ## 2024-05-09 - [Eliding Bounds Checks on Pixel Conversion Loops]
 **Learning:** In hot pixel conversion loops (e.g., extracting RGBA channels), building a `Vec` dynamically with `.extend_from_slice()` introduces capacity check overhead.
 **Action:** Pre-allocating a zeroed vector (`vec![0u8; size]`) and writing directly via `.chunks_exact_mut(4)` paired with `.zip()` allows the compiler to elide bounds checks and significantly improves performance.
+
+**[Array Destructuring Extend]
+**Learning:** Replacing sequential `.push()` calls within a hot loop (like mesh segment generation in `lsystem.rs` and `arboretum.rs`) with a single `.extend([a, b, c])` call using array destructuring significantly improves performance by allowing the compiler to elide repetitive vector bounds checks.
+**Action:** When adding multiple items to a `Vec` in a tight loop, prefer `extend` with a fixed-size array over sequential `push` calls.
