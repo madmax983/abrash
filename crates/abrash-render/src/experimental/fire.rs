@@ -90,9 +90,9 @@ mod tests {
         let mut fb = Framebuffer::new(3, 3).unwrap();
         // Heat is stored in the R channel (0x00RRGGBB).
         // Let's set the bottom row to max heat.
-        fb.set_pixel(0, 2, 0x00FF0000);
-        fb.set_pixel(1, 2, 0x00FF0000);
-        fb.set_pixel(2, 2, 0x00FF0000);
+        fb.set_pixel(0, 2, 0x00FF_0000);
+        fb.set_pixel(1, 2, 0x00FF_0000);
+        fb.set_pixel(2, 2, 0x00FF_0000);
 
         // Zero cooling map
         let cooling_map = vec![0; 9];

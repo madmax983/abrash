@@ -333,53 +333,40 @@ impl Turtle {
         let base_index = mesh.vertices.len();
 
         // Bottom vertices
-        mesh.vertices.push(start + right_offset); // 0
-        mesh.vertices.push(start + up_offset); // 1
-        mesh.vertices.push(start - right_offset); // 2
-        mesh.vertices.push(start - up_offset); // 3
+        mesh.vertices.extend([
+            start + right_offset, // 0
+            start + up_offset,    // 1
+            start - right_offset, // 2
+            start - up_offset,    // 3
+        ]);
 
         // Top vertices
         let r_top = radius * 0.9; // Slight tapering
         let right_top = self.right * r_top;
         let up_top = self.up * r_top;
 
-        mesh.vertices.push(end + right_top); // 4
-        mesh.vertices.push(end + up_top); // 5
-        mesh.vertices.push(end - right_top); // 6
-        mesh.vertices.push(end - up_top); // 7
+        mesh.vertices.extend([
+            end + right_top, // 4
+            end + up_top,    // 5
+            end - right_top, // 6
+            end - up_top,    // 7
+        ]);
 
-        // Bottom face
-        mesh.indices
-            .push([base_index, base_index + 2, base_index + 1]);
-        mesh.indices
-            .push([base_index, base_index + 3, base_index + 2]);
-
-        // Top face
-        mesh.indices
-            .push([base_index + 4, base_index + 5, base_index + 6]);
-        mesh.indices
-            .push([base_index + 4, base_index + 6, base_index + 7]);
-
-        // Side faces
-        mesh.indices
-            .push([base_index, base_index + 1, base_index + 5]);
-        mesh.indices
-            .push([base_index, base_index + 5, base_index + 4]);
-
-        mesh.indices
-            .push([base_index + 1, base_index + 2, base_index + 6]);
-        mesh.indices
-            .push([base_index + 1, base_index + 6, base_index + 5]);
-
-        mesh.indices
-            .push([base_index + 2, base_index + 3, base_index + 7]);
-        mesh.indices
-            .push([base_index + 2, base_index + 7, base_index + 6]);
-
-        mesh.indices
-            .push([base_index + 3, base_index, base_index + 4]);
-        mesh.indices
-            .push([base_index + 3, base_index + 4, base_index + 7]);
+        // Faces (Bottom, Top, Sides)
+        mesh.indices.extend([
+            [base_index, base_index + 2, base_index + 1],
+            [base_index, base_index + 3, base_index + 2],
+            [base_index + 4, base_index + 5, base_index + 6],
+            [base_index + 4, base_index + 6, base_index + 7],
+            [base_index, base_index + 1, base_index + 5],
+            [base_index, base_index + 5, base_index + 4],
+            [base_index + 1, base_index + 2, base_index + 6],
+            [base_index + 1, base_index + 6, base_index + 5],
+            [base_index + 2, base_index + 3, base_index + 7],
+            [base_index + 2, base_index + 7, base_index + 6],
+            [base_index + 3, base_index, base_index + 4],
+            [base_index + 3, base_index + 4, base_index + 7],
+        ]);
     }
 }
 

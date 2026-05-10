@@ -353,13 +353,20 @@ impl LSystem {
 
         // Start vertices
         let base_idx = mesh.vertices.len();
-        for c in &corners {
-            mesh.vertices.push(start + *c);
-        }
+        mesh.vertices.extend([
+            start + corners[0],
+            start + corners[1],
+            start + corners[2],
+            start + corners[3],
+        ]);
+
         // End vertices
-        for c in &corners {
-            mesh.vertices.push(end + *c);
-        }
+        mesh.vertices.extend([
+            end + corners[0],
+            end + corners[1],
+            end + corners[2],
+            end + corners[3],
+        ]);
 
         // Normals (approximate as face normals or vertex normals?)
         // For flat shading (prisms), we need duplicated vertices if we want sharp edges.
@@ -370,41 +377,35 @@ impl LSystem {
         // Actually, let's just push vertices. Normals are optional for now or calculated later.
         // But `Mesh` expects `normals` if we want lighting.
         // Let's add normals pointing away from the segment axis.
-        for c in &corners {
-            mesh.normals.push(c.fast_normalize());
-        }
-        for c in &corners {
-            mesh.normals.push(c.fast_normalize());
-        }
+        let n0 = corners[0].fast_normalize();
+        let n1 = corners[1].fast_normalize();
+        let n2 = corners[2].fast_normalize();
+        let n3 = corners[3].fast_normalize();
+
+        // Start normals
+        mesh.normals.extend([n0, n1, n2, n3]);
+        // End normals
+        mesh.normals.extend([n0, n1, n2, n3]);
 
         // Indices (Triangles)
         // 4 faces, 2 triangles each.
         // Vertices: 0-3 (start), 4-7 (end)
         // Face 0: 0, 4, 5, 1 (Side +Up) -> No, +Left/+Up is corner.
         // Let's connect the sides.
-        // Side 1: 0 -> 4 -> 5 -> 1
-        mesh.indices
-            .push([base_idx + 0, base_idx + 4, base_idx + 5]);
-        mesh.indices
-            .push([base_idx + 0, base_idx + 5, base_idx + 1]);
-
-        // Side 2: 1 -> 5 -> 6 -> 2
-        mesh.indices
-            .push([base_idx + 1, base_idx + 5, base_idx + 6]);
-        mesh.indices
-            .push([base_idx + 1, base_idx + 6, base_idx + 2]);
-
-        // Side 3: 2 -> 6 -> 7 -> 3
-        mesh.indices
-            .push([base_idx + 2, base_idx + 6, base_idx + 7]);
-        mesh.indices
-            .push([base_idx + 2, base_idx + 7, base_idx + 3]);
-
-        // Side 4: 3 -> 7 -> 4 -> 0
-        mesh.indices
-            .push([base_idx + 3, base_idx + 7, base_idx + 4]);
-        mesh.indices
-            .push([base_idx + 3, base_idx + 4, base_idx + 0]);
+        mesh.indices.extend([
+            // Side 1: 0 -> 4 -> 5 -> 1
+            [base_idx + 0, base_idx + 4, base_idx + 5],
+            [base_idx + 0, base_idx + 5, base_idx + 1],
+            // Side 2: 1 -> 5 -> 6 -> 2
+            [base_idx + 1, base_idx + 5, base_idx + 6],
+            [base_idx + 1, base_idx + 6, base_idx + 2],
+            // Side 3: 2 -> 6 -> 7 -> 3
+            [base_idx + 2, base_idx + 6, base_idx + 7],
+            [base_idx + 2, base_idx + 7, base_idx + 3],
+            // Side 4: 3 -> 7 -> 4 -> 0
+            [base_idx + 3, base_idx + 7, base_idx + 4],
+            [base_idx + 3, base_idx + 4, base_idx + 0],
+        ]);
     }
 }
 

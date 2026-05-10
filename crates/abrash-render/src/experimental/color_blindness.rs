@@ -88,7 +88,7 @@ mod tests {
         // Red pixel
         fb.set_pixel(0, 0, 0xFFFF_0000);
         // Blue pixel
-        fb.set_pixel(1, 0, 0xFF0000FF);
+        fb.set_pixel(1, 0, 0xFF00_00FF);
 
         apply_color_blindness(&mut fb, ColorBlindnessType::Achromatopsia);
 
