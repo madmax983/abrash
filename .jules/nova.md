@@ -91,3 +91,8 @@
 **Concept:** A procedural post-processing effect that draws an infinite perspective 3D grid in a 2D pass, mapping screen (x, y) to world (x, z) using ray-plane intersection.
 **Fate:** Implemented
 **Lesson:** Iterating row by row and applying ray-plane intersection formulas directly mapping screen (x, y) to world (x, z) provides a cheap and visually striking infinite grid effect. Anti-aliasing grid lines with a fading thickness parameter greatly improves visual quality at the horizon line.
+
+## [Metaballs Filter]
+**Concept:** A post-processing effect simulating merging liquid droplets (metaballs). It calculates the inverse-square influence of all 2D droplets for each pixel, accumulating colors and rejecting pixels below a specific influence threshold.
+**Fate:** Implemented
+**Lesson:** Replacing floating-point square roots (`sqrt()`) with pure squared-distance `dx * dx + dy * dy` when calculating radial falloff inside hot per-pixel loops avoids costly instructions and heavily increases framerates.

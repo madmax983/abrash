@@ -832,6 +832,16 @@ name = "pencil_sketch_bench"
 harness = false
 required-features = ["nova"]
 
+[[bench]]
+name = "metaballs_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "metaballs_demo"
+path = "examples/metaballs_demo.rs"
+required-features = ["nova"]
+
 [[example]]
 name = "pencil_sketch_demo"
 path = "examples/pencil_sketch_demo.rs"
