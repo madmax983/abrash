@@ -91,3 +91,7 @@
 **Concept:** A procedural post-processing effect that draws an infinite perspective 3D grid in a 2D pass, mapping screen (x, y) to world (x, z) using ray-plane intersection.
 **Fate:** Implemented
 **Lesson:** Iterating row by row and applying ray-plane intersection formulas directly mapping screen (x, y) to world (x, z) provides a cheap and visually striking infinite grid effect. Anti-aliasing grid lines with a fading thickness parameter greatly improves visual quality at the horizon line.
+## [Strange Attractor Generator]
+**Concept:** An experimental module that generates and renders 2D projections of chaotic 3D strange attractors (like the Lorenz, Thomas, and Aizawa attractors) using Euler integration and additive blending.
+**Fate:** Implemented
+**Lesson:** Using simple iterative math and a small dt step creates visually striking and complex continuous fractal-like paths without the need for complex polygon meshes or shaders. Additive blending makes the lines pop nicely.
