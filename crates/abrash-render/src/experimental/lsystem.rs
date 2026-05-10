@@ -38,7 +38,7 @@ impl LSystem {
     #[must_use]
     pub fn new(axiom: &str) -> Self {
         Self {
-            axiom: axiom.to_string(),
+            axiom: axiom.to_owned(),
             rules: HashMap::new(),
             max_capacity: 100_000, // 100k char limit by default
         }
@@ -124,63 +124,55 @@ impl LSystem {
             });
         }
 
-        thread_local! {
-            static LSYSTEM_STRING_BUFFERS: std::cell::RefCell<(String, String)> = const { std::cell::RefCell::new((String::new(), String::new())) };
+        let mut current_string = self.axiom.clone();
+
+        // Bolt Performance Optimization:
+        // By pre-calculating a flat array for ASCII replacement lookups,
+        // we bypass the `HashMap::get` and `SipHash` overhead entirely in the inner loop.
+        let mut rules_array: [Option<&str>; 128] = [None; 128];
+        for (k, v) in &self.rules {
+            let u = *k as u32;
+            if u < 128 {
+                rules_array[u as usize] = Some(v.as_str());
+            }
         }
 
-        LSYSTEM_STRING_BUFFERS.with(|bufs| {
-            let mut bufs = bufs.borrow_mut();
-            let (current_tls, next_string) = &mut *bufs;
+        let mut next_string = String::new();
 
-            current_tls.clear();
-            current_tls.push_str(&self.axiom);
+        for _ in 0..iterations {
+            next_string.clear();
 
             // Bolt Performance Optimization:
-            // By pre-calculating a flat array for ASCII replacement lookups,
-            // we bypass the `HashMap::get` and `SipHash` overhead entirely in the inner loop.
-            let mut rules_array: [Option<&str>; 128] = [None; 128];
-            for (k, v) in &self.rules {
-                let u = *k as u32;
+            // When `current` and `next_string` are swapped, the smaller buffer is recycled.
+            // By reserving capacity before pushing new characters, we prevent continuous O(N)
+            // heap reallocations as the string expands exponentially.
+            next_string.reserve(current_string.len() * 2);
+
+            for c in current_string.chars() {
+                let u = c as u32;
                 if u < 128 {
-                    rules_array[u as usize] = Some(v.as_str());
-                }
-            }
-
-            for _ in 0..iterations {
-                next_string.clear();
-
-                // Bolt Performance Optimization:
-                // When `current` and `next_string` are swapped, the smaller buffer is recycled.
-                // By reserving capacity before pushing new characters, we prevent continuous O(N)
-                // heap reallocations as the string expands exponentially.
-                next_string.reserve(current_tls.len() * 2);
-
-                for c in current_tls.chars() {
-                    let u = c as u32;
-                    if u < 128 {
-                        if let Some(replacement) = rules_array[u as usize] {
-                            next_string.push_str(replacement);
-                        } else {
-                            next_string.push(c);
-                        }
-                    } else if let Some(replacement) = self.rules.get(&c) {
-                        // Fallback for non-ASCII
+                    if let Some(replacement) = rules_array[u as usize] {
                         next_string.push_str(replacement);
                     } else {
                         next_string.push(c);
                     }
-
-                    // OOM Prevention check
-                    if next_string.len() > self.max_capacity {
-                        return Err("L-System expansion exceeded maximum capacity limit");
-                    }
+                } else if let Some(replacement) = self.rules.get(&c) {
+                    // Fallback for non-ASCII
+                    next_string.push_str(replacement);
+                } else {
+                    next_string.push(c);
                 }
 
-                std::mem::swap(current_tls, next_string);
+                // OOM Prevention check
+                if next_string.len() > self.max_capacity {
+                    return Err("L-System expansion exceeded maximum capacity limit");
+                }
             }
 
-            Ok(current_tls.clone())
-        })
+            std::mem::swap(&mut current_string, &mut next_string);
+        }
+
+        Ok(current_string)
     }
 }
 
