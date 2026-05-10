@@ -103,16 +103,19 @@ impl GpuCubemap {
 
         // Upload each face
         for (layer, face) in faces.iter().enumerate() {
-            let mut rgba = Vec::with_capacity((size * size * 4) as usize);
-            for &argb in &face.pixels {
-                let bytes = [
-                    ((argb >> 16) & 0xFF) as u8,
-                    ((argb >> 8) & 0xFF) as u8,
-                    (argb & 0xFF) as u8,
-                    ((argb >> 24) & 0xFF) as u8,
-                ];
-                rgba.extend_from_slice(&bytes);
-            }
+            // ⚡ Bolt: Use `flat_map().collect()` for optimal pixel conversion performance.
+            let rgba: Vec<u8> = face
+                .pixels
+                .iter()
+                .flat_map(|&argb| {
+                    [
+                        ((argb >> 16) & 0xFF) as u8,
+                        ((argb >> 8) & 0xFF) as u8,
+                        (argb & 0xFF) as u8,
+                        ((argb >> 24) & 0xFF) as u8,
+                    ]
+                })
+                .collect();
 
             queue.write_texture(
                 wgpu::TexelCopyTextureInfo {

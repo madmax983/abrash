@@ -372,16 +372,19 @@ impl GpuRenderer {
             return Err("texture dimensions must be positive".to_string());
         }
 
-        let mut rgba = Vec::with_capacity(texture.pixels.len() * 4);
-        for &argb in &texture.pixels {
-            let bytes = [
-                ((argb >> 16) & 0xFF) as u8,
-                ((argb >> 8) & 0xFF) as u8,
-                (argb & 0xFF) as u8,
-                ((argb >> 24) & 0xFF) as u8,
-            ];
-            rgba.extend_from_slice(&bytes);
-        }
+        // ⚡ Bolt: Use `flat_map().collect()` for optimal pixel conversion performance.
+        let rgba: Vec<u8> = texture
+            .pixels
+            .iter()
+            .flat_map(|&argb| {
+                [
+                    ((argb >> 16) & 0xFF) as u8,
+                    ((argb >> 8) & 0xFF) as u8,
+                    (argb & 0xFF) as u8,
+                    ((argb >> 24) & 0xFF) as u8,
+                ]
+            })
+            .collect();
 
         let device = self.gpu.device();
         let gpu_texture = device.create_texture(&wgpu::TextureDescriptor {
