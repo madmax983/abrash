@@ -58,6 +58,7 @@ fn bench_radial_blur(c: &mut Criterion) {
 criterion_group!(benches, bench_radial_blur);
 
 #[cfg(not(feature = "nova"))]
+#[allow(clippy::missing_const_for_fn, clippy::needless_pass_by_ref_mut)]
 fn bench_radial_blur(_c: &mut Criterion) {}
 
 #[cfg(not(feature = "nova"))]

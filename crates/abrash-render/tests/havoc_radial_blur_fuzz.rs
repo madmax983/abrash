@@ -1,6 +1,9 @@
+#[cfg(feature = "nova")]
 use abrash_core::framebuffer::Framebuffer;
+#[cfg(feature = "nova")]
 use abrash_render::experimental::radial_blur::apply_radial_blur;
 
+#[cfg(feature = "nova")]
 #[test]
 fn test_havoc_radial_blur_samples_overflow() {
     let mut fb = Framebuffer::new(10, 10).unwrap();
