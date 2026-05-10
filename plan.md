@@ -1,26 +1,17 @@
-1. **Explore the codebase and understand the task**
-   - Verified that the persona is "Nova", tasked with creating ONE new, interesting feature from scratch (additive only) without modifying core logic.
-   - Decided to create a Physarum (Slime Mold) Simulation post-processing effect in `crates/abrash-render/src/experimental/physarum.rs`.
-
-2. **Implement the new feature**
-   - Created `crates/abrash-render/src/experimental/physarum.rs` with the `apply_physarum` function. It simulates slime mold agents depositing pheromones and moving based on the trail map.
-   - Used thread-local `RefCell`s to manage state without reallocations (`TRAIL_MAP` and `AGENTS`).
-
-3. **Wire it up**
-   - Added `physarum` module to `crates/abrash-render/src/experimental/mod.rs`.
-   - Created `examples/physarum_demo.rs` to demonstrate the effect.
-   - Added `benches/physarum_bench.rs` to measure performance.
-   - Updated `Cargo.toml` to register the new example and bench.
-
-4. **Verify correctness**
-   - Fixed compilation errors due to missing imports (`XorShiftRng`, `color_blend`).
-   - Fixed borrow checker issue with `trail_borrow`.
-   - Ensured no panics on `.unwrap()` calls for system time.
-   - Validated that `cargo check`, `cargo test`, and `cargo clippy` pass cleanly.
-   - Logged the idea in `.jules/nova.md`.
-
-5. **Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done**
-   - Use `pre_commit_instructions` tool to make sure all pre commit requirements are met.
-
-6. **Submit the changes**
-   - Use the `submit` tool to finalize.
+1. **Explore & Identify**
+    - [x] Search for undocumented public modules and functions using a python script analyzing `crates/` and `src/`.
+    - [x] Read `crates/abrash-render/src/experimental/*.rs` to identify missing docstrings.
+2. **Implement Fixes**
+    - [x] Add missing documentation for `tunnel.rs`, `mandelbrot.rs`, `precipitation.rs`, `water_ripple.rs`, `modifiers.rs`, and `kaleidoscope.rs`.
+    - [x] Add `#[doc(hidden)]` to `fuzz_load_obj` in `obj_loader_fuzz.rs`.
+    - [x] Write summary to `.jules/bard.md` as per "Bard" persona guidelines.
+3. **Address Clippy Diagnostics**
+    - [x] Fix `clippy::doc_markdown` warnings in `post_process/filters.rs` and `experimental/falling_sand.rs` by wrapping hex codes in backticks.
+    - [x] Fix `clippy::unreadable_literal`, `clippy::unnecessary_wraps`, `clippy::field_reassign_with_default`, `clippy::semicolon_if_nothing_returned`, and `clippy::imprecise_flops` across tests and examples to pass `cargo clippy --all-targets --all-features -- -D warnings`.
+4. **Verification**
+    - [x] Run `cargo doc --no-deps` to ensure successful documentation generation.
+    - [x] Run `cargo test` to ensure no functionality is broken by documentation or lint updates.
+    - [x] Request code review using `request_code_review`.
+5. **Pre Commit & Submit**
+    - [x] Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
+    - [ ] Submit PR using `submit` tool.

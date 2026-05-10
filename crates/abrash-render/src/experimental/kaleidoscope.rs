@@ -54,6 +54,15 @@ pub fn fast_atan2(y: f32, x: f32) -> f32 {
     theta
 }
 
+/// Applies a kaleidoscope effect to the framebuffer.
+///
+/// Divides the screen into `segments` radially, and mirrors the content
+/// of the first segment across the others.
+///
+/// # Arguments
+///
+/// * `fb` - The framebuffer to modify in-place.
+/// * `segments` - The number of mirror segments (e.g. 6). Must be > 1 to have an effect.
 pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
     if segments <= 1 {
         return;

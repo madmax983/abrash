@@ -37,10 +37,10 @@ impl Default for RippleConfig {
     }
 }
 
-/// Applies the Water Ripple effect to the given framebuffer.
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
+/// Applies the Water Ripple effect to the given framebuffer.
 pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
     let width = fb.width() as i32;
     let height = fb.height() as i32;
