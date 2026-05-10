@@ -58,3 +58,41 @@ impl FixedTimestep {
         self.target_dt.as_secs_f32()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fixed_timestep_init() {
+        let timer = FixedTimestep::new(60);
+        // Target dt for 60 fps is ~0.016666
+        assert!((timer.dt() - 0.016666).abs() < 0.0001);
+    }
+
+    #[test]
+    fn test_fixed_timestep_update() {
+        let mut timer = FixedTimestep::new(60);
+
+        // Update relies on `now = Instant::now()`.
+        // We can test the accumulator behavior by not relying on the time elapsed
+        // since `new()`, which is flaky, but rather directly manipulating internal state
+        // or just updating `last_time` and `accumulator` before calling `update()`.
+
+        // Reset last_time to exactly now, so `now - last_time` in update() is 0.
+        timer.last_time = Instant::now();
+        // Add 50ms to the accumulator directly.
+        timer.accumulator += Duration::from_millis(50);
+
+        let steps = timer.update();
+        // 50ms at 60fps (16.6ms per frame) should be exactly 3 steps.
+        // Wait, 50 / 16.666 = 3
+        assert_eq!(steps, 3);
+
+        // Accumulator should have remaining fraction: 50 - 3 * 16.666 = 50 - 50 = 0.
+        // Wait, 16.666 * 3 = 50.
+        // 1/60 * 3 = 0.05. 50ms = 0.05s.
+        // So it should be almost exactly 0 or slightly more/less depending on float precision.
+        assert!(timer.accumulator.as_secs_f64() < 0.001);
+    }
+}

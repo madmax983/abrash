@@ -835,4 +835,23 @@ mod tests {
 
         Ok(())
     }
+    #[test]
+    fn test_new_invalid_dimensions() {
+        assert!(Texture::new(0, 10).is_err());
+        assert!(Texture::new(10, 0).is_err());
+        assert!(Texture::new(0, 0).is_err());
+    }
+
+    #[test]
+    fn test_new_too_large() {
+        assert!(Texture::new(i32::MAX as u32 + 1, 10).is_err());
+        assert!(Texture::new(10, i32::MAX as u32 + 1).is_err());
+    }
+
+    #[test]
+    fn test_new_overflow() {
+        // Dimensions that fit in i32::MAX individually but multiply to overflow i32::MAX
+        // 50000 * 50000 = 2_500_000_000, which is > 2_147_483_647
+        assert!(Texture::new(50000, 50000).is_err());
+    }
 }
