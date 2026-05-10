@@ -22,7 +22,7 @@
 
 use crate::math::Vec3;
 use crate::mesh::Mesh;
-use std::collections::HashMap;
+use foldhash::HashMap;
 
 /// Configuration for an L-System generator.
 #[derive(Debug, Clone)]
@@ -39,7 +39,7 @@ impl LSystem {
     pub fn new(axiom: &str) -> Self {
         Self {
             axiom: axiom.to_owned(),
-            rules: HashMap::new(),
+            rules: HashMap::default(),
             max_capacity: 100_000, // 100k char limit by default
         }
     }

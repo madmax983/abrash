@@ -22,7 +22,7 @@
 
 use crate::math::Vec3;
 use crate::mesh::Mesh;
-use std::collections::HashMap;
+use foldhash::HashMap;
 use std::f32::consts::PI;
 
 /// Represents the state of the drawing turtle.
@@ -80,6 +80,8 @@ pub struct LSystem {
     /// The initial string.
     pub axiom: String,
     /// Production rules: Key -> Replacement String.
+    /// ⚡ Bolt: Uses `foldhash::HashMap` with a fast hasher instead of std::collections::HashMap.
+    /// This eliminates SipHash cryptographic overhead when looking up `char` keys during expansion.
     pub rules: HashMap<char, String>,
     /// Angle increment for rotations (in radians).
     pub angle: f32,
@@ -94,7 +96,7 @@ impl LSystem {
     pub fn new(axiom: &str, angle_degrees: f32, step_length: f32, radius: f32) -> Self {
         Self {
             axiom: axiom.to_string(),
-            rules: HashMap::new(),
+            rules: HashMap::default(),
             angle: angle_degrees.to_radians(),
             step_length,
             radius,
