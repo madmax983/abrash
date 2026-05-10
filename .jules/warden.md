@@ -24,3 +24,11 @@
 ## 2026-04-18 - [Heap Buffer Overflow in Pixel Sort via Unchecked SendPtr]
 **Threat:** The `SendPtr` wrapper inside `crates/abrash-render/src/experimental/pixel_sort.rs` lacked a length parameter and blindly added indices to the raw pointer via `*ptr.0.add(...)`. If a framebuffer lied about its dimensions or if sorting logic failed, it would lead to a catastrophic out-of-bounds heap read/write.
 **Defense:** Rewrote `SendPtr` to capture and store the length of the slice at instantiation. Replaced direct raw pointer dereferencing with safe `read()` and `write()` methods containing an `assert!(index < self.1, "Index out of bounds")` guard before evaluating the `unsafe` block.
+
+**2025-05-10 - TileRenderer Out-of-Bounds Write Vulnerability**
+**Threat:** A heap buffer overflow could be triggered in `TileRenderer::render_batch_gouraud` functions because bounds checking previously relied on spoofable `fb.width() == self.width` assertions instead of verifying the actual buffer slice length against expected dimensions.
+**Defense:** Replaced loose assertions with a strict `validate_target_slices` check that calculates the minimum required slice capacity and verifies it safely against `fb.as_slice().len()`.
+
+**2025-05-10 - OBJ Loader Algorithmic DoS (Quadratic Blowup)**
+**Threat:** The `load_obj` parser was susceptible to quadratic behavior or OOM when attempting to deduplicate or trace faces with an extremely high number of indices or UV permutations.
+**Defense:** The OBJ loader sets strict parsing limits via `MAX_VERTICES = 1_000_000` and correctly propagates `Result::Err` rather than panicking or crashing when inputs exceed memory-safe constraints. Additional chaos tests verified the loader rejects massive strings smoothly without exploiting the heap.

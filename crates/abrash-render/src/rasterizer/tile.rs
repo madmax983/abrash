@@ -2575,22 +2575,7 @@ impl TileRenderer {
             ((Vec3, f32), Vec3),
         )],
     ) {
-        assert_eq!(fb.width(), self.width);
-        assert_eq!(fb.height(), self.height);
-        assert_eq!(zb.width(), self.width);
-        assert_eq!(zb.height(), self.height);
-
-        let expected_len = (self.width as usize)
-            .checked_mul(self.height as usize)
-            .expect("TileRenderer dimensions overflow");
-        assert!(
-            fb.as_slice().len() >= expected_len,
-            "Framebuffer slice too small"
-        );
-        assert!(
-            zb.as_slice().len() >= expected_len,
-            "ZBuffer slice too small"
-        );
+        self.validate_target_slices(fb.width(), fb.height(), fb.as_slice(), zb.as_slice());
 
         self.prepared_gouraud.clear();
         self.tile_bins.clear();
