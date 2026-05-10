@@ -37,7 +37,8 @@ pub fn apply_tunnel(framebuffer: &mut Framebuffer, time: f32, texture: &Texture)
                 let dx = x as f32 - center_x;
 
                 // Distance from center
-                let distance = f32::hypot(dx, dy).max(1.0);
+                #[allow(clippy::imprecise_flops)]
+                let distance = (dx * dx + dy * dy).sqrt().max(1.0);
 
                 // Angle
                 let angle = f32::atan2(dy, dx);
