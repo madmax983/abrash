@@ -1461,13 +1461,12 @@ fn rasterize_scanline_simd(
 
     // Process initial unaligned pixels
     for k in 0..pre_simd_count {
-        unsafe {
-            let d = depths.get_unchecked_mut(k);
-            if z < *d {
-                *d = z;
-                *pixels.get_unchecked_mut(k) = color;
-            }
+        let d = &mut depths[k];
+        if z < *d {
+            *d = z;
+            pixels[k] = color;
         }
+
         z += dz_dx;
     }
 
@@ -2575,21 +2574,11 @@ impl TileRenderer {
             ((Vec3, f32), Vec3),
         )],
     ) {
-        assert_eq!(fb.width(), self.width);
-        assert_eq!(fb.height(), self.height);
-        assert_eq!(zb.width(), self.width);
-        assert_eq!(zb.height(), self.height);
-
-        let expected_len = (self.width as usize)
-            .checked_mul(self.height as usize)
-            .expect("TileRenderer dimensions overflow");
-        assert!(
-            fb.as_slice().len() >= expected_len,
-            "Framebuffer slice too small"
-        );
-        assert!(
-            zb.as_slice().len() >= expected_len,
-            "ZBuffer slice too small"
+        self.validate_target_slices(
+            fb.width(),
+            fb.height(),
+            fb.as_mut_slice(),
+            zb.as_mut_slice(),
         );
 
         self.prepared_gouraud.clear();
@@ -3016,8 +3005,8 @@ impl TileRenderer {
                 indices.sort_unstable_by(|&a, &b| {
                     let tri_idx_a = tris[a as usize] as usize;
                     let tri_idx_b = tris[b as usize] as usize;
-                    let depth_a = unsafe { prepared_gouraud.get_unchecked(tri_idx_a).min_depth };
-                    let depth_b = unsafe { prepared_gouraud.get_unchecked(tri_idx_b).min_depth };
+                    let depth_a = prepared_gouraud.get(tri_idx_a).unwrap().min_depth;
+                    let depth_b = prepared_gouraud.get(tri_idx_b).unwrap().min_depth;
                     depth_a
                         .partial_cmp(&depth_b)
                         .unwrap_or(std::cmp::Ordering::Equal)
@@ -3375,7 +3364,7 @@ impl TileRenderer {
                 };
 
                 // SAFETY: has_hiz is true, so hiz_buffer_ref is Some
-                if !unsafe { hiz_buffer_ref.unwrap_unchecked() }.is_potentially_visible(aabb) {
+                if !hiz_buffer_ref.unwrap().is_potentially_visible(aabb) {
                     continue;
                 }
             }
@@ -3466,9 +3455,7 @@ impl TileRenderer {
                     };
 
                     // SAFETY: has_hiz is true, so hiz_buffer_ref is Some
-                    if !unsafe { ctx.hiz_buffer_ref.unwrap_unchecked() }
-                        .is_potentially_visible(bin_aabb)
-                    {
+                    if !ctx.hiz_buffer_ref.unwrap().is_potentially_visible(bin_aabb) {
                         visible = false;
                     }
                 }
@@ -3539,8 +3526,8 @@ impl TileRenderer {
                 indices.sort_unstable_by(|&a, &b| {
                     let tri_idx_a = tris[a as usize] as usize;
                     let tri_idx_b = tris[b as usize] as usize;
-                    let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(tri_idx_b).min_depth };
+                    let depth_a = prepared.get(tri_idx_a).unwrap().min_depth;
+                    let depth_b = prepared.get(tri_idx_b).unwrap().min_depth;
                     depth_a
                         .partial_cmp(&depth_b)
                         .unwrap_or(std::cmp::Ordering::Equal)
@@ -3589,8 +3576,8 @@ impl TileRenderer {
                 indices.sort_unstable_by(|&a, &b| {
                     let tri_idx_a = tris[a as usize] as usize;
                     let tri_idx_b = tris[b as usize] as usize;
-                    let depth_a = unsafe { prepared_textured.get_unchecked(tri_idx_a).min_depth };
-                    let depth_b = unsafe { prepared_textured.get_unchecked(tri_idx_b).min_depth };
+                    let depth_a = prepared_textured.get(tri_idx_a).unwrap().min_depth;
+                    let depth_b = prepared_textured.get(tri_idx_b).unwrap().min_depth;
                     depth_a
                         .partial_cmp(&depth_b)
                         .unwrap_or(std::cmp::Ordering::Equal)
