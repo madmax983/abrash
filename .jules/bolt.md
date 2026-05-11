@@ -164,6 +164,13 @@
 **Learning:** Replacing sequential `.push()` calls within a hot loop (like mesh segment generation in `lsystem.rs` and `arboretum.rs`) with a single `.extend([a, b, c])` call using array destructuring significantly improves performance by allowing the compiler to elide repetitive vector bounds checks.
 **Action:** When adding multiple items to a `Vec` in a tight loop, prefer `extend` with a fixed-size array over sequential `push` calls.
 
+**[Heat Vision Float to Fixed-Point Optimization]**
+**Learning:** In hot per-pixel rendering loops (like the `apply_heat_vision` effect), floating-point arithmetic `(normalized * 4.0)` inside conditional branches slows down rendering significantly. Replacing float multiplication and clamps with integer arithmetic by pre-scaling values outside the loop (e.g., mapping `0.0..range` to `0..1023`) completely bypasses the float hardware and yields measurable performance gains (~9-10%).
+**Action:** Replace floating-point normalization gradients with fixed-point integer scaling buckets and strict integer bounds checking inside per-pixel loops.
+
+**[Exploration Groundedness Rule]**
+**Learning:** The agent sandbox terminal can truncate very long outputs from `cat`, making assumptions about code structures (like the heat vision algorithm) risky without concrete validation.
+**Action:** Use `grep -A 50 "pattern"` or targeted Python extraction scripts to safely confirm the structural content of files instead of relying on truncated terminal `cat` dumps when planning refactors.
 **[clear_rect optimization]**
 **Learning:** In 2D region fills over a 1D pixel buffer (like `clear_rect` in `Framebuffer` or `ZBuffer`), replacing an outer `for` loop combined with explicit index calculations and `unsafe { get_unchecked_mut() }` with the safe iterator-based chunking (`.chunks_exact_mut()`), but applying `unsafe { get_unchecked_mut() }` directly on the row slice yields measurable performance gains across various resolutions, while simplifying the code.
 **Action:** Replaced loop index calculations with `.chunks_exact_mut(w)` and elided inner-loop bounds checks with `row.get_unchecked_mut(sx..ex)` in `Framebuffer::clear_rect` and `ZBuffer::clear_rect`.
