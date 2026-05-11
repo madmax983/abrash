@@ -789,9 +789,11 @@ mod tests {
     fn test_jelly_creation() {
         // Create a simple triangle
         let mut mesh = Mesh::new();
-        mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
-        mesh.vertices.push(Vec3::new(1.0, 0.0, 0.0));
-        mesh.vertices.push(Vec3::new(0.0, 1.0, 0.0));
+        mesh.vertices.extend([
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        ]);
         mesh.indices.push([0, 1, 2]);
 
         let jelly = SoftBody::new(mesh, 1.0, 10.0, 0.5).unwrap();

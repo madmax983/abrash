@@ -1,0 +1,4 @@
+sed -i 's/pub rules: HashMap<char, String>,/\/\/\/ ⚡ Bolt: Uses `foldhash::HashMap` with a fast hasher instead of std::collections::HashMap.\n    \/\/\/ This eliminates SipHash cryptographic overhead when looking up `char` keys during expansion.\n    pub rules: HashMap<char, String>,/' crates/abrash-render/src/experimental/lsystem.rs
+sed -i 's/pub rules: HashMap<char, String>,/\/\/\/ ⚡ Bolt: Uses `foldhash::HashMap` with a fast hasher instead of std::collections::HashMap.\n    \/\/\/ This eliminates SipHash cryptographic overhead when looking up `char` keys during expansion.\n    pub rules: HashMap<char, String>,/' crates/abrash-render/src/experimental/arboretum.rs
+sed -i 's/use foldhash::{HashMap, HashMapExt};/use foldhash::HashMap;/' crates/abrash-render/src/experimental/lsystem.rs
+sed -i 's/use foldhash::{HashMap, HashMapExt};/use foldhash::HashMap;/' crates/abrash-render/src/experimental/arboretum.rs
