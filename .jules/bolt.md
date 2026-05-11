@@ -166,3 +166,7 @@
 **[Array Destructuring Extend]
 **Learning:** Replacing sequential `.push()` calls within a hot loop (like mesh segment generation in `lsystem.rs` and `arboretum.rs`) with a single `.extend([a, b, c])` call using array destructuring significantly improves performance by allowing the compiler to elide repetitive vector bounds checks.
 **Action:** When adding multiple items to a `Vec` in a tight loop, prefer `extend` with a fixed-size array over sequential `push` calls.
+
+**[clear_rect optimization]**
+**Learning:** In 2D region fills over a 1D pixel buffer (like `clear_rect` in `Framebuffer` or `ZBuffer`), replacing an outer `for` loop combined with explicit index calculations and `unsafe { get_unchecked_mut() }` with the safe iterator-based chunking (`.chunks_exact_mut()`), but applying `unsafe { get_unchecked_mut() }` directly on the row slice yields measurable performance gains across various resolutions, while simplifying the code.
+**Action:** Replaced loop index calculations with `.chunks_exact_mut(w)` and elided inner-loop bounds checks with `row.get_unchecked_mut(sx..ex)` in `Framebuffer::clear_rect` and `ZBuffer::clear_rect`.
