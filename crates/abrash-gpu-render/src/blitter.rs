@@ -515,12 +515,17 @@ impl GpuBlitter {
 
         // Convert 0xAARRGGBB pixels to RGBA bytes for wgpu.
         let pixels = texture.pixels();
-        let rgba: Vec<u8> = pixels.iter().flat_map(|&px| [
-                ((px >> 16) & 0xFF) as u8,
-                ((px >> 8) & 0xFF) as u8,
-                (px & 0xFF) as u8,
-                ((px >> 24) & 0xFF) as u8,
-            ]).collect();
+        let rgba: Vec<u8> = pixels
+            .iter()
+            .flat_map(|&px| {
+                [
+                    ((px >> 16) & 0xFF) as u8,
+                    ((px >> 8) & 0xFF) as u8,
+                    (px & 0xFF) as u8,
+                    ((px >> 24) & 0xFF) as u8,
+                ]
+            })
+            .collect();
 
         self.queue.write_texture(
             wgpu::TexelCopyTextureInfo {
@@ -864,12 +869,17 @@ impl GpuBlitter {
         let h = self.height;
 
         // Convert 0xAARRGGBB → RGBA bytes for wgpu.
-        let rgba: Vec<u8> = fb_pixels.iter().flat_map(|&px| [
-                ((px >> 16) & 0xFF) as u8,
-                ((px >> 8) & 0xFF) as u8,
-                (px & 0xFF) as u8,
-                ((px >> 24) & 0xFF) as u8,
-            ]).collect();
+        let rgba: Vec<u8> = fb_pixels
+            .iter()
+            .flat_map(|&px| {
+                [
+                    ((px >> 16) & 0xFF) as u8,
+                    ((px >> 8) & 0xFF) as u8,
+                    (px & 0xFF) as u8,
+                    ((px >> 24) & 0xFF) as u8,
+                ]
+            })
+            .collect();
 
         self.queue.write_texture(
             wgpu::TexelCopyTextureInfo {
