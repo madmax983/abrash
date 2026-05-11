@@ -1,17 +1,11 @@
-1. **Explore & Identify**
-    - [x] Search for undocumented public modules and functions using a python script analyzing `crates/` and `src/`.
-    - [x] Read `crates/abrash-render/src/experimental/*.rs` to identify missing docstrings.
-2. **Implement Fixes**
-    - [x] Add missing documentation for `tunnel.rs`, `mandelbrot.rs`, `precipitation.rs`, `water_ripple.rs`, `modifiers.rs`, and `kaleidoscope.rs`.
-    - [x] Add `#[doc(hidden)]` to `fuzz_load_obj` in `obj_loader_fuzz.rs`.
-    - [x] Write summary to `.jules/bard.md` as per "Bard" persona guidelines.
-3. **Address Clippy Diagnostics**
-    - [x] Fix `clippy::doc_markdown` warnings in `post_process/filters.rs` and `experimental/falling_sand.rs` by wrapping hex codes in backticks.
-    - [x] Fix `clippy::unreadable_literal`, `clippy::unnecessary_wraps`, `clippy::field_reassign_with_default`, `clippy::semicolon_if_nothing_returned`, and `clippy::imprecise_flops` across tests and examples to pass `cargo clippy --all-targets --all-features -- -D warnings`.
-4. **Verification**
-    - [x] Run `cargo doc --no-deps` to ensure successful documentation generation.
-    - [x] Run `cargo test` to ensure no functionality is broken by documentation or lint updates.
-    - [x] Request code review using `request_code_review`.
-5. **Pre Commit & Submit**
-    - [x] Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
-    - [ ] Submit PR using `submit` tool.
+1.  **Refactor Heat Vision to Fixed Point Math**
+    - The current `heat_vision.rs` uses floating-point math (`(normalized - 0.25) * 4.0`, etc.) inside a hot pixel loop to map depths to colors.
+    - We will follow the `[Posterize Float to Integer Math Optimization]` learning from `.jules/bolt.md` to map `0.0..1.0` depth range into integer `0..255`, and calculate RGB entirely using integer math (`t * 255 / scale`, etc.).
+    - We will pre-calculate `min_z` and `max_z` like before, calculate a `z_range` integer mapping multiplier, and use simple `(depth - min_z) * scale` to avoid floats in the main loop.
+2.  **Ensure Correctness**
+    - Ensure all existing tests in `heat_vision.rs` pass.
+3.  **Run Benchmark**
+    - Ensure `cargo bench --bench heat_vision_bench` runs successfully and shows performance improvements.
+4.  **Complete pre commit steps**
+    - Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done.
+5.  **Submit PR**
