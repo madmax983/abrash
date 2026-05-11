@@ -91,3 +91,8 @@
 **Concept:** A procedural post-processing effect that draws an infinite perspective 3D grid in a 2D pass, mapping screen (x, y) to world (x, z) using ray-plane intersection.
 **Fate:** Implemented
 **Lesson:** Iterating row by row and applying ray-plane intersection formulas directly mapping screen (x, y) to world (x, z) provides a cheap and visually striking infinite grid effect. Anti-aliasing grid lines with a fading thickness parameter greatly improves visual quality at the horizon line.
+
+## [Strange Attractor Generator]
+**Concept:** A mathematical renderer that calculates a Peter de Jong strange attractor, plotting thousands of points directly to a density map which is then converted into logarithmic pixel intensity, creating beautiful fractal structures.
+**Fate:** Implemented
+**Lesson:** Storing point density in a flat 1D vector (rather than nested 2D arrays) and using an accumulation approach avoids heavy allocation. Logarithmic scaling (`ln_1p`) elegantly exposes the structural nuances between dense cores and sparse wisps without requiring multi-pass high-dynamic-range processing.
