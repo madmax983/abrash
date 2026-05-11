@@ -1,6 +1,0 @@
-⚡ Bolt: Replace push loops with extend to elide bounds checks
-
-💡 What: Replaced iterative `.push()` loops with `.extend()` over array destructured indices in `flatten_indices` and `mesh_to_gpu`.
-🎯 Why: Calling `.push()` repeatedly inside an inner loop forces the compiler to emit a vector capacity/bounds check per iteration.
-📊 Impact: Eliminates repetitive bounds checks on hot path vertex index conversion loops, improving throughput by up to 25% (measured via custom benchmark script vs baseline).
-🔬 Measurement: Run bench `offscreen_rect_bench` (although the primary impact is inside the `mesh_to_gpu` and GPU data prep paths). Fixes test warning in `sentry_clipping_fuzz` by using `.count()` method.
