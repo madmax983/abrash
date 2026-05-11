@@ -69,8 +69,7 @@ impl TerrainGenerator {
                 let v2 = (row2 + x) as usize;
                 let v3 = (row2 + x + 1) as usize;
 
-                indices.push([v0, v2, v1]);
-                indices.push([v1, v2, v3]);
+                indices.extend([[v0, v2, v1], [v1, v2, v3]]);
             }
         }
 
