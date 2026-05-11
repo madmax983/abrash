@@ -123,7 +123,8 @@ impl LSystem {
             });
         }
 
-        let mut current_string = self.axiom.clone();
+        let mut current_string = String::with_capacity(self.max_capacity);
+        current_string.push_str(&self.axiom);
 
         // Bolt Performance Optimization:
         // By pre-calculating a flat array for ASCII replacement lookups,
@@ -136,7 +137,7 @@ impl LSystem {
             }
         }
 
-        let mut next_string = String::new();
+        let mut next_string = String::with_capacity(self.max_capacity);
 
         for _ in 0..iterations {
             next_string.clear();
