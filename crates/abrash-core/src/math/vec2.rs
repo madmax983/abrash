@@ -15,20 +15,21 @@ use std::ops::{Add, Mul, Sub};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
-#[allow(missing_docs)]
 pub struct Vec2 {
+    /// The X component.
     pub x: f32,
+    /// The Y component.
     pub y: f32,
 }
 
 impl Vec2 {
-    #[allow(missing_docs)]
+    /// A vector with all components set to zero.
     pub const ZERO: Self = Self { x: 0.0, y: 0.0 };
-    #[allow(missing_docs)]
+    /// A vector with all components set to one.
     pub const ONE: Self = Self { x: 1.0, y: 1.0 };
-    #[allow(missing_docs)]
+    /// The positive X axis vector (1, 0).
     pub const X: Self = Self { x: 1.0, y: 0.0 };
-    #[allow(missing_docs)]
+    /// The positive Y axis vector (0, 1).
     pub const Y: Self = Self { x: 0.0, y: 1.0 };
 
     /// Creates a vector with both components set to `v`.

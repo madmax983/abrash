@@ -18,8 +18,8 @@ use std::ops::{Add, Mul, Sub};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
 pub struct Mat3 {
+    /// The matrix elements stored as an array of rows `[[row0], [row1], [row2]]`.
     pub m: [[f32; 3]; 3],
 }
 

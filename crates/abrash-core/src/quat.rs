@@ -33,11 +33,15 @@ use crate::math::{Mat4, Vec3, fast_inv_sqrt};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
+/// A quaternion used for representing 3D rotations.
 pub struct Quat {
+    /// The X component of the vector part.
     pub x: f32,
+    /// The Y component of the vector part.
     pub y: f32,
+    /// The Z component of the vector part.
     pub z: f32,
+    /// The scalar component.
     pub w: f32,
 }
 

@@ -30,10 +30,13 @@ use crate::quat::Quat;
 /// assert_eq!(i.scale, Vec3::ONE);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
+/// A spatial transformation containing position, rotation, and scale.
 pub struct Transform {
+    /// The translation component.
     pub position: Vec3,
+    /// The rotation component.
     pub rotation: Quat,
+    /// The scaling component.
     pub scale: Vec3,
 }
 

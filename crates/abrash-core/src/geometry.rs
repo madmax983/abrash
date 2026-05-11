@@ -417,9 +417,11 @@ impl Cylinder {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
+/// A bounding sphere used for frustum culling and intersection tests.
 pub struct BoundingSphere {
+    /// The center point of the sphere.
     pub center: Vec3,
+    /// The radius of the sphere.
     pub radius: f32,
 }
 
@@ -607,11 +609,13 @@ impl BoundingSphere {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
+/// An Axis-Aligned Bounding Box (AABB) used for collision detection and culling.
 pub struct AABB {
+    /// The minimum coordinates of the bounding box.
     pub min: Vec3,
     #[doc(hidden)]
     pub pad0: f32, // Padding to align max to 16 bytes offset
+    /// The maximum coordinates of the bounding box.
     pub max: Vec3,
     #[doc(hidden)]
     pub pad1: f32, // Padding to make total size 32 bytes

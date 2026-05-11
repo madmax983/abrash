@@ -19,23 +19,26 @@ use std::ops::{Add, Mul, Sub};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
-#[allow(missing_docs)]
 pub struct Vec4 {
+    /// The X component.
     pub x: f32,
+    /// The Y component.
     pub y: f32,
+    /// The Z component.
     pub z: f32,
+    /// The W component.
     pub w: f32,
 }
 
 impl Vec4 {
-    #[allow(missing_docs)]
+    /// A vector with all components set to zero.
     pub const ZERO: Self = Self {
         x: 0.0,
         y: 0.0,
         z: 0.0,
         w: 0.0,
     };
-    #[allow(missing_docs)]
+    /// A vector with all components set to one.
     pub const ONE: Self = Self {
         x: 1.0,
         y: 1.0,
