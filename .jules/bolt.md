@@ -1,9 +1,6 @@
-**[Dynamic Texture Reallocation Prevention]**
-**Learning:** `Texture` structures, which contain potentially large vectors of `pixels` and `mips`, were missing an update path in `CpuRenderer` preventing efficient re-use of their allocations, unlike `CpuMesh` which used `clone_from`.
-**Action:** Always provide `update_*` functions in rendering APIs to allow developers to leverage `std::clone::Clone::clone_from` for large inner buffers. This effectively turns dynamic updates of data structures like textures or meshes into zero-cost, zero-allocation operations per frame.
 ## 2024-05-14 - Replace Sequential Push with Extend for Arrays
 
-**Learning:** Replacing sequential `.push()` calls within a hot loop (like unpacking 3 vertex indices) with a single `.extend([a, b, c])` call combined with array destructuring allows the compiler to elide repetitive vector bounds checking, resulting in measurable performance gains in hot paths.
+**Learning:** Replacing sequential `.push()` calls within a hot loop (like unpacking vertex indices) with a single `.extend([])` call combined with array destructuring allows the compiler to elide repetitive vector bounds checking, resulting in measurable performance gains in hot paths.
 
 **Action:** Whenever iterating over fixed-size inner arrays to populate a `Vec` in a hot loop, destructure the array elements first and append them in bulk using `.extend([])` instead of individual `.push()` calls.
 
@@ -174,3 +171,6 @@
 **[Exploration Groundedness Rule]**
 **Learning:** The agent sandbox terminal can truncate very long outputs from `cat`, making assumptions about code structures (like the heat vision algorithm) risky without concrete validation.
 **Action:** Use `grep -A 50 "pattern"` or targeted Python extraction scripts to safely confirm the structural content of files instead of relying on truncated terminal `cat` dumps when planning refactors.
+**[clear_rect optimization]**
+**Learning:** In 2D region fills over a 1D pixel buffer (like `clear_rect` in `Framebuffer` or `ZBuffer`), replacing an outer `for` loop combined with explicit index calculations and `unsafe { get_unchecked_mut() }` with the safe iterator-based chunking (`.chunks_exact_mut()`), but applying `unsafe { get_unchecked_mut() }` directly on the row slice yields measurable performance gains across various resolutions, while simplifying the code.
+**Action:** Replaced loop index calculations with `.chunks_exact_mut(w)` and elided inner-loop bounds checks with `row.get_unchecked_mut(sx..ex)` in `Framebuffer::clear_rect` and `ZBuffer::clear_rect`.

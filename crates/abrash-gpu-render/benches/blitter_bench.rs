@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn blitter_pixel_conversion_bench(c: &mut Criterion) {
     let width = 1920;
@@ -20,14 +20,17 @@ fn blitter_pixel_conversion_bench(c: &mut Criterion) {
 
     c.bench_function("pixel_conversion_flat_map", |b| {
         b.iter(|| {
-            let rgba: Vec<u8> = pixels.iter().flat_map(|&px| {
-                [
-                    ((px >> 16) & 0xFF) as u8,
-                    ((px >> 8) & 0xFF) as u8,
-                    (px & 0xFF) as u8,
-                    ((px >> 24) & 0xFF) as u8,
-                ]
-            }).collect();
+            let rgba: Vec<u8> = pixels
+                .iter()
+                .flat_map(|&px| {
+                    [
+                        ((px >> 16) & 0xFF) as u8,
+                        ((px >> 8) & 0xFF) as u8,
+                        (px & 0xFF) as u8,
+                        ((px >> 24) & 0xFF) as u8,
+                    ]
+                })
+                .collect();
             black_box(rgba);
         })
     });
