@@ -967,3 +967,13 @@ required-features = ["nova"]
 name = "infinite_grid_demo"
 path = "examples/infinite_grid_demo.rs"
 required-features = ["nova", "backend-winit"]
+
+[[bench]]
+name = "motion_trails_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "motion_trails_demo"
+path = "examples/motion_trails_demo.rs"
+required-features = ["nova"]

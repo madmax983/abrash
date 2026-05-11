@@ -91,3 +91,8 @@
 **Concept:** A procedural post-processing effect that draws an infinite perspective 3D grid in a 2D pass, mapping screen (x, y) to world (x, z) using ray-plane intersection.
 **Fate:** Implemented
 **Lesson:** Iterating row by row and applying ray-plane intersection formulas directly mapping screen (x, y) to world (x, z) provides a cheap and visually striking infinite grid effect. Anti-aliasing grid lines with a fading thickness parameter greatly improves visual quality at the horizon line.
+
+## [Motion Trails Filter]
+**Concept:** A temporal post-processing effect that blends the current frame with a fading history of previous frames, creating a "ghosting" or motion trail effect.
+**Fate:** Implemented
+**Lesson:** Storing the history buffer in a thread-local static `RefCell` allows maintaining temporal state across frames cleanly without mutating the global pipeline.

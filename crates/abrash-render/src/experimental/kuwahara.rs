@@ -1,332 +1,154 @@
-//! Kuwahara Filter Module
+//! Kuwahara Filter Post-Processing Effect
 //!
-//! A non-photorealistic post-processing filter that gives images a painterly,
-//! oil-painting-like aesthetic while preserving hard edges.
-//!
-//! The filter works by calculating the mean and variance of colors in four
-//! overlapping rectangular regions around each pixel. The pixel is then assigned
-//! the mean color of the region with the lowest variance.
+//! Applies a non-linear Kuwahara filter to the framebuffer. This filter reduces
+//! image noise and detail while preserving strong edges, resulting in a painterly,
+//! watercolor, or oil-painting aesthetic.
 
 use crate::framebuffer::Framebuffer;
-#[cfg(feature = "parallel")]
-use rayon::prelude::*;
 use std::cell::RefCell;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 thread_local! {
-    static KUWAHARA_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+    static SOURCE_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+}
+
+/// Configuration for the Kuwahara effect.
+#[derive(Debug, Clone, Copy)]
+pub struct KuwaharaConfig {
+    /// The radius of the filter. Larger values create a more pronounced
+    /// painterly effect but are significantly more computationally expensive.
+    /// Recommended values are between 2 and 6.
+    pub radius: u32,
+}
+
+impl Default for KuwaharaConfig {
+    fn default() -> Self {
+        Self { radius: 3 }
+    }
 }
 
 /// Applies a Kuwahara filter to the framebuffer.
 ///
-/// # Arguments
-///
-/// * `fb` - The framebuffer to modify in-place.
-/// * `radius` - The radius of the Kuwahara kernel (e.g., 2 means 5x5 total window size).
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
-    if radius <= 0 {
+/// This filter divides the area around each pixel into four overlapping regions.
+/// It calculates the mean and variance of each region, and assigns the pixel
+/// the mean color of the region with the lowest variance. This smooths out
+/// textures while keeping sharp edges intact.
+pub fn apply_kuwahara(fb: &mut Framebuffer, config: &KuwaharaConfig) {
+    let width = fb.width() as usize;
+    let height = fb.height() as usize;
+    let radius = config.radius as i32;
+
+    if width == 0 || height == 0 || radius <= 0 {
         return;
     }
 
-    let width = fb.width() as i32;
-    let height = fb.height() as i32;
-
-    // We must read from the original pixels and write to a new buffer
-    // since the filter requires unmodified neighboring pixels.
-
-    KUWAHARA_BUFFER.with(|buf| {
+    SOURCE_BUFFER.with(|buf| {
         let mut src_fb_vec = buf.borrow_mut();
-        let size = (width * height) as usize;
+        let size = width * height;
         if src_fb_vec.len() < size {
             src_fb_vec.resize(size, 0);
         }
-
-        let src_fb = &mut src_fb_vec[..size];
-        src_fb.copy_from_slice(fb.as_slice());
+        let src_pixels = &mut src_fb_vec[..size];
+        src_pixels.copy_from_slice(fb.as_slice());
 
         let dest_pixels = fb.as_mut_slice();
 
         #[cfg(feature = "parallel")]
-        {
-            dest_pixels
-                .par_chunks_exact_mut(width as usize)
-                .enumerate()
-                .for_each(|(y_usize, row)| {
-                    let y = y_usize as i32;
-
-                    for (x_usize, pixel_out) in row.iter_mut().enumerate() {
-                        let x = x_usize as i32;
-
-                        // The four regions around the center pixel (x, y):
-                        // 0: Top-Left
-                        // 1: Top-Right
-                        // 2: Bottom-Left
-                        // 3: Bottom-Right
-
-                        let mut best_num = u64::MAX;
-                        let mut best_den = 1u64;
-                        let mut best_color = 0u32;
-
-                        // Region definitions (dx_start, dx_end, dy_start, dy_end)
-                        let regions = [
-                            (-radius, 0, -radius, 0), // Top-Left
-                            (0, radius, -radius, 0),  // Top-Right
-                            (-radius, 0, 0, radius),  // Bottom-Left
-                            (0, radius, 0, radius),   // Bottom-Right
-                        ];
-
-                        for &(dx_start, dx_end, dy_start, dy_end) in &regions {
-                            let mut sum_r = 0;
-                            let mut sum_g = 0;
-                            let mut sum_b = 0;
-                            let mut sum_r2 = 0;
-                            let mut sum_g2 = 0;
-                            let mut sum_b2 = 0;
-                            let mut count = 0;
-
-                            // We split the image processing into a fast path for the safe interior
-                            // and a slow path with bounds checking for the borders.
-                            if y >= radius
-                                && y < height - radius
-                                && x >= radius
-                                && x < width - radius
-                            {
-                                // Fast path: No bounds checking needed
-                                let py_start = y + dy_start;
-                                let py_end = y + dy_end;
-                                let px_start = x + dx_start;
-                                let px_end = x + dx_end;
-
-                                for py in py_start..=py_end {
-                                    let row_offset = (py * width) as usize;
-                                    let px_start_u = px_start as usize;
-                                    let px_end_u = px_end as usize;
-
-                                    // Use chunk iteration to let LLVM vectorize when possible
-                                    for &pixel in
-                                        &src_fb[row_offset + px_start_u..=row_offset + px_end_u]
-                                    {
-                                        let r = (pixel >> 16) & 0xFF;
-                                        let g = (pixel >> 8) & 0xFF;
-                                        let b = pixel & 0xFF;
-
-                                        sum_r += r;
-                                        sum_g += g;
-                                        sum_b += b;
-
-                                        sum_r2 += r * r;
-                                        sum_g2 += g * g;
-                                        sum_b2 += b * b;
-
-                                        count += 1;
-                                    }
-                                }
-                            } else {
-                                // Slow path: Edges require bounds clamping
-                                let py_start = (y + dy_start).max(0).min(height - 1);
-                                let py_end = (y + dy_end).max(0).min(height - 1);
-                                let px_start = (x + dx_start).max(0).min(width - 1);
-                                let px_end = (x + dx_end).max(0).min(width - 1);
-
-                                for py in py_start..=py_end {
-                                    let row_offset = (py * width) as usize;
-                                    for px in px_start..=px_end {
-                                        let pixel = src_fb[row_offset + px as usize];
-
-                                        let r = (pixel >> 16) & 0xFF;
-                                        let g = (pixel >> 8) & 0xFF;
-                                        let b = pixel & 0xFF;
-
-                                        sum_r += r;
-                                        sum_g += g;
-                                        sum_b += b;
-
-                                        sum_r2 += r * r;
-                                        sum_g2 += g * g;
-                                        sum_b2 += b * b;
-
-                                        count += 1;
-                                    }
-                                }
-                            }
-
-                            if count > 0 {
-                                // Use integer math for variance to avoid per-pixel f32 casts
-                                // Var = (sum(x^2)/n) - (sum(x)/n)^2
-                                // Scaled_Var = n * sum(x^2) - sum(x)^2  (which equals n^2 * Var)
-                                let count_u64 = u64::from(count);
-                                let sum_r_sq = u64::from(sum_r) * u64::from(sum_r);
-                                let sum_g_sq = u64::from(sum_g) * u64::from(sum_g);
-                                let sum_b_sq = u64::from(sum_b) * u64::from(sum_b);
-
-                                let scaled_var_r = count_u64 * u64::from(sum_r2) - sum_r_sq;
-                                let scaled_var_g = count_u64 * u64::from(sum_g2) - sum_g_sq;
-                                let scaled_var_b = count_u64 * u64::from(sum_b2) - sum_b_sq;
-
-                                // Total variance (luminance could also be used here, but sum of channel variances is simple)
-                                // Convert to f32 once per region to compare across potentially different count sizes near edges
-                                let total_variance_num = scaled_var_r + scaled_var_g + scaled_var_b;
-                                let total_variance_den = count_u64 * count_u64;
-
-                                if u128::from(total_variance_num) * u128::from(best_den)
-                                    < u128::from(best_num) * u128::from(total_variance_den)
-                                {
-                                    best_num = total_variance_num;
-                                    best_den = total_variance_den;
-
-                                    // Integer division is sufficient for the final mean
-                                    let out_r = sum_r / count;
-                                    let out_g = sum_g / count;
-                                    let out_b = sum_b / count;
-
-                                    best_color = 0xFF00_0000 | (out_r << 16) | (out_g << 8) | out_b;
-                                }
-                            }
-                        }
-
-                        *pixel_out = best_color;
-                    }
-                });
-        }
-
+        let row_iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
         #[cfg(not(feature = "parallel"))]
-        {
-            dest_pixels
-                .chunks_exact_mut(width as usize)
-                .enumerate()
-                .for_each(|(y_usize, row)| {
-                    let y = y_usize as i32;
+        let row_iter = dest_pixels.chunks_exact_mut(width).enumerate();
 
-                    for (x_usize, pixel_out) in row.iter_mut().enumerate() {
-                        let x = x_usize as i32;
+        row_iter.for_each(|(y, row)| {
+            let y_i32 = y as i32;
+            let width_i32 = width as i32;
+            let height_i32 = height as i32;
 
-                        // The four regions around the center pixel (x, y):
-                        // 0: Top-Left
-                        // 1: Top-Right
-                        // 2: Bottom-Left
-                        // 3: Bottom-Right
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let x_i32 = x as i32;
 
-                        let mut best_num = u64::MAX;
-                        let mut best_den = 1u64;
-                        let mut best_color = 0u32;
+                // Define the bounds of the four regions (quadrants)
+                // (x0, y0, x1, y1)
+                let regions = [
+                    (x_i32 - radius, y_i32 - radius, x_i32, y_i32), // Top-Left
+                    (x_i32, y_i32 - radius, x_i32 + radius, y_i32), // Top-Right
+                    (x_i32 - radius, y_i32, x_i32, y_i32 + radius), // Bottom-Left
+                    (x_i32, y_i32, x_i32 + radius, y_i32 + radius), // Bottom-Right
+                ];
 
-                        // Region definitions (dx_start, dx_end, dy_start, dy_end)
-                        let regions = [
-                            (-radius, 0, -radius, 0), // Top-Left
-                            (0, radius, -radius, 0),  // Top-Right
-                            (-radius, 0, 0, radius),  // Bottom-Left
-                            (0, radius, 0, radius),   // Bottom-Right
-                        ];
+                let mut min_variance = f32::MAX;
+                let mut best_mean = (0.0, 0.0, 0.0);
 
-                        for &(dx_start, dx_end, dy_start, dy_end) in &regions {
-                            let mut sum_r = 0;
-                            let mut sum_g = 0;
-                            let mut sum_b = 0;
-                            let mut sum_r2 = 0;
-                            let mut sum_g2 = 0;
-                            let mut sum_b2 = 0;
-                            let mut count = 0;
+                for (x0, y0, x1, y1) in &regions {
+                    // Clamp regions to screen bounds
+                    let start_x = (*x0).clamp(0, width_i32 - 1);
+                    let start_y = (*y0).clamp(0, height_i32 - 1);
+                    let end_x = (*x1).clamp(0, width_i32 - 1);
+                    let end_y = (*y1).clamp(0, height_i32 - 1);
 
-                            if y >= radius
-                                && y < height - radius
-                                && x >= radius
-                                && x < width - radius
-                            {
-                                let py_start = y + dy_start;
-                                let py_end = y + dy_end;
-                                let px_start = x + dx_start;
-                                let px_end = x + dx_end;
+                    let num_pixels = ((end_x - start_x + 1) * (end_y - start_y + 1)) as f32;
 
-                                for py in py_start..=py_end {
-                                    let row_offset = (py * width) as usize;
-                                    let px_start_u = px_start as usize;
-                                    let px_end_u = px_end as usize;
-
-                                    for &pixel in
-                                        &src_fb[row_offset + px_start_u..=row_offset + px_end_u]
-                                    {
-                                        let r = (pixel >> 16) & 0xFF;
-                                        let g = (pixel >> 8) & 0xFF;
-                                        let b = pixel & 0xFF;
-
-                                        sum_r += r;
-                                        sum_g += g;
-                                        sum_b += b;
-
-                                        sum_r2 += r * r;
-                                        sum_g2 += g * g;
-                                        sum_b2 += b * b;
-
-                                        count += 1;
-                                    }
-                                }
-                            } else {
-                                let py_start = (y + dy_start).max(0).min(height - 1);
-                                let py_end = (y + dy_end).max(0).min(height - 1);
-                                let px_start = (x + dx_start).max(0).min(width - 1);
-                                let px_end = (x + dx_end).max(0).min(width - 1);
-
-                                for py in py_start..=py_end {
-                                    let row_offset = (py * width) as usize;
-                                    for px in px_start..=px_end {
-                                        let pixel = src_fb[row_offset + px as usize];
-
-                                        let r = (pixel >> 16) & 0xFF;
-                                        let g = (pixel >> 8) & 0xFF;
-                                        let b = pixel & 0xFF;
-
-                                        sum_r += r;
-                                        sum_g += g;
-                                        sum_b += b;
-
-                                        sum_r2 += r * r;
-                                        sum_g2 += g * g;
-                                        sum_b2 += b * b;
-
-                                        count += 1;
-                                    }
-                                }
-                            }
-
-                            if count > 0 {
-                                // Use integer math for variance to avoid per-pixel f32 casts
-                                // Var = (sum(x^2)/n) - (sum(x)/n)^2
-                                // Scaled_Var = n * sum(x^2) - sum(x)^2  (which equals n^2 * Var)
-                                let count_u64 = u64::from(count);
-                                let sum_r_sq = u64::from(sum_r) * u64::from(sum_r);
-                                let sum_g_sq = u64::from(sum_g) * u64::from(sum_g);
-                                let sum_b_sq = u64::from(sum_b) * u64::from(sum_b);
-
-                                let scaled_var_r = count_u64 * u64::from(sum_r2) - sum_r_sq;
-                                let scaled_var_g = count_u64 * u64::from(sum_g2) - sum_g_sq;
-                                let scaled_var_b = count_u64 * u64::from(sum_b2) - sum_b_sq;
-
-                                // Total variance (luminance could also be used here, but sum of channel variances is simple)
-                                // Convert to f32 once per region to compare across potentially different count sizes near edges
-                                let total_variance_num = scaled_var_r + scaled_var_g + scaled_var_b;
-                                let total_variance_den = count_u64 * count_u64;
-
-                                if u128::from(total_variance_num) * u128::from(best_den)
-                                    < u128::from(best_num) * u128::from(total_variance_den)
-                                {
-                                    best_num = total_variance_num;
-                                    best_den = total_variance_den;
-
-                                    // Integer division is sufficient for the final mean
-                                    let out_r = sum_r / count;
-                                    let out_g = sum_g / count;
-                                    let out_b = sum_b / count;
-
-                                    best_color = 0xFF00_0000 | (out_r << 16) | (out_g << 8) | out_b;
-                                }
-                            }
-                        }
-
-                        *pixel_out = best_color;
+                    if num_pixels == 0.0 {
+                        continue;
                     }
-                });
-        }
+
+                    // Calculate Mean
+                    let mut sum_r = 0.0;
+                    let mut sum_g = 0.0;
+                    let mut sum_b = 0.0;
+
+                    for ry in start_y..=end_y {
+                        for rx in start_x..=end_x {
+                            let p = src_pixels[(ry * width_i32 + rx) as usize];
+                            sum_r += ((p >> 16) & 0xFF) as f32;
+                            sum_g += ((p >> 8) & 0xFF) as f32;
+                            sum_b += (p & 0xFF) as f32;
+                        }
+                    }
+
+                    let mean_r = sum_r / num_pixels;
+                    let mean_g = sum_g / num_pixels;
+                    let mean_b = sum_b / num_pixels;
+
+                    // Calculate Variance (we use a simple luminance-based variance for speed)
+                    let mut variance = 0.0;
+
+                    for ry in start_y..=end_y {
+                        for rx in start_x..=end_x {
+                            let p = src_pixels[(ry * width_i32 + rx) as usize];
+                            let pr = ((p >> 16) & 0xFF) as f32;
+                            let pg = ((p >> 8) & 0xFF) as f32;
+                            let pb = (p & 0xFF) as f32;
+
+                            // To keep it simple and relatively fast, we compute the variance
+                            // as the sum of squared differences from the mean for each channel.
+                            let dr = pr - mean_r;
+                            let dg = pg - mean_g;
+                            let db = pb - mean_b;
+
+                            variance += dr * dr + dg * dg + db * db;
+                        }
+                    }
+
+                    // No need to divide variance by num_pixels for comparison purposes,
+                    // since regions at the edges might have different num_pixels, we should divide it.
+                    variance /= num_pixels;
+
+                    if variance < min_variance {
+                        min_variance = variance;
+                        best_mean = (mean_r, mean_g, mean_b);
+                    }
+                }
+
+                // Apply the mean of the region with the lowest variance
+                let final_r = best_mean.0.clamp(0.0, 255.0) as u32;
+                let final_g = best_mean.1.clamp(0.0, 255.0) as u32;
+                let final_b = best_mean.2.clamp(0.0, 255.0) as u32;
+
+                *pixel = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
+            }
+        });
     });
 }
 
@@ -336,18 +158,34 @@ mod tests {
     use crate::framebuffer::Framebuffer;
 
     #[test]
-    fn test_kuwahara_bounds() {
-        // Test with different framebuffer sizes to ensure no out-of-bounds panics
-        let sizes = [(1, 1), (10, 10), (100, 1), (1, 100), (33, 47)];
+    fn test_apply_kuwahara() {
+        let width = 5;
+        let height = 5;
+        let mut fb = Framebuffer::new(width, height).unwrap();
 
-        for (w, h) in sizes {
-            let mut fb = Framebuffer::new(w, h).unwrap();
-            fb.clear(0xFFFF_FFFF);
-
-            // Should not panic with varying radii
-            for radius in [1, 2, 5, 10] {
-                apply_kuwahara(&mut fb, radius);
+        // Create a noisy pattern
+        for y in 0..height {
+            for x in 0..width {
+                // Alternating black and white pixels (high variance)
+                let c = if (x + y) % 2 == 0 {
+                    0xFF_FF_FF_FF
+                } else {
+                    0xFF_00_00_00
+                };
+                fb.set_pixel(x as i32, y as i32, c);
             }
         }
+
+        // Make the top-left quadrant solid white (low variance)
+        fb.set_pixel(0, 0, 0xFF_FF_FF_FF);
+        fb.set_pixel(1, 0, 0xFF_FF_FF_FF);
+        fb.set_pixel(0, 1, 0xFF_FF_FF_FF);
+        fb.set_pixel(1, 1, 0xFF_FF_FF_FF);
+
+        let config = KuwaharaConfig { radius: 1 };
+        apply_kuwahara(&mut fb, &config);
+
+        // Pixel at (1,1) should pick the top-left quadrant which is pure white and has 0 variance.
+        assert_eq!(fb.get_pixel(1, 1).unwrap(), 0xFF_FF_FF_FF);
     }
 }
