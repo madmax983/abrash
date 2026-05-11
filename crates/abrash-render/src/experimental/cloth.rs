@@ -134,9 +134,8 @@ impl Cloth {
 
                 // Two triangles per quad
                 // Triangle 1: TL, TR, BL
-                indices.push([tl, tr, bl]);
                 // Triangle 2: TR, BR, BL
-                indices.push([tr, br, bl]);
+                indices.extend([[tl, tr, bl], [tr, br, bl]]);
             }
         }
 

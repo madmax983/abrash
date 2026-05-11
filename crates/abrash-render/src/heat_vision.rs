@@ -61,7 +61,10 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
 
     // Add a small epsilon to avoid division by zero if flat plane
     let range = (max_z - min_z).max(0.0001);
-    let inv_range = 1.0 / range;
+    // Map [0.0, range] to [0, 1023] (4 segments of 256)
+    // Adding a slight bias to prevent floating point inaccuracy at the absolute top end
+    // from truncating 1024 to 1023 when scaling.
+    let scale = 1024.0 / range;
 
     for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
         if depth == f32::INFINITY {
@@ -69,34 +72,30 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
             continue;
         }
 
-        // Normalize Z to [0.0, 1.0]
-        // 0.0 = Closest (Hot)
-        // 1.0 = Furthest (Cold)
-        let normalized = ((depth - min_z) * inv_range).clamp(0.0, 1.0);
+        let t = ((depth - min_z) * scale) as u32;
+        let t = t.min(1023); // Clamp strictly to 1023
 
-        // Heat Map Gradient
-        // 0.0 (Hot) -> Red (255, 0, 0)
-        // 0.25      -> Yellow (255, 255, 0)
-        // 0.5       -> Green (0, 255, 0)
-        // 0.75      -> Cyan (0, 255, 255)
-        // 1.0 (Cold)-> Blue (0, 0, 255)
+        // Heat Map Gradient (fixed-point integer math)
+        // 0..255     (Hot) -> Red to Yellow
+        // 256..511   -> Yellow to Green
+        // 512..767   -> Green to Cyan
+        // 768..1023  (Cold)-> Cyan to Blue
 
-        let (r, g, b) = if normalized < 0.25 {
+        let (r, g, b) = if t < 256 {
             // Red -> Yellow
-            let t = normalized * 4.0;
-            (255, (t * 255.0) as u32, 0)
-        } else if normalized < 0.5 {
+            (255, t, 0)
+        } else if t < 512 {
             // Yellow -> Green
-            let t = (normalized - 0.25) * 4.0;
-            (((1.0 - t) * 255.0) as u32, 255, 0)
-        } else if normalized < 0.75 {
+            let local_t = t - 256;
+            (255 - local_t, 255, 0)
+        } else if t < 768 {
             // Green -> Cyan
-            let t = (normalized - 0.5) * 4.0;
-            (0, 255, (t * 255.0) as u32)
+            let local_t = t - 512;
+            (0, 255, local_t)
         } else {
             // Cyan -> Blue
-            let t = (normalized - 0.75) * 4.0;
-            (0, ((1.0 - t) * 255.0) as u32, 255)
+            let local_t = t - 768;
+            (0, 255 - local_t, 255)
         };
 
         // Combine into ARGB
