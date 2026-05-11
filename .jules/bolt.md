@@ -160,6 +160,9 @@
 **Learning:** In hot pixel conversion loops (e.g., extracting RGBA channels), building a `Vec` dynamically with `.extend_from_slice()` introduces capacity check overhead.
 **Action:** Pre-allocating a zeroed vector (`vec![0u8; size]`) and writing directly via `.chunks_exact_mut(4)` paired with `.zip()` allows the compiler to elide bounds checks and significantly improves performance.
 
+**Double-Buffered Capacity Overhead**
+**Learning:** In double-buffered loops where dynamic collections like `Vec` or `String` are repeatedly swapped and cleared, explicitly calling `.reserve(len)` on every iteration can degrade performance. Allowing the allocator to naturally manage capacity growth via `.extend()` or `.push()` is often measurably faster as it avoids continuous capacity checks or forced over-allocations.
+**Action:** When implementing double-buffering patterns for repetitive allocations that reach a steady state, omit explicit capacity reservations in the hot loop and rely on the collection's natural growth strategy.
 **[Array Destructuring Extend]
 **Learning:** Replacing sequential `.push()` calls within a hot loop (like mesh segment generation in `lsystem.rs` and `arboretum.rs`) with a single `.extend([a, b, c])` call using array destructuring significantly improves performance by allowing the compiler to elide repetitive vector bounds checks.
 **Action:** When adding multiple items to a `Vec` in a tight loop, prefer `extend` with a fixed-size array over sequential `push` calls.
