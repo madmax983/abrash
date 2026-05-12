@@ -53,16 +53,6 @@ impl BlitMode {
     }
 }
 
-/// Coordinate interpretation for sprite positions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
-pub(crate) enum CoordMode {
-    /// Coordinates are in framebuffer pixels.
-    Pixel,
-    /// Coordinates are normalized \[0.0, 1.0\].
-    Normalized,
-}
-
 /// Per-sprite instance data uploaded to the GPU vertex/instance buffer.
 ///
 /// Layout is `#[repr(C)]` and `Pod` so it can be memcpy'd straight into a
@@ -1019,7 +1009,7 @@ mod tests {
     #[test]
     fn sprite_instance_zeroed() {
         let inst = SpriteInstance::zeroed();
-        assert_eq!(inst.src_x, 0.0);
+        assert!((inst.src_x - 0.0).abs() < 1e-5);
         assert_eq!(inst.blend_mode, 0);
     }
 
@@ -1034,14 +1024,14 @@ mod tests {
     #[test]
     fn blit_mode_to_u32() {
         assert_eq!(BlitMode::Opaque.as_u32(), 0);
-        assert_eq!(BlitMode::ColorKey(0xFF00FF).as_u32(), 1);
+        assert_eq!(BlitMode::ColorKey(0x00FF_00FF).as_u32(), 1);
         assert_eq!(BlitMode::Alpha.as_u32(), 2);
     }
 
     #[test]
     fn blit_mode_color_key_value() {
         assert_eq!(BlitMode::Opaque.color_key(), 0);
-        assert_eq!(BlitMode::ColorKey(0xFF00FF).color_key(), 0xFF00FF);
+        assert_eq!(BlitMode::ColorKey(0x00FF_00FF).color_key(), 0x00FF_00FF);
         assert_eq!(BlitMode::Alpha.color_key(), 0);
     }
 
@@ -1054,7 +1044,7 @@ mod tests {
 
     #[test]
     fn sort_commands_by_atlas_then_blend() {
-        let mut commands = vec![
+        let mut commands = [
             SpriteCommand {
                 atlas: AtlasHandle(1),
                 instance: SpriteInstance {

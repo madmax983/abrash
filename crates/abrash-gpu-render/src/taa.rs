@@ -238,47 +238,6 @@ impl TaaPass {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_halton_sequence() {
-        // Base 2: 0.5, 0.25, 0.75, 0.125, ...
-        assert!((halton(1, 2) - 0.5).abs() < f32::EPSILON);
-        assert!((halton(2, 2) - 0.25).abs() < f32::EPSILON);
-        assert!((halton(3, 2) - 0.75).abs() < f32::EPSILON);
-
-        // Base 3: 1/3, 2/3, 1/9, ...
-        assert!((halton(1, 3) - 1.0 / 3.0).abs() < 0.001);
-        assert!((halton(2, 3) - 2.0 / 3.0).abs() < 0.001);
-    }
-
-    #[test]
-    fn test_halton_jitter_range() {
-        for i in 0..16 {
-            let (jx, jy) = halton_jitter(i, 1920, 1080);
-            // Jitter should be sub-pixel in NDC
-            assert!(jx.abs() < 1.0 / 1920.0 * 2.0);
-            assert!(jy.abs() < 1.0 / 1080.0 * 2.0);
-        }
-    }
-
-    #[test]
-    fn test_taa_shader_valid() {
-        assert!(TAA_RESOLVE_SHADER.contains("@compute"));
-        assert!(TAA_RESOLVE_SHADER.contains("prev_view_proj"));
-        assert!(TAA_RESOLVE_SHADER.contains("clamp")); // neighborhood clamping
-        assert!(TAA_RESOLVE_SHADER.contains("feedback"));
-    }
-
-    #[test]
-    fn test_taa_params_size() {
-        let size = std::mem::size_of::<TaaParams>();
-        assert_eq!(size, 80); // 64 (mat4) + 8 (jitter) + 4 (feedback) + 4 (pad)
-        assert_eq!(size % 16, 0);
-    }
-}
 
 fn create_taa_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -338,4 +297,46 @@ fn create_taa_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout 
             },
         ],
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_halton_sequence() {
+        // Base 2: 0.5, 0.25, 0.75, 0.125, ...
+        assert!((halton(1, 2) - 0.5).abs() < f32::EPSILON);
+        assert!((halton(2, 2) - 0.25).abs() < f32::EPSILON);
+        assert!((halton(3, 2) - 0.75).abs() < f32::EPSILON);
+
+        // Base 3: 1/3, 2/3, 1/9, ...
+        assert!((halton(1, 3) - 1.0 / 3.0).abs() < 0.001);
+        assert!((halton(2, 3) - 2.0 / 3.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_halton_jitter_range() {
+        for i in 0..16 {
+            let (jx, jy) = halton_jitter(i, 1920, 1080);
+            // Jitter should be sub-pixel in NDC
+            assert!(jx.abs() < 1.0 / 1920.0 * 2.0);
+            assert!(jy.abs() < 1.0 / 1080.0 * 2.0);
+        }
+    }
+
+    #[test]
+    fn test_taa_shader_valid() {
+        assert!(TAA_RESOLVE_SHADER.contains("@compute"));
+        assert!(TAA_RESOLVE_SHADER.contains("prev_view_proj"));
+        assert!(TAA_RESOLVE_SHADER.contains("clamp")); // neighborhood clamping
+        assert!(TAA_RESOLVE_SHADER.contains("feedback"));
+    }
+
+    #[test]
+    fn test_taa_params_size() {
+        let size = std::mem::size_of::<TaaParams>();
+        assert_eq!(size, 80); // 64 (mat4) + 8 (jitter) + 4 (feedback) + 4 (pad)
+        assert_eq!(size % 16, 0);
+    }
 }
