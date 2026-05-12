@@ -971,3 +971,8 @@ required-features = ["nova", "backend-winit"]
 [[bench]]
 name = "heat_vision_bench"
 harness = false
+
+[[example]]
+name = "gameboy_camera_demo"
+path = "examples/gameboy_camera_demo.rs"
+required-features = ["nova"]

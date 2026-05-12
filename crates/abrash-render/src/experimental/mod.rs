@@ -33,6 +33,7 @@ pub mod black_hole;
 pub mod boids;
 pub mod brickify;
 pub mod fractal;
+pub mod gameboy_camera;
 
 pub mod blueprint;
 pub mod cel_shade;

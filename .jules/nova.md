@@ -91,3 +91,8 @@
 **Concept:** A procedural post-processing effect that draws an infinite perspective 3D grid in a 2D pass, mapping screen (x, y) to world (x, z) using ray-plane intersection.
 **Fate:** Implemented
 **Lesson:** Iterating row by row and applying ray-plane intersection formulas directly mapping screen (x, y) to world (x, z) provides a cheap and visually striking infinite grid effect. Anti-aliasing grid lines with a fading thickness parameter greatly improves visual quality at the horizon line.
+
+## [Gameboy Camera Filter]
+**Concept:** A post-processing effect simulating the classic Nintendo Gameboy Camera. Downconverts image luminance to a strict 4-color green palette using a 4x4 Bayer ordered dither matrix.
+**Fate:** Implemented
+**Lesson:** Ordered dithering using a small 4x4 Bayer matrix provides a very authentic retro aesthetic without the computational overhead or diffusion tracking required by Floyd-Steinberg dithering. It translates extremely well to parallelized row-processing since each pixel only depends on its coordinate modulo the matrix size.
