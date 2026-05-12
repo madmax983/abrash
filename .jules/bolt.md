@@ -183,3 +183,6 @@
 **[clear_rect optimization]**
 **Learning:** In 2D region fills over a 1D pixel buffer (like `clear_rect` in `Framebuffer` or `ZBuffer`), replacing an outer `for` loop combined with explicit index calculations and `unsafe { get_unchecked_mut() }` with the safe iterator-based chunking (`.chunks_exact_mut()`), but applying `unsafe { get_unchecked_mut() }` directly on the row slice yields measurable performance gains across various resolutions, while simplifying the code.
 **Action:** Replaced loop index calculations with `.chunks_exact_mut(w)` and elided inner-loop bounds checks with `row.get_unchecked_mut(sx..ex)` in `Framebuffer::clear_rect` and `ZBuffer::clear_rect`.
+**[Eliding huge capacity overallocations]**
+**Learning:** In exponential string generation algorithms (like L-Systems), unconditionally pre-allocating strings with an extremely large OOM-prevention limit (e.g., `String::with_capacity(max_capacity)`) causes severe initialization overhead.
+**Action:** Use `String::new()` and rely on natural allocator capacity growth. This is significantly faster and prevents massive heap over-allocation for simple configurations.
