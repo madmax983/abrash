@@ -91,3 +91,8 @@
 **Concept:** A procedural post-processing effect that draws an infinite perspective 3D grid in a 2D pass, mapping screen (x, y) to world (x, z) using ray-plane intersection.
 **Fate:** Implemented
 **Lesson:** Iterating row by row and applying ray-plane intersection formulas directly mapping screen (x, y) to world (x, z) provides a cheap and visually striking infinite grid effect. Anti-aliasing grid lines with a fading thickness parameter greatly improves visual quality at the horizon line.
+
+## [Globe Filter]
+**Concept:** A retro demoscene effect that maps the 2D framebuffer onto a rotating 3D sphere using inverse spherical projection, complete with Lambertian shading for a 3D marble look.
+**Fate:** Implemented
+**Lesson:** Using simple `atan2` and `asin` along with a pre-calculated distance squared check (`dist_sq <= r_sq`) provides an incredibly fast and accurate way to simulate a spherical mapping purely in screen-space, completely avoiding the need to actually rasterize 3D spherical meshes.
