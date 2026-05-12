@@ -22,7 +22,9 @@ fn bench_heat_vision(c: &mut Criterion) {
                 } else {
                     rng.gen_range(0.1..100.0)
                 };
-                unsafe { zb.test_and_set_unchecked(x as usize, y as usize, depth); }
+                unsafe {
+                    zb.test_and_set_unchecked(x as usize, y as usize, depth);
+                }
             }
         }
 
