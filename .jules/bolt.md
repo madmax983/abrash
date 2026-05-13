@@ -183,3 +183,11 @@
 **[clear_rect optimization]**
 **Learning:** In 2D region fills over a 1D pixel buffer (like `clear_rect` in `Framebuffer` or `ZBuffer`), replacing an outer `for` loop combined with explicit index calculations and `unsafe { get_unchecked_mut() }` with the safe iterator-based chunking (`.chunks_exact_mut()`), but applying `unsafe { get_unchecked_mut() }` directly on the row slice yields measurable performance gains across various resolutions, while simplifying the code.
 **Action:** Replaced loop index calculations with `.chunks_exact_mut(w)` and elided inner-loop bounds checks with `row.get_unchecked_mut(sx..ex)` in `Framebuffer::clear_rect` and `ZBuffer::clear_rect`.
+
+**[Eliding Heap Allocations with Array Initialization]**
+**Learning:** In hot per-frame rendering code, replacing `.map(...).collect::<Vec<_>>()` on small, fixed-size data (like 4-element quads) with direct stack-allocated array instantiation (e.g., `let v = [f(0), f(1), f(2), f(3)];`) eliminates dynamic heap allocations and measurably improves performance.
+**Action:** Use fixed-size stack arrays for small, known quantities instead of dynamic vectors.
+
+**[Eliding Heap Allocations with IntoIterator]**
+**Learning:** When building UI components (like Ratatui's `List::new()`) in a hot render loop, passing iterators directly to constructors that accept `IntoIterator` instead of calling `.collect::<Vec<_>>()` eliminates unnecessary intermediate heap allocations.
+**Action:** Pass `Iterator`s directly to APIs that accept `IntoIterator` instead of eagerly collecting them into `Vec`s.

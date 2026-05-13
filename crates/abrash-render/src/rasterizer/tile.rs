@@ -547,6 +547,10 @@ impl rayon::iter::IntoParallelIterator for PreparedTrianglesList {
     fn into_par_iter(self) -> Self::Iter {
         let mut out: Vec<PreparedTriangle> = Vec::with_capacity(self.count);
         for i in 0..self.count {
+            // SAFETY: `self.count` tracks the number of initialized elements.
+            // Using `read()` correctly extracts the value without risking double-free,
+            // though since `PreparedTriangle` is essentially `Copy`/POD, `assume_init()`
+            // is technically safe if we don't drop `self.tris` afterwards.
             out.push(unsafe { self.tris[i].assume_init() });
         }
         out.into_par_iter()

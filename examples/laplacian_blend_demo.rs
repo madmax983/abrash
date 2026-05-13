@@ -178,11 +178,14 @@ fn draw_quad_laplacian(
     num_levels: usize,
 ) {
     let mvp = model * vp;
-    let v: Vec<_> = p
-        .iter()
-        .zip(uv.iter())
-        .map(|(&pos, &uv_coord)| (mvp.transform_point(pos), uv_coord))
-        .collect();
+    // ⚡ Bolt: Construct a fixed 4-element stack array using simple destructuring instead of mapping
+    // and `.collect::<Vec<_>>()`ing. This completely eliminates a per-frame dynamic heap allocation.
+    let v = [
+        (mvp.transform_point(p[0]), uv[0]),
+        (mvp.transform_point(p[1]), uv[1]),
+        (mvp.transform_point(p[2]), uv[2]),
+        (mvp.transform_point(p[3]), uv[3]),
+    ];
 
     fill_triangle_laplacian_blend(fb, zb, v[0], v[1], v[2], tex0, tex1, mask, num_levels);
     fill_triangle_laplacian_blend(fb, zb, v[0], v[2], v[3], tex0, tex1, mask, num_levels);
