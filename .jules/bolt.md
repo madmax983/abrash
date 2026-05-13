@@ -183,3 +183,7 @@
 **[clear_rect optimization]**
 **Learning:** In 2D region fills over a 1D pixel buffer (like `clear_rect` in `Framebuffer` or `ZBuffer`), replacing an outer `for` loop combined with explicit index calculations and `unsafe { get_unchecked_mut() }` with the safe iterator-based chunking (`.chunks_exact_mut()`), but applying `unsafe { get_unchecked_mut() }` directly on the row slice yields measurable performance gains across various resolutions, while simplifying the code.
 **Action:** Replaced loop index calculations with `.chunks_exact_mut(w)` and elided inner-loop bounds checks with `row.get_unchecked_mut(sx..ex)` in `Framebuffer::clear_rect` and `ZBuffer::clear_rect`.
+
+**[Optimal Vec Initialization for Full-Image Converts]**
+**Learning:** In full-image pixel format conversion loops (e.g., preparing RGBA bytes for `wgpu` from ARGB), replacing `.flat_map().collect()` or `.extend_from_slice()` with a pre-allocated zeroed vector (`vec![0u8; len * 4]`) and `.chunks_exact_mut(4).zip(pixels.iter())` allows LLVM to heavily vectorize the assignment and elide bounds checks, yielding superior performance despite the initial zero-initialization overhead.
+**Action:** Replace `flat_map().collect()` when performing ARGB to RGBA byte conversion with pre-allocation and `chunks_exact_mut` + `zip`.
