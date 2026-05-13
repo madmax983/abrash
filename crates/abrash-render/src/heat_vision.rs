@@ -66,40 +66,49 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     // from truncating 1024 to 1023 when scaling.
     let scale = 1024.0 / range;
 
+    // Pre-calculate a Look-Up Table (LUT) to eliminate dynamic conditional branching
+    // and arithmetic overhead inside the hot per-pixel rendering loop.
+    // Using a const array defined via a macro or const fn is best, but we can also use a macro or const fn directly
+    // Let's create a const fn to generate the LUT.
+    const fn generate_lut() -> [u32; 1024] {
+        let mut lut = [0u32; 1024];
+        let mut i = 0;
+        while i < 1024 {
+            let t = i as u32;
+            let (r, g, b) = if t < 256 {
+                // Red -> Yellow
+                (255, t, 0)
+            } else if t < 512 {
+                // Yellow -> Green
+                let local_t = t - 256;
+                (255 - local_t, 255, 0)
+            } else if t < 768 {
+                // Green -> Cyan
+                let local_t = t - 512;
+                (0, 255, local_t)
+            } else {
+                // Cyan -> Blue
+                let local_t = t - 768;
+                (0, 255 - local_t, 255)
+            };
+            lut[i] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+            i += 1;
+        }
+        lut
+    }
+    const LUT: [u32; 1024] = generate_lut();
+
     for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
         if depth == f32::INFINITY {
             *pixel = 0xFF00_0010; // Very Dark Blue Background
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023); // Clamp strictly to 1023
+        let t = ((depth - min_z) * scale) as usize;
+        // Map integer directly to LUT. Bypass bounds checks using a clamp.
+        let t = t.min(1023);
 
-        // Heat Map Gradient (fixed-point integer math)
-        // 0..255     (Hot) -> Red to Yellow
-        // 256..511   -> Yellow to Green
-        // 512..767   -> Green to Cyan
-        // 768..1023  (Cold)-> Cyan to Blue
-
-        let (r, g, b) = if t < 256 {
-            // Red -> Yellow
-            (255, t, 0)
-        } else if t < 512 {
-            // Yellow -> Green
-            let local_t = t - 256;
-            (255 - local_t, 255, 0)
-        } else if t < 768 {
-            // Green -> Cyan
-            let local_t = t - 512;
-            (0, 255, local_t)
-        } else {
-            // Cyan -> Blue
-            let local_t = t - 768;
-            (0, 255 - local_t, 255)
-        };
-
-        // Combine into ARGB
-        *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+        *pixel = LUT[t];
     }
 }
 
