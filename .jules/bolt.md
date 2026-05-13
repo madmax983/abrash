@@ -183,3 +183,9 @@
 **[clear_rect optimization]**
 **Learning:** In 2D region fills over a 1D pixel buffer (like `clear_rect` in `Framebuffer` or `ZBuffer`), replacing an outer `for` loop combined with explicit index calculations and `unsafe { get_unchecked_mut() }` with the safe iterator-based chunking (`.chunks_exact_mut()`), but applying `unsafe { get_unchecked_mut() }` directly on the row slice yields measurable performance gains across various resolutions, while simplifying the code.
 **Action:** Replaced loop index calculations with `.chunks_exact_mut(w)` and elided inner-loop bounds checks with `row.get_unchecked_mut(sx..ex)` in `Framebuffer::clear_rect` and `ZBuffer::clear_rect`.
+
+## Heat Vision LUT Optimization
+**What:** Replaced per-pixel dynamic conditional branching and math in `heat_vision.rs` with a pre-calculated 1024-element Look-Up Table (LUT).
+**Why:** The original inner loop executed multi-branch `if / else if` statements on every pixel to map depths to colors. Moving this to a pre-calculated LUT mapped directly by the calculated `t` value removes branching from the hot loop.
+**Impact:** Heat vision computation time reduced by 65% to 69% across all resolutions.
+**Measurement:** 320x240 decreased from 1.37 ms to 0.45 ms. 1920x1080 decreased from 37.60 ms to 13.00 ms.
