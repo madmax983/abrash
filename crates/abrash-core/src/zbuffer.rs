@@ -85,11 +85,11 @@ impl ZBuffer {
             y2_i64 as i32
         };
 
-        let start_x = x1.max(0).min(self.width as i32) as u32;
-        let start_y = y1.max(0).min(self.height as i32) as u32;
+        let start_x = x1.clamp(0, self.width as i32) as u32;
+        let start_y = y1.clamp(0, self.height as i32) as u32;
 
-        let end_x = x2.max(0).min(self.width as i32) as u32;
-        let end_y = y2.max(0).min(self.height as i32) as u32;
+        let end_x = x2.clamp(0, self.width as i32) as u32;
+        let end_y = y2.clamp(0, self.height as i32) as u32;
 
         if start_x >= end_x || start_y >= end_y {
             return;
@@ -124,11 +124,16 @@ impl ZBuffer {
                 }
             }
 
-            for row in self.depths.as_mut_slice()[start_idx..end_idx].chunks_exact_mut(w) {
-                // ⚡ Bolt: Elide inner-loop bounds checks since `sx..ex` is already clamped safely
+            let mut offset = start_idx + sx;
+            let slice = self.depths.as_mut_slice();
+            for _ in sy..ey {
+                // ⚡ Bolt: Elide inner-loop bounds checks since `offset..offset+len` is already clamped safely
                 unsafe {
-                    row.get_unchecked_mut(sx..ex).fill(f32::INFINITY);
+                    slice
+                        .get_unchecked_mut(offset..offset + len)
+                        .fill(f32::INFINITY);
                 }
+                offset += w;
             }
         }
     }
