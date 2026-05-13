@@ -183,3 +183,7 @@
 **[clear_rect optimization]**
 **Learning:** In 2D region fills over a 1D pixel buffer (like `clear_rect` in `Framebuffer` or `ZBuffer`), replacing an outer `for` loop combined with explicit index calculations and `unsafe { get_unchecked_mut() }` with the safe iterator-based chunking (`.chunks_exact_mut()`), but applying `unsafe { get_unchecked_mut() }` directly on the row slice yields measurable performance gains across various resolutions, while simplifying the code.
 **Action:** Replaced loop index calculations with `.chunks_exact_mut(w)` and elided inner-loop bounds checks with `row.get_unchecked_mut(sx..ex)` in `Framebuffer::clear_rect` and `ZBuffer::clear_rect`.
+
+**[Optimal Parallel Iterator Chunking]**
+**Learning:** Returning `Vec<T>` inside `IntoParallelIterator` implementation for fixed-size lists (like `PreparedTrianglesList` variants) incurs severe heap allocation overhead when repeatedly evaluated in hot processing loops. Rayon natively supports `IntoParallelIterator` on arrays.
+**Action:** Replace `Vec` and `.into_par_iter()` with an array of `[Option<T>; N]` and `.into_par_iter().flatten()`. This securely transitions data to rayon threads while enforcing pure stack allocations.
