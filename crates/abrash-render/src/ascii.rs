@@ -89,6 +89,56 @@ pub struct AsciiConverter<'a> {
     charset: AsciiCharset,
 }
 
+
+/// ⚡ Bolt: Fast, allocation-free ANSI sequence formatting
+/// Replaces `write!(out, "[38;2;{r};{g};{b}m{ch}")` to avoid trait dispatch and parsing overhead.
+#[inline]
+fn format_ansi_sequence(buf: &mut [u8; 32], r: u32, g: u32, b: u32, ch: char) -> usize {
+    // "[38;2;" is 7 bytes
+    buf[0..7].copy_from_slice(b"[38;2;");
+    let mut len = 7;
+
+    // Helper for itoa
+    macro_rules! write_u32 {
+        ($val:expr) => {
+            if $val >= 100 {
+                buf[len] = b'0' + ($val / 100) as u8;
+                buf[len + 1] = b'0' + (($val / 10) % 10) as u8;
+                buf[len + 2] = b'0' + ($val % 10) as u8;
+                len += 3;
+            } else if $val >= 10 {
+                buf[len] = b'0' + ($val / 10) as u8;
+                buf[len + 1] = b'0' + ($val % 10) as u8;
+                len += 2;
+            } else {
+                buf[len] = b'0' + $val as u8;
+                len += 1;
+            }
+        };
+    }
+
+    write_u32!(r);
+    buf[len] = b';';
+    len += 1;
+
+    write_u32!(g);
+    buf[len] = b';';
+    len += 1;
+
+    write_u32!(b);
+    buf[len] = b'm';
+    len += 1;
+
+    // Encode char
+    let mut ch_buf = [0; 4];
+    let ch_str = ch.encode_utf8(&mut ch_buf);
+    let ch_len = ch_str.len();
+    buf[len..len + ch_len].copy_from_slice(ch_str.as_bytes());
+    len += ch_len;
+
+    len
+}
+
 impl<'a> AsciiConverter<'a> {
     /// Creates a new ASCII converter for the given framebuffer.
     #[must_use]
@@ -134,7 +184,10 @@ impl<'a> AsciiConverter<'a> {
                 let r = (pixel >> 16) & 0xFF;
                 let g = (pixel >> 8) & 0xFF;
                 let b = pixel & 0xFF;
-                let _ = write!(result, "\x1b[38;2;{r};{g};{b}m{ch}");
+                let mut buf = [0u8; 32];
+                let len = format_ansi_sequence(&mut buf, r, g, b, ch);
+                // SAFETY: We manually construct valid ASCII/UTF-8 bytes
+                result.push_str(unsafe { std::str::from_utf8_unchecked(&buf[..len]) });
             }
             // Reset color at end of line
             result.push_str("\x1b[0m\n");
@@ -181,7 +234,9 @@ impl<'a> AsciiConverter<'a> {
                 let r = (pixel >> 16) & 0xFF;
                 let g = (pixel >> 8) & 0xFF;
                 let b = pixel & 0xFF;
-                write!(writer, "\x1b[38;2;{r};{g};{b}m{ch}")?;
+                let mut buf = [0u8; 32];
+                let len = format_ansi_sequence(&mut buf, r, g, b, ch);
+                writer.write_all(&buf[..len])?;
             }
             writeln!(writer, "\x1b[0m")?;
         }
