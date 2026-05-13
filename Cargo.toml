@@ -971,3 +971,8 @@ required-features = ["nova", "backend-winit"]
 [[bench]]
 name = "heat_vision_bench"
 harness = false
+
+[[example]]
+name = "string_art_demo"
+path = "examples/string_art_demo.rs"
+required-features = ["nova"]

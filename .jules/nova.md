@@ -91,3 +91,8 @@
 **Concept:** A procedural post-processing effect that draws an infinite perspective 3D grid in a 2D pass, mapping screen (x, y) to world (x, z) using ray-plane intersection.
 **Fate:** Implemented
 **Lesson:** Iterating row by row and applying ray-plane intersection formulas directly mapping screen (x, y) to world (x, z) provides a cheap and visually striking infinite grid effect. Anti-aliasing grid lines with a fading thickness parameter greatly improves visual quality at the horizon line.
+
+## [String Art Filter]
+**Concept:** A procedural post-processing filter that simulates physical string art by drawing straight, semi-transparent lines between pins arranged in a circle. It uses a greedy algorithm to iteratively find and draw the string that subtracts the most from the underlying target darkness, creating intricate thread patterns.
+**Fate:** Implemented
+**Lesson:** Using a greedy evaluation for all potential pin connections effectively reconstructs images with strings, mimicking the real-world string art technique. By pre-calculating the pins and dynamically subtracting from a separate "darkness error map" (to avoid interference with the rendered pixels), the algorithm scales beautifully.
