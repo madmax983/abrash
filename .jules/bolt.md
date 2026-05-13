@@ -183,3 +183,6 @@
 **[clear_rect optimization]**
 **Learning:** In 2D region fills over a 1D pixel buffer (like `clear_rect` in `Framebuffer` or `ZBuffer`), replacing an outer `for` loop combined with explicit index calculations and `unsafe { get_unchecked_mut() }` with the safe iterator-based chunking (`.chunks_exact_mut()`), but applying `unsafe { get_unchecked_mut() }` directly on the row slice yields measurable performance gains across various resolutions, while simplifying the code.
 **Action:** Replaced loop index calculations with `.chunks_exact_mut(w)` and elided inner-loop bounds checks with `row.get_unchecked_mut(sx..ex)` in `Framebuffer::clear_rect` and `ZBuffer::clear_rect`.
+## 2025-05-13 - [Heat Vision LUT Optimization]
+**Learning:** In the `apply_heat_vision` post-processing effect, mapping a scaled integer `t` to an RGB color using sequential `if / else if` branches inside the inner pixel loop introduces dynamic branching overhead. Since the output color only depends on `t` (which is clamped to `0..1023`), we can precalculate all 1024 possible colors into a `const` array at compile time.
+**Action:** Replaced the `if / else` block with a `HEAT_LUT[t as usize]` lookup, which resulted in a massive ~65% performance improvement.
