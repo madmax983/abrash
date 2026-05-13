@@ -91,3 +91,7 @@
 **Concept:** A procedural post-processing effect that draws an infinite perspective 3D grid in a 2D pass, mapping screen (x, y) to world (x, z) using ray-plane intersection.
 **Fate:** Implemented
 **Lesson:** Iterating row by row and applying ray-plane intersection formulas directly mapping screen (x, y) to world (x, z) provides a cheap and visually striking infinite grid effect. Anti-aliasing grid lines with a fading thickness parameter greatly improves visual quality at the horizon line.
+## [Radar Scope Filter]
+**Concept:** A post-processing effect that simulates a radar display by reading geometry depth from the Z-Buffer and drawing a rotating sweep line and fading blips at object locations.
+**Fate:** Implemented
+**Lesson:** Using `thread_local!` buffers to persist and incrementally decay the "blip" buffer allows for dynamic fading trails over time without having to pipe state modifications manually through the post-processing stack.

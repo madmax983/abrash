@@ -971,3 +971,13 @@ required-features = ["nova", "backend-winit"]
 [[bench]]
 name = "heat_vision_bench"
 harness = false
+
+[[example]]
+name = "radar_demo"
+path = "examples/radar_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "radar_bench"
+harness = false
+required-features = ["nova"]

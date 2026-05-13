@@ -86,6 +86,7 @@ pub mod pop_art;
 pub mod posterize;
 pub mod precipitation;
 pub mod procedural_mesh;
+pub mod radar;
 pub mod radial_blur;
 pub mod raytracer;
 pub mod reaction_diffusion;
