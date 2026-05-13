@@ -14,6 +14,23 @@ use crate::zbuffer::ZBuffer;
 ///
 /// Faces are ordered: +X, -X, +Y, -Y, +Z, -Z.
 /// (Right, Left, Top, Bottom, Front, Back).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::texture::Texture;
+/// use abrash_render::skybox::Cubemap;
+///
+/// let faces = [
+///     Texture::new(1, 1).unwrap(),
+///     Texture::new(1, 1).unwrap(),
+///     Texture::new(1, 1).unwrap(),
+///     Texture::new(1, 1).unwrap(),
+///     Texture::new(1, 1).unwrap(),
+///     Texture::new(1, 1).unwrap(),
+/// ];
+/// let cubemap = Cubemap::new(faces);
+/// ```
 pub struct Cubemap {
     /// The 6 textures that make up the cubemap faces (Right, Left, Top, Bottom, Front, Back).
     pub faces: [Texture; 6],
@@ -74,6 +91,34 @@ impl Cubemap {
 ///
 /// This constructs a unit cube and rasterizes it using optimized quad rendering.
 /// It modifies the view matrix to remove translation, ensuring the skybox stays centered.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_core::zbuffer::ZBuffer;
+/// use abrash_core::texture::Texture;
+/// use abrash_core::math::Mat4;
+/// use abrash_render::skybox::{Cubemap, draw_skybox};
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+///
+/// let faces = [
+///     Texture::new(1, 1).unwrap(),
+///     Texture::new(1, 1).unwrap(),
+///     Texture::new(1, 1).unwrap(),
+///     Texture::new(1, 1).unwrap(),
+///     Texture::new(1, 1).unwrap(),
+///     Texture::new(1, 1).unwrap(),
+/// ];
+/// let cubemap = Cubemap::new(faces);
+///
+/// let view = Mat4::identity();
+/// let proj = Mat4::identity();
+///
+/// draw_skybox(&mut fb, &mut zb, view, proj, &cubemap);
+/// ```
 pub fn draw_skybox(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
