@@ -542,42 +542,51 @@ impl IntoIterator for PreparedTrianglesList {
 #[cfg(feature = "parallel")]
 impl rayon::iter::IntoParallelIterator for PreparedTrianglesList {
     type Item = PreparedTriangle;
-    type Iter = rayon::vec::IntoIter<PreparedTriangle>;
+    type Iter = rayon::iter::Flatten<rayon::array::IntoIter<Option<PreparedTriangle>, 8>>;
 
     fn into_par_iter(self) -> Self::Iter {
-        let mut out: Vec<PreparedTriangle> = Vec::with_capacity(self.count);
+        use rayon::iter::IntoParallelIterator;
+        use rayon::iter::ParallelIterator;
+        // ⚡ Bolt: Elides dynamic heap allocation by mapping directly over a stack array
+        let mut arr: [Option<PreparedTriangle>; 8] = [None; 8];
         for i in 0..self.count {
-            out.push(unsafe { self.tris[i].assume_init() });
+            arr[i] = Some(unsafe { self.tris[i].assume_init() });
         }
-        out.into_par_iter()
+        arr.into_par_iter().flatten()
     }
 }
 
 #[cfg(feature = "parallel")]
 impl rayon::iter::IntoParallelIterator for PreparedTexturedTrianglesList {
     type Item = PreparedTexturedTriangle;
-    type Iter = rayon::vec::IntoIter<PreparedTexturedTriangle>;
+    type Iter = rayon::iter::Flatten<rayon::array::IntoIter<Option<PreparedTexturedTriangle>, 8>>;
 
     fn into_par_iter(self) -> Self::Iter {
-        let mut out: Vec<PreparedTexturedTriangle> = Vec::with_capacity(self.count);
+        use rayon::iter::IntoParallelIterator;
+        use rayon::iter::ParallelIterator;
+        // ⚡ Bolt: Elides dynamic heap allocation by mapping directly over a stack array
+        let mut arr: [Option<PreparedTexturedTriangle>; 8] = [None; 8];
         for i in 0..self.count {
-            out.push(unsafe { self.tris[i].assume_init() });
+            arr[i] = Some(unsafe { self.tris[i].assume_init() });
         }
-        out.into_par_iter()
+        arr.into_par_iter().flatten()
     }
 }
 
 #[cfg(feature = "parallel")]
 impl rayon::iter::IntoParallelIterator for PreparedGouraudTrianglesList {
     type Item = PreparedGouraudTriangle;
-    type Iter = rayon::vec::IntoIter<PreparedGouraudTriangle>;
+    type Iter = rayon::iter::Flatten<rayon::array::IntoIter<Option<PreparedGouraudTriangle>, 8>>;
 
     fn into_par_iter(self) -> Self::Iter {
-        let mut out: Vec<PreparedGouraudTriangle> = Vec::with_capacity(self.count);
+        use rayon::iter::IntoParallelIterator;
+        use rayon::iter::ParallelIterator;
+        // ⚡ Bolt: Elides dynamic heap allocation by mapping directly over a stack array
+        let mut arr: [Option<PreparedGouraudTriangle>; 8] = [None; 8];
         for i in 0..self.count {
-            out.push(unsafe { self.tris[i].assume_init() });
+            arr[i] = Some(unsafe { self.tris[i].assume_init() });
         }
-        out.into_par_iter()
+        arr.into_par_iter().flatten()
     }
 }
 
