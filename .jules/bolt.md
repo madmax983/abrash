@@ -221,3 +221,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **Optimize SSAO Kernel Loop**
 **Learning:** In hot loops, replacing `kernel[k]` with a dereferenced iterator value (`&s`) avoids redundant array indexing and bounds checking.
 **Action:** Replaced `let s = kernel[k];` with `for (k, &s) in kernel.iter().enumerate().take(KERNEL_SIZE)` in `crates/abrash-render/src/post_process/ssao.rs`.
+## [Compile-Time LUT Generation]
+**Bottleneck:** Pre-calculating a gradient color Look-Up Table (LUT) dynamically inside a hot post-processing function (`apply_heat_vision`) incurs initialization overhead on every frame.
+**Optimization:** Extracted the generation loop into a `const fn` (replacing `for` loops with `while` loops due to `const fn` restrictions) and declared `const LUT: [u32; 1024] = generate_lut();` inside the function.
+**Impact:** Eliminated dynamic array allocation and setup overhead per frame, maximizing throughput in headless render loops.

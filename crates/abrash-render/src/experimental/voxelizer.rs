@@ -231,10 +231,7 @@ mod tests {
         ]);
 
         // Just one face (Front) to test
-        mesh.indices.extend([
-            [0, 1, 2],
-            [0, 2, 3],
-        ]);
+        mesh.indices.extend([[0, 1, 2], [0, 2, 3]]);
 
         let resolution = 10;
         let grid = Voxelizer::voxelize(&mesh, resolution);
