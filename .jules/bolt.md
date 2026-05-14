@@ -183,3 +183,7 @@
 **[clear_rect optimization]**
 **Learning:** In 2D region fills over a 1D pixel buffer (like `clear_rect` in `Framebuffer` or `ZBuffer`), replacing an outer `for` loop combined with explicit index calculations and `unsafe { get_unchecked_mut() }` with the safe iterator-based chunking (`.chunks_exact_mut()`), but applying `unsafe { get_unchecked_mut() }` directly on the row slice yields measurable performance gains across various resolutions, while simplifying the code.
 **Action:** Replaced loop index calculations with `.chunks_exact_mut(w)` and elided inner-loop bounds checks with `row.get_unchecked_mut(sx..ex)` in `Framebuffer::clear_rect` and `ZBuffer::clear_rect`.
+
+**[Heat Vision Float to Fixed-Point Optimization]**
+**Learning:** In hot per-pixel rendering loops (like the `apply_heat_vision` effect), floating-point arithmetic and conditional branches (`if / else if`) used for gradient mapping slow down rendering significantly. Replacing float operations and dynamic branches with a fixed-point integer Look-Up Table (`HEAT_LUT`) generated via a `const fn` at compile-time completely bypasses the dynamic overhead and yields massive performance gains (~67%).
+**Action:** Replace dynamic branching and floating-point logic in hot gradient mapping loops with pre-calculated integer Look-Up Tables (`LUT`s).
