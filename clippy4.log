@@ -1,0 +1,4 @@
+    Checking abrash-render v0.1.0 (/app/crates/abrash-render)
+    Checking abrash-gpu-render v0.1.0 (/app/crates/abrash-gpu-render)
+    Checking abrash v0.1.0 (/app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 21.69s

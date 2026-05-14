@@ -1,0 +1,512 @@
+   Compiling abrash-render v0.1.0 (/app/crates/abrash-render)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.89s
+     Running unittests src/lib.rs (target/debug/deps/abrash_render-13e5b2d1e0036947)
+
+running 340 tests
+test ascii::tests::test_ascii_mapping ... ok
+test ascii::tests::test_ascii_mapping_binary ... ok
+test ascii::tests::test_block_charset ... ok
+test ascii::tests::test_ascii_mapping_minimal ... ok
+test ascii::tests::test_luminance_calculation ... ok
+test ascii::tests::test_export_ascii_file ... ok
+test ascii::tests::test_export_ansi_file ... ok
+test ascii::tests::test_to_colored_string ... ok
+test ascii::tests::test_to_string ... ok
+test experimental::arboretum::tests::test_expansion ... ok
+test experimental::arboretum::tests::test_mesh_generation ... ok
+test experimental::arboretum::tests::test_rotation ... ok
+test experimental::anaglyph::tests::test_apply_anaglyph ... ok
+test experimental::ascii_display::tests::test_ascii_display_white_to_brightest ... ok
+test experimental::ascii_display::tests::test_ascii_display_black_to_darkest ... ok
+test experimental::black_hole::tests::test_apply_black_hole_zero_mass ... ok
+test experimental::black_hole::tests::test_apply_black_hole_event_horizon ... ok
+test experimental::autostereogram::tests::test_autostereogram_changes_buffer ... ok
+test experimental::boids::tests::test_alignment ... ok
+test experimental::boids::tests::test_cohesion ... ok
+test experimental::blueprint::tests::test_apply_blueprint ... ok
+test experimental::brickify::tests::test_apply_brickify_modifies_colors ... ok
+test experimental::cel_shade::tests::test_quantize_color ... ok
+test experimental::cel_shade::tests::test_apply_cel_shade ... ok
+test experimental::boids::tests::test_separation ... ok
+test experimental::chroma_key::tests::test_apply_chroma_key ... ok
+test experimental::chroma_key::tests::test_smooth_chroma_key ... ok
+test experimental::cloth::tests::test_cloth_gravity ... ok
+test experimental::cloth::tests::test_cloth_initialization ... ok
+test experimental::color_splash::tests::test_color_splash ... ok
+test experimental::color_blindness::tests::test_apply_color_blindness_protanopia ... ok
+test experimental::cross_stitch::tests::test_cross_stitch_filter ... ok
+test experimental::conway::tests::test_conway_glider ... ok
+test experimental::depth_fog::tests::test_depth_fog_blending ... ok
+test experimental::directional_blur::tests::test_directional_blur_horizontal ... ok
+test experimental::digital_rain::tests::test_apply_digital_rain ... ok
+test experimental::directional_blur::tests::test_directional_blur_zero_samples ... ok
+test experimental::dither::tests::test_apply_floyd_steinberg_exact ... ok
+test experimental::color_blindness::tests::test_apply_color_blindness_achromatopsia ... ok
+test experimental::dither::tests::test_apply_ordered_dither_exact ... ok
+test experimental::dither::tests::test_floyd_steinberg_smooth ... ok
+test experimental::dither::tests::test_quantize ... ok
+test experimental::dither::tests::test_ordered_dither_changes_pixels ... ok
+test experimental::duotone::tests::test_apply_duotone ... ok
+test experimental::edge_glow::tests::test_apply_edge_glow_detects_edges ... ok
+test experimental::edge_glow::tests::test_edge_glow_config_default ... ok
+test experimental::falling_sand::tests::test_sand_falls_diagonally_over_obstacle ... ok
+test experimental::droste::tests::test_apply_droste ... ok
+test experimental::falling_sand::tests::test_sand_falls_down ... ok
+test experimental::falling_sand::tests::test_sand_respects_boundaries ... ok
+test experimental::falling_sand::tests::test_sand_stops_at_bottom ... ok
+test experimental::fisheye::tests::test_fisheye_distortion ... ok
+test experimental::fire::tests::test_apply_fire_moves_heat_up ... ok
+test experimental::fisheye::tests::test_fisheye_identity ... ok
+test experimental::fractal::tests::test_render_mandelbrot_standard ... ok
+test experimental::fractal::tests::test_render_mandelbrot_0x0 ... ok
+test experimental::edge_glow::tests::test_apply_edge_glow_preserves_alpha ... ok
+test experimental::frosted_glass::tests::test_frosted_glass_zero_intensity ... ok
+test experimental::frosted_glass::tests::test_frosted_glass_mutates_pixels ... ok
+test experimental::glitch::tests::test_apply_glitch_zero_intensity ... ok
+test experimental::halftone::tests::test_apply_halftone_white_image ... ok
+test experimental::halftone::tests::test_apply_halftone_black_image ... ok
+test experimental::harmonograph::tests::test_draw_line_2d_oob ... ok
+test experimental::glitch::tests::test_apply_glitch_changes_buffer ... ok
+test experimental::harmonograph::tests::test_harmonograph_render_modifies_framebuffer ... ok
+test experimental::hologram::tests::test_apply_hologram_changes_buffer ... ok
+test experimental::infinite_grid::tests::test_infinite_grid_0x0 ... ok
+test experimental::isosurface::tests::test_polygonize_tetrahedron_cases ... ok
+test experimental::harmonograph::tests::test_harmonograph_evaluate_at_zero ... ok
+test experimental::isosurface::tests::test_polygonize_tetrahedron_unreachable_guard - should panic ... ok
+test experimental::infinite_grid::tests::test_infinite_grid_horizon ... ok
+test experimental::jelly::tests::test_jelly_creation ... ok
+test experimental::jelly::tests::test_jelly_gravity ... ok
+test experimental::kaleidoscope::tests::test_fast_atan2_cardinal_directions ... ok
+test experimental::kaleidoscope::tests::test_kaleidoscope_segments_zero_one ... ok
+test experimental::jelly::correctness_tests::test_update_correctness ... ok
+test experimental::isosurface::tests::test_sphere_mesh ... ok
+test experimental::kaleidoscope::tests::test_kaleidoscope_symmetry ... ok
+test experimental::led_matrix::tests::test_apply_led_matrix ... ok
+test experimental::led_matrix::tests::test_led_matrix_config_default ... ok
+test experimental::lsystem::tests::test_lsystem_expansion ... ok
+test experimental::lsystem::tests::test_lsystem_havoc_oom ... ignored, 👹 Havoc: Intentionally tests an OOM vulnerability
+test experimental::lsystem::tests::test_oom_prevention ... ok
+test experimental::lsystem::tests::test_lsystem_expansion_non_ascii ... ok
+test experimental::lsystem::tests::test_turtle_mesh ... ok
+test experimental::magnifying_glass::tests::test_magnifying_glass_basic ... ok
+test experimental::melt::tests::test_apply_melt_initialization ... ok
+test experimental::mandelbrot::tests::test_mandelbrot_basic ... ok
+test experimental::melt::tests::test_apply_melt_shift ... ok
+test experimental::neon_outline::tests::test_neon_outline_basic ... ok
+test experimental::mosaic::tests::test_apply_hex_mosaic ... ok
+test experimental::night_vision::tests::test_night_vision_vignette_darkens_corners ... ok
+test experimental::night_vision::tests::test_night_vision_boosts_luminance_and_tints_green ... ok
+test experimental::palette::tests::test_closest_color_gameboy ... ok
+test experimental::palette::tests::test_closest_color_monochrome ... ok
+test experimental::palette::tests::test_apply_palette ... ok
+test experimental::pencil_sketch::tests::test_apply_pencil_sketch ... ok
+test experimental::pencil_sketch::tests::test_pencil_sketch_config_default ... ok
+test experimental::pixel_sort::tests::test_apply_pixel_sort_horizontal ... ok
+test experimental::pixel_sort::tests::test_apply_pixel_sort_reverse ... ok
+test experimental::pixel_sort::tests::test_apply_pixel_sort_vertical ... ok
+test experimental::plasma::tests::test_apply_plasma_0x0 ... ok
+test experimental::physarum::tests::test_apply_physarum_no_crash ... ok
+test experimental::plasma::tests::test_apply_plasma_standard ... ok
+test experimental::pop_art::tests::test_apply_pop_art_mismatched_sizes ... ok
+test experimental::posterize::tests::test_apply_posterize_reduces_colors ... ok
+test experimental::pop_art::tests::test_apply_pop_art_quadrants ... ok
+test experimental::procedural_mesh::tests::test_heightmap_application ... ok
+test experimental::procedural_mesh::tests::test_noise_consistency ... ok
+test experimental::precipitation::tests::test_raindrop_collision ... ok
+test experimental::procedural_mesh::tests::test_plane_generation ... ok
+test experimental::raytracer::tests::should_return_background_color_on_miss ... ok
+test experimental::raytracer::tests::should_render_object_color_on_hit ... ok
+test experimental::reaction_diffusion::tests::test_rd_step ... ok
+test experimental::sdf::tests::test_box_sdf ... ok
+test experimental::sdf::tests::test_plane_sdf ... ok
+test experimental::sdf::tests::test_capsule_sdf ... ok
+test experimental::sdf::tests::test_render_sdf_simple ... ok
+test experimental::sdf::tests::test_scene_map ... ok
+test experimental::sdf::tests::test_scene_normal ... ok
+test experimental::sdf::tests::test_sphere_sdf ... ok
+test experimental::selective_color::tests::test_apply_selective_color_grayscales_non_target ... ok
+test experimental::sdf::tests::test_torus_sdf ... ok
+test experimental::selective_color::tests::test_apply_selective_color_retains_target ... ok
+test experimental::slitscan::tests::test_slitscan_history ... ok
+test experimental::sonar::tests::test_sonar_effect_wave_peak ... ok
+test experimental::sonar::tests::test_sonar_effect_infinite_depth ... ok
+test experimental::speed_lines::tests::test_speed_lines_basic ... ok
+test experimental::speed_lines::tests::test_speed_lines_alpha_blend ... ok
+test experimental::kuwahara::tests::test_kuwahara_bounds ... ok
+test experimental::starfield::tests::test_starfield_update ... ok
+test experimental::steganography::tests::test_decode_data_unreachable_guard - should panic ... ok
+test experimental::starfield::tests::test_starfield_initialization ... ok
+test experimental::steganography::tests::test_decode_length_unreachable_guard - should panic ... ok
+test experimental::steganography::tests::test_decode_message_overflow ... ok
+test experimental::starfield::tests::test_starfield_render ... ok
+test experimental::steganography::tests::test_encode_too_large ... ok
+test experimental::steganography::tests::test_encode_unreachable_guard - should panic ... ok
+test experimental::steganography::tests::test_encode_decode_roundtrip ... ok
+test experimental::swirl::tests::test_apply_swirl_zero_angle ... ok
+test experimental::thermal::tests::test_apply_thermal ... ok
+test experimental::swirl::tests::test_apply_swirl ... ok
+test experimental::thermal::tests::test_apply_thermal_invert ... ok
+test experimental::topography::tests::test_apply_topography ... ok
+test experimental::tunnel::tests::test_apply_tunnel ... ok
+test experimental::vhs::tests::test_apply_vhs_zero_intensity ... ok
+test experimental::vision::tests::test_apply_vision_modifies_buffer ... ok
+test experimental::vision::tests::test_sonar_pulse ... ok
+test experimental::vision::tests::test_thermal_vision ... ok
+test experimental::vision::tests::test_vignette_calculation_accuracy ... ok
+test experimental::tilt_shift::tests::test_tilt_shift_focus_band ... ok
+test experimental::voronoi::tests::test_apply_voronoi_basic ... ok
+test experimental::voronoi::tests::test_voronoi_image_color ... ok
+test experimental::voronoi::tests::test_voronoi_borders ... ok
+test experimental::vhs::tests::test_apply_vhs_changes_buffer ... ok
+test experimental::voxelizer::tests::test_to_mesh ... ok
+test experimental::voxel_explosion::tests::test_create_explosion ... ok
+test experimental::voxelizer::tests::test_voxelize_cube_manual ... ok
+test heat_vision::tests::test_heat_vision_empty ... ok
+test experimental::wobble::tests::test_apply_wobble_shifts_pixels ... ok
+test heat_vision::tests::test_heat_vision_gradient ... ok
+test heat_vision::tests::test_heat_vision_mismatched_dimensions ... ok
+test heat_vision::tests::test_heat_vision_out_of_bounds_depths ... ok
+test heat_vision::tests::test_heat_vision_same_depth ... ok
+test particles::tests::test_particle_emission ... ok
+test particles::tests::test_particle_life ... ok
+test experimental::water_ripple::tests::test_water_ripple_changes_buffer ... ok
+test particles::tests::test_physics ... ok
+test post_process::blur::tests::test_box_blur_zero_dimensions ... ok
+test post_process::filters::tests::test_apply_chromatic_aberration ... ignored, Known failing test
+test post_process::filters::tests::test_apply_color_adjust ... ok
+test post_process::dof::tests::test_apply_dof_changes_pixels ... ok
+test post_process::blur::tests::test_box_blur_f32_correctness ... ok
+test post_process::filters::tests::test_apply_film_grain_zero_intensity ... ok
+test post_process::filters::tests::test_apply_grayscale ... ok
+test post_process::filters::tests::test_apply_film_grain ... ok
+test post_process::filters::tests::test_apply_grayscale_simd ... ok
+test post_process::filters::tests::test_apply_scanline_jitter ... ok
+test post_process::filters::tests::test_apply_invert ... ok
+test post_process::filters::tests::test_apply_scanlines_simd ... ok
+test post_process::filters::tests::test_apply_sepia ... ok
+test post_process::filters::tests::test_apply_solarize ... ok
+test rasterizer::circle::tests::test_circle_out_of_bounds ... ok
+test rasterizer::circle::tests::test_circle_overflow ... ok
+test rasterizer::circle::tests::test_draw_circle_pixels ... ok
+test rasterizer::circle::tests::test_fill_circle_no_overdraw ... ok
+test rasterizer::circle::tests::test_circle_radius_too_large ... ok
+test rasterizer::circle::tests::test_fill_circle_pixels ... ok
+test rasterizer::core::tests::edge_walker_z_interpolation ... ok
+test rasterizer::core::tests::edge_walker_step_accumulates_correctly ... ok
+test rasterizer::core::tests::edge_walker_zero_height_no_panic ... ok
+test rasterizer::core::tests::test_is_backface_extreme_coordinates_overflow ... ok
+test rasterizer::core::tests::test_is_backface_overflow_safe ... ok
+test rasterizer::ellipse::tests::test_draw_ellipse_pixels ... ok
+test rasterizer::ellipse::tests::test_ellipse_out_of_bounds ... ok
+test rasterizer::ellipse::tests::test_fill_ellipse_pixels ... ok
+test rasterizer::flat::tests::draw_scanline_flat_interpolation ... ok
+test rasterizer::gouraud::tests::draw_scanline_gouraud_interpolation ... ok
+test rasterizer::gouraud_havoc_test::havoc_gouraud_simd_buffer_mismatch ... ok
+test rasterizer::havoc_proptests::test_draw_span_nearest_simd_fuzz ... ignored, 👹 Havoc: Direct Fuzzing of unsafe SIMD bounds mapping
+test rasterizer::havoc_proptests::test_draw_span_trilinear_simd_fuzz ... ignored, 👹 Havoc: Direct Fuzzing of unsafe SIMD trilinear mapping
+test rasterizer::pbr::tests::test_pbr_simd_matches_scalar ... ok
+test rasterizer::line::tests::should_panic_when_buffer_dimensions_mismatch - should panic ... ok
+test rasterizer::rect::tests::test_draw_rect ... ok
+test rasterizer::rect::tests::test_draw_rect_oob ... ok
+test rasterizer::rect::tests::test_draw_rounded_rect ... ok
+test rasterizer::rect::tests::test_fill_rect ... ok
+test rasterizer::rect::tests::test_fill_rounded_rect ... ok
+test rasterizer::rect::tests::test_rounded_rect_oob ... ok
+test rasterizer::flat::tests::fill_triangle_3d_with_fixed_point_matches_reference ... ok
+test rasterizer::texture::test_draw_scanline_trilinear ... ok
+test rasterizer::texture::test_draw_span_nearest_overflow_vulnerability ... ok
+test rasterizer::texture::test_fast_normalize_improves_ts_light_calc ... ok
+test rasterizer::texture::test_reciprocal_table_accuracy ... ok
+test rasterizer::texture::test_fill_triangle_normal_mapped_runs_without_panic ... ok
+test rasterizer::texture::test_fill_triangle_laplacian_blend_runs_without_panic ... ok
+test rasterizer::texture::tests::test_draw_scanline_bilinear ... ok
+test rasterizer::texture::tests::test_draw_scanline_nearest ... ok
+test rasterizer::texture::tests::test_fill_quad_textured_gouraud_fallback_culled ... ok
+test rasterizer::texture::tests::test_fill_quad_textured_optimization ... ok
+test rasterizer::texture::tests::test_fill_triangle_textured_clipped ... ok
+test rasterizer::texture_havoc_test::havoc_texture_simd_buffer_mismatch ... ok
+test rasterizer::texture_havoc_test::havoc_texture_simd_zero_fb ... ok
+test rasterizer::texture_havoc_test::havoc_texture_overflow_simd ... ok
+test rasterizer::tile::tests::edge_case_exactly_100_triangles ... ok
+test rasterizer::tile::tests::edge_case_exactly_12mb ... ok
+test rasterizer::tile::tests::degenerate_triangle_no_panic ... ok
+test rasterizer::tile::tests::frustum_culling_accepts_fully_visible_triangle ... ok
+test rasterizer::tile::tests::frustum_culling_accepts_partially_visible_triangle ... ok
+test rasterizer::tile::tests::edge_switch_at_p1y_within_tile ... ok
+test rasterizer::tile::tests::frustum_culling_rejects_triangle_above_frustum ... ok
+test rasterizer::tile::tests::frustum_culling_rejects_triangle_below_frustum ... ok
+test rasterizer::tile::tests::frustum_culling_rejects_triangle_right_of_frustum ... ok
+test rasterizer::tile::tests::fixed_point_triangle_rendering_matches_float ... ok
+test rasterizer::tile::tests::large_triangle_bins_to_multiple_tiles ... ok
+test rasterizer::tile::tests::frustum_culling_rejects_triangle_left_of_frustum ... ok
+test rasterizer::tile::tests::near_plane_clipped_triangle ... ok
+test rasterizer::tile::tests::new_creates_correct_tile_grid_800x600 ... ok
+test rasterizer::tile::tests::new_creates_correct_tile_grid_exact_multiple ... ok
+test rasterizer::tile::tests::new_creates_correct_tile_grid_non_aligned ... ok
+test rasterizer::tile::tests::new_panics_on_dimensions_overflow - should panic ... ok
+test rasterizer::tile::tests::new_panics_on_tile_count_overflow - should panic ... ok
+test rasterizer::tile::tests::new_panics_on_zero_height - should panic ... ok
+test rasterizer::tile::tests::new_panics_on_zero_width - should panic ... ok
+test rasterizer::tile::tests::multiple_triangles_same_depth_render_in_order ... ok
+test rasterizer::tile::tests::offscreen_triangle_no_panic ... ok
+test rasterizer::tile::tests::prepare_triangle_accepts_front_face ... ok
+test rasterizer::tile::tests::partial_tiles_at_screen_edges ... ok
+test rasterizer::tile::tests::prepare_triangle_accepts_normal_triangle ... ok
+test rasterizer::tile::tests::prepare_triangle_culls_backface ... ok
+test rasterizer::tile::tests::prepare_triangle_rejects_degenerate_collinear ... ok
+test rasterizer::tile::tests::prepare_triangle_rejects_degenerate_zero_area ... ok
+test rasterizer::tile::tests::prepare_triangle_rejects_tiny_subpixel ... ok
+test rasterizer::tile::tests::prepare_triangle_sorts_by_y ... ok
+test rasterizer::tile::tests::render_batch_reusable ... ok
+test rasterizer::tile::tests::prepare_triangle_computes_aabb ... ok
+test rasterizer::tile::tests::should_use_scanline_for_1080p_high_triangles ... ok
+test rasterizer::tile::tests::render_batch_with_empty_input ... ok
+test rasterizer::tile::tests::should_use_scanline_for_4k_high_triangles ... ok
+test rasterizer::tile::tests::should_use_scanline_for_low_res ... ok
+test rasterizer::tile::tests::should_use_tiled_for_4k_low_triangles ... ok
+test rasterizer::tile::tests::should_use_tiled_for_1080p_low_triangles ... ok
+test rasterizer::tile::tests::small_triangle_bins_to_one_tile ... ok
+test rasterizer::tile::tests::test_end_frame_into_slices_matches_end_frame ... ok
+test rasterizer::tile::tests::test_render_batch_into_slices_matches_render_batch ... ok
+test rasterizer::tile::tests::test_render_batch_textured_into_slices_matches_render_batch_textured ... ok
+test rasterizer::tile::tests::single_triangle_renders_identically_to_fill_triangle_3d ... ok
+test rasterizer::tile::tests::verify_prepared_textured_triangle_size ... ok
+test rasterizer::tile::tests::verify_prepared_triangle_size ... ok
+test rasterizer::tile::tile_bins_tests::test_tile_bins_clear ... ok
+test rasterizer::tile::tile_bins_tests::test_tile_bins_empty_iter ... ok
+test rasterizer::tile::tile_bins_tests::test_tile_bins_multiple_bins ... ok
+test rasterizer::tile::tile_bins_tests::test_tile_bins_multiple_push_same_bin ... ok
+test rasterizer::tile::tile_bins_tests::test_tile_bins_single_push ... ok
+test rasterizer::tile::tests::two_overlapping_triangles_zbuffer_correctness ... ok
+test render_api::borrowed_target::tests::borrowed_target_accepts_exact_length_slices ... ok
+test render_api::borrowed_target::tests::borrowed_target_rejects_overflowing_dimensions ... ok
+test rasterizer::tile::warden_tests::exploit_sendptr_oob - should panic ... ok
+test render_api::borrowed_target::tests::borrowed_target_rejects_short_depth_slice ... ok
+test render_api::borrowed_target::tests::borrowed_target_rejects_short_pixel_slice ... ok
+test render_api::borrowed_target::tests::owned_render_target_can_borrow_mut ... ok
+test render_api::cpu_renderer::tests::test_cpu_renderer_drawlist_capacity_overflow - should panic ... ok
+test render_api::cpu_renderer::tests::test_cpu_renderer_invalid_mesh ... ok
+test render_api::cpu_renderer::tests::test_cpu_renderer_empty_frame ... ok
+test render_api::cpu_renderer::tests::test_cpu_renderer_renders_visible_pixels ... ok
+test render_api::cpu_renderer::tests::test_cpu_renderer_stale_handle ... ok
+test render_api::cpu_renderer::tests::test_cpu_renderer_stale_material_handle ... ok
+test render_api::cpu_renderer::tests::test_create_texture ... ok
+test render_api::cpu_renderer::tests::test_destroy_texture ... ok
+test render_api::cpu_renderer::tests::test_execute_draw_list_into_borrowed_target_matches_owned_target ... ok
+test rasterizer::tile::tests::large_resolution_no_panic ... ok
+test render_api::cpu_renderer::tests::test_extract_draw_list_batch_count ... ok
+test render_api::cpu_renderer::tests::test_extract_draw_list_stale_handle_error ... ok
+test render_api::cpu_renderer::tests::test_extract_draw_list_stale_material_handle_error ... ok
+test render_api::cpu_renderer::tests::test_execute_draw_list_matches_render_frame ... ok
+test render_api::cpu_renderer::tests::test_render_frame_into_borrowed_target_matches_owned_target ... ok
+test render_api::cpu_renderer::tests::test_update_mesh_invalid_indices ... ok
+test render_api::cpu_renderer::tests::test_update_mesh_stale_handle ... ok
+test render_api::cpu_renderer::tests::test_update_texture ... ok
+test render_api::cpu_renderer::tests::test_update_texture_stale_handle ... ok
+test render_api::draw_list::tests::test_draw_batch_new ... ok
+test render_api::draw_list::tests::test_draw_list_clear ... ok
+test render_api::draw_list::tests::test_draw_list_empty ... ok
+test render_api::draw_list::tests::test_draw_list_push_batch ... ok
+test render_api::draw_list::tests::test_draw_list_triangle_count_multi_batch ... ok
+test render_api::cpu_renderer::tests::test_update_mesh_then_render ... ok
+test render_api::cpu_renderer::tests::test_cpu_renderer_lifecycle ... ok
+test render_api::frame::tests::test_frame_add_draw_command ... ok
+test render_api::frame::tests::test_frame_add_lights ... ok
+test render_api::handles::tests::test_handle_raw_parts_round_trip ... ok
+test render_api::frame::tests::test_frame_creation ... ok
+test render_api::handles::tests::test_handle_type_safety ... ok
+test render_api::handles::tests::test_pool_default ... ok
+test render_api::handles::tests::test_pool_generation_overflow_panic ... ok
+test render_api::handles::tests::test_pool_free_list_occupied_slot_panic - should panic ... ok
+test render_api::handles::tests::test_pool_generation_overflow_use_after_free ... ok
+test render_api::handles::tests::test_pool_get_invalid_generation ... ok
+test render_api::handles::tests::test_pool_get_mut ... ok
+test render_api::handles::tests::test_pool_get_mut_invalid_generation ... ok
+test render_api::handles::tests::test_pool_insert_and_get ... ok
+test render_api::handles::tests::test_pool_remove_invalid_generation ... ok
+test render_api::handles::tests::test_pool_remove_invalidates_handle ... ok
+test render_api::handles::tests::test_pool_remove_unreachable_guard - should panic ... ok
+test render_api::material::tests::test_flat_material ... ok
+test render_api::material::tests::test_phong_material ... ok
+test render_api::handles::tests::test_pool_reuses_slots ... ok
+test render_api::material::tests::test_textured_material ... ok
+test render_api::target::tests::test_render_target_clear ... ok
+test render_api::target::tests::test_render_target_hiz ... ok
+test render_api::target::tests::test_render_target_pixel_access ... ok
+test scene::tests::test_calculate_world_aabb_matches_naive ... ok
+test scene::tests::test_extract_culls_objects_behind_camera ... ok
+test scene::tests::test_extract_empty_scene ... ok
+test scene::tests::test_extract_multiple_objects ... ok
+test scene::tests::test_extract_visible_object_produces_batch ... ok
+test skybox::tests::test_cubemap_sampling_directions ... ok
+test skybox::tests::test_draw_skybox_integration ... ok
+test render_api::target::tests::test_render_target_invalid_dimensions ... ok
+test render_api::target::tests::test_render_target_creation ... ok
+test experimental::arboretum::tests::test_expansion_dos ... ok
+
+test result: ok. 336 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 1.79s
+
+     Running tests/arboretum_proptest.rs (target/debug/deps/arboretum_proptest-97adea0f6871385d)
+
+running 1 test
+test arboretum_expand_unicode_does_not_crash ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 44.90s
+
+     Running tests/circle_havoc_test.rs (target/debug/deps/circle_havoc_test-30a68c6bc8187317)
+
+running 1 test
+test havoc_circle_overflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/circle_proptest.rs (target/debug/deps/circle_proptest-4cc640b4733f0ad6)
+
+running 1 test
+test havoc_circle_proptest ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/filters_proptest.rs (target/debug/deps/filters_proptest-5c9b2cbd3f79b7bf)
+
+running 1 test
+test test_filters_no_crash ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.16s
+
+     Running tests/havoc_circle_proptest.rs (target/debug/deps/havoc_circle_proptest-40ec53fe789b4f68)
+
+running 1 test
+test test_circle_overflow_panic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/havoc_directional_blur.rs (target/debug/deps/havoc_directional_blur-365cd713cbea7da4)
+
+running 1 test
+test havoc_test_directional_blur_overflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/havoc_draw_line_3d.rs (target/debug/deps/havoc_draw_line_3d-949bd92a00232d4e)
+
+running 1 test
+test havoc_line_3d_overflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/havoc_pixel_sort_proptest.rs (target/debug/deps/havoc_pixel_sort_proptest-cdaecb94ef94f00c)
+
+running 1 test
+test fuzz_apply_pixel_sort ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.86s
+
+     Running tests/havoc_radial_blur_fuzz.rs (target/debug/deps/havoc_radial_blur_fuzz-ca2afa0ce7c01e57)
+
+running 1 test
+test test_havoc_radial_blur_samples_overflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/havoc_rect_proptest.rs (target/debug/deps/havoc_rect_proptest-39abb9c692496257)
+
+running 2 tests
+test test_fill_rounded_rect_extreme_no_panic ... ok
+test test_draw_rect_extreme_no_panic ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.74s
+
+     Running tests/havoc_tile_ub_test.rs (target/debug/deps/havoc_tile_ub_test-212167628b675250)
+
+running 1 test
+test test_tile_uninit_read_ub ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/lsystem_proptest.rs (target/debug/deps/lsystem_proptest-d56ee73cc88a984f)
+
+running 1 test
+test lsystem_expand_unicode_does_not_crash ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 44.92s
+
+     Running tests/rect_bounds_test.rs (target/debug/deps/rect_bounds_test-ebc60bce06e60554)
+
+running 2 tests
+test test_off_screen_rounded_rect_performance ... ok
+test test_off_screen_draw_rounded_rect_performance ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/test_scene_alloc.rs (target/debug/deps/test_scene_alloc-bb1d943ffe4b7b4f)
+
+running 1 test
+test test_scene_capacity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests abrash_render
+
+running 57 tests
+test crates/abrash-render/src/ascii.rs - ascii (line 15) ... ok
+test crates/abrash-render/src/ascii.rs - ascii::AsciiConverter<'a>::to_colored_string (line 109) ... ok
+test crates/abrash-render/src/experimental/chroma_key.rs - experimental::chroma_key::smooth_chroma_key (line 99) ... ok
+test crates/abrash-render/src/experimental/chroma_key.rs - experimental::chroma_key::apply_chroma_key (line 23) ... ok
+test crates/abrash-render/src/experimental/raytracer.rs - experimental::raytracer (line 24) - compile ... ok
+test crates/abrash-render/src/experimental/duotone.rs - experimental::duotone::apply_duotone (line 17) ... ok
+test crates/abrash-render/src/experimental/posterize.rs - experimental::posterize::apply_posterize (line 30) ... ok
+test crates/abrash-render/src/experimental/slitscan.rs - experimental::slitscan::SlitScanFilter::new (line 39) ... ok
+test crates/abrash-render/src/heat_vision.rs - heat_vision::apply_heat_vision (line 17) ... ok
+test crates/abrash-render/src/particles.rs - particles::Particle (line 22) ... ok
+test crates/abrash-render/src/experimental/palette.rs - experimental::palette::apply_palette (line 133) ... ok
+test crates/abrash-render/src/particles.rs - particles::ParticleSystem (line 136) ... ok
+test crates/abrash-render/src/post_process/blur.rs - post_process::blur::box_blur_vertical (line 476) ... ok
+test crates/abrash-render/src/post_process/blur.rs - post_process::blur::box_blur_horizontal (line 286) ... ok
+test crates/abrash-render/src/procedural.rs - procedural::grid_pattern (line 41) ... ok
+test crates/abrash-render/src/procedural.rs - procedural::plasma (line 103) ... ok
+test crates/abrash-render/src/procedural.rs - procedural::white_noise (line 75) ... ok
+test crates/abrash-render/src/procedural.rs - procedural::xor_pattern (line 15) ... ok
+test crates/abrash-render/src/rasterizer/circle.rs - rasterizer::circle::draw_circle (line 22) ... ok
+test crates/abrash-render/src/rasterizer/circle.rs - rasterizer::circle::fill_circle (line 187) ... ok
+test crates/abrash-render/src/rasterizer/ellipse.rs - rasterizer::ellipse::draw_ellipse (line 83) ... ok
+test crates/abrash-render/src/rasterizer/ellipse.rs - rasterizer::ellipse::fill_ellipse (line 254) ... ok
+test crates/abrash-render/src/rasterizer/flat.rs - rasterizer::flat::fill_triangle_3d (line 308) ... ok
+test crates/abrash-render/src/rasterizer/gouraud.rs - rasterizer::gouraud::fill_triangle_gouraud (line 634) ... ok
+test crates/abrash-render/src/rasterizer/gouraud.rs - rasterizer::gouraud::fill_triangle_gouraud (line 679) ... ok
+test crates/abrash-render/src/rasterizer/line.rs - rasterizer::line::draw_line_3d (line 33) ... ok
+test crates/abrash-render/src/rasterizer/line.rs - rasterizer::line::fill_triangle_wireframe (line 156) ... ok
+test crates/abrash-render/src/rasterizer/mod.rs - rasterizer::rect (line 79) ... ok
+test crates/abrash-render/src/rasterizer/pbr.rs - rasterizer::pbr (line 17) ... ok
+test crates/abrash-render/src/rasterizer/phong.rs - rasterizer::phong::fill_triangle_phong (line 1915) ... ok
+test crates/abrash-render/src/rasterizer/phong.rs - rasterizer::phong::fill_triangle_phong_shadowed (line 1176) ... ok
+test crates/abrash-render/src/rasterizer/rect.rs - rasterizer::rect::draw_rect (line 133) ... ok
+test crates/abrash-render/src/rasterizer/rect.rs - rasterizer::rect::draw_rounded_rect (line 232) ... ok
+test crates/abrash-render/src/rasterizer/rect.rs - rasterizer::rect::fill_rect (line 198) ... ok
+test crates/abrash-render/src/rasterizer/rect.rs - rasterizer::rect::fill_rounded_rect (line 431) ... ok
+test crates/abrash-render/src/post_process/bloom.rs - post_process::bloom::apply_bloom (line 59) ... ok
+test crates/abrash-render/src/rasterizer/texture.rs - rasterizer::texture::fill_quad_textured (line 2158) ... ok
+test crates/abrash-render/src/rasterizer/texture.rs - rasterizer::texture::fill_quad_textured_gouraud (line 1786) ... ok
+test crates/abrash-render/src/rasterizer/tile.rs - rasterizer::tile (line 54) - compile ... ok
+test crates/abrash-render/src/rasterizer/tile.rs - rasterizer::tile::TileRenderer::render_batch (line 2221) - compile ... ok
+test crates/abrash-render/src/rasterizer/texture.rs - rasterizer::texture::fill_triangle_textured (line 1690) ... ok
+test crates/abrash-render/src/rasterizer/tile.rs - rasterizer::tile::should_use_tiled_rendering (line 3768) ... ok
+test crates/abrash-render/src/render_api/draw_list.rs - render_api::draw_list::DrawList (line 73) ... ok
+test crates/abrash-render/src/post_process/dof.rs - post_process::dof::apply_depth_of_field (line 54) ... ok
+test crates/abrash-render/src/render_api/draw_list.rs - render_api::draw_list::DrawList::triangle_count (line 186) ... ok
+test crates/abrash-render/src/render_api/borrowed_target.rs - render_api::borrowed_target (line 10) ... ok
+test crates/abrash-render/src/render_api/frame.rs - render_api::frame::Frame::add_light (line 147) ... ok
+test crates/abrash-render/src/render_api/draw_list.rs - render_api::draw_list::DrawList::with_capacity (line 126) ... ok
+test crates/abrash-render/src/render_api/frame.rs - render_api::frame::Frame::draw (line 123) ... ok
+test crates/abrash-render/src/render_api/frame.rs - render_api::frame::Frame::with_capacity (line 100) ... ok
+test crates/abrash-render/src/render_api/handles.rs - render_api::handles::ResourcePool (line 130) ... ok
+test crates/abrash-render/src/render_api/handles.rs - render_api::handles::Handle (line 19) ... ok
+test crates/abrash-render/src/render_api/handles.rs - render_api::handles::ResourcePool<T>::with_capacity (line 170) ... ok
+test crates/abrash-render/src/render_api/target.rs - render_api::target::RenderTarget (line 15) ... ok
+test crates/abrash-render/src/scene.rs - scene (line 27) ... ok
+test crates/abrash-render/src/render_api/mod.rs - render_api (line 17) ... ok
+test crates/abrash-render/src/post_process/mod.rs - post_process (line 36) ... ok
+
+test result: ok. 57 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+all doctests ran in 0.91s; merged doctests compilation took 0.71s
