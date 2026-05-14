@@ -187,3 +187,6 @@
 **[String formatting in hot loops is extremely slow]**
 **Learning:** String formatting via the `write!` macro in hot per-pixel loops (e.g., generating ANSI sequences) incurs severe overhead due to dynamic format parsing and trait dispatch.
 **Action:** Replace `write!` with a custom, allocation-free `itoa`-style integer formatter using a small byte buffer and remainder math to drastically improve performance (e.g., ~85% reduction in execution time for ASCII string generation). Also, remember to place helper functions at the top of the block to avoid `clippy::items_after_statements` lint errors.
+**Optimize SSAO Kernel Loop**
+**Learning:** In hot loops, replacing `kernel[k]` with a dereferenced iterator value (`&s`) avoids redundant array indexing and bounds checking.
+**Action:** Replaced `let s = kernel[k];` with `for (k, &s) in kernel.iter().enumerate().take(KERNEL_SIZE)` in `crates/abrash-render/src/post_process/ssao.rs`.
