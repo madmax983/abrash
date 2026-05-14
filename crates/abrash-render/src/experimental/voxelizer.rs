@@ -102,35 +102,32 @@ impl VoxelGrid {
         let base_idx = mesh.vertices.len();
 
         // Vertices
-        mesh.vertices.push(center + Vec3::new(-h, -h, h)); // 0
-        mesh.vertices.push(center + Vec3::new(h, -h, h)); // 1
-        mesh.vertices.push(center + Vec3::new(h, h, h)); // 2
-        mesh.vertices.push(center + Vec3::new(-h, h, h)); // 3
-        mesh.vertices.push(center + Vec3::new(-h, -h, -h)); // 4
-        mesh.vertices.push(center + Vec3::new(h, -h, -h)); // 5
-        mesh.vertices.push(center + Vec3::new(h, h, -h)); // 6
-        mesh.vertices.push(center + Vec3::new(-h, h, -h)); // 7
+        mesh.vertices.extend([
+            center + Vec3::new(-h, -h, h),  // 0
+            center + Vec3::new(h, -h, h),   // 1
+            center + Vec3::new(h, h, h),    // 2
+            center + Vec3::new(-h, h, h),   // 3
+            center + Vec3::new(-h, -h, -h), // 4
+            center + Vec3::new(h, -h, -h),  // 5
+            center + Vec3::new(h, h, -h),   // 6
+            center + Vec3::new(-h, h, -h),  // 7
+        ]);
 
         // Indices
-        let indices = [
-            [0, 1, 2],
-            [0, 2, 3], // Front
-            [5, 4, 7],
-            [5, 7, 6], // Back
-            [3, 2, 6],
-            [3, 6, 7], // Top
-            [4, 5, 1],
-            [4, 1, 0], // Bottom
-            [1, 5, 6],
-            [1, 6, 2], // Right
-            [4, 0, 3],
-            [4, 3, 7], // Left
-        ];
-
-        for tri in &indices {
-            mesh.indices
-                .push([base_idx + tri[0], base_idx + tri[1], base_idx + tri[2]]);
-        }
+        mesh.indices.extend([
+            [base_idx + 0, base_idx + 1, base_idx + 2],
+            [base_idx + 0, base_idx + 2, base_idx + 3], // Front
+            [base_idx + 5, base_idx + 4, base_idx + 7],
+            [base_idx + 5, base_idx + 7, base_idx + 6], // Back
+            [base_idx + 3, base_idx + 2, base_idx + 6],
+            [base_idx + 3, base_idx + 6, base_idx + 7], // Top
+            [base_idx + 4, base_idx + 5, base_idx + 1],
+            [base_idx + 4, base_idx + 1, base_idx + 0], // Bottom
+            [base_idx + 1, base_idx + 5, base_idx + 6],
+            [base_idx + 1, base_idx + 6, base_idx + 2], // Right
+            [base_idx + 4, base_idx + 0, base_idx + 3],
+            [base_idx + 4, base_idx + 3, base_idx + 7], // Left
+        ]);
     }
 }
 
@@ -222,18 +219,22 @@ mod tests {
         let h = size / 2.0;
 
         // Add vertices for a simple cube manually
-        mesh.vertices.push(Vec3::new(-h, -h, h)); // 0
-        mesh.vertices.push(Vec3::new(h, -h, h)); // 1
-        mesh.vertices.push(Vec3::new(h, h, h)); // 2
-        mesh.vertices.push(Vec3::new(-h, h, h)); // 3
-        mesh.vertices.push(Vec3::new(-h, -h, -h)); // 4
-        mesh.vertices.push(Vec3::new(h, -h, -h)); // 5
-        mesh.vertices.push(Vec3::new(h, h, -h)); // 6
-        mesh.vertices.push(Vec3::new(-h, h, -h)); // 7
+        mesh.vertices.extend([
+            Vec3::new(-h, -h, h),  // 0
+            Vec3::new(h, -h, h),   // 1
+            Vec3::new(h, h, h),    // 2
+            Vec3::new(-h, h, h),   // 3
+            Vec3::new(-h, -h, -h), // 4
+            Vec3::new(h, -h, -h),  // 5
+            Vec3::new(h, h, -h),   // 6
+            Vec3::new(-h, h, -h),  // 7
+        ]);
 
         // Just one face (Front) to test
-        mesh.indices.push([0, 1, 2]);
-        mesh.indices.push([0, 2, 3]);
+        mesh.indices.extend([
+            [0, 1, 2],
+            [0, 2, 3],
+        ]);
 
         let resolution = 10;
         let grid = Voxelizer::voxelize(&mesh, resolution);

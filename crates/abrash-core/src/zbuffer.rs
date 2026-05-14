@@ -124,11 +124,13 @@ impl ZBuffer {
                 }
             }
 
-            for row in self.depths.as_mut_slice()[start_idx..end_idx].chunks_exact_mut(w) {
-                // ⚡ Bolt: Elide inner-loop bounds checks since `sx..ex` is already clamped safely
+            let mut offset = start_idx + sx;
+            let slice = self.depths.as_mut_slice();
+            for _ in sy..ey {
                 unsafe {
-                    row.get_unchecked_mut(sx..ex).fill(f32::INFINITY);
+                    slice.get_unchecked_mut(offset..offset + len).fill(f32::INFINITY);
                 }
+                offset += w;
             }
         }
     }

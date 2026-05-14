@@ -21,6 +21,27 @@ use std::io::{Stdout, stdout};
 use std::thread;
 use std::time::{Duration, Instant};
 
+/// An application window rendered entirely within a terminal emulator.
+///
+/// `TuiWindow` leverages the `crossterm` backend and `ratatui` UI library to draw graphics
+/// using Unicode half-blocks (▀) directly to standard output. This allows headless
+/// or CLI-only environments to visualize framebuffers without needing an X11 or Wayland display server.
+///
+/// ## Examples
+///
+/// ```rust,no_run
+/// use abrash_render::platform::tui::TuiWindow;
+///
+/// // Create a new terminal window 80 characters wide by 40 high
+/// let mut window = TuiWindow::new("Retro Render", 80, 40)
+///     .expect("Failed to initialize terminal interface");
+///
+/// // Poll for events like keyboard input or window close requests
+/// let events = window.poll_events();
+///
+/// // Cleanly shutdown the terminal back to normal mode
+/// drop(window);
+/// ```
 pub struct TuiWindow {
     width: u32,
     height: u32,

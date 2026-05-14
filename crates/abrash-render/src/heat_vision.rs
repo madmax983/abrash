@@ -66,21 +66,9 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     // from truncating 1024 to 1023 when scaling.
     let scale = 1024.0 / range;
 
-    for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
-        if depth == f32::INFINITY {
-            *pixel = 0xFF00_0010; // Very Dark Blue Background
-            continue;
-        }
-
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023); // Clamp strictly to 1023
-
-        // Heat Map Gradient (fixed-point integer math)
-        // 0..255     (Hot) -> Red to Yellow
-        // 256..511   -> Yellow to Green
-        // 512..767   -> Green to Cyan
-        // 768..1023  (Cold)-> Cyan to Blue
-
+    // Pre-calculate the 1024-entry lookup table for the color gradient
+    let mut lut = [0u32; 1024];
+    for t in 0..1024 {
         let (r, g, b) = if t < 256 {
             // Red -> Yellow
             (255, t, 0)
@@ -99,7 +87,19 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         };
 
         // Combine into ARGB
-        *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+        lut[t as usize] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+    }
+
+    for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
+        if depth == f32::INFINITY {
+            *pixel = 0xFF00_0010; // Very Dark Blue Background
+            continue;
+        }
+
+        let t = ((depth - min_z) * scale) as u32;
+        let t = t.min(1023); // Clamp strictly to 1023
+
+        *pixel = lut[t as usize];
     }
 }
 

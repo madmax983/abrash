@@ -19,3 +19,7 @@
 ## 2024-05-19 - [Skybox Documentation]
 **Confusion:** The `skybox` module lacked executable doctests, leaving users confused about how to initialize the `Cubemap` and format matrices for `draw_skybox`.
 **Clarification:** Added executable `## Examples` block to both the `Cubemap` struct and `draw_skybox` function to demonstrate proper initialization and rendering.
+
+## 2024-05-19 - [TuiWindow Documentation]
+**Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
+**Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.

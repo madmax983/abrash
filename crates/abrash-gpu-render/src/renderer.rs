@@ -372,15 +372,14 @@ impl GpuRenderer {
             return Err("texture dimensions must be positive".to_string());
         }
 
-        let mut rgba = Vec::with_capacity(texture.pixels.len() * 4);
-        for &argb in &texture.pixels {
-            let bytes = [
-                ((argb >> 16) & 0xFF) as u8,
-                ((argb >> 8) & 0xFF) as u8,
-                (argb & 0xFF) as u8,
-                ((argb >> 24) & 0xFF) as u8,
-            ];
-            rgba.extend_from_slice(&bytes);
+        // ⚡ Bolt: Uses zero-initialized vector and zips directly into chunks to avoid capacity
+        // checking overheads present in `extend_from_slice` and iterator `flat_map().collect()`.
+        let mut rgba = vec![0u8; texture.pixels.len() * 4];
+        for (chunk, &argb) in rgba.chunks_exact_mut(4).zip(texture.pixels.iter()) {
+            chunk[0] = ((argb >> 16) & 0xFF) as u8;
+            chunk[1] = ((argb >> 8) & 0xFF) as u8;
+            chunk[2] = (argb & 0xFF) as u8;
+            chunk[3] = ((argb >> 24) & 0xFF) as u8;
         }
 
         let device = self.gpu.device();

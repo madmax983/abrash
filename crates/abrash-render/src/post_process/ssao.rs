@@ -394,8 +394,7 @@ unsafe fn apply_ssao_avx2(
 
                 let mut occlusion = _mm256_setzero_ps();
 
-                for (k, &_s) in kernel.iter().enumerate().take(KERNEL_SIZE) {
-                    let s = kernel[k];
+                for (k, &s) in kernel.iter().enumerate().take(KERNEL_SIZE) {
                     let sz = _mm256_set1_ps(s.z);
 
                     // Load precomputed rotated X/Y
@@ -506,8 +505,7 @@ unsafe fn apply_ssao_avx2(
 
                 let mut occlusion = 0.0;
 
-                for (k, &_s) in kernel.iter().enumerate().take(KERNEL_SIZE) {
-                    let s = kernel[k];
+                for (k, &s) in kernel.iter().enumerate().take(KERNEL_SIZE) {
                     let rotated_sample = Vec3::new(s.x * rx - s.y * ry, s.x * ry + s.y * rx, s.z);
                     let sample_pos = pos_view + rotated_sample * radius;
 
