@@ -89,6 +89,24 @@ pub struct AsciiConverter<'a> {
     charset: AsciiCharset,
 }
 
+/// ⚡ Bolt: custom itoa algorithm avoiding write! formatting overhead.
+#[inline(always)]
+fn push_int(result: &mut String, mut val: u32) {
+    if val == 0 {
+        result.push('0');
+        return;
+    }
+    let mut buf = [0u8; 10];
+    let mut i = 10;
+    while val > 0 {
+        i -= 1;
+        buf[i] = b'0' + (val % 10) as u8;
+        val /= 10;
+    }
+    // We only wrote ascii digits [0-9], so this is guaranteed to be valid UTF-8
+    result.push_str(std::str::from_utf8(&buf[i..]).unwrap());
+}
+
 impl<'a> AsciiConverter<'a> {
     /// Creates a new ASCII converter for the given framebuffer.
     #[must_use]
@@ -134,7 +152,14 @@ impl<'a> AsciiConverter<'a> {
                 let r = (pixel >> 16) & 0xFF;
                 let g = (pixel >> 8) & 0xFF;
                 let b = pixel & 0xFF;
-                let _ = write!(result, "\x1b[38;2;{r};{g};{b}m{ch}");
+                result.push_str("\x1b[38;2;");
+                push_int(&mut result, r);
+                result.push(';');
+                push_int(&mut result, g);
+                result.push(';');
+                push_int(&mut result, b);
+                result.push('m');
+                result.push(ch);
             }
             // Reset color at end of line
             result.push_str("\x1b[0m\n");
