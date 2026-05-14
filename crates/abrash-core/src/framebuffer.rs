@@ -316,10 +316,14 @@ impl Framebuffer {
             // Fast path for full-width clears (avoids chunking overhead)
             self.pixels[start_idx..end_idx].fill(color);
         } else {
-            for row in self.pixels.as_mut_slice()[start_idx..end_idx].chunks_exact_mut(w) {
+            let len = ex - sx;
+            for y in sy..ey {
+                let offset = y * w + sx;
                 // ⚡ Bolt: Elide inner-loop bounds checks since `sx..ex` is already clamped safely
                 unsafe {
-                    row.get_unchecked_mut(sx..ex).fill(color);
+                    self.pixels
+                        .get_unchecked_mut(offset..offset + len)
+                        .fill(color);
                 }
             }
         }
