@@ -16,6 +16,9 @@
 ## 2024-05-18 - [Missing Documentation for Public Modules]
 **Confusion:** Several experimental modules and internal fuzzing functions lacked proper documentation or were exposed to the public API unnecessarily, leading to a poorer `cargo doc` output and `clippy::missing_docs` / `clippy::doc_markdown` warnings.
 **Clarification:** Added missing module-level `//!` and function-level `///` docs to `tunnel.rs`, `mandelbrot.rs`, `precipitation.rs`, `water_ripple.rs`, `kaleidoscope.rs`, and `modifiers.rs`. Also applied `#[doc(hidden)]` to `fuzz_load_obj` in `obj_loader_fuzz.rs` to keep the public manual clean. Fixed unescaped hex literals in doc comments by wrapping them in backticks to resolve `clippy::doc_markdown`.
+## 2024-05-19 - [Skybox Documentation]
+**Confusion:** The `skybox` module lacked executable doctests, leaving users confused about how to initialize the `Cubemap` and format matrices for `draw_skybox`.
+**Clarification:** Added executable `## Examples` block to both the `Cubemap` struct and `draw_skybox` function to demonstrate proper initialization and rendering.
 
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
