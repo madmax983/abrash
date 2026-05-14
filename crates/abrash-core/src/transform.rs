@@ -227,9 +227,8 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
-        // ⚡ Bolt: Removed `out.reserve_exact(...)` to allow `.extend()` to optimally
-        // reuse pre-allocated capacity without forcing strict reallocations.
-        out.extend(points.iter().map(|p| {
+        // We iterate by value (using `&p`) to avoid dereferencing inside the closure.
+        out.extend(points.iter().map(|&p| {
             Vec3::new(
                 p.x * m00 + p.y * m10 + p.z * m20 + self.position.x,
                 p.x * m01 + p.y * m11 + p.z * m21 + self.position.y,
@@ -285,9 +284,8 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
-        // ⚡ Bolt: Removed `out.reserve_exact(...)` to allow `.extend()` to optimally
-        // reuse pre-allocated capacity without forcing strict reallocations.
-        out.extend(vectors.iter().map(|v| {
+        // We iterate by value (using `&v`) to avoid dereferencing inside the closure.
+        out.extend(vectors.iter().map(|&v| {
             Vec3::new(
                 v.x * m00 + v.y * m10 + v.z * m20,
                 v.x * m01 + v.y * m11 + v.z * m21,
@@ -344,8 +342,6 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
-        // ⚡ Bolt: Removed `out.reserve_exact(...)` to allow `.extend()` to optimally
-        // reuse pre-allocated capacity without forcing strict reallocations.
         out.extend(points.iter().map(|p| {
             let local = *p - self.position;
             Vec3::new(
