@@ -77,6 +77,7 @@ pub mod mosaic;
 pub mod neon_outline;
 pub mod night_vision;
 pub mod palette;
+pub mod paper_cutout;
 pub mod pencil_sketch;
 pub mod physarum;
 pub mod pixel_sort;

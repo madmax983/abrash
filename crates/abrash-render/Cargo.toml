@@ -34,3 +34,13 @@ inline_always = "allow"
 too_many_lines = "allow"
 struct_field_names = "allow"
 suboptimal_flops = "allow"
+
+[[example]]
+name = "paper_cutout_demo"
+path = "examples/paper_cutout_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "paper_cutout_bench"
+harness = false
+required-features = ["nova"]
