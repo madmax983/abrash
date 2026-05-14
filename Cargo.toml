@@ -522,6 +522,11 @@ name = "mesh_modifiers_bench"
 harness = false
 required-features = ["nova"]
 
+[[bench]]
+name = "voxelizer_bench"
+harness = false
+required-features = ["nova"]
+
 [[bin]]
 name = "run_film_grain"
 path = "benches/run_film_grain.rs"

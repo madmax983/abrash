@@ -1,6 +1,5 @@
 use abrash_core::math::Vec3;
-use abrash_core::mesh::Mesh;
-use abrash_render::experimental::voxelizer::{VoxelGrid, Voxelizer};
+use abrash_render::experimental::voxelizer::VoxelGrid;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_voxelizer(c: &mut Criterion) {

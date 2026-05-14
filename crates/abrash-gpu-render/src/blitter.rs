@@ -514,18 +514,16 @@ impl GpuBlitter {
         });
 
         // Convert 0xAARRGGBB pixels to RGBA bytes for wgpu.
+        // ⚡ Bolt: Uses zero-initialized vector and zips directly into chunks to avoid capacity
+        // checking overheads present in `extend_from_slice` and iterator `flat_map().collect()`.
         let pixels = texture.pixels();
-        let rgba: Vec<u8> = pixels
-            .iter()
-            .flat_map(|&px| {
-                [
-                    ((px >> 16) & 0xFF) as u8,
-                    ((px >> 8) & 0xFF) as u8,
-                    (px & 0xFF) as u8,
-                    ((px >> 24) & 0xFF) as u8,
-                ]
-            })
-            .collect();
+        let mut rgba = vec![0u8; pixels.len() * 4];
+        for (chunk, &px) in rgba.chunks_exact_mut(4).zip(pixels.iter()) {
+            chunk[0] = ((px >> 16) & 0xFF) as u8;
+            chunk[1] = ((px >> 8) & 0xFF) as u8;
+            chunk[2] = (px & 0xFF) as u8;
+            chunk[3] = ((px >> 24) & 0xFF) as u8;
+        }
 
         self.queue.write_texture(
             wgpu::TexelCopyTextureInfo {
@@ -869,17 +867,15 @@ impl GpuBlitter {
         let h = self.height;
 
         // Convert 0xAARRGGBB → RGBA bytes for wgpu.
-        let rgba: Vec<u8> = fb_pixels
-            .iter()
-            .flat_map(|&px| {
-                [
-                    ((px >> 16) & 0xFF) as u8,
-                    ((px >> 8) & 0xFF) as u8,
-                    (px & 0xFF) as u8,
-                    ((px >> 24) & 0xFF) as u8,
-                ]
-            })
-            .collect();
+        // ⚡ Bolt: Uses zero-initialized vector and zips directly into chunks to avoid capacity
+        // checking overheads present in `extend_from_slice` and iterator `flat_map().collect()`.
+        let mut rgba = vec![0u8; fb_pixels.len() * 4];
+        for (chunk, &px) in rgba.chunks_exact_mut(4).zip(fb_pixels.iter()) {
+            chunk[0] = ((px >> 16) & 0xFF) as u8;
+            chunk[1] = ((px >> 8) & 0xFF) as u8;
+            chunk[2] = (px & 0xFF) as u8;
+            chunk[3] = ((px >> 24) & 0xFF) as u8;
+        }
 
         self.queue.write_texture(
             wgpu::TexelCopyTextureInfo {
