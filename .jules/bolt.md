@@ -183,3 +183,7 @@
 **[clear_rect optimization]**
 **Learning:** In 2D region fills over a 1D pixel buffer (like `clear_rect` in `Framebuffer` or `ZBuffer`), replacing an outer `for` loop combined with explicit index calculations and `unsafe { get_unchecked_mut() }` with the safe iterator-based chunking (`.chunks_exact_mut()`), but applying `unsafe { get_unchecked_mut() }` directly on the row slice yields measurable performance gains across various resolutions, while simplifying the code.
 **Action:** Replaced loop index calculations with `.chunks_exact_mut(w)` and elided inner-loop bounds checks with `row.get_unchecked_mut(sx..ex)` in `Framebuffer::clear_rect` and `ZBuffer::clear_rect`.
+
+**Optimize SSAO Kernel Loop**
+**Learning:** In hot loops, replacing `kernel[k]` with a dereferenced iterator value (`&s`) avoids redundant array indexing and bounds checking.
+**Action:** Replaced `let s = kernel[k];` with `for (k, &s) in kernel.iter().enumerate().take(KERNEL_SIZE)` in `crates/abrash-render/src/post_process/ssao.rs`.
