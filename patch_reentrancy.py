@@ -1,47 +1,9 @@
-//! Paper Cutout Filter
-//!
-//! Simulates a layered 2D construction paper art style by taking 3D depth information
-//! and flattening it into discrete strata. It applies distinct shadow drops between
-//! depth layers to enhance the 2.5D pop-up book effect.
+import re
 
-use crate::framebuffer::Framebuffer;
-use crate::zbuffer::ZBuffer;
+with open('crates/abrash-render/src/experimental/paper_cutout.rs', 'r') as f:
+    content = f.read()
 
-#[cfg(feature = "parallel")]
-use rayon::prelude::*;
-
-/// Configuration for the Paper Cutout effect.
-#[derive(Debug, Clone)]
-pub struct PaperCutoutConfig {
-    /// The number of discrete depth layers to quantize the scene into.
-    pub layers: u32,
-    /// X offset for drop shadows.
-    pub shadow_offset_x: i32,
-    /// Y offset for drop shadows.
-    pub shadow_offset_y: i32,
-    /// The opacity/darkness of the drop shadow (0.0 to 1.0).
-    pub shadow_opacity: f32,
-    /// Outline color around layers (if applicable, use 0 for transparent).
-    pub outline_color: u32,
-}
-
-impl Default for PaperCutoutConfig {
-    fn default() -> Self {
-        Self {
-            layers: 8,
-            shadow_offset_x: 8,
-            shadow_offset_y: 12,
-            shadow_opacity: 0.5,
-            outline_color: 0x0000_0000,
-        }
-    }
-}
-
-/// Applies a paper cutout style effect to the framebuffer based on depth.
-///
-/// Converts the image into discrete layers based on Z-buffer depth and applies
-/// offset shadows where one layer overlaps a deeper layer.
-use std::cell::RefCell;
+new_func = """use std::cell::RefCell;
 
 thread_local! {
     static SRC_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
@@ -195,74 +157,12 @@ pub fn apply_paper_cutout(fb: &mut Framebuffer, zb: &ZBuffer, config: &PaperCuto
     // Restore buffers
     SRC_BUFFER.with(|buf| *buf.borrow_mut() = src);
     LAYER_BUFFER.with(|buf| *buf.borrow_mut() = layers_arr);
-}
+}"""
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+start_idx = content.find("use std::cell::RefCell;")
+end_idx = content.find("#[cfg(test)]", start_idx)
 
-    #[test]
-    fn test_apply_paper_cutout_basic() {
-        let mut fb = Framebuffer::new(20, 20).unwrap();
-        let mut zb = ZBuffer::new(20, 20).unwrap();
+new_content = content[:start_idx] + new_func + "\n\n" + content[end_idx:]
 
-        // Background is white
-        fb.clear(0xFFFFFFFF);
-
-        // Draw a mid-depth square
-        for y in 5..15 {
-            for x in 5..15 {
-                fb.set_pixel(x, y, 0xFF00FF00); // Green square
-                zb.test_and_set(x, y, 10.0);
-            }
-        }
-
-        let mut config = PaperCutoutConfig::default();
-        config.shadow_offset_x = 2;
-        config.shadow_offset_y = 2;
-        config.shadow_opacity = 0.5;
-
-        apply_paper_cutout(&mut fb, &zb, &config);
-
-        // The square itself should still be mostly green (quantized)
-        let sq_px = fb.get_pixel(10, 10).unwrap();
-        assert_eq!((sq_px >> 24) & 0xFF, 0xFF);
-        assert!((sq_px >> 8) & 0xFF > 0); // Green channel still has value
-
-        // Shadow should be cast at (15..17, 5..15) and (5..17, 15..17)
-        // Check pixel to the bottom right of the square
-        let shadow_x = 15;
-        let shadow_y = 15;
-
-        let shadow_px = fb.get_pixel(shadow_x, shadow_y).unwrap();
-        // Original background was white, should be darkened
-        assert_ne!(shadow_px, 0xFFFFFFFF);
-
-        let r = (shadow_px >> 16) & 0xFF;
-        let g = (shadow_px >> 8) & 0xFF;
-        let b = shadow_px & 0xFF;
-
-        // With 0.5 opacity, white (255) becomes ~127
-        assert!(r > 100 && r < 150);
-        assert!(g > 100 && g < 150);
-        assert!(b > 100 && b < 150);
-    }
-
-    #[test]
-    fn test_apply_paper_cutout_empty_buffer() {
-        let mut fb = Framebuffer::new(0, 0).unwrap();
-        let zb = ZBuffer::new(0, 0).unwrap();
-        let config = PaperCutoutConfig::default();
-        apply_paper_cutout(&mut fb, &zb, &config);
-    }
-
-    #[test]
-    fn test_apply_paper_cutout_no_depth() {
-        let mut fb = Framebuffer::new(20, 20).unwrap();
-        let zb = ZBuffer::new(20, 20).unwrap();
-        let config = PaperCutoutConfig::default();
-        fb.clear(0xFFFFFFFF);
-        apply_paper_cutout(&mut fb, &zb, &config);
-        assert_eq!(fb.get_pixel(10, 10).unwrap(), 0xFFFFFFFF);
-    }
-}
+with open('crates/abrash-render/src/experimental/paper_cutout.rs', 'w') as f:
+    f.write(new_content)
