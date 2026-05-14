@@ -10,6 +10,20 @@ use crate::zbuffer::ZBuffer;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
+const fn build_quantize_lut() -> [u32; 256] {
+    let mut lut = [0u32; 256];
+    let mut c = 0;
+    while c < 256 {
+        let v = c & 0xE0;
+        lut[c as usize] = (v | (v >> 3)) as u32;
+        c += 1;
+    }
+    lut
+}
+
+const QUANTIZE_LUT: [u32; 256] = build_quantize_lut();
+
+
 /// Configuration for the Paper Cutout effect.
 #[derive(Debug, Clone)]
 pub struct PaperCutoutConfig {
@@ -95,6 +109,12 @@ pub fn apply_paper_cutout(fb: &mut Framebuffer, zb: &ZBuffer, config: &PaperCuto
     let shadow_mult = 1.0 - config.shadow_opacity.clamp(0.0, 1.0);
     let shadow_mult_fixed = (shadow_mult * 256.0) as u32;
 
+    // Pre-calculate shadow lookup table
+    let mut shadow_lut = [0u32; 256];
+    for (i, v) in shadow_lut.iter_mut().enumerate() {
+        *v = (i as u32 * shadow_mult_fixed) / 256;
+    }
+
     #[cfg(feature = "parallel")]
     let iter = pixels.par_chunks_exact_mut(width).enumerate();
     #[cfg(not(feature = "parallel"))]
@@ -122,13 +142,9 @@ pub fn apply_paper_cutout(fb: &mut Framebuffer, zb: &ZBuffer, config: &PaperCuto
             // Quantize the color to simulate flat paper
             // We reduce the color depth to simulate construction paper limited palette
             if current_depth != f32::INFINITY {
-                let r = ((color >> 16) & 0xFF) & 0xE0; // Keep top 3 bits
-                let g = ((color >> 8) & 0xFF) & 0xE0;
-                let b = (color & 0xFF) & 0xE0;
-                // Add some brightness back to compensate for truncation
-                let r = r | (r >> 3);
-                let g = g | (g >> 3);
-                let b = b | (b >> 3);
+                let r = QUANTIZE_LUT[((color >> 16) & 0xFF) as usize];
+                let g = QUANTIZE_LUT[((color >> 8) & 0xFF) as usize];
+                let b = QUANTIZE_LUT[(color & 0xFF) as usize];
                 color = 0xFF00_0000 | (r << 16) | (g << 8) | b;
             }
 
@@ -152,9 +168,9 @@ pub fn apply_paper_cutout(fb: &mut Framebuffer, zb: &ZBuffer, config: &PaperCuto
                 // We also check absolute depth to handle objects within the same quantized layer
                 // but significantly offset, though standard cutout relies on layers.
                 if caster_layer < current_layer {
-                    let r = ((color >> 16) & 0xFF) * shadow_mult_fixed / 256;
-                    let g = ((color >> 8) & 0xFF) * shadow_mult_fixed / 256;
-                    let b = (color & 0xFF) * shadow_mult_fixed / 256;
+                    let r = shadow_lut[((color >> 16) & 0xFF) as usize];
+                    let g = shadow_lut[((color >> 8) & 0xFF) as usize];
+                    let b = shadow_lut[(color & 0xFF) as usize];
                     color = 0xFF00_0000 | (r << 16) | (g << 8) | b;
                 }
             }

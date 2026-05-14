@@ -12,6 +12,7 @@ backend-tui = ["dep:ratatui"]
 backend-wasm = ["dep:ratatui"]
 
 [dev-dependencies]
+criterion = "0.8.2"
 proptest = "1.0"
 
 [dependencies]

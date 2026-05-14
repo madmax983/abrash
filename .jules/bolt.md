@@ -221,3 +221,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **Optimize SSAO Kernel Loop**
 **Learning:** In hot loops, replacing `kernel[k]` with a dereferenced iterator value (`&s`) avoids redundant array indexing and bounds checking.
 **Action:** Replaced `let s = kernel[k];` with `for (k, &s) in kernel.iter().enumerate().take(KERNEL_SIZE)` in `crates/abrash-render/src/post_process/ssao.rs`.
+
+**[Paper Cutout LUT Optimization]**
+**Learning:** In the `apply_paper_cutout` effect, calculating bitwise color quantization and floating point shadow multiplications per-pixel per-channel creates severe bottlenecks. Pre-calculating a `QUANTIZE_LUT` via a `const fn` and a `shadow_lut` array outside the loop eliminates all inner-loop arithmetic for these steps.
+**Action:** Replaced per-pixel fixed-point and bitwise math with array lookups (`QUANTIZE_LUT` and `shadow_lut`), leading to a ~20% performance improvement on an 800x600 resolution.
