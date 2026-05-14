@@ -122,6 +122,24 @@ impl<'a> AsciiConverter<'a> {
     /// ```
     #[must_use]
     pub fn to_colored_string(&self) -> String {
+        // ⚡ Bolt: Custom allocation-free integer formatting to avoid the massive overhead
+        // of `write!` macro trait dispatch and formatting on hot per-pixel paths.
+        fn push_u8(s: &mut String, mut n: u8) {
+            if n == 0 {
+                s.push('0');
+                return;
+            }
+            let mut buf = [0u8; 3];
+            let mut i = 3;
+            while n > 0 {
+                i -= 1;
+                buf[i] = b'0' + (n % 10);
+                n /= 10;
+            }
+            let s_slice = unsafe { std::str::from_utf8_unchecked(&buf[i..]) };
+            s.push_str(s_slice);
+        }
+
         let width = self.framebuffer.width();
         let height = self.framebuffer.height();
         // Estimate capacity: (width * (chars per pixel + overhead)) * height
@@ -131,10 +149,18 @@ impl<'a> AsciiConverter<'a> {
         for row in self.framebuffer.as_slice().chunks_exact(width as usize) {
             for &pixel in row {
                 let ch = self.charset.map(pixel_luminance(pixel));
-                let r = (pixel >> 16) & 0xFF;
-                let g = (pixel >> 8) & 0xFF;
-                let b = pixel & 0xFF;
-                let _ = write!(result, "\x1b[38;2;{r};{g};{b}m{ch}");
+                let r = ((pixel >> 16) & 0xFF) as u8;
+                let g = ((pixel >> 8) & 0xFF) as u8;
+                let b = (pixel & 0xFF) as u8;
+
+                result.push_str("\x1b[38;2;");
+                push_u8(&mut result, r);
+                result.push(';');
+                push_u8(&mut result, g);
+                result.push(';');
+                push_u8(&mut result, b);
+                result.push('m');
+                result.push(ch);
             }
             // Reset color at end of line
             result.push_str("\x1b[0m\n");
@@ -171,6 +197,22 @@ impl<'a> AsciiConverter<'a> {
     /// # Errors
     /// Returns an error if the file cannot be created or written to.
     pub fn export_ansi<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
+        // ⚡ Bolt: Custom allocation-free integer formatting for I/O
+        // to avoid `write!` overhead when exporting large ANSI files.
+        fn write_u8(w: &mut impl io::Write, mut n: u8) -> io::Result<()> {
+            if n == 0 {
+                return w.write_all(b"0");
+            }
+            let mut buf = [0u8; 3];
+            let mut i = 3;
+            while n > 0 {
+                i -= 1;
+                buf[i] = b'0' + (n % 10);
+                n /= 10;
+            }
+            w.write_all(&buf[i..])
+        }
+
         let file = File::create(path)?;
         let mut writer = BufWriter::new(file);
 
@@ -178,12 +220,20 @@ impl<'a> AsciiConverter<'a> {
         for row in self.framebuffer.as_slice().chunks_exact(width as usize) {
             for &pixel in row {
                 let ch = self.charset.map(pixel_luminance(pixel));
-                let r = (pixel >> 16) & 0xFF;
-                let g = (pixel >> 8) & 0xFF;
-                let b = pixel & 0xFF;
-                write!(writer, "\x1b[38;2;{r};{g};{b}m{ch}")?;
+                let r = ((pixel >> 16) & 0xFF) as u8;
+                let g = ((pixel >> 8) & 0xFF) as u8;
+                let b = (pixel & 0xFF) as u8;
+
+                writer.write_all(b"\x1b[38;2;")?;
+                write_u8(&mut writer, r)?;
+                writer.write_all(b";")?;
+                write_u8(&mut writer, g)?;
+                writer.write_all(b";")?;
+                write_u8(&mut writer, b)?;
+                writer.write_all(b"m")?;
+                write!(writer, "{ch}")?; // characters can be multi-byte, so we still use write! for the char
             }
-            writeln!(writer, "\x1b[0m")?;
+            writer.write_all(b"\x1b[0m\n")?;
         }
 
         Ok(())
