@@ -372,16 +372,6 @@ impl GpuRenderer {
             return Err("texture dimensions must be positive".to_string());
         }
 
-        // ⚡ Bolt: Uses zero-initialized vector and zips directly into chunks to avoid capacity
-        // checking overheads present in `extend_from_slice` and iterator `flat_map().collect()`.
-        let mut rgba = vec![0u8; texture.pixels.len() * 4];
-        for (chunk, &argb) in rgba.chunks_exact_mut(4).zip(texture.pixels.iter()) {
-            chunk[0] = ((argb >> 16) & 0xFF) as u8;
-            chunk[1] = ((argb >> 8) & 0xFF) as u8;
-            chunk[2] = (argb & 0xFF) as u8;
-            chunk[3] = ((argb >> 24) & 0xFF) as u8;
-        }
-
         let device = self.gpu.device();
         let gpu_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("User Texture"),
@@ -398,25 +388,46 @@ impl GpuRenderer {
             view_formats: &[],
         });
 
-        self.gpu.queue().write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &gpu_texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            &rgba,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(texture.width * 4),
-                rows_per_image: Some(texture.height),
-            },
-            wgpu::Extent3d {
-                width: texture.width,
-                height: texture.height,
-                depth_or_array_layers: 1,
-            },
-        );
+        thread_local! {
+            static TEXTURE_UPLOAD_BUFFER: std::cell::RefCell<Vec<u8>> = const { std::cell::RefCell::new(Vec::new()) };
+        }
+
+        // ⚡ Bolt: Eliminates O(N) dynamic heap allocation by reusing a thread-local
+        // buffer. The buffer is dynamically resized to match the required capacity.
+        TEXTURE_UPLOAD_BUFFER.with(|buf| {
+            let mut rgba = buf.borrow_mut();
+            let required_len = texture.pixels.len() * 4;
+            if rgba.len() != required_len {
+                rgba.resize(required_len, 0);
+            }
+
+            for (chunk, &argb) in rgba.chunks_exact_mut(4).zip(texture.pixels.iter()) {
+                chunk[0] = ((argb >> 16) & 0xFF) as u8;
+                chunk[1] = ((argb >> 8) & 0xFF) as u8;
+                chunk[2] = (argb & 0xFF) as u8;
+                chunk[3] = ((argb >> 24) & 0xFF) as u8;
+            }
+
+            self.gpu.queue().write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &gpu_texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &rgba,
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(texture.width * 4),
+                    rows_per_image: Some(texture.height),
+                },
+                wgpu::Extent3d {
+                    width: texture.width,
+                    height: texture.height,
+                    depth_or_array_layers: 1,
+                },
+            );
+        });
 
         let view = gpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
