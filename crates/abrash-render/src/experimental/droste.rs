@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use rayon::prelude::*;
 
 thread_local! {
-    static SOURCE_BUFFER: RefCell<Vec<u32>> = RefCell::new(Vec::new());
+    static SOURCE_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
 /// Configuration for the Droste effect.
