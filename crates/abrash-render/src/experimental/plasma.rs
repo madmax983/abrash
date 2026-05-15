@@ -35,12 +35,12 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
 
     row_iter.for_each(|(y, row)| {
         let y_f32 = y as f32;
-        let y_scaled_time = y_f32 * scale + time;
+        let y_scaled_time = (y_f32 * scale + time) % std::f32::consts::TAU;
         let (y_sin, y_cos) = fast_sin_cos(y_scaled_time);
 
         for (x, pixel) in row.iter_mut().enumerate().take(width) {
             let x_f32 = x as f32;
-            let x_scaled_time = x_f32 * scale + time;
+            let x_scaled_time = (x_f32 * scale + time) % std::f32::consts::TAU;
             let (x_sin, _) = fast_sin_cos(x_scaled_time);
 
             // Calculate plasma value using multiple sine waves
