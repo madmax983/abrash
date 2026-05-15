@@ -18,6 +18,11 @@ use abrash_core::texture::Texture;
 ///
 /// Maps Cartesian screen coordinates to polar coordinates (angle and distance),
 /// transforming them into texture coordinates to create a perspective tunnel.
+///
+/// ⚡ Bolt Performance Optimization:
+/// Directly mutating the framebuffer slice instead of collecting to an intermediate
+/// `Vec` array entirely elides dynamic heap allocations (saving W*H bytes per frame)
+/// and removes the O(N) secondary pass previously required to copy pixels back to the screen.
 pub fn apply_tunnel(framebuffer: &mut Framebuffer, time: f32, texture: &Texture) {
     let width = framebuffer.width() as usize;
     let height = framebuffer.height() as usize;
@@ -25,9 +30,8 @@ pub fn apply_tunnel(framebuffer: &mut Framebuffer, time: f32, texture: &Texture)
     let center_x = width as f32 / 2.0;
     let center_y = height as f32 / 2.0;
 
-    let mut new_pixels = vec![0; width * height];
-
-    new_pixels
+    framebuffer
+        .as_mut_slice()
         .chunks_exact_mut(width)
         .enumerate()
         .for_each(|(y, row)| {
@@ -73,13 +77,6 @@ pub fn apply_tunnel(framebuffer: &mut Framebuffer, time: f32, texture: &Texture)
                 *pixel = (a << 24) | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
             }
         });
-
-    for y in 0..framebuffer.height() {
-        for x in 0..framebuffer.width() {
-            let idx = (y as usize) * width + (x as usize);
-            framebuffer.set_pixel(x as i32, y as i32, new_pixels[idx]);
-        }
-    }
 }
 
 #[cfg(test)]

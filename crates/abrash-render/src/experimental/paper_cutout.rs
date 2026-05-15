@@ -112,14 +112,17 @@ pub fn apply_paper_cutout(fb: &mut Framebuffer, zb: &ZBuffer, config: &PaperCuto
     // Pre-calculate layers to avoid float math in the shadow loop
     #[cfg(feature = "parallel")]
     {
-        layers_slice.par_iter_mut().zip(depths.par_iter()).for_each(|(l, &d)| {
-            *l = if d == f32::INFINITY {
-                layers_count as i32 + 1 // Use +1 for infinity so valid objects at max depth still get quantized
-            } else {
-                let normalized = (d - min_z) * inv_range;
-                (normalized * layers_count) as i32
-            };
-        });
+        layers_slice
+            .par_iter_mut()
+            .zip(depths.par_iter())
+            .for_each(|(l, &d)| {
+                *l = if d == f32::INFINITY {
+                    layers_count as i32 + 1 // Use +1 for infinity so valid objects at max depth still get quantized
+                } else {
+                    let normalized = (d - min_z) * inv_range;
+                    (normalized * layers_count) as i32
+                };
+            });
     }
     #[cfg(not(feature = "parallel"))]
     {
@@ -159,7 +162,8 @@ pub fn apply_paper_cutout(fb: &mut Framebuffer, zb: &ZBuffer, config: &PaperCuto
 
             // Quantize the color to simulate flat paper
             // We reduce the color depth to simulate construction paper limited palette
-            if current_layer != layers_count as i32 + 1 { // if not infinity
+            if current_layer != layers_count as i32 + 1 {
+                // if not infinity
                 let r = ((color >> 16) & 0xFF) & 0xE0; // Keep top 3 bits
                 let g = ((color >> 8) & 0xFF) & 0xE0;
                 let b = (color & 0xFF) & 0xE0;

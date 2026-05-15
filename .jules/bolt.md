@@ -224,3 +224,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **Bottleneck:** Pre-calculating a gradient color Look-Up Table (LUT) dynamically inside a hot post-processing function (`apply_heat_vision`) incurs initialization overhead on every frame.
 **Optimization:** Extracted the generation loop into a `const fn` (replacing `for` loops with `while` loops due to `const fn` restrictions) and declared `const LUT: [u32; 1024] = generate_lut();` inside the function.
 **Impact:** Eliminated dynamic array allocation and setup overhead per frame, maximizing throughput in headless render loops.
+
+**[Eliminating Redundant Buffer Allocations in Full-Screen Overwrites]**
+**Learning:** When a post-processing effect completely overwrites the framebuffer (e.g., drawing a procedural tunnel) without reading the previous frame state, allocating a temporary buffer (`vec![0; width * height]`) is an unnecessary O(W*H) heap allocation per frame.
+**Action:** Directly mutate the framebuffer slice (e.g., via `framebuffer.as_mut_slice().chunks_exact_mut(...)`). This entirely eliminates the need for an intermediate buffer and avoids the O(N) secondary loop required to copy pixels back to the screen.
