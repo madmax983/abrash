@@ -45,10 +45,17 @@ impl Default for PosterizeConfig {
 /// assert_eq!(fb.get_pixel(1, 0).unwrap(), 0xFF_555555);
 /// ```
 pub fn apply_posterize(fb: &mut Framebuffer, config: &PosterizeConfig) {
-    // ⚡ Bolt: Use pure integer math to avoid f32 conversions in the hot loop
+    // ⚡ Bolt: Use a pre-calculated Look-Up Table (LUT) to eliminate integer math per-pixel per-channel
     let levels = config.levels.max(2.0);
     let levels_minus_1 = (levels - 1.0) as u32;
     let safe_divisor = levels_minus_1.max(1);
+
+    let mut lut = [0u32; 256];
+    let mut i = 0;
+    while i < 256 {
+        lut[i as usize] = ((i * levels_minus_1 + 127) / 255 * 255) / safe_divisor;
+        i += 1;
+    }
 
     for pixel in fb.as_mut_slice().iter_mut() {
         let p = *pixel;
@@ -57,11 +64,11 @@ pub fn apply_posterize(fb: &mut Framebuffer, config: &PosterizeConfig) {
         let g = (p >> 8) & 0xFF;
         let b = p & 0xFF;
 
-        let new_r = ((r * levels_minus_1 + 127) / 255 * 255) / safe_divisor;
-        let new_g = ((g * levels_minus_1 + 127) / 255 * 255) / safe_divisor;
-        let new_b = ((b * levels_minus_1 + 127) / 255 * 255) / safe_divisor;
+        let new_r = lut[r as usize].min(255);
+        let new_g = lut[g as usize].min(255);
+        let new_b = lut[b as usize].min(255);
 
-        *pixel = a | (new_r.min(255) << 16) | (new_g.min(255) << 8) | new_b.min(255);
+        *pixel = a | (new_r << 16) | (new_g << 8) | new_b;
     }
 }
 
@@ -100,5 +107,32 @@ mod tests {
 
         assert_eq!(p1, p2, "Pixels should be quantized to the same level");
         assert_eq!(p1, 0xFF55_5555, "Should be quantized to exactly 85 (0x55)"); // 85 is 0x55
+    }
+
+    #[test]
+    fn test_apply_posterize_extreme_levels() {
+        let mut fb = Framebuffer::new(2, 1).unwrap();
+        fb.set_pixel(0, 0, 0xFF00_0000); // Black
+        fb.set_pixel(1, 0, 0xFFFF_FFFF); // White
+
+        // Test with levels = 256.0 (should do nothing practically, max colors)
+        let config_max = PosterizeConfig { levels: 256.0 };
+        apply_posterize(&mut fb, &config_max);
+
+        assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFF00_0000);
+        assert_eq!(fb.get_pixel(1, 0).unwrap(), 0xFFFF_FFFF);
+
+        // Test with levels = 2.0 (should just be min/max colors)
+        let mut fb_min = Framebuffer::new(3, 1).unwrap();
+        fb_min.set_pixel(0, 0, 0xFF00_0000); // Black -> 0
+        fb_min.set_pixel(1, 0, 0xFF80_8080); // Mid-gray (128) -> 255
+        fb_min.set_pixel(2, 0, 0xFFFF_FFFF); // White -> 255
+
+        let config_min = PosterizeConfig { levels: 2.0 };
+        apply_posterize(&mut fb_min, &config_min);
+
+        assert_eq!(fb_min.get_pixel(0, 0).unwrap(), 0xFF00_0000);
+        assert_eq!(fb_min.get_pixel(1, 0).unwrap(), 0xFFFF_FFFF);
+        assert_eq!(fb_min.get_pixel(2, 0).unwrap(), 0xFFFF_FFFF);
     }
 }
