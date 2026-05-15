@@ -713,15 +713,13 @@ fn render_title(f: &mut ratatui::Frame, area: ratatui::layout::Rect) {
 }
 
 fn render_demo_list(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &mut App) {
-    let items: Vec<ListItem> = DEMOS
-        .iter()
-        .map(|demo| {
-            ListItem::new(Span::styled(
-                format!("{} {}", demo.category.icon(), demo.name),
-                Style::default().fg(Color::White),
-            ))
-        })
-        .collect();
+    // ⚡ Bolt: Pass the iterator directly to `List::new()` to avoid an intermediate `Vec` heap allocation.
+    let items = DEMOS.iter().map(|demo| {
+        ListItem::new(Span::styled(
+            format!("{} {}", demo.category.icon(), demo.name),
+            Style::default().fg(Color::White),
+        ))
+    });
 
     let items_list = List::new(items)
         .block(
