@@ -372,16 +372,6 @@ impl GpuRenderer {
             return Err("texture dimensions must be positive".to_string());
         }
 
-        // ⚡ Bolt: Uses zero-initialized vector and zips directly into chunks to avoid capacity
-        // checking overheads present in `extend_from_slice` and iterator `flat_map().collect()`.
-        let mut rgba = vec![0u8; texture.pixels.len() * 4];
-        for (chunk, &argb) in rgba.chunks_exact_mut(4).zip(texture.pixels.iter()) {
-            chunk[0] = ((argb >> 16) & 0xFF) as u8;
-            chunk[1] = ((argb >> 8) & 0xFF) as u8;
-            chunk[2] = (argb & 0xFF) as u8;
-            chunk[3] = ((argb >> 24) & 0xFF) as u8;
-        }
-
         let device = self.gpu.device();
         let gpu_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("User Texture"),
@@ -397,6 +387,18 @@ impl GpuRenderer {
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
+
+        // ⚡ Bolt: Reverted thread-local optimization here. As reviewed, `create_texture` is used
+        // for potentially massive, transient one-shot asset uploads. A thread-local buffer would
+        // leak that massive capacity (e.g., 256MB) for the lifetime of the thread.
+        // We revert back to the per-call allocation for safety in this specific context.
+        let mut rgba = vec![0u8; texture.pixels.len() * 4];
+        for (chunk, &argb) in rgba.chunks_exact_mut(4).zip(texture.pixels.iter()) {
+            chunk[0] = ((argb >> 16) & 0xFF) as u8;
+            chunk[1] = ((argb >> 8) & 0xFF) as u8;
+            chunk[2] = (argb & 0xFF) as u8;
+            chunk[3] = ((argb >> 24) & 0xFF) as u8;
+        }
 
         self.gpu.queue().write_texture(
             wgpu::TexelCopyTextureInfo {

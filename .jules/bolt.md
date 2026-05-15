@@ -1,8 +1,7 @@
-## L-System string expansion
-**Learning:** In exponential string generation algorithms (like L-Systems), replacing an initial `.clone()` on the base string with `String::with_capacity(max_capacity)` followed by `.push_str()` eliminates repetitive dynamic reallocation overhead as the string grows.
-**Action:** Always pre-allocate strings to their maximum or estimated needed bounds instead of using `.clone()` if they are expected to grow inside a loop, especially in recursive or exponential generation contexts.
-## 2024-05-14 - Replace Sequential Push with Extend for Arrays
+## ⚡ Bolt: thread_local buffer optimization for texture uploads
 
+**Learning:** In wgpu texture upload operations (like `upload_framebuffer` or `create_texture`), allocating a zeroed vector `vec![0u8; len * 4]` every frame causes severe O(W*H) heap allocation and initialization overhead, hindering performance in tight render loops.
+**Action:** Replace `vec![0u8; ...]` with a dynamically resized `thread_local!` `RefCell<Vec<u8>>` buffer. This eliminates per-frame heap allocations while preserving the LLVM vectorization benefits of the subsequent `.chunks_exact_mut()` loop, significantly improving throughput for batch processing and frame uploads.
 **Learning:** Replacing sequential `.push()` calls within a hot loop (like unpacking vertex indices) with a single `.extend([])` call combined with array destructuring allows the compiler to elide repetitive vector bounds checking, resulting in measurable performance gains in hot paths.
 
 **Action:** Whenever iterating over fixed-size inner arrays to populate a `Vec` in a hot loop, destructure the array elements first and append them in bulk using `.extend([])` instead of individual `.push()` calls.
