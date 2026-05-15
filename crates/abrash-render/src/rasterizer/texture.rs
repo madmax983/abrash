@@ -194,24 +194,19 @@ impl PerspectiveTextureEdgeWalker {
         v_start: f32,
         v_end: f32,
     ) -> Self {
-        let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
-        let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
-
-        let dx_dy =
-            ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64;
-        let dz_dy = (p_end.z - p_start.z) * inv_h;
-        let dq_dy = (q_end - q_start) * inv_h;
-        let du_dy = (u_end - u_start) * inv_h;
-        let dv_dy = (v_end - v_start) * inv_h;
+        let base = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
+        let dq_dy = (q_end - q_start) * base.inv_h;
+        let du_dy = (u_end - u_start) * base.inv_h;
+        let dv_dy = (v_end - v_start) * base.inv_h;
 
         Self {
-            x: i64::from(p_start.x) << 16,
+            x: base.x_start,
             z: p_start.z,
             q: q_start,
             u: u_start,
             v: v_start,
-            dx_dy,
-            dz_dy,
+            dx_dy: base.dx_dy,
+            dz_dy: base.dz_dy,
             dq_dy,
             du_dy,
             dv_dy,
@@ -2420,21 +2415,17 @@ impl NormalMapEdgeWalker {
         l_start: Vec3,
         l_end: Vec3,
     ) -> Self {
-        let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
-        let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
+        let base = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
 
-        let dx_dy =
-            ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64;
-        let dz_dy = (p_end.z - p_start.z) * inv_h;
-        let dq_dy = (q_end - q_start) * inv_h;
-        let du_dy = (u_end - u_start) * inv_h;
-        let dv_dy = (v_end - v_start) * inv_h;
-        let dlx_dy = (l_end.x - l_start.x) * inv_h;
-        let dly_dy = (l_end.y - l_start.y) * inv_h;
-        let dlz_dy = (l_end.z - l_start.z) * inv_h;
+        let dq_dy = (q_end - q_start) * base.inv_h;
+        let du_dy = (u_end - u_start) * base.inv_h;
+        let dv_dy = (v_end - v_start) * base.inv_h;
+        let dlx_dy = (l_end.x - l_start.x) * base.inv_h;
+        let dly_dy = (l_end.y - l_start.y) * base.inv_h;
+        let dlz_dy = (l_end.z - l_start.z) * base.inv_h;
 
         Self {
-            x: i64::from(p_start.x) << 16,
+            x: base.x_start,
             z: p_start.z,
             q: q_start,
             u: u_start,
@@ -2442,8 +2433,8 @@ impl NormalMapEdgeWalker {
             lx: l_start.x,
             ly: l_start.y,
             lz: l_start.z,
-            dx_dy,
-            dz_dy,
+            dx_dy: base.dx_dy,
+            dz_dy: base.dz_dy,
             dq_dy,
             du_dy,
             dv_dy,
@@ -3671,21 +3662,17 @@ impl TexturedGouraudEdgeWalker {
         c_start: Vec3,
         c_end: Vec3,
     ) -> Self {
-        let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
-        let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
+        let base = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
 
-        let dx_dy =
-            ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64;
-        let dz_dy = (p_end.z - p_start.z) * inv_h;
-        let dq_dy = (q_end - q_start) * inv_h;
-        let du_dy = (u_end - u_start) * inv_h;
-        let dv_dy = (v_end - v_start) * inv_h;
-        let dr_dy = (c_end.x - c_start.x) * inv_h;
-        let dg_dy = (c_end.y - c_start.y) * inv_h;
-        let db_dy = (c_end.z - c_start.z) * inv_h;
+        let dq_dy = (q_end - q_start) * base.inv_h;
+        let du_dy = (u_end - u_start) * base.inv_h;
+        let dv_dy = (v_end - v_start) * base.inv_h;
+        let dr_dy = (c_end.x - c_start.x) * base.inv_h;
+        let dg_dy = (c_end.y - c_start.y) * base.inv_h;
+        let db_dy = (c_end.z - c_start.z) * base.inv_h;
 
         Self {
-            x: i64::from(p_start.x) << 16,
+            x: base.x_start,
             z: p_start.z,
             q: q_start,
             u: u_start,
@@ -3693,8 +3680,8 @@ impl TexturedGouraudEdgeWalker {
             r: c_start.x,
             g: c_start.y,
             b: c_start.z,
-            dx_dy,
-            dz_dy,
+            dx_dy: base.dx_dy,
+            dz_dy: base.dz_dy,
             dq_dy,
             du_dy,
             dv_dy,

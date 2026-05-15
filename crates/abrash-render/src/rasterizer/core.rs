@@ -219,6 +219,30 @@ pub unsafe fn blend_swar_simd(
     _mm256_or_si256(rb, _mm256_slli_epi32(ag, 8))
 }
 
+pub(crate) struct BaseEdgeDelta {
+    pub x_start: i64,
+    pub dx_dy: i64,
+    pub dz_dy: f32,
+    pub inv_h: f32,
+}
+
+impl BaseEdgeDelta {
+    #[inline(always)]
+    pub(crate) fn compute(p_start: ScreenPoint, p_end: ScreenPoint) -> Self {
+        let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
+        let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
+        let dx_dy =
+            ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64;
+        let dz_dy = (p_end.z - p_start.z) * inv_h;
+        Self {
+            x_start: i64::from(p_start.x) << 16,
+            dx_dy,
+            dz_dy,
+            inv_h,
+        }
+    }
+}
+
 /// Helper to iterate along the edge of a triangle in screen space.
 ///
 /// This struct manages the state for walking down a triangle edge, interpolating
@@ -244,23 +268,12 @@ pub(crate) struct EdgeWalker {
 
 impl EdgeWalker {
     pub(crate) fn new(p_start: ScreenPoint, p_end: ScreenPoint) -> Self {
-        let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
-        let (dx_dy, dz_dy) = if height == 0.0 {
-            (0, 0.0)
-        } else {
-            let inv_h = 1.0 / height;
-
-            (
-                ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64,
-                (p_end.z - p_start.z) * inv_h,
-            )
-        };
-
+        let base = BaseEdgeDelta::compute(p_start, p_end);
         Self {
-            x: i64::from(p_start.x) << 16,
+            x: base.x_start,
             z: p_start.z,
-            dx_dy,
-            dz_dy,
+            dx_dy: base.dx_dy,
+            dz_dy: base.dz_dy,
         }
     }
 

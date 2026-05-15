@@ -1526,22 +1526,18 @@ impl ShadowPhongEdgeWalker {
         w_start: Vec3,
         w_end: Vec3,
     ) -> Self {
-        let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
-        let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
+        let base = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
 
-        let dx_dy =
-            ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64;
-        let dz_dy = (p_end.z - p_start.z) * inv_h;
-        let dq_dy = (q_end - q_start) * inv_h;
-        let dnx_dy = (n_end.x - n_start.x) * inv_h;
-        let dny_dy = (n_end.y - n_start.y) * inv_h;
-        let dnz_dy = (n_end.z - n_start.z) * inv_h;
-        let dwx_dy = (w_end.x - w_start.x) * inv_h;
-        let dwy_dy = (w_end.y - w_start.y) * inv_h;
-        let dwz_dy = (w_end.z - w_start.z) * inv_h;
+        let dq_dy = (q_end - q_start) * base.inv_h;
+        let dnx_dy = (n_end.x - n_start.x) * base.inv_h;
+        let dny_dy = (n_end.y - n_start.y) * base.inv_h;
+        let dnz_dy = (n_end.z - n_start.z) * base.inv_h;
+        let dwx_dy = (w_end.x - w_start.x) * base.inv_h;
+        let dwy_dy = (w_end.y - w_start.y) * base.inv_h;
+        let dwz_dy = (w_end.z - w_start.z) * base.inv_h;
 
         Self {
-            x: i64::from(p_start.x) << 16,
+            x: base.x_start,
             z: p_start.z,
             q: q_start,
             nx: n_start.x,
@@ -1550,8 +1546,8 @@ impl ShadowPhongEdgeWalker {
             wx: w_start.x,
             wy: w_start.y,
             wz: w_start.z,
-            dx_dy,
-            dz_dy,
+            dx_dy: base.dx_dy,
+            dz_dy: base.dz_dy,
             dq_dy,
             dnx_dy,
             dny_dy,
@@ -2193,24 +2189,20 @@ struct PhongEdgeWalker {
 impl PhongEdgeWalker {
     #[allow(clippy::too_many_arguments)]
     fn new(p_start: ScreenPoint, p_end: ScreenPoint, n_start: Vec3, n_end: Vec3) -> Self {
-        let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
-        let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
+        let base = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
 
-        let dx_dy =
-            ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64;
-        let dz_dy = (p_end.z - p_start.z) * inv_h;
-        let dnx_dy = (n_end.x - n_start.x) * inv_h;
-        let dny_dy = (n_end.y - n_start.y) * inv_h;
-        let dnz_dy = (n_end.z - n_start.z) * inv_h;
+        let dnx_dy = (n_end.x - n_start.x) * base.inv_h;
+        let dny_dy = (n_end.y - n_start.y) * base.inv_h;
+        let dnz_dy = (n_end.z - n_start.z) * base.inv_h;
 
         Self {
-            x: i64::from(p_start.x) << 16,
+            x: base.x_start,
             z: p_start.z,
             nx: n_start.x,
             ny: n_start.y,
             nz: n_start.z,
-            dx_dy,
-            dz_dy,
+            dx_dy: base.dx_dy,
+            dz_dy: base.dz_dy,
             dnx_dy,
             dny_dy,
             dnz_dy,
