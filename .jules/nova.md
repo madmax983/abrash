@@ -96,3 +96,8 @@
 **Concept:** A post-processing effect that simulates a 2.5D construction paper art style. It quantizes 3D depth information into discrete flat layers and applies offset drop shadows between layers using the z-buffer.
 **Fate:** Implemented
 **Lesson:** By dynamically remapping continuous depth ranges into discrete integer layers and comparing adjacent depth indices, we can accurately cast complex shadows in purely screen-space. To avoid allocating multiple per-layer framebuffers, we can simply copy the frame into a single reference buffer and apply darkening (shadows) iteratively per pixel based on depth disparity.
+
+## [Strange Attractors]
+**Concept:** A generator module to simulate and visualize 3D chaotic dynamical systems (Lorenz, Rössler, Aizawa). These continuous strange attractors trace mesmerizing, butterfly-like structures. Projecting their paths continuously over time onto the framebuffer via a software rendering pipeline enables creating visually captivating demonstrations directly in screen-space, including trails and velocity-depth mapping.
+**Fate:** Implemented
+**Lesson:** Iteratively stepping small mathematical equations using Euler integration is lightweight, but the visual depth mapping allows turning abstract numbers into vibrant, organic-looking structures. Modulating hue based on depth adds an important layer of visual cueing that enhances the 3D perception of otherwise simple point clouds.

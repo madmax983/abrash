@@ -749,6 +749,11 @@ harness = false
 required-features = ["nova"]
 
 [[example]]
+name = "attractors_demo"
+path = "examples/attractors_demo.rs"
+required-features = ["nova", "backend-winit"]
+
+[[example]]
 name = "plasma_demo"
 path = "examples/plasma_demo.rs"
 required-features = ["nova"]
