@@ -16,6 +16,8 @@ thread_local! {
     static KUWAHARA_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
+#[allow(clippy::too_many_arguments)]
+
 /// Applies a Kuwahara filter to the framebuffer.
 ///
 /// # Arguments
@@ -24,6 +26,113 @@ thread_local! {
 /// * `radius` - The radius of the Kuwahara kernel (e.g., 2 means 5x5 total window size).
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+#[allow(clippy::too_many_arguments)]
+fn process_kuwahara_region(
+    src_fb: &[u32],
+    width: i32,
+    height: i32,
+    x: i32,
+    y: i32,
+    dx_start: i32,
+    dx_end: i32,
+    dy_start: i32,
+    dy_end: i32,
+    radius: i32,
+    best_num: &mut u64,
+    best_den: &mut u64,
+    best_color: &mut u32,
+) {
+    let mut sum_r = 0;
+    let mut sum_g = 0;
+    let mut sum_b = 0;
+    let mut sum_r2 = 0;
+    let mut sum_g2 = 0;
+    let mut sum_b2 = 0;
+    let mut count = 0;
+
+    if y >= radius && y < height - radius && x >= radius && x < width - radius {
+        let py_start = y + dy_start;
+        let py_end = y + dy_end;
+        let px_start = x + dx_start;
+        let px_end = x + dx_end;
+
+        for py in py_start..=py_end {
+            let row_offset = (py * width) as usize;
+            let px_start_u = px_start as usize;
+            let px_end_u = px_end as usize;
+
+            for &pixel in &src_fb[row_offset + px_start_u..=row_offset + px_end_u] {
+                let r = (pixel >> 16) & 0xFF;
+                let g = (pixel >> 8) & 0xFF;
+                let b = pixel & 0xFF;
+
+                sum_r += r;
+                sum_g += g;
+                sum_b += b;
+
+                sum_r2 += r * r;
+                sum_g2 += g * g;
+                sum_b2 += b * b;
+
+                count += 1;
+            }
+        }
+    } else {
+        let py_start = (y + dy_start).max(0).min(height - 1);
+        let py_end = (y + dy_end).max(0).min(height - 1);
+        let px_start = (x + dx_start).max(0).min(width - 1);
+        let px_end = (x + dx_end).max(0).min(width - 1);
+
+        for py in py_start..=py_end {
+            let row_offset = (py * width) as usize;
+            for px in px_start..=px_end {
+                let pixel = src_fb[row_offset + px as usize];
+
+                let r = (pixel >> 16) & 0xFF;
+                let g = (pixel >> 8) & 0xFF;
+                let b = pixel & 0xFF;
+
+                sum_r += r;
+                sum_g += g;
+                sum_b += b;
+
+                sum_r2 += r * r;
+                sum_g2 += g * g;
+                sum_b2 += b * b;
+
+                count += 1;
+            }
+        }
+    }
+
+    if count > 0 {
+        let count_u64 = u64::from(count);
+        let sum_r_sq = u64::from(sum_r) * u64::from(sum_r);
+        let sum_g_sq = u64::from(sum_g) * u64::from(sum_g);
+        let sum_b_sq = u64::from(sum_b) * u64::from(sum_b);
+
+        let scaled_var_r = count_u64 * u64::from(sum_r2) - sum_r_sq;
+        let scaled_var_g = count_u64 * u64::from(sum_g2) - sum_g_sq;
+        let scaled_var_b = count_u64 * u64::from(sum_b2) - sum_b_sq;
+
+        let total_variance_num = scaled_var_r + scaled_var_g + scaled_var_b;
+        let total_variance_den = count_u64 * count_u64;
+
+        if u128::from(total_variance_num) * u128::from(*best_den)
+            < u128::from(*best_num) * u128::from(total_variance_den)
+        {
+            *best_num = total_variance_num;
+            *best_den = total_variance_den;
+
+            let out_r = sum_r / count;
+            let out_g = sum_g / count;
+            let out_b = sum_b / count;
+
+            *best_color = 0xFF00_0000 | (out_r << 16) | (out_g << 8) | out_b;
+        }
+    }
+}
+
 pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
     if radius <= 0 {
         return;
@@ -63,126 +172,33 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
                         // 1: Top-Right
                         // 2: Bottom-Left
                         // 3: Bottom-Right
-
                         let mut best_num = u64::MAX;
                         let mut best_den = 1u64;
                         let mut best_color = 0u32;
 
-                        // Region definitions (dx_start, dx_end, dy_start, dy_end)
                         let regions = [
-                            (-radius, 0, -radius, 0), // Top-Left
-                            (0, radius, -radius, 0),  // Top-Right
-                            (-radius, 0, 0, radius),  // Bottom-Left
-                            (0, radius, 0, radius),   // Bottom-Right
+                            (-radius, 0, -radius, 0),
+                            (0, radius, -radius, 0),
+                            (-radius, 0, 0, radius),
+                            (0, radius, 0, radius),
                         ];
 
                         for &(dx_start, dx_end, dy_start, dy_end) in &regions {
-                            let mut sum_r = 0;
-                            let mut sum_g = 0;
-                            let mut sum_b = 0;
-                            let mut sum_r2 = 0;
-                            let mut sum_g2 = 0;
-                            let mut sum_b2 = 0;
-                            let mut count = 0;
-
-                            // We split the image processing into a fast path for the safe interior
-                            // and a slow path with bounds checking for the borders.
-                            if y >= radius
-                                && y < height - radius
-                                && x >= radius
-                                && x < width - radius
-                            {
-                                // Fast path: No bounds checking needed
-                                let py_start = y + dy_start;
-                                let py_end = y + dy_end;
-                                let px_start = x + dx_start;
-                                let px_end = x + dx_end;
-
-                                for py in py_start..=py_end {
-                                    let row_offset = (py * width) as usize;
-                                    let px_start_u = px_start as usize;
-                                    let px_end_u = px_end as usize;
-
-                                    // Use chunk iteration to let LLVM vectorize when possible
-                                    for &pixel in
-                                        &src_fb[row_offset + px_start_u..=row_offset + px_end_u]
-                                    {
-                                        let r = (pixel >> 16) & 0xFF;
-                                        let g = (pixel >> 8) & 0xFF;
-                                        let b = pixel & 0xFF;
-
-                                        sum_r += r;
-                                        sum_g += g;
-                                        sum_b += b;
-
-                                        sum_r2 += r * r;
-                                        sum_g2 += g * g;
-                                        sum_b2 += b * b;
-
-                                        count += 1;
-                                    }
-                                }
-                            } else {
-                                // Slow path: Edges require bounds clamping
-                                let py_start = (y + dy_start).max(0).min(height - 1);
-                                let py_end = (y + dy_end).max(0).min(height - 1);
-                                let px_start = (x + dx_start).max(0).min(width - 1);
-                                let px_end = (x + dx_end).max(0).min(width - 1);
-
-                                for py in py_start..=py_end {
-                                    let row_offset = (py * width) as usize;
-                                    for px in px_start..=px_end {
-                                        let pixel = src_fb[row_offset + px as usize];
-
-                                        let r = (pixel >> 16) & 0xFF;
-                                        let g = (pixel >> 8) & 0xFF;
-                                        let b = pixel & 0xFF;
-
-                                        sum_r += r;
-                                        sum_g += g;
-                                        sum_b += b;
-
-                                        sum_r2 += r * r;
-                                        sum_g2 += g * g;
-                                        sum_b2 += b * b;
-
-                                        count += 1;
-                                    }
-                                }
-                            }
-
-                            if count > 0 {
-                                // Use integer math for variance to avoid per-pixel f32 casts
-                                // Var = (sum(x^2)/n) - (sum(x)/n)^2
-                                // Scaled_Var = n * sum(x^2) - sum(x)^2  (which equals n^2 * Var)
-                                let count_u64 = u64::from(count);
-                                let sum_r_sq = u64::from(sum_r) * u64::from(sum_r);
-                                let sum_g_sq = u64::from(sum_g) * u64::from(sum_g);
-                                let sum_b_sq = u64::from(sum_b) * u64::from(sum_b);
-
-                                let scaled_var_r = count_u64 * u64::from(sum_r2) - sum_r_sq;
-                                let scaled_var_g = count_u64 * u64::from(sum_g2) - sum_g_sq;
-                                let scaled_var_b = count_u64 * u64::from(sum_b2) - sum_b_sq;
-
-                                // Total variance (luminance could also be used here, but sum of channel variances is simple)
-                                // Convert to f32 once per region to compare across potentially different count sizes near edges
-                                let total_variance_num = scaled_var_r + scaled_var_g + scaled_var_b;
-                                let total_variance_den = count_u64 * count_u64;
-
-                                if u128::from(total_variance_num) * u128::from(best_den)
-                                    < u128::from(best_num) * u128::from(total_variance_den)
-                                {
-                                    best_num = total_variance_num;
-                                    best_den = total_variance_den;
-
-                                    // Integer division is sufficient for the final mean
-                                    let out_r = sum_r / count;
-                                    let out_g = sum_g / count;
-                                    let out_b = sum_b / count;
-
-                                    best_color = 0xFF00_0000 | (out_r << 16) | (out_g << 8) | out_b;
-                                }
-                            }
+                            process_kuwahara_region(
+                                src_fb,
+                                width,
+                                height,
+                                x,
+                                y,
+                                dx_start,
+                                dx_end,
+                                dy_start,
+                                dy_end,
+                                radius,
+                                &mut best_num,
+                                &mut best_den,
+                                &mut best_color,
+                            );
                         }
 
                         *pixel_out = best_color;
@@ -206,121 +222,33 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
                         // 1: Top-Right
                         // 2: Bottom-Left
                         // 3: Bottom-Right
-
                         let mut best_num = u64::MAX;
                         let mut best_den = 1u64;
                         let mut best_color = 0u32;
 
-                        // Region definitions (dx_start, dx_end, dy_start, dy_end)
                         let regions = [
-                            (-radius, 0, -radius, 0), // Top-Left
-                            (0, radius, -radius, 0),  // Top-Right
-                            (-radius, 0, 0, radius),  // Bottom-Left
-                            (0, radius, 0, radius),   // Bottom-Right
+                            (-radius, 0, -radius, 0),
+                            (0, radius, -radius, 0),
+                            (-radius, 0, 0, radius),
+                            (0, radius, 0, radius),
                         ];
 
                         for &(dx_start, dx_end, dy_start, dy_end) in &regions {
-                            let mut sum_r = 0;
-                            let mut sum_g = 0;
-                            let mut sum_b = 0;
-                            let mut sum_r2 = 0;
-                            let mut sum_g2 = 0;
-                            let mut sum_b2 = 0;
-                            let mut count = 0;
-
-                            if y >= radius
-                                && y < height - radius
-                                && x >= radius
-                                && x < width - radius
-                            {
-                                let py_start = y + dy_start;
-                                let py_end = y + dy_end;
-                                let px_start = x + dx_start;
-                                let px_end = x + dx_end;
-
-                                for py in py_start..=py_end {
-                                    let row_offset = (py * width) as usize;
-                                    let px_start_u = px_start as usize;
-                                    let px_end_u = px_end as usize;
-
-                                    for &pixel in
-                                        &src_fb[row_offset + px_start_u..=row_offset + px_end_u]
-                                    {
-                                        let r = (pixel >> 16) & 0xFF;
-                                        let g = (pixel >> 8) & 0xFF;
-                                        let b = pixel & 0xFF;
-
-                                        sum_r += r;
-                                        sum_g += g;
-                                        sum_b += b;
-
-                                        sum_r2 += r * r;
-                                        sum_g2 += g * g;
-                                        sum_b2 += b * b;
-
-                                        count += 1;
-                                    }
-                                }
-                            } else {
-                                let py_start = (y + dy_start).max(0).min(height - 1);
-                                let py_end = (y + dy_end).max(0).min(height - 1);
-                                let px_start = (x + dx_start).max(0).min(width - 1);
-                                let px_end = (x + dx_end).max(0).min(width - 1);
-
-                                for py in py_start..=py_end {
-                                    let row_offset = (py * width) as usize;
-                                    for px in px_start..=px_end {
-                                        let pixel = src_fb[row_offset + px as usize];
-
-                                        let r = (pixel >> 16) & 0xFF;
-                                        let g = (pixel >> 8) & 0xFF;
-                                        let b = pixel & 0xFF;
-
-                                        sum_r += r;
-                                        sum_g += g;
-                                        sum_b += b;
-
-                                        sum_r2 += r * r;
-                                        sum_g2 += g * g;
-                                        sum_b2 += b * b;
-
-                                        count += 1;
-                                    }
-                                }
-                            }
-
-                            if count > 0 {
-                                // Use integer math for variance to avoid per-pixel f32 casts
-                                // Var = (sum(x^2)/n) - (sum(x)/n)^2
-                                // Scaled_Var = n * sum(x^2) - sum(x)^2  (which equals n^2 * Var)
-                                let count_u64 = u64::from(count);
-                                let sum_r_sq = u64::from(sum_r) * u64::from(sum_r);
-                                let sum_g_sq = u64::from(sum_g) * u64::from(sum_g);
-                                let sum_b_sq = u64::from(sum_b) * u64::from(sum_b);
-
-                                let scaled_var_r = count_u64 * u64::from(sum_r2) - sum_r_sq;
-                                let scaled_var_g = count_u64 * u64::from(sum_g2) - sum_g_sq;
-                                let scaled_var_b = count_u64 * u64::from(sum_b2) - sum_b_sq;
-
-                                // Total variance (luminance could also be used here, but sum of channel variances is simple)
-                                // Convert to f32 once per region to compare across potentially different count sizes near edges
-                                let total_variance_num = scaled_var_r + scaled_var_g + scaled_var_b;
-                                let total_variance_den = count_u64 * count_u64;
-
-                                if u128::from(total_variance_num) * u128::from(best_den)
-                                    < u128::from(best_num) * u128::from(total_variance_den)
-                                {
-                                    best_num = total_variance_num;
-                                    best_den = total_variance_den;
-
-                                    // Integer division is sufficient for the final mean
-                                    let out_r = sum_r / count;
-                                    let out_g = sum_g / count;
-                                    let out_b = sum_b / count;
-
-                                    best_color = 0xFF00_0000 | (out_r << 16) | (out_g << 8) | out_b;
-                                }
-                            }
+                            process_kuwahara_region(
+                                src_fb,
+                                width,
+                                height,
+                                x,
+                                y,
+                                dx_start,
+                                dx_end,
+                                dy_start,
+                                dy_end,
+                                radius,
+                                &mut best_num,
+                                &mut best_den,
+                                &mut best_color,
+                            );
                         }
 
                         *pixel_out = best_color;

@@ -211,12 +211,12 @@ mod tests {
         let mut zb = ZBuffer::new(20, 20).unwrap();
 
         // Background is white
-        fb.clear(0xFFFFFFFF);
+        fb.clear(0xFFFF_FFFF);
 
         // Draw a mid-depth square
         for y in 5..15 {
             for x in 5..15 {
-                fb.set_pixel(x, y, 0xFF00FF00); // Green square
+                fb.set_pixel(x, y, 0xFF00_FF00); // Green square
                 zb.test_and_set(x, y, 10.0);
             }
         }
@@ -240,7 +240,7 @@ mod tests {
 
         let shadow_px = fb.get_pixel(shadow_x, shadow_y).unwrap();
         // Original background was white, should be darkened
-        assert_ne!(shadow_px, 0xFFFFFFFF);
+        assert_ne!(shadow_px, 0xFFFF_FFFF);
 
         let r = (shadow_px >> 16) & 0xFF;
         let g = (shadow_px >> 8) & 0xFF;
