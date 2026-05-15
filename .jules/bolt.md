@@ -228,3 +228,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Eliminating Redundant Buffer Allocations in Full-Screen Overwrites]**
 **Learning:** When a post-processing effect completely overwrites the framebuffer (e.g., drawing a procedural tunnel) without reading the previous frame state, allocating a temporary buffer (`vec![0; width * height]`) is an unnecessary O(W*H) heap allocation per frame.
 **Action:** Directly mutate the framebuffer slice (e.g., via `framebuffer.as_mut_slice().chunks_exact_mut(...)`). This entirely eliminates the need for an intermediate buffer and avoids the O(N) secondary loop required to copy pixels back to the screen.
+
+**Zero-Allocation Steganography Encoding**
+**Learning:** When sequentially serializing and aggregating bytes (e.g., combining a length prefix with a data slice) for immediate bitwise iteration, creating an intermediate dynamically allocated vector (`Vec::with_capacity` paired with `extend_from_slice`) introduces unnecessary heap overhead.
+**Action:** Replace intermediate byte collection vectors with chained iterators (e.g., `len.to_le_bytes().into_iter().chain(bytes.iter().copied())`) to completely eliminate allocation overhead and provide a zero-cost abstraction for sequential processing.

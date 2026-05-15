@@ -32,9 +32,8 @@ pub fn encode_message(fb: &mut Framebuffer, message: &str) -> Result<(), &'stati
         return Err("Framebuffer too small to hold the message");
     }
 
-    let mut data_to_encode = Vec::with_capacity(total_bytes_needed);
-    data_to_encode.extend_from_slice(&len.to_le_bytes());
-    data_to_encode.extend_from_slice(bytes);
+    // ⚡ Bolt: Eliminate dynamic heap allocation by lazily yielding bytes from a chained iterator.
+    let data_to_encode = len.to_le_bytes().into_iter().chain(bytes.iter().copied());
 
     let pixels = fb.as_mut_slice();
     let mut bit_idx = 0;
