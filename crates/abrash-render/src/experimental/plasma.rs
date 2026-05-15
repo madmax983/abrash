@@ -3,6 +3,7 @@
 //! Simulates a classic demoscene plasma effect using sine waves.
 
 use crate::framebuffer::Framebuffer;
+use abrash_core::math::fast_sin_cos;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -35,23 +36,24 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
     row_iter.for_each(|(y, row)| {
         let y_f32 = y as f32;
         let y_scaled_time = y_f32 * scale + time;
-        let y_sin = y_scaled_time.sin();
-        let y_cos = y_scaled_time.cos();
+        let (y_sin, y_cos) = fast_sin_cos(y_scaled_time);
 
         for (x, pixel) in row.iter_mut().enumerate().take(width) {
             let x_f32 = x as f32;
             let x_scaled_time = x_f32 * scale + time;
-            let x_sin = x_scaled_time.sin();
+            let (x_sin, _) = fast_sin_cos(x_scaled_time);
 
             // Calculate plasma value using multiple sine waves
             let mut v = 0.0;
             v += x_sin;
             v += y_sin;
-            v += (x_sin + y_cos).sin();
+            let (v_sin, _) = fast_sin_cos(x_sin + y_cos);
+            v += v_sin;
 
             // Map the value from [-3.0, 3.0] to roughly [0.0, 1.0]
             // We use PI to create cyclical colors
-            let c = (v * std::f32::consts::PI).sin() * 0.5 + 0.5;
+            let (c_sin, _) = fast_sin_cos(v * std::f32::consts::PI);
+            let c = c_sin * 0.5 + 0.5;
 
             // Map the normalized value to RGB colors
             // Simple color palette generation based on the phase
