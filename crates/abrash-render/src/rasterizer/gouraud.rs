@@ -564,20 +564,16 @@ impl GouraudEdgeWalker {
         c_start: Vec3,
         c_end: Vec3,
     ) -> Self {
-        let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
-        let (dx_dy, dz_dy, dc_dy) = if height == 0.0 {
-            (0, 0.0, (0, 0, 0))
+        let base = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
+
+        let dc_dy = if base.inv_h == 0.0 {
+            (0, 0, 0)
         } else {
-            let inv_h = 1.0 / height;
-            let dc = (c_end - c_start) * inv_h;
+            let dc = (c_end - c_start) * base.inv_h;
             (
-                ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64,
-                (p_end.z - p_start.z) * inv_h,
-                (
-                    (dc.x * FIXED_SCALE) as i32,
-                    (dc.y * FIXED_SCALE) as i32,
-                    (dc.z * FIXED_SCALE) as i32,
-                ),
+                (dc.x * FIXED_SCALE) as i32,
+                (dc.y * FIXED_SCALE) as i32,
+                (dc.z * FIXED_SCALE) as i32,
             )
         };
 
@@ -588,11 +584,11 @@ impl GouraudEdgeWalker {
         );
 
         Self {
-            x: i64::from(p_start.x) << 16,
+            x: base.x_start,
             z: p_start.z,
             c: c_fixed,
-            dx_dy,
-            dz_dy,
+            dx_dy: base.dx_dy,
+            dz_dy: base.dz_dy,
             dc_dy,
         }
     }
