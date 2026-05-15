@@ -1,11 +1,3 @@
-1.  **Refactor Heat Vision to Fixed Point Math**
-    - The current `heat_vision.rs` uses floating-point math (`(normalized - 0.25) * 4.0`, etc.) inside a hot pixel loop to map depths to colors.
-    - We will follow the `[Posterize Float to Integer Math Optimization]` learning from `.jules/bolt.md` to map `0.0..1.0` depth range into integer `0..255`, and calculate RGB entirely using integer math (`t * 255 / scale`, etc.).
-    - We will pre-calculate `min_z` and `max_z` like before, calculate a `z_range` integer mapping multiplier, and use simple `(depth - min_z) * scale` to avoid floats in the main loop.
-2.  **Ensure Correctness**
-    - Ensure all existing tests in `heat_vision.rs` pass.
-3.  **Run Benchmark**
-    - Ensure `cargo bench --bench heat_vision_bench` runs successfully and shows performance improvements.
-4.  **Complete pre commit steps**
-    - Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done.
-5.  **Submit PR**
+1. **Optimize GPU Texture Upload Allocations:** Use `thread_local!` buffers to prevent zero-initialized `Vec<u8>` heap allocations during `wgpu` texture preparation.
+2. **Complete Pre-commit Steps:** Ensure all pre-commit instructions, tests, and formatting are correctly applied.
+3. **Submit PR:** Submit the optimization changes as a PR with appropriate justification based on performance impact.

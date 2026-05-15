@@ -221,3 +221,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **Optimize SSAO Kernel Loop**
 **Learning:** In hot loops, replacing `kernel[k]` with a dereferenced iterator value (`&s`) avoids redundant array indexing and bounds checking.
 **Action:** Replaced `let s = kernel[k];` with `for (k, &s) in kernel.iter().enumerate().take(KERNEL_SIZE)` in `crates/abrash-render/src/post_process/ssao.rs`.
+
+**[Thread Local Scratch Buffers for GPU Uploads]**
+**Learning:** `vec![0u8; len]` in hot paths (like `upload_framebuffer` or `create_texture` for `wgpu` texture preparation) forces massive O(N) heap allocations, bounds checks, and zero-initialization per call (e.g. ~8MB per 1080p frame).
+**Action:** Replaced dynamic `vec!` allocations with dynamically resized `thread_local!` `RefCell<Vec<u8>>` scratch buffers, eliminating continuous heap allocations while maintaining safe LLVM vectorization of `chunks_exact_mut`.

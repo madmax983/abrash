@@ -352,6 +352,10 @@ fn create_blit_pipeline(
     })
 }
 
+thread_local! {
+    static UPLOAD_BUFFER: std::cell::RefCell<Vec<u8>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
 impl GpuBlitter {
     /// Create a new GPU blitter targeting the given framebuffer dimensions.
     ///
@@ -514,32 +518,38 @@ impl GpuBlitter {
         });
 
         // Convert 0xAARRGGBB pixels to RGBA bytes for wgpu.
-        // ⚡ Bolt: Uses zero-initialized vector and zips directly into chunks to avoid capacity
-        // checking overheads present in `extend_from_slice` and iterator `flat_map().collect()`.
+        // ⚡ Bolt: Uses a dynamically resized `thread_local!` scratch buffer to eliminate per-call
+        // heap allocation overhead while preserving the fast LLVM vectorization of the zip loop.
         let pixels = texture.pixels();
-        let mut rgba = vec![0u8; pixels.len() * 4];
-        for (chunk, &px) in rgba.chunks_exact_mut(4).zip(pixels.iter()) {
-            chunk[0] = ((px >> 16) & 0xFF) as u8;
-            chunk[1] = ((px >> 8) & 0xFF) as u8;
-            chunk[2] = (px & 0xFF) as u8;
-            chunk[3] = ((px >> 24) & 0xFF) as u8;
-        }
+        UPLOAD_BUFFER.with(|buf| {
+            let mut rgba = buf.borrow_mut();
+            let req_len = pixels.len() * 4;
+            if rgba.len() != req_len {
+                rgba.resize(req_len, 0);
+            }
+            for (chunk, &px) in rgba[..req_len].chunks_exact_mut(4).zip(pixels.iter()) {
+                chunk[0] = ((px >> 16) & 0xFF) as u8;
+                chunk[1] = ((px >> 8) & 0xFF) as u8;
+                chunk[2] = (px & 0xFF) as u8;
+                chunk[3] = ((px >> 24) & 0xFF) as u8;
+            }
 
-        self.queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &gpu_texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            &rgba,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(width * 4),
-                rows_per_image: Some(height),
-            },
-            size,
-        );
+            self.queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &gpu_texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &rgba[..req_len],
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(width * 4),
+                    rows_per_image: Some(height),
+                },
+                size,
+            );
+        });
 
         let view = gpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -867,35 +877,41 @@ impl GpuBlitter {
         let h = self.height;
 
         // Convert 0xAARRGGBB → RGBA bytes for wgpu.
-        // ⚡ Bolt: Uses zero-initialized vector and zips directly into chunks to avoid capacity
-        // checking overheads present in `extend_from_slice` and iterator `flat_map().collect()`.
-        let mut rgba = vec![0u8; fb_pixels.len() * 4];
-        for (chunk, &px) in rgba.chunks_exact_mut(4).zip(fb_pixels.iter()) {
-            chunk[0] = ((px >> 16) & 0xFF) as u8;
-            chunk[1] = ((px >> 8) & 0xFF) as u8;
-            chunk[2] = (px & 0xFF) as u8;
-            chunk[3] = ((px >> 24) & 0xFF) as u8;
-        }
+        // ⚡ Bolt: Uses a dynamically resized `thread_local!` scratch buffer to eliminate per-frame
+        // heap allocation overhead while preserving the fast LLVM vectorization of the zip loop.
+        UPLOAD_BUFFER.with(|buf| {
+            let mut rgba = buf.borrow_mut();
+            let req_len = fb_pixels.len() * 4;
+            if rgba.len() != req_len {
+                rgba.resize(req_len, 0);
+            }
+            for (chunk, &px) in rgba[..req_len].chunks_exact_mut(4).zip(fb_pixels.iter()) {
+                chunk[0] = ((px >> 16) & 0xFF) as u8;
+                chunk[1] = ((px >> 8) & 0xFF) as u8;
+                chunk[2] = (px & 0xFF) as u8;
+                chunk[3] = ((px >> 24) & 0xFF) as u8;
+            }
 
-        self.queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &self.render_texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            &rgba,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(w * 4),
-                rows_per_image: Some(h),
-            },
-            wgpu::Extent3d {
-                width: w,
-                height: h,
-                depth_or_array_layers: 1,
-            },
-        );
+            self.queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &self.render_texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &rgba[..req_len],
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(w * 4),
+                    rows_per_image: Some(h),
+                },
+                wgpu::Extent3d {
+                    width: w,
+                    height: h,
+                    depth_or_array_layers: 1,
+                },
+            );
+        });
     }
 
     /// Render all queued sprites and write the result into a CPU
