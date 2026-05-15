@@ -96,3 +96,8 @@
 **Concept:** A post-processing effect that simulates a 2.5D construction paper art style. It quantizes 3D depth information into discrete flat layers and applies offset drop shadows between layers using the z-buffer.
 **Fate:** Implemented
 **Lesson:** By dynamically remapping continuous depth ranges into discrete integer layers and comparing adjacent depth indices, we can accurately cast complex shadows in purely screen-space. To avoid allocating multiple per-layer framebuffers, we can simply copy the frame into a single reference buffer and apply darkening (shadows) iteratively per pixel based on depth disparity.
+
+## [Metaballs Filter]
+**Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
+**Fate:** Implemented
+**Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.

@@ -44,3 +44,8 @@ required-features = ["nova"]
 name = "paper_cutout_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "metaballs_bench"
+harness = false
+required-features = ["nova"]
