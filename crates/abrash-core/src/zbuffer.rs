@@ -128,7 +128,9 @@ impl ZBuffer {
             let slice = self.depths.as_mut_slice();
             for _ in sy..ey {
                 unsafe {
-                    slice.get_unchecked_mut(offset..offset + len).fill(f32::INFINITY);
+                    slice
+                        .get_unchecked_mut(offset..offset + len)
+                        .fill(f32::INFINITY);
                 }
                 offset += w;
             }

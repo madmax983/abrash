@@ -13,7 +13,7 @@ fn main() {
     let mut zb = ZBuffer::new(width, height).unwrap();
 
     // Clear to a light background color
-    fb.clear(0xFFF0F0F0);
+    fb.clear(0xFFF0_F0F0);
     zb.clear();
 
     // Set up a simple orthographic-ish camera or perspective
@@ -40,15 +40,15 @@ fn main() {
     };
 
     // Deepest layer
-    draw_tri(&mut fb, &mut zb, 8.0, 0xFF4488FF, 5.0, -2.0, 2.0); // Blue mountain
-    draw_tri(&mut fb, &mut zb, 7.5, 0xFF5599FF, 4.0, 3.0, 1.0); // Lighter blue mountain
+    draw_tri(&mut fb, &mut zb, 8.0, 0xFF44_88FF, 5.0, -2.0, 2.0); // Blue mountain
+    draw_tri(&mut fb, &mut zb, 7.5, 0xFF55_99FF, 4.0, 3.0, 1.0); // Lighter blue mountain
 
     // Mid layer
-    draw_tri(&mut fb, &mut zb, 5.0, 0xFF22AA22, 3.0, -3.0, -1.0); // Green tree
-    draw_tri(&mut fb, &mut zb, 4.5, 0xFF33BB33, 2.5, 1.0, -2.0); // Green tree
+    draw_tri(&mut fb, &mut zb, 5.0, 0xFF22_AA22, 3.0, -3.0, -1.0); // Green tree
+    draw_tri(&mut fb, &mut zb, 4.5, 0xFF33_BB33, 2.5, 1.0, -2.0); // Green tree
 
     // Near layer
-    draw_tri(&mut fb, &mut zb, 2.0, 0xFFDD4444, 1.5, 0.0, -3.0); // Red house/shape
+    draw_tri(&mut fb, &mut zb, 2.0, 0xFFDD_4444, 1.5, 0.0, -3.0); // Red house/shape
 
     // Apply the Paper Cutout filter
     let config = PaperCutoutConfig {
@@ -56,19 +56,19 @@ fn main() {
         shadow_offset_x: 10,
         shadow_offset_y: 15,
         shadow_opacity: 0.6,
-        outline_color: 0x00000000,
+        outline_color: 0x0000_0000,
     };
 
     apply_paper_cutout(&mut fb, &zb, &config);
 
     // Save out an image
     let mut file = File::create("paper_cutout_demo.ppm").unwrap();
-    write!(file, "P3\n{} {}\n255\n", width, height).unwrap();
+    write!(file, "P3\n{width} {height}\n255\n").unwrap();
     for pixel in fb.as_slice() {
         let r = (pixel >> 16) & 0xFF;
         let g = (pixel >> 8) & 0xFF;
         let b = pixel & 0xFF;
-        write!(file, "{} {} {}\n", r, g, b).unwrap();
+        writeln!(file, "{r} {g} {b}").unwrap();
     }
 
     println!("Saved paper_cutout_demo.ppm");
