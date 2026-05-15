@@ -6,6 +6,34 @@
 use crate::framebuffer::Framebuffer;
 use crate::zbuffer::ZBuffer;
 
+const fn generate_lut() -> [u32; 1024] {
+    let mut lut = [0u32; 1024];
+    let mut t = 0;
+    while t < 1024 {
+        let (r, g, b) = if t < 256 {
+            // Red -> Yellow
+            (255, t, 0)
+        } else if t < 512 {
+            // Yellow -> Green
+            let local_t = t - 256;
+            (255 - local_t, 255, 0)
+        } else if t < 768 {
+            // Green -> Cyan
+            let local_t = t - 512;
+            (0, 255, local_t)
+        } else {
+            // Cyan -> Blue
+            let local_t = t - 768;
+            (0, 255 - local_t, 255)
+        };
+
+        // Combine into ARGB
+        lut[t as usize] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+        t += 1;
+    }
+    lut
+}
+
 /// Applies a heat vision effect to the framebuffer based on the depth buffer.
 ///
 /// *   **Close objects** (small Z) are rendered as "Hot" (Red/Yellow).
@@ -27,6 +55,8 @@ use crate::zbuffer::ZBuffer;
 /// apply_heat_vision(&mut fb, &zb);
 /// ```
 pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
+    const LUT: [u32; 1024] = generate_lut();
+
     if fb.width() != zb.width() || fb.height() != zb.height() {
         return;
     }
@@ -66,30 +96,6 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     // from truncating 1024 to 1023 when scaling.
     let scale = 1024.0 / range;
 
-    // Pre-calculate the 1024-entry lookup table for the color gradient
-    let mut lut = [0u32; 1024];
-    for t in 0..1024 {
-        let (r, g, b) = if t < 256 {
-            // Red -> Yellow
-            (255, t, 0)
-        } else if t < 512 {
-            // Yellow -> Green
-            let local_t = t - 256;
-            (255 - local_t, 255, 0)
-        } else if t < 768 {
-            // Green -> Cyan
-            let local_t = t - 512;
-            (0, 255, local_t)
-        } else {
-            // Cyan -> Blue
-            let local_t = t - 768;
-            (0, 255 - local_t, 255)
-        };
-
-        // Combine into ARGB
-        lut[t as usize] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
-    }
-
     for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
         if depth == f32::INFINITY {
             *pixel = 0xFF00_0010; // Very Dark Blue Background
@@ -99,7 +105,8 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         let t = ((depth - min_z) * scale) as u32;
         let t = t.min(1023); // Clamp strictly to 1023
 
-        *pixel = lut[t as usize];
+        // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
+        *pixel = unsafe { *LUT.get_unchecked(t as usize) };
     }
 }
 
