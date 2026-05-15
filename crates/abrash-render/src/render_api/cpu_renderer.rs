@@ -156,6 +156,10 @@ impl CpuRenderer {
 
         let view_proj = frame.camera.view * frame.camera.projection;
 
+        #[cfg(feature = "parallel")]
+        let mut ranges: smallvec::SmallVec<[(usize, usize); 128]> =
+            smallvec::SmallVec::with_capacity(frame.commands.len());
+
         // Pre-calculate total required vertices to avoid dynamic reallocations
         let mut total_vertices = 0;
         for cmd in &frame.commands {
@@ -173,7 +177,11 @@ impl CpuRenderer {
                 return Err(RenderError::StaleHandle("material"));
             }
 
-            total_vertices += cpu_mesh.mesh.vertices.len();
+            let len = cpu_mesh.mesh.vertices.len();
+            #[cfg(feature = "parallel")]
+            ranges.push((total_vertices, total_vertices + len));
+
+            total_vertices += len;
         }
 
         draw_list.vertices.reserve_exact(total_vertices);
@@ -189,19 +197,6 @@ impl CpuRenderer {
         #[cfg(feature = "parallel")]
         {
             use rayon::prelude::*;
-
-            // ⚡ Bolt: Use SmallVec to calculate vertex ranges, eliding a dynamic per-frame heap
-            // allocation on the hot parallel rendering path for scenes with up to 128 commands.
-            let mut ranges: smallvec::SmallVec<[(usize, usize); 128]> =
-                smallvec::SmallVec::with_capacity(frame.commands.len());
-            let mut current_offset = 0;
-            for cmd in &frame.commands {
-                // Since we already checked handles above, unwraps here are safe
-                let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
-                let len = cpu_mesh.mesh.vertices.len();
-                ranges.push((current_offset, current_offset + len));
-                current_offset += len;
-            }
 
             // Safety: We ensure `ranges` accurately bounds writes to disjoint sections
             // of the pre-allocated buffer exactly `total_vertices` in length.
