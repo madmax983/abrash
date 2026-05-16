@@ -265,8 +265,8 @@ mod tests {
         let mut fb = Framebuffer::new(20, 20).unwrap();
         let zb = ZBuffer::new(20, 20).unwrap();
         let config = PaperCutoutConfig::default();
-        fb.clear(0xFFFFFFFF);
+        fb.clear(0xFFFF_FFFF);
         apply_paper_cutout(&mut fb, &zb, &config);
-        assert_eq!(fb.get_pixel(10, 10).unwrap(), 0xFFFFFFFF);
+        assert_eq!(fb.get_pixel(10, 10).unwrap(), 0xFFFF_FFFF);
     }
 }
