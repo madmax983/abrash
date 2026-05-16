@@ -4,6 +4,7 @@
 
 use crate::experimental::procedural_mesh::noise;
 use crate::mesh::Mesh;
+use abrash_core::math::fast_sin_cos;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -24,7 +25,8 @@ pub fn twist(mesh: &mut Mesh, total_angle: f32) {
         // Assume twist is applied from y = -0.5 to y = 0.5 for a normalized mesh
         // We'll just map y directly to an angle: angle = y * total_angle
         let angle = v.y * total_angle;
-        let (sin_a, cos_a) = angle.sin_cos();
+        // ⚡ Bolt: Uses fast_sin_cos to eliminate trigonometric overhead in hot procedural loops.
+        let (sin_a, cos_a) = fast_sin_cos(angle);
 
         let new_x = v.x * cos_a - v.z * sin_a;
         let new_z = v.x * sin_a + v.z * cos_a;

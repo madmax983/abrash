@@ -5,6 +5,7 @@
 //! coordinates, applying modulo to the angle, and mapping back.
 
 use crate::framebuffer::Framebuffer;
+use abrash_core::math::fast_sin_cos;
 use std::cell::RefCell;
 
 thread_local! {
@@ -128,7 +129,8 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
 
                         // Convert back to Cartesian
                         // Using fast float-to-int cast saves overhead when exact rounding isn't required
-                        let (sin_t, cos_t) = theta.sin_cos();
+                        // ⚡ Bolt: Uses fast_sin_cos to eliminate trigonometric overhead in hot rendering loops.
+                        let (sin_t, cos_t) = fast_sin_cos(theta);
                         let sample_x = (cx + r * cos_t) as i32;
                         let sample_y = (cy + r * sin_t) as i32;
 
@@ -167,7 +169,8 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
                     }
 
                     // Convert back to Cartesian
-                    let (sin_t, cos_t) = theta.sin_cos();
+                    // ⚡ Bolt: Uses fast_sin_cos to eliminate trigonometric overhead in hot rendering loops.
+                    let (sin_t, cos_t) = fast_sin_cos(theta);
                     let sample_x = (cx + r * cos_t) as i32;
                     let sample_y = (cy + r * sin_t) as i32;
 

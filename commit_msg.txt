@@ -1,0 +1,6 @@
+⚡ Bolt: Replace slow sin_cos with fast_sin_cos in procedural effects
+
+💡 What: Replaced standard library `f32::sin_cos()` with `abrash_core::math::fast_sin_cos()` inside hot per-pixel rendering loops and tight procedural update loops (Kaleidoscope, Swirl, Halftone, Physarum, L-System, Modifiers).
+🎯 Why: `f32::sin_cos()` has high overhead. The `fast_sin_cos` provides a fast polynomial approximation that completely eliminates standard library trig function calls, boosting performance in scenarios where visual accuracy outweighs mathematical perfection.
+📊 Impact: Expected to yield minor to measurable performance gains in execution time across all heavy procedural iterations where these angles are calculated per-pixel/per-vertex without sacrificing any perceivable output quality.
+🔬 Measurement: Run benchmark `kaleidoscope_bench` or observe runtimes on the experimental procedural effects.

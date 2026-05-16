@@ -228,3 +228,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Eliminating Redundant Buffer Allocations in Full-Screen Overwrites]**
 **Learning:** When a post-processing effect completely overwrites the framebuffer (e.g., drawing a procedural tunnel) without reading the previous frame state, allocating a temporary buffer (`vec![0; width * height]`) is an unnecessary O(W*H) heap allocation per frame.
 **Action:** Directly mutate the framebuffer slice (e.g., via `framebuffer.as_mut_slice().chunks_exact_mut(...)`). This entirely eliminates the need for an intermediate buffer and avoids the O(N) secondary loop required to copy pixels back to the screen.
+
+**[Replacing f32::sin_cos with fast_sin_cos]**
+**Learning:** Standard library `f32::sin_cos()` operations can create significant bottlenecks inside hot inner loops (such as per-pixel modifiers or intensive procedural mesh updates).
+**Action:** When absolute mathematical precision is unnecessary for the final visual result (like visual screen-space twists, kaleidoscope mirroring, or procedural generation angles), replace it with the `abrash_core::math::fast_sin_cos()` polynomial approximation to effectively eliminate trigonometric call overhead. Ensure to include the `use abrash_core::math::fast_sin_cos;` at the top of the target module.

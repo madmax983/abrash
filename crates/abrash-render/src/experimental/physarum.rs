@@ -8,6 +8,7 @@
 #![cfg(feature = "nova")]
 
 use crate::framebuffer::Framebuffer;
+use abrash_core::math::fast_sin_cos;
 use abrash_core::color::Color;
 use abrash_core::math::Vec2;
 use abrash_core::random::Rng;
@@ -140,7 +141,8 @@ pub fn apply_physarum(fb: &mut Framebuffer, config: &PhysarumConfig) {
                 for agent in agents_borrow.iter_mut() {
                     let sense = |angle_offset: f32, trail_slice: &[f32]| -> f32 {
                         let sensor_angle = agent.angle + angle_offset;
-                        let (sin_a, cos_a) = sensor_angle.sin_cos();
+                        // ⚡ Bolt: Uses fast_sin_cos to eliminate trigonometric overhead in hot agent update loops.
+                        let (sin_a, cos_a) = fast_sin_cos(sensor_angle);
                         let sensor_pos_x = agent.position.x + cos_a * sensor_dist;
                         let sensor_pos_y = agent.position.y + sin_a * sensor_dist;
 

@@ -3,6 +3,7 @@
 //! Creates a twisting, liquid-like deformation of the image around a center point.
 
 use crate::framebuffer::Framebuffer;
+use abrash_core::math::fast_sin_cos;
 
 /// Configuration for the Swirl post-processing filter.
 #[derive(Debug, Clone, Copy)]
@@ -93,7 +94,8 @@ pub fn apply_swirl(fb: &mut Framebuffer, config: &SwirlConfig) {
                     let theta = percent * percent * config.angle;
 
                     // Using standard sine and cosine
-                    let (sin_theta, cos_theta) = theta.sin_cos();
+                    // ⚡ Bolt: Uses fast_sin_cos to eliminate trigonometric overhead in hot rendering loops.
+                    let (sin_theta, cos_theta) = fast_sin_cos(theta);
 
                     // Rotate the coordinate around the center
                     let source_x = cx + (dx * cos_theta - dy * sin_theta);
