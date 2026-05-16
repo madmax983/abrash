@@ -105,6 +105,19 @@ struct PbrSpanStart {
     wz: f32,
 }
 
+impl PbrSpanStart {
+    #[inline(always)]
+    fn step_by(&mut self, diff_f: f32, gradients: &PbrGradients) {
+        self.z += diff_f * gradients.dz_dx;
+        self.nx += diff_f * gradients.dnx_dx;
+        self.ny += diff_f * gradients.dny_dx;
+        self.nz += diff_f * gradients.dnz_dx;
+        self.wx += diff_f * gradients.dwx_dx;
+        self.wy += diff_f * gradients.dwy_dx;
+        self.wz += diff_f * gradients.dwz_dx;
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct PbrGradients {
     dz_dx: f32,
@@ -958,24 +971,12 @@ fn draw_scanline_pbr_scalar(
     let mut xs = x_start;
     let mut xe = x_end;
 
-    let mut z = start.z;
-    let mut nx = start.nx;
-    let mut ny = start.ny;
-    let mut nz = start.nz;
-    let mut wx = start.wx;
-    let mut wy = start.wy;
-    let mut wz = start.wz;
+    let mut current = start;
 
     if xs < 0 {
         let diff = -i64::from(xs);
         let diff_f = diff as f32;
-        z += diff_f * gradients.dz_dx;
-        nx += diff_f * gradients.dnx_dx;
-        ny += diff_f * gradients.dny_dx;
-        nz += diff_f * gradients.dnz_dx;
-        wx += diff_f * gradients.dwx_dx;
-        wy += diff_f * gradients.dwy_dx;
-        wz += diff_f * gradients.dwz_dx;
+        current.step_by(diff_f, gradients);
         xs = 0;
     }
 
@@ -999,13 +1000,13 @@ fn draw_scanline_pbr_scalar(
     let l = constants.neg_light_dir;
 
     for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-        if z < *depth_val {
-            *depth_val = z;
+        if current.z < *depth_val {
+            *depth_val = current.z;
 
             // Reconstruct vectors
             // Normal needs normalization after interpolation
-            let n = Vec3::new(nx, ny, nz).fast_normalize();
-            let world_pos = Vec3::new(wx, wy, wz);
+            let n = Vec3::new(current.nx, current.ny, current.nz).fast_normalize();
+            let world_pos = Vec3::new(current.wx, current.wy, current.wz);
 
             let v = (constants.view_pos - world_pos).fast_normalize();
             // l is constant
@@ -1054,13 +1055,7 @@ fn draw_scanline_pbr_scalar(
             *pixel = color_to_u32_scaled(corrected * 255.0);
         }
 
-        z += gradients.dz_dx;
-        nx += gradients.dnx_dx;
-        ny += gradients.dny_dx;
-        nz += gradients.dnz_dx;
-        wx += gradients.dwx_dx;
-        wy += gradients.dwy_dx;
-        wz += gradients.dwz_dx;
+        current.step_by(1.0, gradients);
     }
 }
 

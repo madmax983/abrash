@@ -23,6 +23,20 @@ struct ShadowPhongSpanStart {
     wz: f32,
 }
 
+impl ShadowPhongSpanStart {
+    #[inline(always)]
+    fn step_by(&mut self, diff_f: f32, gradients: &ShadowPhongGradients) {
+        self.z += diff_f * gradients.dz_dx;
+        self.q += diff_f * gradients.dq_dx;
+        self.nx += diff_f * gradients.dnx_dx;
+        self.ny += diff_f * gradients.dny_dx;
+        self.nz += diff_f * gradients.dnz_dx;
+        self.wx += diff_f * gradients.dwx_dx;
+        self.wy += diff_f * gradients.dwy_dx;
+        self.wz += diff_f * gradients.dwz_dx;
+    }
+}
+
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2", enable = "fma")]
 #[allow(clippy::too_many_arguments)]
@@ -662,26 +676,12 @@ fn draw_scanline_point_lit(
     let mut xs = x_start;
     let mut xe = x_end;
 
-    let mut z = start.z;
-    let mut q = start.q;
-    let mut nx = start.nx;
-    let mut ny = start.ny;
-    let mut nz = start.nz;
-    let mut wx = start.wx;
-    let mut wy = start.wy;
-    let mut wz = start.wz;
+    let mut current = start;
 
     if xs < 0 {
         let diff = -i64::from(xs);
         let diff_f = diff as f32;
-        z += diff_f * gradients.dz_dx;
-        q += diff_f * gradients.dq_dx;
-        nx += diff_f * gradients.dnx_dx;
-        ny += diff_f * gradients.dny_dx;
-        nz += diff_f * gradients.dnz_dx;
-        wx += diff_f * gradients.dwx_dx;
-        wy += diff_f * gradients.dwy_dx;
-        wz += diff_f * gradients.dwz_dx;
+        current.step_by(diff_f, gradients);
         xs = 0;
     }
 
@@ -708,14 +708,14 @@ fn draw_scanline_point_lit(
             draw_scanline_point_lit_simd(
                 fb_slice,
                 zb_slice,
-                z,
-                q,
-                nx,
-                ny,
-                nz,
-                wx,
-                wy,
-                wz,
+                current.z,
+                current.q,
+                current.nx,
+                current.ny,
+                current.nz,
+                current.wx,
+                current.wy,
+                current.wz,
                 gradients,
                 base_color_255,
                 light_pos,
@@ -727,13 +727,21 @@ fn draw_scanline_point_lit(
     }
 
     for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-        if z < *depth_val {
-            *depth_val = z;
+        if current.z < *depth_val {
+            *depth_val = current.z;
 
-            let w_recip = if q.abs() > 0.000_001 { 1.0 / q } else { 1.0 };
+            let w_recip = if current.q.abs() > 0.000_001 {
+                1.0 / current.q
+            } else {
+                1.0
+            };
 
             // Recover world position
-            let world_pos = Vec3::new(wx * w_recip, wy * w_recip, wz * w_recip);
+            let world_pos = Vec3::new(
+                current.wx * w_recip,
+                current.wy * w_recip,
+                current.wz * w_recip,
+            );
 
             // Light vector
             let lv_x = light_pos.x - world_pos.x;
@@ -752,8 +760,9 @@ fn draw_scanline_point_lit(
 
             // Lighting
             // Deferred Normalization
-            let len_sq = nx * nx + ny * ny + nz * nz;
-            let dot_unorm = nx * lv_x + ny * lv_y + nz * lv_z;
+            let len_sq =
+                current.nx * current.nx + current.ny * current.ny + current.nz * current.nz;
+            let dot_unorm = current.nx * lv_x + current.ny * lv_y + current.nz * lv_z;
 
             let intensity = if len_sq > 0.0001 && dist > 0.0001 {
                 let inv_len = len_sq.sqrt().recip();
@@ -767,14 +776,7 @@ fn draw_scanline_point_lit(
             *pixel = color_to_u32_scaled(diffuse);
         }
 
-        z += gradients.dz_dx;
-        q += gradients.dq_dx;
-        nx += gradients.dnx_dx;
-        ny += gradients.dny_dx;
-        nz += gradients.dnz_dx;
-        wx += gradients.dwx_dx;
-        wy += gradients.dwy_dx;
-        wz += gradients.dwz_dx;
+        current.step_by(1.0, gradients);
     }
 }
 
@@ -1000,26 +1002,12 @@ fn draw_scanline_phong_shadowed(
     let mut xs = x_start;
     let mut xe = x_end;
 
-    let mut z = start.z;
-    let mut q = start.q;
-    let mut nx = start.nx;
-    let mut ny = start.ny;
-    let mut nz = start.nz;
-    let mut wx = start.wx;
-    let mut wy = start.wy;
-    let mut wz = start.wz;
+    let mut current = start;
 
     if xs < 0 {
         let diff = -i64::from(xs);
         let diff_f = diff as f32;
-        z += diff_f * gradients.dz_dx;
-        q += diff_f * gradients.dq_dx;
-        nx += diff_f * gradients.dnx_dx;
-        ny += diff_f * gradients.dny_dx;
-        nz += diff_f * gradients.dnz_dx;
-        wx += diff_f * gradients.dwx_dx;
-        wy += diff_f * gradients.dwy_dx;
-        wz += diff_f * gradients.dwz_dx;
+        current.step_by(diff_f, gradients);
         xs = 0;
     }
 
@@ -1046,16 +1034,7 @@ fn draw_scanline_phong_shadowed(
             draw_scanline_phong_shadowed_simd(
                 fb_slice,
                 zb_slice,
-                ShadowPhongSpanStart {
-                    z,
-                    q,
-                    nx,
-                    ny,
-                    nz,
-                    wx,
-                    wy,
-                    wz,
-                },
+                current,
                 gradients,
                 pre_diffuse_255,
                 neg_light_dir,
@@ -1073,13 +1052,21 @@ fn draw_scanline_phong_shadowed(
     let bias = 0.005; // Bias to prevent shadow acne
 
     for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-        if z < *depth_val {
-            *depth_val = z;
+        if current.z < *depth_val {
+            *depth_val = current.z;
 
-            let w_recip = if q.abs() > 0.000_001 { 1.0 / q } else { 1.0 };
+            let w_recip = if current.q.abs() > 0.000_001 {
+                1.0 / current.q
+            } else {
+                1.0
+            };
 
             // Recover world position
-            let world_pos = Vec3::new(wx * w_recip, wy * w_recip, wz * w_recip);
+            let world_pos = Vec3::new(
+                current.wx * w_recip,
+                current.wy * w_recip,
+                current.wz * w_recip,
+            );
 
             // Shadow Test
             let (light_clip, light_w) = light_vp.transform_point(world_pos);
@@ -1131,8 +1118,11 @@ fn draw_scanline_phong_shadowed(
 
             // Lighting
             // Deferred Normalization
-            let len_sq = nx * nx + ny * ny + nz * nz;
-            let dot_unorm = nx * neg_light_dir.x + ny * neg_light_dir.y + nz * neg_light_dir.z;
+            let len_sq =
+                current.nx * current.nx + current.ny * current.ny + current.nz * current.nz;
+            let dot_unorm = current.nx * neg_light_dir.x
+                + current.ny * neg_light_dir.y
+                + current.nz * neg_light_dir.z;
 
             let intensity = if len_sq > 0.0001 {
                 let inv_len = len_sq.sqrt().recip();
@@ -1146,14 +1136,7 @@ fn draw_scanline_phong_shadowed(
             *pixel = color_to_u32_scaled(final_color_vec);
         }
 
-        z += gradients.dz_dx;
-        q += gradients.dq_dx;
-        nx += gradients.dnx_dx;
-        ny += gradients.dny_dx;
-        nz += gradients.dnz_dx;
-        wx += gradients.dwx_dx;
-        wy += gradients.dwy_dx;
-        wz += gradients.dwz_dx;
+        current.step_by(1.0, gradients);
     }
 }
 
@@ -1593,6 +1576,16 @@ struct PhongSpanStart {
     nz: f32,
 }
 
+impl PhongSpanStart {
+    #[inline(always)]
+    fn step_by(&mut self, diff_f: f32, gradients: &PhongGradients) {
+        self.z += diff_f * gradients.dz_dx;
+        self.nx += diff_f * gradients.dnx_dx;
+        self.ny += diff_f * gradients.dny_dx;
+        self.nz += diff_f * gradients.dnz_dx;
+    }
+}
+
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
 #[allow(clippy::too_many_arguments)]
@@ -1814,18 +1807,12 @@ fn draw_scanline_phong(
     let mut xs = x_start;
     let mut xe = x_end;
 
-    let mut z = start.z;
-    let mut nx = start.nx;
-    let mut ny = start.ny;
-    let mut nz = start.nz;
+    let mut current = start;
 
     if xs < 0 {
         let diff = -i64::from(xs);
         let diff_f = diff as f32;
-        z += diff_f * gradients.dz_dx;
-        nx += diff_f * gradients.dnx_dx;
-        ny += diff_f * gradients.dny_dx;
-        nz += diff_f * gradients.dnz_dx;
+        current.step_by(diff_f, gradients);
         xs = 0;
     }
 
@@ -1852,10 +1839,10 @@ fn draw_scanline_phong(
             draw_scanline_phong_simd(
                 fb_slice,
                 zb_slice,
-                z,
-                nx,
-                ny,
-                nz,
+                current.z,
+                current.nx,
+                current.ny,
+                current.nz,
                 gradients,
                 pre_diffuse_255,
                 neg_light_dir,
@@ -1866,11 +1853,14 @@ fn draw_scanline_phong(
     }
 
     for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-        if z < *depth_val {
-            *depth_val = z;
+        if current.z < *depth_val {
+            *depth_val = current.z;
 
-            let len_sq = nx * nx + ny * ny + nz * nz;
-            let dot_unorm = nx * neg_light_dir.x + ny * neg_light_dir.y + nz * neg_light_dir.z;
+            let len_sq =
+                current.nx * current.nx + current.ny * current.ny + current.nz * current.nz;
+            let dot_unorm = current.nx * neg_light_dir.x
+                + current.ny * neg_light_dir.y
+                + current.nz * neg_light_dir.z;
 
             let intensity = if len_sq > 0.0001 {
                 let inv_len = len_sq.sqrt().recip();
@@ -1884,10 +1874,7 @@ fn draw_scanline_phong(
             *pixel = color_to_u32_scaled(final_color_vec);
         }
 
-        z += gradients.dz_dx;
-        nx += gradients.dnx_dx;
-        ny += gradients.dny_dx;
-        nz += gradients.dnz_dx;
+        current.step_by(1.0, gradients);
     }
 }
 
