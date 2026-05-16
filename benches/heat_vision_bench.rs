@@ -34,6 +34,29 @@ fn bench_heat_vision(c: &mut Criterion) {
                 apply_heat_vision(black_box(&mut fb), black_box(&zb));
             });
         });
+
+        // Add a case with 90% infinity depths to stress test the fallback branch we optimized
+        let mut fb_inf = Framebuffer::new(w, h).unwrap();
+        let mut zb_inf = ZBuffer::new(w, h).unwrap();
+
+        for y in 0..h {
+            for x in 0..w {
+                let depth = if rng.gen_bool(0.9) {
+                    f32::INFINITY
+                } else {
+                    rng.gen_range(0.1..100.0)
+                };
+                unsafe {
+                    zb_inf.test_and_set_unchecked(x as usize, y as usize, depth);
+                }
+            }
+        }
+
+        group.bench_function(format!("{w}x{h}_MostlyInfinity"), |b| {
+            b.iter(|| {
+                apply_heat_vision(black_box(&mut fb_inf), black_box(&zb_inf));
+            });
+        });
     }
 
     group.finish();

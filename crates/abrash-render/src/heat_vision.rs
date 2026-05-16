@@ -70,7 +70,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     let mut has_content = false;
 
     for &z in depths {
-        if z != f32::INFINITY {
+        if z.to_bits() != 0x7F80_0000 {
             if z < min_z {
                 min_z = z;
             }
@@ -105,7 +105,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     }
 
     for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
-        if depth == f32::INFINITY {
+        if depth.to_bits() == 0x7F80_0000 {
             *pixel = 0xFF00_0010; // Very Dark Blue Background
             continue;
         }
@@ -185,7 +185,7 @@ unsafe fn apply_heat_vision_simd(
 
     // Scalar tail
     for (pixel, &depth) in pixels[i..len].iter_mut().zip(depths[i..len].iter()) {
-        if depth == f32::INFINITY {
+        if depth.to_bits() == 0x7F80_0000 {
             *pixel = 0xFF00_0010;
             continue;
         }
@@ -307,5 +307,25 @@ mod tests {
             p, 0x00FF_000000,
             "Should remain unchanged default Framebuffer color (Solid Black)"
         );
+    }
+
+    #[test]
+    fn test_heat_vision_infinity_bitwise() {
+        let mut fb = Framebuffer::new(3, 1).unwrap();
+        let mut zb = ZBuffer::new(3, 1).unwrap();
+
+        zb.test_and_set(0, 0, 1.0);
+        // Do not touch index 1, so it remains f32::INFINITY
+        zb.test_and_set(2, 0, 100.0);
+
+        apply_heat_vision(&mut fb, &zb);
+
+        let p0 = fb.get_pixel(0, 0).unwrap();
+        let p1 = fb.get_pixel(1, 0).unwrap();
+        let p2 = fb.get_pixel(2, 0).unwrap();
+
+        assert_eq!(p0, 0xFFFF_0000, "Closest pixel should be Red");
+        assert_eq!(p1, 0xFF00_0010, "Infinity pixel should be very dark blue");
+        assert_eq!(p2, 0xFF00_00FF, "Furthest pixel should be Blue");
     }
 }
