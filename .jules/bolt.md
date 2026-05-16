@@ -228,3 +228,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Eliminating Redundant Buffer Allocations in Full-Screen Overwrites]**
 **Learning:** When a post-processing effect completely overwrites the framebuffer (e.g., drawing a procedural tunnel) without reading the previous frame state, allocating a temporary buffer (`vec![0; width * height]`) is an unnecessary O(W*H) heap allocation per frame.
 **Action:** Directly mutate the framebuffer slice (e.g., via `framebuffer.as_mut_slice().chunks_exact_mut(...)`). This entirely eliminates the need for an intermediate buffer and avoids the O(N) secondary loop required to copy pixels back to the screen.
+
+**[f32::INFINITY Equality Optimization]**
+**Learning:** In hot rendering scalar fallback loops, replacing floating-point positive infinity equality checks (`depth == f32::INFINITY`) with integer bitwise checks (`depth.to_bits() == 0x7F80_0000`) avoids slow floating-point comparisons and improves performance. Always add an explanatory comment (e.g., `// 0x7F80_0000 is f32::INFINITY`) to avoid magic numbers.
+**Action:** Replaced `depth == f32::INFINITY` with `depth.to_bits() == 0x7F80_0000` in the heat vision filter.
