@@ -1,102 +1,41 @@
-use abrash::math::{Mat4, Vec3};
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, Criterion};
+use abrash_core::transform::Transform;
+use abrash_core::math::Vec3;
+use abrash_core::quat::Quat;
 
-fn bench_transform_points_scalar(c: &mut Criterion) {
-    c.bench_function("transform_points_scalar_1000", |b| {
-        let m = Mat4::rotation_y(0.5);
-        let points: Vec<Vec3> = (0..1000)
-            .map(|i| Vec3::new(i as f32, i as f32, i as f32))
-            .collect();
-        let mut output = vec![(Vec3::default(), 0.0); 1000];
+fn transform_points_optimized(c: &mut Criterion) {
+    let transform = Transform::new(
+        Vec3::new(3.0, -2.0, 5.0),
+        Quat::from_euler(0.4, -0.2, 0.1),
+        Vec3::new(2.0, 3.0, 0.5),
+    );
+    let points = vec![Vec3::new(1.0, 2.0, 3.0); 1000];
+    let mut out = Vec::new();
 
+    c.bench_function("transform_points_opt_1000", |b| {
         b.iter(|| {
-            m.transform_points(black_box(&points), black_box(&mut output));
+            transform.transform_points_into(std::hint::black_box(&points), &mut out);
+            std::hint::black_box(&out);
         });
     });
 }
 
-fn bench_transform_points_manual_loop(c: &mut Criterion) {
-    c.bench_function("transform_points_manual_loop_1000", |b| {
-        let m = Mat4::rotation_y(0.5);
-        let points: Vec<Vec3> = (0..1000)
-            .map(|i| Vec3::new(i as f32, i as f32, i as f32))
-            .collect();
-        let mut output = vec![(Vec3::default(), 0.0); 1000];
+fn transform_vectors_optimized(c: &mut Criterion) {
+    let transform = Transform::new(
+        Vec3::new(3.0, -2.0, 5.0),
+        Quat::from_euler(0.4, -0.2, 0.1),
+        Vec3::new(2.0, 3.0, 0.5),
+    );
+    let vectors = vec![Vec3::new(1.0, 2.0, 3.0); 1000];
+    let mut out = Vec::new();
 
+    c.bench_function("transform_vectors_opt_1000", |b| {
         b.iter(|| {
-            // Re-implement the loop manually to see if function call overhead matters
-            let points_ref = black_box(&points);
-            let output_ref = black_box(&mut output);
-            for (i, p) in points_ref.iter().enumerate() {
-                output_ref[i] = m.transform_point(*p);
-            }
+            transform.transform_vectors_into(std::hint::black_box(&vectors), &mut out);
+            std::hint::black_box(&out);
         });
     });
 }
 
-fn bench_transform_points_scalar_100k(c: &mut Criterion) {
-    c.bench_function("transform_points_scalar_100k", |b| {
-        let m = Mat4::rotation_y(0.5);
-        let points: Vec<Vec3> = (0..100_000)
-            .map(|i| Vec3::new(i as f32, i as f32, i as f32))
-            .collect();
-        let mut output = vec![(Vec3::default(), 0.0); 100_000];
-
-        b.iter(|| {
-            m.transform_points(black_box(&points), black_box(&mut output));
-        });
-    });
-}
-
-fn bench_transform_points_scalar_500(c: &mut Criterion) {
-    c.bench_function("transform_points_scalar_500", |b| {
-        let m = Mat4::rotation_y(0.5);
-        let points: Vec<Vec3> = (0..500)
-            .map(|i| Vec3::new(i as f32, i as f32, i as f32))
-            .collect();
-        let mut output = vec![(Vec3::default(), 0.0); 500];
-
-        b.iter(|| {
-            m.transform_points(black_box(&points), black_box(&mut output));
-        });
-    });
-}
-
-fn bench_transform_points_parallel_500(c: &mut Criterion) {
-    c.bench_function("transform_points_parallel_500", |b| {
-        let m = Mat4::rotation_y(0.5);
-        let points: Vec<Vec3> = (0..500)
-            .map(|i| Vec3::new(i as f32, i as f32, i as f32))
-            .collect();
-        let mut output = vec![(Vec3::default(), 0.0); 500];
-
-        b.iter(|| {
-            m.transform_points_parallel(black_box(&points), black_box(&mut output));
-        });
-    });
-}
-
-fn bench_transform_points_parallel_100k(c: &mut Criterion) {
-    c.bench_function("transform_points_parallel_100k", |b| {
-        let m = Mat4::rotation_y(0.5);
-        let points: Vec<Vec3> = (0..100_000)
-            .map(|i| Vec3::new(i as f32, i as f32, i as f32))
-            .collect();
-        let mut output = vec![(Vec3::default(), 0.0); 100_000];
-
-        b.iter(|| {
-            m.transform_points_parallel(black_box(&points), black_box(&mut output));
-        });
-    });
-}
-
-criterion_group!(
-    benches,
-    bench_transform_points_scalar,
-    bench_transform_points_manual_loop,
-    bench_transform_points_scalar_500,
-    bench_transform_points_parallel_500,
-    bench_transform_points_scalar_100k,
-    bench_transform_points_parallel_100k
-);
+criterion_group!(benches, transform_points_optimized, transform_vectors_optimized);
 criterion_main!(benches);

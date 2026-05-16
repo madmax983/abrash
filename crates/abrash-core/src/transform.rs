@@ -228,6 +228,8 @@ impl Transform {
 
         out.clear();
         // We iterate by value (using `&p`) to avoid dereferencing inside the closure.
+        // ⚡ Bolt: Uses `extend` to completely elide vector bounds checking during assignment
+        // without double writing like `resize`. `TrustedLen` is utilized under the hood.
         out.extend(points.iter().map(|&p| {
             Vec3::new(
                 p.x * m00 + p.y * m10 + p.z * m20 + self.position.x,
@@ -285,6 +287,8 @@ impl Transform {
 
         out.clear();
         // We iterate by value (using `&v`) to avoid dereferencing inside the closure.
+        // ⚡ Bolt: Uses `extend` to completely elide vector bounds checking during assignment
+        // without double writing like `resize`. `TrustedLen` is utilized under the hood.
         out.extend(vectors.iter().map(|&v| {
             Vec3::new(
                 v.x * m00 + v.y * m10 + v.z * m20,
@@ -342,6 +346,8 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
+        // ⚡ Bolt: Uses `extend` to completely elide vector bounds checking during assignment
+        // without double writing like `resize`. `TrustedLen` is utilized under the hood.
         out.extend(points.iter().map(|p| {
             let local = *p - self.position;
             Vec3::new(
@@ -595,6 +601,25 @@ mod tests {
         for (a, e) in actual.iter().zip(expected.iter()) {
             assert_vec3_close(*a, *e);
         }
+    }
+
+    #[test]
+    fn test_transform_points_exact_capacity() {
+        let transform = Transform::identity();
+        let points = vec![Vec3::ZERO; 100];
+
+        let mut out_points = Vec::with_capacity(50); // Start with smaller capacity
+        transform.transform_points_into(&points, &mut out_points);
+        assert_eq!(out_points.len(), 100);
+        assert_eq!(out_points.capacity(), 100, "Capacity should exactly match the requested length");
+
+        let mut out_vectors = Vec::with_capacity(50);
+        transform.transform_vectors_into(&points, &mut out_vectors);
+        assert_eq!(out_vectors.capacity(), 100, "Capacity should exactly match the requested length");
+
+        let mut out_inverse = Vec::with_capacity(50);
+        transform.inverse_transform_points_into(&points, &mut out_inverse);
+        assert_eq!(out_inverse.capacity(), 100, "Capacity should exactly match the requested length");
     }
 
     #[test]
