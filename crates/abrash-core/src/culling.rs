@@ -210,8 +210,10 @@ impl Frustum {
         }
 
         // Scalar fallback
-        for (i, sphere) in spheres.iter().enumerate() {
-            results[i] = self.intersects(sphere);
+        // ⚡ Bolt: Replaced indexed loops with zip iterators. This eliminates inner loop bounds checks
+        // completely when writing into `results`, as the compiler can prove bounds via the iterator.
+        for (result, sphere) in results.iter_mut().zip(spheres.iter()) {
+            *result = self.intersects(sphere);
         }
     }
 
@@ -232,8 +234,8 @@ impl Frustum {
             return;
         }
 
-        for (i, aabb) in aabbs.iter().enumerate() {
-            results[i] = self.intersects_aabb(aabb);
+        for (result, aabb) in results.iter_mut().zip(aabbs.iter()) {
+            *result = self.intersects_aabb(aabb);
         }
     }
 
@@ -331,9 +333,9 @@ impl Frustum {
         }
 
         // Tail
-        while i < len {
-            results[i] = self.intersects(&spheres[i]);
-            i += 1;
+        // ⚡ Bolt: Zip iterator to elide bounds checking on the SIMD tail loop
+        for (result, sphere) in results[i..].iter_mut().zip(spheres[i..].iter()) {
+            *result = self.intersects(sphere);
         }
     }
 
@@ -483,9 +485,9 @@ impl Frustum {
         }
 
         // Tail
-        while i < len {
-            results[i] = self.intersects_aabb(&aabbs[i]);
-            i += 1;
+        // ⚡ Bolt: Zip iterator to elide bounds checking on the SIMD tail loop
+        for (result, aabb) in results[i..].iter_mut().zip(aabbs[i..].iter()) {
+            *result = self.intersects_aabb(aabb);
         }
     }
 }

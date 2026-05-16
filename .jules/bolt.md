@@ -228,3 +228,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Eliminating Redundant Buffer Allocations in Full-Screen Overwrites]**
 **Learning:** When a post-processing effect completely overwrites the framebuffer (e.g., drawing a procedural tunnel) without reading the previous frame state, allocating a temporary buffer (`vec![0; width * height]`) is an unnecessary O(W*H) heap allocation per frame.
 **Action:** Directly mutate the framebuffer slice (e.g., via `framebuffer.as_mut_slice().chunks_exact_mut(...)`). This entirely eliminates the need for an intermediate buffer and avoids the O(N) secondary loop required to copy pixels back to the screen.
+## 2024-05-16 - [Zipped Iterators for Bounds Check Elision]
+**Learning:** Replacing indexed `enumerate()` or `while` loops (e.g., `results[i] = ...`) with zipped iterators (`for (res, val) in results.iter_mut().zip(inputs.iter())`) in scalar fallback paths allows LLVM to safely elide runtime bounds checks.
+**Action:** Always prefer `zip` or `chunks_exact` over direct array indexing to create zero-cost abstractions that measurably improve performance without fighting the borrow checker.
