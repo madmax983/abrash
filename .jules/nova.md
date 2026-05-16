@@ -96,3 +96,8 @@
 **Concept:** A post-processing effect that simulates a 2.5D construction paper art style. It quantizes 3D depth information into discrete flat layers and applies offset drop shadows between layers using the z-buffer.
 **Fate:** Implemented
 **Lesson:** By dynamically remapping continuous depth ranges into discrete integer layers and comparing adjacent depth indices, we can accurately cast complex shadows in purely screen-space. To avoid allocating multiple per-layer framebuffers, we can simply copy the frame into a single reference buffer and apply darkening (shadows) iteratively per pixel based on depth disparity.
+
+## [SVG Export Filter]
+**Concept:** An experimental feature to export a `Framebuffer` as a Scalable Vector Graphics (SVG) file. Each pixel is written as an SVG `<rect>` element. This allows rendering frames from the engine to be imported into vector editors like Illustrator for stylized vector manipulation or perfect crisp scaling. It utilizes Run-Length Encoding (RLE) to merge contiguous pixels of the same color into wider rectangles to significantly reduce the SVG file size.
+**Fate:** Implemented
+**Lesson:** While exporting raster buffers to vector paths is generally inefficient, leveraging a fast `BufWriter` to batch write operations paired with simple horizontal Run-Length Encoding on opaque pixels makes it surprisingly performant and produces manageable file sizes. It successfully bridges raw rasterization output with infinite-scaling vector art paradigms.
