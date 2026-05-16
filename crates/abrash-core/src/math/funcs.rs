@@ -5799,9 +5799,10 @@ pub fn gaussian_kernel_1d(radius: u32, sigma: f32) -> Vec<f32> {
     };
     let two_sigma2 = 2.0 * sigma * sigma;
     let r = radius as i32;
-    let mut kernel: Vec<f32> = (-r..=r)
-        .map(|i| (-(i * i) as f32 / two_sigma2).exp())
-        .collect();
+    let len = (r * 2 + 1) as usize;
+    // ⚡ Bolt: Use `Vec::with_capacity` and `.extend()` to explicitly eliminate intermediate allocation resizing.
+    let mut kernel: Vec<f32> = Vec::with_capacity(len);
+    kernel.extend((-r..=r).map(|i| (-(i * i) as f32 / two_sigma2).exp()));
     let sum: f32 = kernel.iter().sum();
     for v in &mut kernel {
         *v /= sum;

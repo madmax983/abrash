@@ -227,6 +227,7 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
+
         // We iterate by value (using `&p`) to avoid dereferencing inside the closure.
         out.extend(points.iter().map(|&p| {
             Vec3::new(
@@ -284,6 +285,7 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
+
         // We iterate by value (using `&v`) to avoid dereferencing inside the closure.
         out.extend(vectors.iter().map(|&v| {
             Vec3::new(
@@ -342,6 +344,7 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
+
         out.extend(points.iter().map(|p| {
             let local = *p - self.position;
             Vec3::new(
@@ -640,7 +643,7 @@ mod tests {
             .iter()
             .map(|&v| transform.transform_vector(v))
             .collect();
-        let mut actual = vectors.clone();
+        let mut actual = vectors;
         transform.transform_vectors_in_place(&mut actual);
 
         assert_eq!(actual.len(), expected.len());
@@ -717,7 +720,7 @@ mod tests {
             .iter()
             .map(|&p| transform.transform_point(p))
             .collect();
-        let mut actual = points.clone();
+        let mut actual = points;
         transform.transform_points_in_place(&mut actual);
 
         assert_eq!(actual.len(), expected.len());
