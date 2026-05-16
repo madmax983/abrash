@@ -23,3 +23,7 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+
+## 2024-05-20 - [Math Primitives and Transform Documentation]
+**Confusion:** Several core math structs (`Vec2`, `Vec3`, `Vec4`, `Mat2`, `Mat3`, `Mat4`, `Quat`), transformations (`Transform`), geometries (`AABB`, `BoundingSphere`), and textures (`Texture`) were using `#[allow(missing_docs)]`, which hid them from the documentation and obscured what exactly their fields represent (e.g. Row-Major order for matrices, homogeneous W for Vec4).
+**Clarification:** Removed `#[allow(missing_docs)]` and added explicit structural documentation for fields and constants across `abrash-core/src/math/` and `abrash-core/src/`. This clarifies matrix layout conventions and field semantics for users of the math APIs.

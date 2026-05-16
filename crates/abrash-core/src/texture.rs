@@ -102,14 +102,16 @@ const fn average_4_colors(c00: u32, c10: u32, c01: u32, c11: u32) -> u32 {
 /// tex.set_pixel(10, 10, 0xFF00_FF00); // Green
 /// ```
 #[derive(Clone)]
-#[allow(missing_docs)]
 pub struct Texture {
+    /// The width of the texture in pixels.
     pub width: u32,
+    /// The height of the texture in pixels.
     pub height: u32,
     /// Shift amount for power-of-two textures (log2(width)).
     /// Used to replace multiplication with shifting for index calculation.
     /// Value is `0xFF` if width is not a power of two.
     pub width_shift: u8,
+    /// The raw pixel data in 0xAARRGGBB format.
     pub pixels: Vec<u32>,
     /// Mipmap levels. Level 0 is implicit in `pixels`. `mips[0]` is Level 1, etc.
     pub mips: Vec<Vec<u32>>,

@@ -18,8 +18,8 @@ use std::ops::{Add, Mul, Sub};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
 pub struct Mat3 {
+    /// The 3x3 matrix elements stored in row-major order.
     pub m: [[f32; 3]; 3],
 }
 

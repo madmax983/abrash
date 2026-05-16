@@ -417,9 +417,10 @@ impl Cylinder {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
 pub struct BoundingSphere {
+    /// The center point of the bounding sphere in 3D space.
     pub center: Vec3,
+    /// The radius of the bounding sphere.
     pub radius: f32,
 }
 
@@ -607,11 +608,12 @@ impl BoundingSphere {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
 pub struct AABB {
+    /// The minimum extents of the bounding box.
     pub min: Vec3,
     #[doc(hidden)]
     pub pad0: f32, // Padding to align max to 16 bytes offset
+    /// The maximum extents of the bounding box.
     pub max: Vec3,
     #[doc(hidden)]
     pub pad1: f32, // Padding to make total size 32 bytes
