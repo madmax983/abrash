@@ -21,6 +21,14 @@ use std::cell::RefCell;
 ///
 /// * `fb` - The framebuffer to modify in-place.
 /// * `distortion` - The strength of the barrel distortion (e.g., 0.1 to 0.3).
+struct CrtCache {
+    nx2: Vec<f32>,
+    base_x: Vec<f32>,
+    dist_x: Vec<f32>,
+    width: usize,
+    distortion: f32,
+}
+
 pub fn apply_crt(fb: &mut Framebuffer, distortion: f32) {
     if distortion <= 0.0 {
         return;
@@ -38,32 +46,51 @@ pub fn apply_crt(fb: &mut Framebuffer, distortion: f32) {
 
     thread_local! {
         static CRT_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
-        static NX_CACHE: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
+        static CACHE: RefCell<CrtCache> = RefCell::new(CrtCache {
+            nx2: Vec::new(),
+            base_x: Vec::new(),
+            dist_x: Vec::new(),
+            width: 0,
+            distortion: 0.0,
+        });
     }
 
-    NX_CACHE.with(|nx_buf| {
-        let mut nx_vec = nx_buf.borrow_mut();
-        if nx_vec.len() != width {
-            nx_vec.resize(width, 0.0);
+    CACHE.with(|cache_cell| {
+        let mut cache = cache_cell.borrow_mut();
+
+        // Rebuild cache if resolution or distortion parameters changed
+        if cache.width != width || (cache.distortion - distortion).abs() > f32::EPSILON {
+            cache.width = width;
+            cache.distortion = distortion;
+            cache.nx2.resize(width, 0.0);
+            cache.base_x.resize(width, 0.0);
+            cache.dist_x.resize(width, 0.0);
+
             for x in 0..width {
-                nx_vec[x] = (x as f32 - cx) / cx;
+                let nx = (x as f32 - cx) / cx;
+                let nx2 = nx * nx;
+                cache.nx2[x] = nx2;
+                cache.dist_x[x] = nx * cx * distortion;
+                cache.base_x[x] = nx * cx + nx * cx * distortion * nx2 + cx;
             }
         }
-        let nx_cache = &nx_vec[..width];
 
-        // To prevent in-place overwrite issues, we need to read from the original
-        // and write to a copy, then copy back.
+        let nx2_cache = &cache.nx2[..width];
+        let base_x_cache = &cache.base_x[..width];
+        let dist_x_cache = &cache.dist_x[..width];
+
         CRT_BUFFER.with(|buf| {
             let mut new_pixels_vec = buf.borrow_mut();
             let size = width * height;
             if new_pixels_vec.len() < size {
                 new_pixels_vec.resize(size, 0xFF00_0000);
             }
-            // Ensure background is black if parts aren't overwritten
             let new_pixels = &mut new_pixels_vec[..size];
             new_pixels.fill(0xFF00_0000);
 
             let pixels = fb.as_slice();
+            let width_i32 = width as i32;
+            let height_i32 = height as i32;
 
             #[cfg(feature = "parallel")]
             {
@@ -75,28 +102,14 @@ pub fn apply_crt(fb: &mut Framebuffer, distortion: f32) {
                         let ny = (y as f32 - cy) / cy;
                         let ny2 = ny * ny;
 
+                        let base_y = ny * cy + ny * cy * distortion * ny2 + cy;
+                        let dist_y = ny * cy * distortion;
+
                         for (x, pixel) in row.iter_mut().enumerate().take(width) {
-                            // Read normalized x coordinate from cache
-                            let nx = nx_cache[x];
+                            let src_x = (base_x_cache[x] + dist_x_cache[x] * ny2) as i32;
+                            let src_y = (base_y + dist_y * nx2_cache[x]) as i32;
 
-                            // Calculate radial distance squared
-                            let r2 = nx * nx + ny2;
-
-                            // Apply barrel distortion mapping: r' = r * (1 + k * r^2)
-                            let f = 1.0 + distortion * r2;
-                            let sx = nx * f;
-                            let sy = ny * f;
-
-                            // Map back to screen space coordinates
-                            // Use fast cast instead of round()
-                            let src_x = (sx * cx + cx) as i32;
-                            let src_y = (sy * cy + cy) as i32;
-
-                            if src_x >= 0
-                                && src_x < width as i32
-                                && src_y >= 0
-                                && src_y < height as i32
-                            {
+                            if src_x >= 0 && src_x < width_i32 && src_y >= 0 && src_y < height_i32 {
                                 let src_idx = (src_y as usize) * width + (src_x as usize);
                                 *pixel = pixels[src_idx];
                             }
@@ -110,35 +123,65 @@ pub fn apply_crt(fb: &mut Framebuffer, distortion: f32) {
                     let ny = (y as f32 - cy) / cy;
                     let ny2 = ny * ny;
 
+                    let base_y = ny * cy + ny * cy * distortion * ny2 + cy;
+                    let dist_y = ny * cy * distortion;
+
+                    let row_offset = y * width;
+
                     for x in 0..width {
-                        // Read normalized x coordinate from cache
-                        let nx = nx_cache[x];
+                        let src_x = (base_x_cache[x] + dist_x_cache[x] * ny2) as i32;
+                        let src_y = (base_y + dist_y * nx2_cache[x]) as i32;
 
-                        // Calculate radial distance squared
-                        let r2 = nx * nx + ny2;
-
-                        // Apply barrel distortion mapping: r' = r * (1 + k * r^2)
-                        let f = 1.0 + distortion * r2;
-                        let sx = nx * f;
-                        let sy = ny * f;
-
-                        // Map back to screen space coordinates
-                        let src_x = (sx * cx + cx) as i32;
-                        let src_y = (sy * cy + cy) as i32;
-
-                        let dest_idx = y * width + x;
-
-                        if src_x >= 0 && src_x < width as i32 && src_y >= 0 && src_y < height as i32
-                        {
+                        if src_x >= 0 && src_x < width_i32 && src_y >= 0 && src_y < height_i32 {
                             let src_idx = (src_y as usize) * width + (src_x as usize);
-                            new_pixels[dest_idx] = pixels[src_idx];
+                            new_pixels[row_offset + x] = pixels[src_idx];
                         }
                     }
                 }
             }
 
-            // Copy the distorted image back into the framebuffer
-            fb.as_mut_slice().copy_from_slice(&new_pixels);
+            fb.as_mut_slice().copy_from_slice(new_pixels);
         });
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_apply_crt_determinism() {
+        let mut fb = Framebuffer::new(3, 3).unwrap();
+        // Set all pixels to some color
+        for i in 0..9 {
+            fb.as_mut_slice()[i] = 0xFF_FFFFFF; // White
+        }
+
+        // Apply distortion
+        apply_crt(&mut fb, 0.5);
+
+        let expected = [
+            0xFF_000000,
+            0xFF_FFFFFF,
+            0xFF_FFFFFF,
+            0xFF_FFFFFF,
+            0xFF_FFFFFF,
+            0xFF_FFFFFF,
+            0xFF_FFFFFF,
+            0xFF_FFFFFF,
+            0xFF_FFFFFF,
+        ];
+
+        for y in 0..3 {
+            for x in 0..3 {
+                assert_eq!(
+                    fb.get_pixel(x as i32, y as i32).unwrap(),
+                    expected[y * 3 + x as usize],
+                    "pixel at {}, {}",
+                    x,
+                    y
+                );
+            }
+        }
+    }
 }

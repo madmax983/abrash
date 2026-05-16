@@ -228,3 +228,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Eliminating Redundant Buffer Allocations in Full-Screen Overwrites]**
 **Learning:** When a post-processing effect completely overwrites the framebuffer (e.g., drawing a procedural tunnel) without reading the previous frame state, allocating a temporary buffer (`vec![0; width * height]`) is an unnecessary O(W*H) heap allocation per frame.
 **Action:** Directly mutate the framebuffer slice (e.g., via `framebuffer.as_mut_slice().chunks_exact_mut(...)`). This entirely eliminates the need for an intermediate buffer and avoids the O(N) secondary loop required to copy pixels back to the screen.
+
+## CRT Filter Algebraic Optimization
+**Learning:** When optimizing polynomial distortion filters (e.g., CRT barrel distortion `r' = r * (1 + k * r^2)`), expand the math algebraically to hoist X and Y invariants out of the inner nested loops. Pre-calculating row and column differential arrays (e.g., `base_x`, `dist_x`) eliminates redundant `f32` multiplications per pixel and yields measurable performance gains.
+**Action:** Expanded the `f32` coordinate mapping math inside `apply_crt` and hoisted X and Y variables into pre-calculated `thread_local!` caches.
