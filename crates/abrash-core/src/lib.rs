@@ -10,6 +10,7 @@
 
 pub mod clipping;
 pub mod culling;
+pub mod error;
 pub mod framebuffer;
 pub mod geometry;
 pub mod hiz_buffer;

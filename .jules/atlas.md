@@ -125,3 +125,11 @@
 1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
 2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors.
 3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
+
+## [Unified Core Error Handling]
+**Tangle:** Inconsistent and string-based error handling (`Result<T, &'static str>` and `Result<T, String>`) across foundational types in `abrash-core` like `Texture`, `Framebuffer`, `ZBuffer`, and `obj_loader`. This leaked string parsing details and size limits upward as raw primitive types rather than structured, catchable application errors.
+**Blueprint:**
+1.  **Introduce Central Error Enum:** Created a unified `CoreError` enum in `crates/abrash-core/src/error.rs` to encapsulate primitive failure modes (`CapacityExceeded`, `InvalidDimensions`, `InvalidCoordinate`, `InvalidFormat`).
+2.  **Refactor Core Modules:** Updated `Texture`, `Framebuffer`, `ZBuffer`, and `obj_loader` to construct and return `Result<T, CoreError>`.
+3.  **Bridge to Render API:** Propagated `CoreError` up to the `abrash-render` crate by adding a `Core(abrash_core::error::CoreError)` variant to the `RenderError` enum and implementing `From<CoreError>` for seamless `?` conversions.
+4.  **Result:** Replaced stringly-typed errors across the core foundations with strict enum boundaries, enabling calling crates to match and recover from exact failure modes.

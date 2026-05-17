@@ -5,7 +5,7 @@ use abrash::framebuffer::Framebuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 #[cfg(feature = "nova")]
-fn edge_glow_benchmark(c: &mut Criterion) {
+const fn edge_glow_benchmark(c: &Criterion) {
     let width = 1920;
     let height = 1080;
     let mut fb = Framebuffer::new(width, height).unwrap();
@@ -42,7 +42,7 @@ fn edge_glow_benchmark(c: &mut Criterion) {
 criterion_group!(benches, edge_glow_benchmark);
 
 #[cfg(not(feature = "nova"))]
-fn edge_glow_benchmark(c: &mut Criterion) {}
+const fn edge_glow_benchmark(c: &Criterion) {}
 
 #[cfg(not(feature = "nova"))]
 criterion_group!(benches, edge_glow_benchmark);

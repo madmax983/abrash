@@ -1061,7 +1061,7 @@ mod tests {
 
     #[test]
     fn sort_commands_by_atlas_then_blend() {
-        let mut commands = vec![
+        let mut commands = [
             SpriteCommand {
                 atlas: AtlasHandle(1),
                 instance: SpriteInstance {
@@ -1090,7 +1090,8 @@ mod tests {
                     ..SpriteInstance::zeroed()
                 },
             },
-        ];
+        ]
+        .to_vec();
 
         commands.sort_by(|a, b| {
             a.atlas
