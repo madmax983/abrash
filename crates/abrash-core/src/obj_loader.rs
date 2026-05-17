@@ -250,6 +250,19 @@ impl ObjParser {
         Ok(())
     }
 
+    fn check_bounds(index: usize, len: usize, name: &str, line_num: usize) -> Result<(), String> {
+        if index >= len {
+            Err(format!(
+                "Line {}: {} index {} out of bounds",
+                line_num,
+                name,
+                index + 1
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
     fn process_vertex_indices(
         &mut self,
         indices: ParsedIndices,
@@ -259,32 +272,15 @@ impl ObjParser {
         let vt_idx = indices.vt_idx;
         let vn_idx = indices.vn_idx;
 
-        if v_idx >= self.raw_positions.len() {
-            return Err(format!(
-                "Line {}: Vertex index {} out of bounds",
-                line_num,
-                v_idx + 1
-            ));
-        }
+        Self::check_bounds(v_idx, self.raw_positions.len(), "Vertex", line_num)?;
 
         if let Some(ti) = vt_idx {
-            if ti >= self.raw_uvs.len() {
-                return Err(format!(
-                    "Line {}: UV index {} out of bounds",
-                    line_num,
-                    ti + 1
-                ));
-            }
+            Self::check_bounds(ti, self.raw_uvs.len(), "UV", line_num)?;
         }
         if let Some(ni) = vn_idx {
-            if ni >= self.raw_normals.len() {
-                return Err(format!(
-                    "Line {}: Normal index {} out of bounds",
-                    line_num,
-                    ni + 1
-                ));
-            }
+            Self::check_bounds(ni, self.raw_normals.len(), "Normal", line_num)?;
         }
+
         let key = VertexKey::new(v_idx, vt_idx, vn_idx);
 
         if let Some(&idx) = self.deduplicator.get(&key) {
@@ -304,13 +300,6 @@ impl ObjParser {
 
         // Push UV (or default 0,0)
         if let Some(ti) = vt_idx {
-            if ti >= self.raw_uvs.len() {
-                return Err(format!(
-                    "Line {}: UV index {} out of bounds",
-                    line_num,
-                    ti + 1
-                ));
-            }
             self.final_uvs.push(self.raw_uvs[ti]);
         } else {
             self.final_uvs.push(Vec2::new(0.0, 0.0));
@@ -318,13 +307,6 @@ impl ObjParser {
 
         // Push Normal (if present)
         if let Some(ni) = vn_idx {
-            if ni >= self.raw_normals.len() {
-                return Err(format!(
-                    "Line {}: Normal index {} out of bounds",
-                    line_num,
-                    ni + 1
-                ));
-            }
             self.final_normals.push(self.raw_normals[ni]);
         } else {
             // Default normal to zero if missing
