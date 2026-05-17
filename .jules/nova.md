@@ -96,3 +96,9 @@
 **Concept:** A post-processing effect that simulates a 2.5D construction paper art style. It quantizes 3D depth information into discrete flat layers and applies offset drop shadows between layers using the z-buffer.
 **Fate:** Implemented
 **Lesson:** By dynamically remapping continuous depth ranges into discrete integer layers and comparing adjacent depth indices, we can accurately cast complex shadows in purely screen-space. To avoid allocating multiple per-layer framebuffers, we can simply copy the frame into a single reference buffer and apply darkening (shadows) iteratively per pixel based on depth disparity.
+
+
+## [Julia Set Fractal Generator]
+**Concept:** A procedural effect that renders a Julia Set fractal purely via mathematical formulas in screen space. The shape of the fractal can be continuously altered by modifying the constant complex number parameter.
+**Fate:** Implemented
+**Lesson:** Rendering mathematical fractals pixel-by-pixel operates entirely independently of any 3D meshes or rendering pipelines. Extracting common fractal math logic allows creating interactive and visually striking animated demos very quickly, and effectively runs perfectly under the `rayon` parallel framework, creating beautiful real-time mathematical visualizations with zero memory allocations.

@@ -824,6 +824,11 @@ harness = false
 required-features = ["nova"]
 
 [[example]]
+name = "julia_demo"
+path = "examples/julia_demo.rs"
+required-features = ["nova", "backend-winit"]
+
+[[example]]
 name = "color_splash_demo"
 path = "examples/color_splash_demo.rs"
 required-features = ["nova"]
