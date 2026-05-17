@@ -152,6 +152,10 @@
 **Learning:** In hot pixel conversion loops (e.g., mapping `0xAARRGGBB` to RGBA byte slices for the GPU), dynamically building a `Vec<u8>` via `.extend_from_slice()` requires capacity and bounds checks on every iteration.
 **Action:** Replace dynamic extension by pre-allocating a zeroed vector (`vec![0u8; size]`) and using `.zip(rgba.chunks_exact_mut(4))` over the pixels iterator. This safely guarantees exact sizes and allows the compiler to elide bounds checks for direct assignments in the inner loop, yielding a measurable performance boost.
 
+**[Thread Local Buffer Reuse with resize and copy_from_slice]**
+**Learning:** In double-buffered loops or post processing filters where a dynamic collection like a thread-local `Vec` is repeatedly used, calling `.clear()` and then `.extend_from_slice()` forces unnecessary iteration and potential bounds checks for pushing items.
+**Action:** Use `.resize(len, 0)` followed by `.copy_from_slice(...)` to reuse capacity efficiently and significantly speed up memory copying for static-sized buffers.
+
 **[Iterator::collect Capacity Elision]**
 **Learning:** In Rust, calling `.collect::<Vec<_>>()` on iterators automatically relies on `FromIterator`, which utilizes the iterator's `size_hint()` internally to pre-allocate capacity. Therefore, manually replacing `.collect()` with `let mut vec = Vec::with_capacity(iter.size_hint().0); vec.extend(iter);` on simple mapped sequences provides exactly zero performance benefit, adds boilerplate, and was flagged as unnecessary in code review.
 **Action:** Trust `.collect()` for intermediate capacity estimations unless the iterator adapter inherently masks the correct size hint.

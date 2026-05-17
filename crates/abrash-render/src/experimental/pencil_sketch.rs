@@ -65,8 +65,11 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
     }
 
     let mut src_pixels = SOURCE_PIXELS.with(std::cell::RefCell::take);
-    src_pixels.clear();
-    src_pixels.extend_from_slice(fb.as_slice());
+    let slice = fb.as_slice();
+    if src_pixels.len() != slice.len() {
+        src_pixels.resize(slice.len(), 0);
+    }
+    src_pixels.copy_from_slice(slice);
     let source_buffer = src_pixels.as_slice();
 
     let pixels = fb.as_mut_slice();

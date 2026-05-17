@@ -1,3 +1,5 @@
+#![cfg(feature = "nova")]
+
 use abrash_core::framebuffer::Framebuffer;
 use abrash_render::experimental::radial_blur::apply_radial_blur;
 

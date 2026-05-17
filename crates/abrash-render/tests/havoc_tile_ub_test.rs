@@ -1,3 +1,5 @@
+#![cfg(feature = "parallel")]
+
 use abrash_render::rasterizer::tile::{
     CompactScreenPoint, PreparedTriangle, PreparedTrianglesList,
 };

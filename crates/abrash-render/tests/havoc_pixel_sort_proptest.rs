@@ -1,3 +1,5 @@
+#![cfg(feature = "nova")]
+
 use abrash_core::framebuffer::Framebuffer;
 use abrash_render::experimental::pixel_sort::{PixelSortConfig, apply_pixel_sort};
 use proptest::prelude::*;
