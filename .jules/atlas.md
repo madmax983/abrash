@@ -128,3 +128,9 @@
 ## [Doc Test Import Boundary Fix]
 **Tangle:** The `TuiWindow` doc test in `src/platform/tui.rs` was attempting to import itself via `use abrash_render::platform::tui::TuiWindow;`. This fails compilation and violates the workspace structural boundary because the `platform` module is not defined in or exported from the `abrash-render` crate; it is defined in the root `abrash` facade crate.
 **Blueprint:** Modified the doc test import to `use abrash::platform::tui::TuiWindow;`. This respects the workspace crate boundaries by resolving the module from the correct root crate, passing tests without introducing new dependencies or leaking internal structure.
+
+## [Missing Test Feature Gates Fix]
+**Tangle:** Several experimental/parallel post-processing and rendering tests in `crates/abrash-render/tests/` were failing to compile or resolve module paths under a bare `cargo test` run because they implicitly required the `nova` or `parallel` feature flags, but lacked the necessary `#![cfg(feature = "...")]` module attributes to exclude them during default builds.
+**Blueprint:**
+1.  **Isolate:** Added `#![cfg(feature = "nova")]` to `havoc_radial_blur_fuzz.rs`, `havoc_pixel_sort_proptest.rs`, and `havoc_directional_blur.rs`. Added `#![cfg(feature = "parallel")]` to `havoc_tile_ub_test.rs`.
+2.  **Result:** Ensure `cargo test --workspace` does not fail due to unresolvable feature-gated imports on default builds.
