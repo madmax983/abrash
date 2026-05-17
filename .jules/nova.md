@@ -96,3 +96,8 @@
 **Concept:** A post-processing effect that simulates a 2.5D construction paper art style. It quantizes 3D depth information into discrete flat layers and applies offset drop shadows between layers using the z-buffer.
 **Fate:** Implemented
 **Lesson:** By dynamically remapping continuous depth ranges into discrete integer layers and comparing adjacent depth indices, we can accurately cast complex shadows in purely screen-space. To avoid allocating multiple per-layer framebuffers, we can simply copy the frame into a single reference buffer and apply darkening (shadows) iteratively per pixel based on depth disparity.
+
+## Julia Set Rendering
+**Concept:** Applying the iterative function `z = z^2 + c` on screen coordinates to generate the complex Julia set. It allows for an animated parameter `c` over time.
+**Fate:** Successfully implemented as `render_julia`, with unit tests and a benchmark.
+**Lesson:** Iteration over parallel chunks (`par_chunks_exact_mut`) combined with Rayon is an extremely efficient zero-cost way to compute fully independent per-pixel procedural graphics like fractals.

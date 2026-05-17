@@ -12,6 +12,7 @@ backend-tui = ["dep:ratatui"]
 backend-wasm = ["dep:ratatui"]
 
 [dev-dependencies]
+criterion = "0.5"
 proptest = "1.0"
 
 [dependencies]
@@ -42,5 +43,10 @@ required-features = ["nova"]
 
 [[bench]]
 name = "paper_cutout_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "julia_bench"
 harness = false
 required-features = ["nova"]

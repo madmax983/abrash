@@ -70,6 +70,7 @@ pub mod led_matrix;
 pub mod lsystem;
 pub mod magnifying_glass;
 pub mod mandelbrot;
+pub mod julia;
 pub mod melt;
 pub mod mode7;
 pub mod modifiers;
