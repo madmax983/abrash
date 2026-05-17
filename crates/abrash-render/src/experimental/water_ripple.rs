@@ -58,8 +58,11 @@ pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
 
     SOURCE_PIXELS.with(|buf| {
         let mut src_pixels = buf.borrow_mut();
-        src_pixels.clear();
-        src_pixels.extend_from_slice(fb.as_slice());
+        let fb_slice = fb.as_slice();
+        if src_pixels.len() != fb_slice.len() {
+            src_pixels.resize(fb_slice.len(), 0);
+        }
+        src_pixels.copy_from_slice(fb_slice);
 
         let src_buffer = src_pixels.as_slice();
         let dest_buffer = fb.as_mut_slice();
