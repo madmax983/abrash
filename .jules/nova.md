@@ -8,6 +8,11 @@
 **Fate:** Proposed
 **Lesson:** TBD
 
+## [Julia Set Filter]
+**Concept:** A mathematical renderer that calculates and visualizes the Julia set fractal using continuous potential mapping.
+**Fate:** Implemented
+**Lesson:** Applying basic algebraic operations (z = z^2 + c) efficiently on complex numbers in screen-space, combined with a smooth color mapping algorithm, creates highly complex and infinite visual structures suitable for performant parallelization via Rayon.
+
 ## [Pencil Sketch Filter]
 **Concept:** A post-processing effect that simulates a hand-drawn pencil sketch. It works by combining edge detection (to draw the strokes) with noise-driven hatching to simulate shading and texture.
 **Fate:** Implemented

@@ -13,6 +13,7 @@ backend-wasm = ["dep:ratatui"]
 
 [dev-dependencies]
 proptest = "1.0"
+criterion = "0.5"
 
 [dependencies]
 abrash-core = { path = "../abrash-core" }
@@ -42,5 +43,10 @@ required-features = ["nova"]
 
 [[bench]]
 name = "paper_cutout_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "julia_bench"
 harness = false
 required-features = ["nova"]
