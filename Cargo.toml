@@ -640,6 +640,11 @@ path = "examples/pop_art_demo.rs"
 required-features = ["nova"]
 
 [[example]]
+name = "tiny_planet_demo"
+path = "examples/tiny_planet_demo.rs"
+required-features = ["nova", "backend-winit"]
+
+[[example]]
 name = "fisheye_demo"
 path = "examples/fisheye_demo.rs"
 required-features = ["nova"]

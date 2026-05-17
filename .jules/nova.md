@@ -96,3 +96,8 @@
 **Concept:** A post-processing effect that simulates a 2.5D construction paper art style. It quantizes 3D depth information into discrete flat layers and applies offset drop shadows between layers using the z-buffer.
 **Fate:** Implemented
 **Lesson:** By dynamically remapping continuous depth ranges into discrete integer layers and comparing adjacent depth indices, we can accurately cast complex shadows in purely screen-space. To avoid allocating multiple per-layer framebuffers, we can simply copy the frame into a single reference buffer and apply darkening (shadows) iteratively per pixel based on depth disparity.
+
+## [Tiny Planet (Stereographic Mapping) Filter]
+**Concept:** A post-processing effect that maps a standard Cartesian framebuffer (typically containing a panoramic scene) into a "Tiny Planet" by converting screen coordinates to polar coordinates and sampling the original image.
+**Fate:** Implemented
+**Lesson:** Storing the original image state in a `thread_local!` `RefCell` prevents read-after-write aliasing artifacts during the complex polar transformation without requiring per-frame heap allocations.

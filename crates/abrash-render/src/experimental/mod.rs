@@ -101,6 +101,7 @@ pub mod steganography;
 pub mod swirl;
 pub mod thermal;
 pub mod tilt_shift;
+pub mod tiny_planet;
 pub mod topography;
 pub mod tunnel;
 pub mod vhs;

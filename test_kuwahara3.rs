@@ -1,0 +1,34 @@
+fn main() {
+    println!("Let's brainstorm some other ideas.");
+    println!("- Dithering (Bayer, Floyd-Steinberg)? We have dither.rs");
+    println!("- Screen Tearing / V-Sync glitch? Maybe glitch.rs has this.");
+    println!("- God Rays (Crepuscular Rays)? We have crepuscular.rs.");
+    println!("- Bloom? We have bloom.rs in post_process.");
+    println!("- Volumetric Lighting? We have volume.rs.");
+    println!("- Motion Blur? directional_blur.rs / radial_blur.rs.");
+    println!("- ASCII Art Filter? ascii_display.rs");
+    println!("- Night Vision? night_vision.rs");
+    println!("- Wireframe Overlay? wireframe is part of rasterizer maybe.");
+    println!("- Watercolor? Maybe Kuwahara + some noise.");
+    println!("- Matrix Digital Rain? digital_rain.rs");
+    println!("- Film Grain? noise is probably used.");
+    println!("- Tilt Shift / Miniature Faking? tilt_shift.rs");
+    println!("- Depth of Field? dof.rs");
+    println!("- Stereographic Projection / Tiny Planet? Oh, this is a cool one!");
+    println!("- ASCII Raycaster? We have ascii renderer and raycaster.");
+    println!("- L-System / Fractal Trees? lsystem.rs / arboretum.rs");
+    println!("- Mandelbrot/Julia set? mandelbrot.rs / fractal.rs");
+    println!("- Soft body physics? jelly.rs");
+    println!("- Boids / Flocking? boids.rs");
+    println!("- Falling Sand game engine? falling_sand.rs");
+    println!("- Reaction Diffusion? reaction_diffusion.rs");
+    println!("- Metaballs / Marching Cubes? isosurface.rs");
+    println!("- Cloth simulation? cloth.rs");
+    println!("- Ripple / Water displacement? water_ripple.rs");
+    println!("- Lidar point cloud visualizer? raycast_demo or something similar.");
+    println!("- Wavy Wobble effect? wobble.rs");
+    println!("- Pixel Sorting? pixel_sort.rs");
+    println!("- Datamosh / I-frame glitch? maybe glitch.rs");
+    println!("- Chromatic Aberration? anaglyph.rs or chroma_key.rs maybe");
+    println!("- CRT monitor curvature and scanlines? crt.rs");
+}
