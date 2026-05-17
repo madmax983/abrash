@@ -228,3 +228,11 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Eliminating Redundant Buffer Allocations in Full-Screen Overwrites]**
 **Learning:** When a post-processing effect completely overwrites the framebuffer (e.g., drawing a procedural tunnel) without reading the previous frame state, allocating a temporary buffer (`vec![0; width * height]`) is an unnecessary O(W*H) heap allocation per frame.
 **Action:** Directly mutate the framebuffer slice (e.g., via `framebuffer.as_mut_slice().chunks_exact_mut(...)`). This entirely eliminates the need for an intermediate buffer and avoids the O(N) secondary loop required to copy pixels back to the screen.
+
+**[Eliding Bounds Checks on ZBuffer via `get_unchecked`]**
+**Learning:** In hot rendering loops (e.g., SSAO), abstracting 2D buffer access behind getter methods like `get_depth(x, y)` introduces severe overhead due to repeated bounds checking and `Option` unwrapping. Extracting the underlying slice outside the loop and using `unsafe { *slice.get_unchecked(idx) }` (after proving bounds via a single check before the inner loop) eliminates this overhead and yields massive performance boosts.
+**Action:** Lift `buffer.as_slice()` outside hot loops and use `get_unchecked` to directly index into the slice when bounds are mathematically guaranteed to be safe.
+
+**[Pre-allocation via `with_capacity`]**
+**Learning:** `vec![0.0; size]` does a zero-initialization which acts as a "double-write" if the elements are immediately overwritten by loop assignment indexing or an `extend` process.
+**Action:** Use `Vec::with_capacity(size)` and `extend_from_slice()` instead to avoid the allocation zero-initialization overhead.

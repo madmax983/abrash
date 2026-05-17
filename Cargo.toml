@@ -979,3 +979,7 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[bench]]
+name = "ssao_bench"
+harness = false

@@ -224,6 +224,8 @@ fn apply_ssao_scalar(
     #[cfg(not(feature = "parallel"))]
     let iter = occlusion_buffer.chunks_exact_mut(width).enumerate();
 
+    let zb_slice = zb.as_slice();
+
     iter.for_each(|(y, row)| {
         let noise_y = y % NOISE_SIZE;
         for (x, row_x) in row.iter_mut().enumerate().take(width) {
@@ -231,7 +233,7 @@ fn apply_ssao_scalar(
             let noise_idx = noise_y * NOISE_SIZE + noise_x;
             let random_vec = noise[noise_idx];
 
-            let depth_val = zb.get_depth(x as i32, y as i32).unwrap_or(1.0);
+            let depth_val = unsafe { *zb_slice.get_unchecked(y * width + x) };
 
             if depth_val >= 1.0 {
                 *row_x = 0.0;
@@ -251,6 +253,9 @@ fn apply_ssao_scalar(
 
             let mut occlusion = 0.0;
 
+            let width_i32 = width as i32;
+            let height_i32 = height as i32;
+
             for s in kernel.iter().take(KERNEL_SIZE) {
                 let rotated_sample = Vec3::new(s.x * rx - s.y * ry, s.x * ry + s.y * rx, s.z);
 
@@ -266,11 +271,16 @@ fn apply_ssao_scalar(
                     let s_screen_y = ((1.0 - s_ndc_y) * half_height) as i32;
 
                     if s_screen_x >= 0
-                        && s_screen_x < width as i32
+                        && s_screen_x < width_i32
                         && s_screen_y >= 0
-                        && s_screen_y < height as i32
+                        && s_screen_y < height_i32
                     {
-                        let existing_depth = zb.get_depth(s_screen_x, s_screen_y).unwrap_or(1.0);
+                        // ⚡ Bolt Performance Optimization:
+                        // Inline depth buffer lookup to eliminate the unwrap and double bounds-check overhead in tight loops.
+                        let data_idx = (s_screen_y as usize) * width + (s_screen_x as usize);
+                        // Safety: `s_screen_x` and `s_screen_y` are guaranteed to be within [0, width) and [0, height) bounds.
+                        let existing_depth = unsafe { *zb_slice.get_unchecked(data_idx) };
+
                         let existing_view_z = -p32 / (existing_depth + p22);
                         let sample_view_z = sample_pos.z;
                         let range_check = (existing_view_z - sample_view_z).abs() < radius;
@@ -310,6 +320,8 @@ unsafe fn apply_ssao_avx2(
         _mm256_movemask_ps, _mm256_mul_ps, _mm256_mullo_epi32, _mm256_rcp_ps, _mm256_set_ps,
         _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_ps, _mm256_storeu_ps, _mm256_sub_ps,
     };
+
+    let zb_slice = zb.as_slice();
 
     unsafe {
         let p00 = _mm256_set1_ps(proj_m[0]);
@@ -484,7 +496,7 @@ unsafe fn apply_ssao_avx2(
                 let noise_idx = noise_y * NOISE_SIZE + noise_x;
                 let random_vec = noise[noise_idx];
 
-                let depth_val = zb.get_depth(x as i32, y as i32).unwrap_or(1.0);
+                let depth_val = unsafe { *zb_slice.get_unchecked(y * width + x) };
 
                 if depth_val >= 1.0 {
                     row[x] = 0.0;
@@ -601,7 +613,10 @@ fn generate_noise() -> [Vec3; NOISE_SIZE * NOISE_SIZE] {
 fn generate_precomputed_kernels(kernel: &[Vec3], noise: &[Vec3]) -> Vec<f32> {
     // Layout: [noise_y (0..NOISE_SIZE)][kernel_idx (0..KERNEL_SIZE)][component (x, y)][simd_lane (0..8)]
     // Flat: NOISE_SIZE * KERNEL_SIZE * 2 * 8
-    let mut buffer = vec![0.0; NOISE_SIZE * KERNEL_SIZE * 2 * 8];
+    // ⚡ Bolt Performance Optimization:
+    // Pre-allocating exact capacity and extending from slice avoids the double-write
+    // of initializing memory to zero and then overwriting it immediately.
+    let mut buffer = Vec::with_capacity(NOISE_SIZE * KERNEL_SIZE * 2 * 8);
 
     for ny in 0..NOISE_SIZE {
         for (k, &s) in kernel.iter().enumerate().take(KERNEL_SIZE) {
@@ -631,11 +646,8 @@ fn generate_precomputed_kernels(kernel: &[Vec3], noise: &[Vec3]) -> Vec<f32> {
 
             // Store in buffer
             // 16 floats per kernel (8 for X, 8 for Y)
-            let base_idx = (ny * KERNEL_SIZE + k) * 16;
-            for i in 0..8 {
-                buffer[base_idx + i] = rot_xs[i]; // X component
-                buffer[base_idx + 8 + i] = rot_ys[i]; // Y component
-            }
+            buffer.extend_from_slice(&rot_xs);
+            buffer.extend_from_slice(&rot_ys);
         }
     }
     buffer
