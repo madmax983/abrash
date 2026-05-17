@@ -228,3 +228,11 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Eliminating Redundant Buffer Allocations in Full-Screen Overwrites]**
 **Learning:** When a post-processing effect completely overwrites the framebuffer (e.g., drawing a procedural tunnel) without reading the previous frame state, allocating a temporary buffer (`vec![0; width * height]`) is an unnecessary O(W*H) heap allocation per frame.
 **Action:** Directly mutate the framebuffer slice (e.g., via `framebuffer.as_mut_slice().chunks_exact_mut(...)`). This entirely eliminates the need for an intermediate buffer and avoids the O(N) secondary loop required to copy pixels back to the screen.
+
+**[Eliding Sqrt in Pencil Sketch]**
+**Learning:** In the `pencil_sketch` post-processing filter, replacing the approximated Manhattan distance `(gx.abs() + gy.abs())` with true Euclidean squared magnitude `(gx*gx + gy*gy)` and comparing it against a pre-calculated squared threshold `threshold_sq = (config.edge_threshold as u64) * (config.edge_threshold as u64)` yields more accurate and correct edge detection while completely eliding the costly `sqrt()` calculation.
+**Action:** Replace `(gx.abs() + gy.abs())` with `(gx*gx + gy*gy) as u64` and compare to a pre-calculated squared threshold.
+
+**[Fixing SIMD Bounds Checks]**
+**Learning:** When manually writing SIMD loops for algorithms like `chromatic_aberration_avx2`, out-of-bounds (OOB) memory reads in the right-edge scalar tail or vector tail must correctly use `saturating_add` and bounds check against `width` properly.
+**Action:** Replaced incorrectly bounded right edge checks in `apply_chromatic_aberration_avx2` and scalar fallback loop.

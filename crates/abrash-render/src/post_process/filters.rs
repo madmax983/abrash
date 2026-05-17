@@ -1259,8 +1259,12 @@ mod simd {
                             0
                         };
 
-                        // B is 0 (OOB)
-                        let b = 0;
+                        // B might be OOB or in bounds
+                        let b = if x.saturating_add(offset) < width {
+                            *src_ptr.add(x + offset) & 0xFF
+                        } else {
+                            0
+                        };
 
                         *dst_ptr.add(x) = (a << 24) | (r << 16) | (g << 8) | b;
                         x += 1;
@@ -1909,7 +1913,7 @@ mod tests {
 
     #[test]
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-    #[ignore = "Known failing test"]
+
     fn test_apply_chromatic_aberration_simd_vs_scalar() {
         if !std::is_x86_feature_detected!("avx2") {
             return;
@@ -1971,7 +1975,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Known failing test"]
+
     fn test_apply_chromatic_aberration() {
         let width = 5;
         let height = 1;

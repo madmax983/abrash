@@ -58,6 +58,7 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
         | u32::midpoint(b_s, b_p);
 
     let hatch_threshold = (config.hatch_intensity * 100.0) as u32;
+    let threshold_sq = u64::from(config.edge_threshold) * u64::from(config.edge_threshold);
 
     // ⚡ Bolt: Eliminate per-frame heap allocation by using a thread-local static buffer.
     thread_local! {
@@ -105,9 +106,10 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
                 - (i32::from(tl) + 2 * i32::from(tc) + i32::from(tr));
 
             // Approximate gradient magnitude
-            let magnitude = (gx.abs() + gy.abs()) as u32;
+            // ⚡ Bolt: Use squared magnitude to avoid f32::sqrt() in hot inner loop
+            let magnitude_sq = (gx * gx + gy * gy) as u64;
 
-            let is_edge = magnitude > config.edge_threshold;
+            let is_edge = magnitude_sq > threshold_sq;
 
             if is_edge {
                 // Draw strong stroke
