@@ -192,11 +192,13 @@ fn process_smooth_row(
         let db = fg_b - key_b;
 
         // Euclidean distance in RGB space
-        let dist = (dr * dr + dg * dg + db * db).sqrt();
+        let dist_sq = dr * dr + dg * dg + db * db;
+        let threshold_sq = threshold * threshold;
 
-        if dist <= threshold {
+        if dist_sq <= threshold_sq {
             fg_row[x] = bg_row[x];
-        } else if feather > 0.0 && dist < threshold + feather {
+        } else if feather > 0.0 && dist_sq < (threshold + feather) * (threshold + feather) {
+            let dist = dist_sq.sqrt();
             // Calculate alpha for blending (0.0 = fully bg, 1.0 = fully fg)
             let alpha = (dist - threshold) / feather;
             let inv_alpha = 1.0 - alpha;
