@@ -13,17 +13,49 @@ const UNUSED_TOP: i32 = i32::MAX;
 /// Sentinel value indicating an unused bottom row entry.
 const UNUSED_BOTTOM: i32 = i32::MIN;
 
-/// A single visplane: horizontal surface at one height/texture/light.
+/// A contiguous horizontal rendering strip for drawing floors and ceilings.
 ///
-/// Each visplane tracks per-column top and bottom screen rows. Columns that
-/// have not been assigned a span use sentinel values (`i32::MAX` for top,
-/// `i32::MIN` for bottom).
+/// Because floors and ceilings are perfectly horizontal in the Doom engine, they
+/// don't suffer from perspective affine texture warping along the X-axis. A
+/// "Visplane" collects vertical spans across multiple screen columns that share
+/// identical properties (`height`, `texture`, `light_level`).
+/// Once walls finish drawing, the engine blasts out these visplanes horizontally
+/// as one continuous flat, achieving massive performance wins over per-pixel raycasting.
+///
+/// # Panics
+///
+/// [`Visplane::top`] and [`Visplane::bottom`] will return `None` rather than
+/// panicking if a queried column is outside the screen width or if the column is unused.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_raycast::bsp_visplane::VisplaneAllocator;
+///
+/// let mut allocator = VisplaneAllocator::with_capacity(128, 320);
+///
+/// // We find or create a visplane for a floor at height 0, texture 1, light 255
+/// // starting at screen column 10.
+/// let plane_idx = allocator.find_or_create(0, 1, 255, 10);
+///
+/// // Record that column 10 occupies screen rows 100 through 200.
+/// allocator.set_span(plane_idx, 10, 100, 200);
+///
+/// let plane = &allocator.planes()[plane_idx];
+/// assert_eq!(plane.top(10), Some(100));
+/// assert_eq!(plane.bottom(10), Some(200));
+/// ```
 #[derive(Clone, Debug)]
 pub struct Visplane {
+    /// The world-space Z height of the plane (e.g., floor height).
     pub height: i16,
+    /// The index into the texture atlas for the flat graphic.
     pub texture: u16,
+    /// The illumination level of the sector (0 = dark, 255 = bright).
     pub light_level: u16,
+    /// The leftmost screen column currently covered by this visplane.
     pub min_x: i32,
+    /// The rightmost screen column currently covered by this visplane.
     pub max_x: i32,
     top: Vec<i32>,
     bottom: Vec<i32>,

@@ -3,9 +3,13 @@
 /// Standard easing curves.
 #[derive(Debug, Clone, Copy)]
 pub enum Easing {
+    /// Linear interpolation (constant velocity).
     Linear,
+    /// Accelerates from zero velocity (e.g., quadratic ease in).
     EaseIn,
+    /// Decelerates to zero velocity (e.g., quadratic ease out).
     EaseOut,
+    /// Accelerates from zero and decelerates back to zero (e.g., quadratic ease in-out).
     EaseInOut,
     /// Cubic Bezier curve with control points (x1, y1, x2, y2).
     CubicBezier(f32, f32, f32, f32),

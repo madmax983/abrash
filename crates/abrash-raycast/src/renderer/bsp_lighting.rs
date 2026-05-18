@@ -20,6 +20,21 @@ pub struct BspTextureCache {
 }
 
 impl BspTextureCache {
+    /// Bootstraps a new default texture cache filled with mock graphical data.
+    ///
+    /// The mock data consists of single solid colors mapped to simple palette indices,
+    /// enabling the raycaster to be tested visually without needing a WAD file loader.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_raycast::renderer::bsp_lighting::BspTextureCache;
+    ///
+    /// let cache = BspTextureCache::new();
+    ///
+    /// // The default palette has Red (0xFFFF0000) at index 1.
+    /// assert_eq!(cache.palette_argb(1), 0xFFFF_0000);
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         // Wall column: 128 texels, all palette index 1

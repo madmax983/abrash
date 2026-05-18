@@ -6,13 +6,30 @@ use crate::hold::Hold;
 use crate::keyframe::Keyframe;
 use crate::sequence::Sequence;
 
-/// A value paired with its instantaneous velocity.
+/// A snapshot in time containing both an animation's position and its exact velocity.
 ///
-/// Every `Evaluable` returns both value and velocity, enabling
-/// future velocity-preserving spring interruption.
+/// A fundamental requirement for fluid UI animation is that interruptions (like user input)
+/// shouldn't look jarring. By having every `[`Evaluable`]` return both a value and a
+/// velocity, we can hand off animations to a physics spring system seamlessly,
+/// preserving their momentum.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_anim::evaluable::Sample;
+///
+/// // Create a sample of an object moving at 10 units/sec, currently at position 50.
+/// let moving_sample = Sample::new(50.0_f32, 10.0);
+///
+/// // Create a sample for a resting object.
+/// let resting_sample = Sample::at_rest(50.0_f32);
+/// assert_eq!(resting_sample.velocity, 0.0);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Sample<T: Animatable> {
+    /// The actual evaluated value at this instant.
     pub value: T,
+    /// The instantaneous velocity (rate of change) at this instant.
     pub velocity: T,
 }
 
@@ -38,8 +55,11 @@ impl<T: Animatable> Sample<T> {
 /// This is the core animation abstraction. Evaluables are composable:
 /// `Keyframe`, `Hold`, and `Sequence` are available variants.
 pub enum Evaluable<T: Animatable> {
+    /// A segment that transitions from one value to another with an easing curve.
     Keyframe(Keyframe<T>),
+    /// A segment that maintains a constant value for a duration.
     Hold(Hold<T>),
+    /// A segment composed of multiple ordered evaluable segments.
     Sequence(Sequence<T>),
 }
 

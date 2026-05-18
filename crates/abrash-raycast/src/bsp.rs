@@ -50,10 +50,32 @@ pub struct BspSector {
 
 /// A BSP-structured map that can be traversed front-to-back.
 ///
-/// The raycaster calls [`traverse_front_to_back`](BspMapData::traverse_front_to_back)
-/// to visit subsectors in painter's-algorithm order.
+/// The Binary Space Partitioning (BSP) tree is the foundational acceleration structure
+/// for Doom-style raycasting. Rather than checking every wall in the level, the map is
+/// split down the middle recursively until it forms convex "subsectors". The raycaster
+/// traverses the tree to guarantee that walls are drawn strictly from closest to farthest.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_raycast::bsp::BspMapData;
+/// use abrash_raycast::types::Vec2Fixed;
+///
+/// // Load the mock map data.
+/// let map = BspMapData::new_mock();
+///
+/// // Traverse the map. For the mock map, this will just yield the single subsector `0`.
+/// let mut visited_subsectors = Vec::new();
+/// map.traverse_front_to_back(Vec2Fixed::ZERO, &mut |idx| {
+///     visited_subsectors.push(idx);
+/// });
+///
+/// assert_eq!(visited_subsectors, vec![0]);
+/// ```
 pub struct BspMapData {
+    /// The geometric and aesthetic properties of the room (e.g. floor height, lighting).
     pub sector: BspSector,
+    /// The exact 2D boundaries separating solid space from empty space.
     pub segs: Vec<BspSeg>,
 }
 

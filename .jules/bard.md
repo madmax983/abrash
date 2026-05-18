@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2024-05-19 - [Abrash Anim and Raycast Module Documentation]
+**Confusion:** Public structs, methods, and enum variants in the `abrash-anim` and `abrash-raycast` crates were lacking explicit documentation and doctests, leading to confusion about their physical meaning, coordinate boundaries, and expected return behaviors.
+**Clarification:** Rewrote and expanded the documentation for `Hold`, `Keyframe`, `Sequence`, `Easing`, `Evaluable`, `ClockEvent`, `BspMapData`, `Visplane`, `BspTextureCache`, `Side`, and `Vec2Fixed`. Provided copy-pasteable examples for structs/methods and ensured `clippy::doc_markdown` was satisfied by avoiding unnecessary triple backticks inside intra-doc link references (e.g., using `[`Visplane::top`]` directly instead of ```[`Visplane::top`]```).

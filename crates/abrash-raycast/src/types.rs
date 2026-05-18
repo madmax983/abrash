@@ -2,12 +2,28 @@
 
 use abrash_core::fixed16_16::Fixed16_16;
 
-/// Which face of a grid cell was hit by a ray.
+/// Which cardinal face of a grid cell was hit by a ray.
+///
+/// Used primarily for texturing (selecting which wall graphic to draw) and shading
+/// (e.g., making North/South walls slightly darker than East/West walls to fake global illumination).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_raycast::types::Side;
+///
+/// let hit_side = Side::North;
+/// assert_eq!(hit_side, Side::North);
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Side {
+    /// The wall face pointing "Up" in top-down map view (positive Y).
     North,
+    /// The wall face pointing "Down" in top-down map view (negative Y).
     South,
+    /// The wall face pointing "Right" in top-down map view (positive X).
     East,
+    /// The wall face pointing "Left" in top-down map view (negative X).
     West,
 }
 
@@ -31,10 +47,26 @@ impl Cell {
     }
 }
 
-/// A 2D vector in 16.16 fixed-point.
+/// A 2D vector utilizing `16.16` fixed-point arithmetic for its components.
+///
+/// Critical for avoiding costly floating point math in hot inner loops during BSP traversal
+/// and DDA (Digital Differential Analyzer) ray steps.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_raycast::types::Vec2Fixed;
+/// use abrash_core::fixed16_16::Fixed16_16;
+///
+/// let vec = Vec2Fixed::from_ints(10, -5);
+/// assert_eq!(vec.x, Fixed16_16::from_int(10));
+/// assert_eq!(vec.y, Fixed16_16::from_int(-5));
+/// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Vec2Fixed {
+    /// The horizontal axis mapped as `16.16` fixed point.
     pub x: Fixed16_16,
+    /// The vertical depth axis mapped as `16.16` fixed point.
     pub y: Fixed16_16,
 }
 

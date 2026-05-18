@@ -21,13 +21,35 @@ pub enum PlaybackMode {
     Count(u32),
 }
 
-/// Events emitted by the clock on each tick.
+/// Events emitted by the clock on each tick to notify systems of boundary crossings.
+///
+/// This is used heavily for triggering one-shot events, like a footstep sound playing
+/// exactly when a walk animation loop crosses from 1.0 back to 0.0 phase.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_anim::clock::{AnimationClock, ClockEvent};
+///
+/// let mut clock = AnimationClock::new();
+///
+/// // Normal tick that doesn't cross a boundary
+/// let event = clock.tick(0.5, 1.0);
+/// assert_eq!(event, ClockEvent::Normal);
+///
+/// // A tick that forces the clock past 1.0
+/// let event = clock.tick(0.6, 1.0);
+/// assert_eq!(event, ClockEvent::CycleBoundary { completed: 1 });
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClockEvent {
-    /// Normal phase advance within a cycle.
+    /// The clock advanced normally without crossing the 1.0 phase boundary.
     Normal,
-    /// One or more cycles completed this tick.
-    CycleBoundary { completed: u64 },
+    /// The clock crossed the 1.0 phase boundary one or more times.
+    CycleBoundary {
+        /// The number of times the clock wrapped around from 1.0 to 0.0 in this tick.
+        completed: u64,
+    },
 }
 
 /// A drift-free animation clock.
