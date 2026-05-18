@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Julia Set Renderer]
+**Concept:** A mathematical renderer that visualizes the Julia set, related to the Mandelbrot set, by mapping complex numbers in screen space and iteratively applying $z = z^2 + c$. The demo animates the complex constant `c` to morph the set dynamically.
+**Fate:** Implemented
+**Lesson:** Applying basic algebraic operations (e.g., $z = z^2 + c$) efficiently on complex numbers in screen-space, combined with a smooth color mapping algorithm, creates highly complex procedural structures suitable for performant parallelization via Rayon.
