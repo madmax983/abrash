@@ -228,3 +228,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Eliminating Redundant Buffer Allocations in Full-Screen Overwrites]**
 **Learning:** When a post-processing effect completely overwrites the framebuffer (e.g., drawing a procedural tunnel) without reading the previous frame state, allocating a temporary buffer (`vec![0; width * height]`) is an unnecessary O(W*H) heap allocation per frame.
 **Action:** Directly mutate the framebuffer slice (e.g., via `framebuffer.as_mut_slice().chunks_exact_mut(...)`). This entirely eliminates the need for an intermediate buffer and avoids the O(N) secondary loop required to copy pixels back to the screen.
+
+**[String Initialization Optimization]**
+**Learning:** When initializing a new `String` with the contents of an existing string, replacing `String::new()` followed by `.push_str(&existing_string)` with `existing_string.clone()` eliminates the redundant initialization of an empty string buffer and the subsequent immediate capacity resizing overhead.
+**Action:** Use `.clone()` directly on existing strings or `String::with_capacity` when appending known sizes instead of creating a default empty string buffer before immediately filling it.
