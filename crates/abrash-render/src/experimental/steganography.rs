@@ -13,23 +13,23 @@ use crate::framebuffer::Framebuffer;
 /// Returns an error if the framebuffer is not large enough to hold the message.
 /// # Errors
 /// Returns an error if the message is too long to fit in the framebuffer.
-pub fn encode_message(fb: &mut Framebuffer, message: &str) -> Result<(), &'static str> {
+pub fn encode_message(fb: &mut Framebuffer, message: &str) -> Result<(), crate::experimental::error::Error> {
     let bytes = message.as_bytes();
     let len = bytes.len() as u32;
 
     // We need 4 bytes for the length, plus the bytes of the message.
     let total_bytes_needed = 4_usize
         .checked_add(bytes.len())
-        .ok_or("Message too large")?;
+        .ok_or(crate::experimental::error::Error::MessageTooLarge("Message too large"))?;
 
     // Each pixel can store 3 bits (one in R, one in G, one in B).
     let bits_needed = total_bytes_needed
         .checked_mul(8)
-        .ok_or("Message too large")?;
-    let pixels_needed = bits_needed.checked_add(2).ok_or("Message too large")? / 3;
+        .ok_or(crate::experimental::error::Error::MessageTooLarge("Message too large"))?;
+    let pixels_needed = bits_needed.checked_add(2).ok_or(crate::experimental::error::Error::MessageTooLarge("Message too large"))? / 3;
 
     if pixels_needed > (fb.width() * fb.height()) as usize {
-        return Err("Framebuffer too small to hold the message");
+        return Err(crate::experimental::error::Error::FramebufferTooSmall("Framebuffer too small to hold the message"));
     }
 
     let mut data_to_encode = Vec::with_capacity(total_bytes_needed);

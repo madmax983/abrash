@@ -509,10 +509,10 @@ mod tests {
     }
 
     #[test]
-    fn test_render_sdf_simple() -> Result<(), &'static str> {
+    fn test_render_sdf_simple() -> Result<(), crate::experimental::error::Error> {
         // Minimal render test
-        let mut fb = Framebuffer::new(10, 10)?;
-        let mut zb = ZBuffer::new(10, 10)?;
+        let mut fb = Framebuffer::new(10, 10).map_err(|e| crate::experimental::error::Error::General(e))?;
+        let mut zb = ZBuffer::new(10, 10).map_err(|e| crate::experimental::error::Error::General(e))?;
         let mut scene = SdfScene::new();
         scene.add(SdfObject {
             primitive: SdfPrimitive::Sphere {

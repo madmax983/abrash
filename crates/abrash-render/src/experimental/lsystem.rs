@@ -61,7 +61,7 @@ impl LSystem {
     ///
     /// # Errors
     /// Returns an error if the expansion string exceeds `max_capacity`.
-    pub fn expand(&self, iterations: usize) -> Result<String, &'static str> {
+    pub fn expand(&self, iterations: usize) -> Result<String, crate::experimental::error::Error> {
         if iterations == 0 {
             return Ok(self.axiom.clone());
         }
@@ -108,7 +108,7 @@ impl LSystem {
                             next_bytes.push(b);
                         }
                         if next_bytes.len() > self.max_capacity {
-                            return Err("L-System expansion exceeded maximum capacity limit");
+                            return Err(crate::experimental::error::Error::CapacityExceeded("L-System expansion exceeded maximum capacity limit"));
                         }
                     }
                     std::mem::swap(current_bytes, next_bytes);
@@ -119,7 +119,7 @@ impl LSystem {
                 // Reconstruct string from raw bytes directly avoiding unicode character parsing overhead
                 std::str::from_utf8(current_bytes)
                     .map(std::string::ToString::to_string)
-                    .map_err(|_| "L-System utf8 decoding error")
+                    .map_err(|_| crate::experimental::error::Error::General("L-System utf8 decoding error"))
             });
         }
 
@@ -167,7 +167,7 @@ impl LSystem {
 
                 // OOM Prevention check
                 if next_string.len() > self.max_capacity {
-                    return Err("L-System expansion exceeded maximum capacity limit");
+                    return Err(crate::experimental::error::Error::CapacityExceeded("L-System expansion exceeded maximum capacity limit"));
                 }
             }
 
@@ -222,7 +222,7 @@ impl Turtle {
     ///
     /// # Errors
     /// Returns an error if the stack overflows or underflows.
-    pub fn generate_mesh(&mut self, commands: &str) -> Result<Mesh, &'static str> {
+    pub fn generate_mesh(&mut self, commands: &str) -> Result<Mesh, crate::experimental::error::Error> {
         // Base mesh to use for segments (a simple tetrahedron/pyramid or line placeholder)
         // For simplicity and speed in software rendering, we will generate a very simple geometry
         // per line segment (e.g., a small box or custom geometry). We will use a fast hardcoded method here.
@@ -258,7 +258,7 @@ impl Turtle {
                 b'/' => self.roll(-self.turn_angle),
                 b'[' => {
                     if self.stack.len() > 1000 {
-                        return Err("L-System stack overflow");
+                        return Err(crate::experimental::error::Error::StackOverflow("L-System stack overflow"));
                     }
                     self.stack.push(TurtleState {
                         position: self.position,
@@ -278,7 +278,7 @@ impl Turtle {
                         self.segment_length = state.segment_length;
                         self.segment_radius = state.segment_radius;
                     } else {
-                        return Err("L-System stack underflow");
+                        return Err(crate::experimental::error::Error::StackUnderflow("L-System stack underflow"));
                     }
                 }
                 _ => {} // Ignore unknown symbols (like rule placeholders 'X', 'Y')

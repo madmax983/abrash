@@ -115,7 +115,7 @@ impl LSystem {
     /// This method includes a fast-path for purely ASCII strings. It avoids the overhead of
     /// UTF-8 validation and the `String::push_str` method, operating directly on bytes.
     /// It also pre-calculates the exact capacity needed to avoid intermediate reallocations.
-    pub fn expand(&self, iterations: u32) -> Result<String, String> {
+    pub fn expand(&self, iterations: u32) -> Result<String, crate::experimental::error::Error> {
         if iterations == 0 {
             return Ok(self.axiom.clone());
         }
@@ -169,7 +169,7 @@ impl LSystem {
                             next_bytes.push(b);
                         }
                         if next_bytes.len() > limit {
-                            return Err("L-system exceeded memory limits".to_string());
+                            return Err(crate::experimental::error::Error::CapacityExceeded("L-system exceeded memory limits"));
                         }
                     }
                     std::mem::swap(current_bytes, next_bytes);
@@ -178,7 +178,7 @@ impl LSystem {
                 // Remove unsafe by converting back to string securely, though the ascii check guarantees safety.
                 std::str::from_utf8(current_bytes)
                     .map(|s| s.to_string())
-                    .map_err(|e| e.to_string())
+                    .map_err(|e| crate::experimental::error::Error::GeneralString(e.to_string()))
             });
         }
 
@@ -214,7 +214,7 @@ impl LSystem {
                 }
 
                 if next.len() > limit {
-                    return Err("L-system exceeded memory limits".to_owned());
+                    return Err(crate::experimental::error::Error::CapacityExceeded("L-system exceeded memory limits"));
                 }
             }
             std::mem::swap(&mut current, &mut next);
@@ -224,7 +224,7 @@ impl LSystem {
     }
 
     /// Generates a Mesh from the expanded L-System string.
-    pub fn generate_mesh(&self, iterations: u32) -> Result<Mesh, String> {
+    pub fn generate_mesh(&self, iterations: u32) -> Result<Mesh, crate::experimental::error::Error> {
         let instructions = self.expand(iterations)?;
 
         // Pre-flight check to count segments to avoid over-allocating memory for meshes
@@ -239,7 +239,7 @@ impl LSystem {
             } else if b == b'[' {
                 current_depth += 1;
                 if current_depth > max_stack_depth {
-                    return Err("L-system exceeded maximum stack depth".to_string());
+                    return Err(crate::experimental::error::Error::StackOverflow("L-system exceeded maximum stack depth"));
                 }
                 if current_depth > max_reached_depth {
                     max_reached_depth = current_depth;
@@ -317,7 +317,7 @@ impl LSystem {
                 }
                 b'[' => {
                     if stack.len() >= max_stack_depth {
-                        return Err("L-system exceeded maximum stack depth".to_string());
+                        return Err(crate::experimental::error::Error::StackOverflow("L-system exceeded maximum stack depth"));
                     }
                     stack.push(turtle);
                 }
