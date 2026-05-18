@@ -550,6 +550,104 @@ impl Framebuffer {
         Ok(())
     }
 
+    /// Exports the framebuffer to a Scalable Vector Graphics (.svg) file.
+    ///
+    /// 🌟 Nova: Converts dense raster framebuffers into an SVG file.
+    /// This implementation uses a fast `BufWriter` and horizontal Run-Length Encoding (RLE)
+    /// to group identical contiguous pixels into single `<rect>` elements, drastically
+    /// reducing the resulting file size and element count. Fully transparent pixels are skipped.
+    ///
+    /// # Errors
+    /// Returns an error if the file cannot be created or written to.
+    #[cfg(feature = "nova")]
+    pub fn export_svg<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
+        if self.width() == 0 || self.height() == 0 {
+            return Ok(());
+        }
+
+        let file = File::create(path)?;
+        let mut writer = BufWriter::new(file);
+
+        let width = self.width();
+        let height = self.height();
+
+        // Write SVG header
+        writeln!(
+            writer,
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {width} {height}\">"
+        )?;
+
+        let pixels = self.as_slice();
+
+        // RLE compress identical pixels on each row
+
+        let mut write_rect = |w: &mut std::io::BufWriter<std::fs::File>,
+                              start_x: u32,
+                              y: u32,
+                              run_length: u32,
+                              color: u32|
+         -> std::io::Result<()> {
+            let r = (color >> 16) & 0xFF;
+            let g = (color >> 8) & 0xFF;
+            let b = color & 0xFF;
+            let a_val = (color >> 24) & 0xFF;
+            if a_val == 255 {
+                writeln!(
+                    w,
+                    "  <rect x=\"{start_x}\" y=\"{y}\" width=\"{run_length}\" height=\"1\" fill=\"rgb({r},{g},{b})\"/>"
+                )
+            } else {
+                let opacity = a_val as f32 / 255.0;
+                writeln!(
+                    w,
+                    "  <rect x=\"{start_x}\" y=\"{y}\" width=\"{run_length}\" height=\"1\" fill=\"rgb({r},{g},{b})\" fill-opacity=\"{opacity:.3}\"/>"
+                )
+            }
+        };
+
+        for y in 0..height {
+            let row_start = (y * width) as usize;
+            let row = &pixels[row_start..row_start + width as usize];
+
+            let mut current_color: Option<u32> = None;
+            let mut start_x = 0;
+            let mut run_length = 0;
+
+            for (x, &pixel) in row.iter().enumerate() {
+                let alpha = (pixel >> 24) & 0xFF;
+
+                if alpha == 0 {
+                    // Fully transparent, end current run
+                    if let Some(color) = current_color {
+                        write_rect(&mut writer, start_x, y, run_length, color)?;
+                    }
+                    current_color = None;
+                    run_length = 0;
+                    continue;
+                }
+
+                if current_color == Some(pixel) {
+                    run_length += 1;
+                } else {
+                    if let Some(color) = current_color {
+                        write_rect(&mut writer, start_x, y, run_length, color)?;
+                    }
+                    current_color = Some(pixel);
+                    start_x = x as u32;
+                    run_length = 1;
+                }
+            }
+
+            // Flush remaining run at end of row
+            if let Some(color) = current_color {
+                write_rect(&mut writer, start_x, y, run_length, color)?;
+            }
+        }
+
+        writeln!(writer, "</svg>")?;
+        Ok(())
+    }
+
     /// Exports the framebuffer to an uncompressed Truevision TGA file.
     ///
     /// TGA is a widely supported format that stores uncompressed RGB/RGBA data.
@@ -645,6 +743,53 @@ mod export_tests {
 
         // Cleanup
         fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    #[cfg(feature = "nova")]
+    fn test_export_svg() {
+        let mut fb = Framebuffer::new(3, 2).unwrap();
+        // Row 0: Red, Red, Transparent
+        // Row 1: Blue, Semi-transparent Green, Blue
+        fb.set_pixel(0, 0, 0xFFFF0000); // R
+        fb.set_pixel(1, 0, 0xFFFF0000); // R (should group with previous)
+        fb.set_pixel(2, 0, 0x00FF0000); // Transparent (should be skipped)
+
+        fb.set_pixel(0, 1, 0xFF0000FF); // B
+        fb.set_pixel(1, 1, 0x8000FF00); // Semi-transparent G
+        fb.set_pixel(2, 1, 0xFF0000FF); // B (no grouping, broken by G)
+
+        let path = "test_image.svg";
+        fb.export_svg(path).unwrap();
+
+        // Read and verify
+        let mut file = File::open(path).unwrap();
+        let mut contents = String::new();
+        std::io::Read::read_to_string(&mut file, &mut contents).unwrap();
+
+        // Check SVG Header
+        assert!(contents.contains("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"3\" height=\"2\" viewBox=\"0 0 3 2\">"));
+
+        // Row 0: Red run of 2, transparent skipped
+        assert!(
+            contents
+                .contains("<rect x=\"0\" y=\"0\" width=\"2\" height=\"1\" fill=\"rgb(255,0,0)\"/>")
+        );
+
+        // Row 1: Separate elements
+        assert!(
+            contents
+                .contains("<rect x=\"0\" y=\"1\" width=\"1\" height=\"1\" fill=\"rgb(0,0,255)\"/>")
+        );
+        // 0x80 is 128, 128/255 = 0.502
+        assert!(contents.contains("<rect x=\"1\" y=\"1\" width=\"1\" height=\"1\" fill=\"rgb(0,255,0)\" fill-opacity=\"0.502\"/>"));
+        assert!(
+            contents
+                .contains("<rect x=\"2\" y=\"1\" width=\"1\" height=\"1\" fill=\"rgb(0,0,255)\"/>")
+        );
+
+        // Cleanup
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]
