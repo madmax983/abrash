@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+## 2024-05-18 - Procedural Texture Direct Buffer Iteration
+**Learning:** When iterating over 2D software textures to set pixels via `set_pixel(x, y)`, the double loop structure requires `x` and `y` logic every iteration and enforces bounds-checks.
+**Action:** Replace `set_pixel` double loops with `pixels_mut().chunks_exact_mut(width)`. This elides bounds-checking by mapping the underlying 1D flat buffer to safe slice iterators, and naturally provides an outer scope to hoist row-invariant math (like `y` dependent trigonometry or variables) out of the hot path inner loop.
