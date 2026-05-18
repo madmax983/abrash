@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn test_grid_pattern() {
-        let tex = grid_pattern(10, 10, 5, 0xFFFFFFFF, 0xFF000000).unwrap();
+        let tex = grid_pattern(10, 10, 5, 0xFFFF_FFFF, 0xFF00_0000).unwrap();
         assert_eq!(tex.width(), 10);
         assert_eq!(tex.height(), 10);
     }

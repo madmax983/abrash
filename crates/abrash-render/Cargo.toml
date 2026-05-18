@@ -12,7 +12,9 @@ backend-tui = ["dep:ratatui"]
 backend-wasm = ["dep:ratatui"]
 
 [dev-dependencies]
+criterion = "0.8.2"
 proptest = "1.0"
+rand = "0.8"
 
 [dependencies]
 abrash-core = { path = "../abrash-core" }
@@ -42,5 +44,10 @@ required-features = ["nova"]
 
 [[bench]]
 name = "paper_cutout_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "synthwave_bench"
 harness = false
 required-features = ["nova"]
