@@ -21,3 +21,7 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+## [Reduction]
+**Bloat:** `PoolEntry<T>` enum inside `ResourcePool<T>` and `DropState` enum inside `Precipitation`.
+**Cut:** Replaced the `PoolEntry` enum with a flat `Slot<T>` struct using standard `Option<T>`. Replaced the `DropState` enum with a simple boolean `is_splashing`.
+**Saved:** Removed two single-use enums, flattened nested match statements, and simplified data access by leaning on standard library features (`.as_ref()`, `.as_mut()`, `.take()`).

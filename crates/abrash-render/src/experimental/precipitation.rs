@@ -10,12 +10,6 @@ use abrash_core::zbuffer::ZBuffer;
 use std::cell::RefCell;
 
 /// The state of a single precipitation drop.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DropState {
-    Falling,
-    Splashing,
-}
-
 /// A single drop of precipitation.
 #[derive(Debug, Clone, Copy)]
 pub struct Drop {
@@ -24,7 +18,7 @@ pub struct Drop {
     pub z: f32,
     pub velocity_x: f32,
     pub velocity_y: f32,
-    pub state: DropState,
+    pub is_splashing: bool,
     pub life: f32, // Frames remaining for splash
     pub color: u32,
 }
@@ -141,7 +135,7 @@ pub fn apply_precipitation(fb: &mut Framebuffer, zb: &ZBuffer, config: &Precipit
                 z,
                 velocity_x: vx,
                 velocity_y: vy,
-                state: DropState::Falling,
+                is_splashing: false,
                 life: 0.0,
                 color: config.drop_color,
             });
@@ -160,7 +154,7 @@ pub fn apply_precipitation(fb: &mut Framebuffer, zb: &ZBuffer, config: &Precipit
         };
 
         for drop in drops {
-            if drop.state == DropState::Falling {
+            if !drop.is_splashing {
                 let prev_x = drop.x as i32;
                 let prev_y = drop.y as i32;
 
@@ -184,7 +178,7 @@ pub fn apply_precipitation(fb: &mut Framebuffer, zb: &ZBuffer, config: &Precipit
                     if let Some(scene_z) = zb.get_depth(ix, iy) {
                         if drop.z > scene_z {
                             // Hit! Transition to splashing
-                            drop.state = DropState::Splashing;
+                            drop.is_splashing = true;
                             drop.life = config.splash_duration;
                         } else {
                             // Draw falling drop streak
@@ -198,7 +192,7 @@ pub fn apply_precipitation(fb: &mut Framebuffer, zb: &ZBuffer, config: &Precipit
                         draw_pixel(prev_x, prev_y, scale_alpha(drop.color, 0.5));
                     }
                 }
-            } else if drop.state == DropState::Splashing {
+            } else if drop.is_splashing {
                 drop.life -= 1.0;
 
                 let ix = drop.x as i32;
@@ -212,7 +206,7 @@ pub fn apply_precipitation(fb: &mut Framebuffer, zb: &ZBuffer, config: &Precipit
                     drop.velocity_y = config.drop_speed_min
                         + rng.next_f32() * (config.drop_speed_max - config.drop_speed_min);
                     drop.velocity_x = config.wind * (0.8 + 0.4 * rng.next_f32());
-                    drop.state = DropState::Falling;
+                    drop.is_splashing = false;
                 } else {
                     // Draw ripple/splash (horizontal spread)
                     let radius = (config.splash_duration - drop.life).max(1.0) as i32;
@@ -270,7 +264,7 @@ mod tests {
             drop.y = 49.0;
             drop.velocity_y = 2.0; // will cross y=50 next frame
             drop.velocity_x = 0.0;
-            drop.state = DropState::Falling;
+            drop.is_splashing = false;
         });
 
         // Frame 2: drop falls into y=51, where z is 10.0. drop.z is 15.0.
@@ -279,7 +273,7 @@ mod tests {
 
         STATE.with(|state| {
             let st = state.borrow();
-            assert_eq!(st.drops[0].state, DropState::Splashing);
+            assert!(st.drops[0].is_splashing);
         });
     }
 }
