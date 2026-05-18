@@ -228,3 +228,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Eliminating Redundant Buffer Allocations in Full-Screen Overwrites]**
 **Learning:** When a post-processing effect completely overwrites the framebuffer (e.g., drawing a procedural tunnel) without reading the previous frame state, allocating a temporary buffer (`vec![0; width * height]`) is an unnecessary O(W*H) heap allocation per frame.
 **Action:** Directly mutate the framebuffer slice (e.g., via `framebuffer.as_mut_slice().chunks_exact_mut(...)`). This entirely eliminates the need for an intermediate buffer and avoids the O(N) secondary loop required to copy pixels back to the screen.
+
+## [SmallVec Initialization Capacity]
+**Learning:** Utilizing `SmallVec::new()` requires tracking current length against capacity upon every `push()`. Initializing via `smallvec![0; 64]` internally constructs the vector to its max bounds right away. For a heavily reused working buffer that repeatedly clears and pushes data within hot loops, starting at maximum capacity completely sidesteps bounds checks and reallocations on the fast path.
+**Action:** When a temporary `SmallVec` buffer is needed inside a tight hot loop across many elements, initialize it statically to the max expected length to avoid `.push()` overhead inside the loop.
