@@ -96,3 +96,8 @@
 **Concept:** A post-processing effect that simulates a 2.5D construction paper art style. It quantizes 3D depth information into discrete flat layers and applies offset drop shadows between layers using the z-buffer.
 **Fate:** Implemented
 **Lesson:** By dynamically remapping continuous depth ranges into discrete integer layers and comparing adjacent depth indices, we can accurately cast complex shadows in purely screen-space. To avoid allocating multiple per-layer framebuffers, we can simply copy the frame into a single reference buffer and apply darkening (shadows) iteratively per pixel based on depth disparity.
+
+## [Phosphor Decay Filter]
+**Concept:** A post-processing effect that simulates the temporal persistence of phosphors on old CRT monitors. Different color channels (like green) often decay slower than others, leaving colorful trails behind moving objects.
+**Fate:** Implemented
+**Lesson:** Using a stateful struct containing a `Vec<u32>` history buffer combined with per-channel fixed-point exponential decay enables an efficient, memory-safe, and highly aesthetic CRT ghosting effect that accurately models physical phosphor persistence without the need for complex historical frame caching arrays.
