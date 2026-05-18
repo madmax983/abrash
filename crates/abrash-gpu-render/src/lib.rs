@@ -619,19 +619,7 @@ impl GpuMeshApp {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Scene Uniform Layout "),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
+        let uniform_layout = create_uniform_layout(&device, "Scene Uniform Layout ");
 
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Scene Uniform Bind Group "),
@@ -648,45 +636,14 @@ impl GpuMeshApp {
             immediate_size: 0,
         });
 
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("GPU Cube Pipeline "),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[GpuVertex::layout()],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth24Plus,
-                depth_write_enabled: Some(true),
-                depth_compare: Some(wgpu::CompareFunction::Less),
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: surface_config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            multiview_mask: None,
-            cache: None,
-        });
+        let pipeline = create_render_pipeline(
+            &device,
+            &shader,
+            &pipeline_layout,
+            surface_config.format,
+            "GPU Cube Pipeline ",
+            &[GpuVertex::layout()],
+        );
 
         // ⚡ Bolt: Eliminate O(N) intermediate heap allocation by using bytemuck to directly cast GpuVertex slice to bytes
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -848,7 +805,6 @@ impl GpuMeshApp {
 ///
 /// Returns an error if mesh validation fails or the event loop/window/GPU setup
 /// cannot be created.
-#[allow(clippy::too_many_lines)]
 #[cfg(feature = "windowed")]
 pub fn run_mesh_demo(
     vertices: Vec<GpuVertex>,
@@ -859,14 +815,8 @@ pub fn run_mesh_demo(
     validate_mesh(&vertices, &indices)
         .map_err(|err| format!("Invalid mesh for GPU render demo: {err}"))?;
 
-    let event_loop = EventLoop::new().map_err(|e| format!("Failed to create event loop: {e}"))?;
-    let window = Arc::new(
-        WindowBuilder::new()
-            .with_title(config.title.as_str())
-            .with_inner_size(PhysicalSize::new(config.width, config.height))
-            .build(&event_loop)
-            .map_err(|e| format!("Failed to create window: {e}"))?,
-    );
+    let (event_loop, window) =
+        create_demo_window(config.title.as_str(), config.width, config.height)?;
 
     let mut app = pollster::block_on(GpuMeshApp::new(window.clone(), vertices, indices, config))?;
 
@@ -1067,19 +1017,7 @@ impl GpuOffscreenBench {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Offscreen Bench Uniform Layout "),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
+        let uniform_layout = create_uniform_layout(&device, "Offscreen Bench Uniform Layout ");
 
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Offscreen Bench Uniform Bind Group "),
@@ -1096,45 +1034,14 @@ impl GpuOffscreenBench {
             immediate_size: 0,
         });
 
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Offscreen Bench Pipeline "),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[GpuVertex::layout()],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth24Plus,
-                depth_write_enabled: Some(true),
-                depth_compare: Some(wgpu::CompareFunction::Less),
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            multiview_mask: None,
-            cache: None,
-        });
+        let pipeline = create_render_pipeline(
+            &device,
+            &shader,
+            &pipeline_layout,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            "Offscreen Bench Pipeline ",
+            &[GpuVertex::layout()],
+        );
 
         // ⚡ Bolt: Eliminate O(N) intermediate heap allocation by using bytemuck to directly cast GpuVertex slice to bytes
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -1253,4 +1160,86 @@ impl GpuOffscreenBench {
     pub const fn dimensions(&self) -> (u32, u32) {
         (self.config.width, self.config.height)
     }
+}
+
+fn create_uniform_layout(device: &wgpu::Device, label: &str) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some(label),
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::VERTEX,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        }],
+    })
+}
+
+fn create_render_pipeline(
+    device: &wgpu::Device,
+    shader: &wgpu::ShaderModule,
+    pipeline_layout: &wgpu::PipelineLayout,
+    format: wgpu::TextureFormat,
+    label: &str,
+    vertex_layouts: &[wgpu::VertexBufferLayout<'_>],
+) -> wgpu::RenderPipeline {
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some(label),
+        layout: Some(pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: shader,
+            entry_point: Some("vs_main"),
+            buffers: vertex_layouts,
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+        },
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: Some(wgpu::Face::Back),
+            polygon_mode: wgpu::PolygonMode::Fill,
+            unclipped_depth: false,
+            conservative: false,
+        },
+        depth_stencil: Some(wgpu::DepthStencilState {
+            format: wgpu::TextureFormat::Depth24Plus,
+            depth_write_enabled: Some(true),
+            depth_compare: Some(wgpu::CompareFunction::Less),
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        }),
+        multisample: wgpu::MultisampleState::default(),
+        fragment: Some(wgpu::FragmentState {
+            module: shader,
+            entry_point: Some("fs_main"),
+            targets: &[Some(wgpu::ColorTargetState {
+                format,
+                blend: Some(wgpu::BlendState::REPLACE),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+        }),
+        multiview_mask: None,
+        cache: None,
+    })
+}
+
+#[cfg(feature = "windowed")]
+fn create_demo_window(
+    title: &str,
+    width: u32,
+    height: u32,
+) -> Result<(EventLoop<()>, std::sync::Arc<Window>), String> {
+    let event_loop = EventLoop::new().map_err(|e| format!("Failed to create event loop: {e}"))?;
+    let window = std::sync::Arc::new(
+        WindowBuilder::new()
+            .with_title(title)
+            .with_inner_size(PhysicalSize::new(width, height))
+            .build(&event_loop)
+            .map_err(|e| format!("Failed to create window: {e}"))?,
+    );
+    Ok((event_loop, window))
 }

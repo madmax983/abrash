@@ -1,216 +1,643 @@
-    Checking gpu-allocator v0.28.0
-   Compiling wgpu-hal v29.0.0
-   Compiling winit v0.30.13
-   Compiling alsa-sys v0.3.1
-    Checking heapless v0.8.0
-   Compiling glutin v0.32.3
-    Checking smithay-client-toolkit v0.20.0
-    Checking wgpu-naga-bridge v29.0.0
-    Checking async-signal v0.2.13
-    Checking sctk-adwaita v0.10.1
-    Checking glutin_glx_sys v0.6.1
-    Checking glutin_egl_sys v0.7.1
-    Checking ddsfile v0.5.2
-    Checking realfft v3.5.0
-    Checking khronos-egl v6.0.0
-   Compiling zbus_names v4.3.1
-    Checking async-lock v3.4.2
-    Checking fyrox-graphics v1.0.0-rc.2
-    Checking piper v0.2.5
-    Checking wayland-protocols-plasma v0.3.11
-    Checking calloop v0.12.4
-    Checking fast_image_resize v5.5.0
     Checking abrash-core v0.1.0 (/app/crates/abrash-core)
-   Compiling glutin-winit v0.5.0
-    Checking ordered-float v2.10.1
-    Checking dpi v0.1.2
-    Checking tbc v0.3.0
-    Checking strsim v0.11.1
-    Checking renderdoc-sys v1.1.0
-   Compiling camino v1.2.2
-    Checking option-ext v0.2.0
-    Checking extended v0.1.0
-    Checking glow v0.17.0
-    Checking clap_lex v1.0.0
-   Compiling smithay-client-toolkit v0.18.1
-   Compiling drm-sys v0.8.1
-    Checking clap_builder v4.5.60
-    Checking symphonia-format-riff v0.5.5
-    Checking dirs-sys v0.4.1
-    Checking fyrox-texture v1.0.0-rc.2
-    Checking serde-value v0.7.0
-    Checking calloop-wayland-source v0.2.0
-    Checking async-process v2.5.0
-   Compiling zbus_macros v5.14.0
-    Checking blocking v1.6.2
-    Checking smithay-clipboard v0.7.3
-    Checking rubato v0.14.1
-    Checking rstar v0.12.2
-    Checking ratatui-macros v0.7.0
-    Checking toml v0.8.23
-    Checking gltf-json v1.4.1
-    Checking wayland-protocols-wlr v0.2.0
-    Checking ratatui-crossterm v0.1.0
-    Checking js-sys v0.3.91
-    Checking symphonia-bundle-flac v0.5.5
-    Checking symphonia-format-mkv v0.5.5
-    Checking symphonia-format-ogg v0.5.5
-    Checking symphonia-codec-vorbis v0.5.5
-    Checking async-broadcast v0.7.2
-    Checking bevy_math v0.18.1
-    Checking symphonia-bundle-mp3 v0.5.5
-    Checking x11-clipboard v0.9.3
-    Checking toml_parser v1.0.9+spec-1.1.0
-    Checking serde-untagged v0.1.9
-    Checking async-executor v1.14.0
-    Checking symphonia-codec-adpcm v0.5.5
-    Checking symphonia-codec-alac v0.5.5
-    Checking symphonia-codec-aac v0.5.5
-    Checking symphonia-codec-pcm v0.5.5
-   Compiling clap_derive v4.5.55
-    Checking simba v0.8.1
-   Compiling wgpu-core v29.0.0
-    Checking ordered-stream v0.2.0
-    Checking num-iter v0.1.45
-    Checking is-docker v0.2.0
-   Compiling async-trait v0.1.89
-   Compiling async-recursion v1.1.1
-   Compiling serde_repr v0.1.20
-    Checking semver v1.0.27
-    Checking toml_datetime v0.7.5+spec-1.1.0
-    Checking urlencoding v2.1.3
-   Compiling cfg_aliases v0.1.1
-    Checking ttf-parser v0.21.1
-    Checking rustc-hash v2.1.1
-    Checking linux-raw-sys v0.9.4
-   Compiling radium v0.7.0
-    Checking unicode-xid v0.2.6
-   Compiling drm-fourcc v2.2.0
-    Checking hex v0.4.3
-    Checking base64 v0.13.1
-    Checking zbus v5.14.0
-    Checking nalgebra v0.32.6
-    Checking gltf v1.4.1
-    Checking fontdue v0.9.3
-    Checking cargo-util-schemas v0.8.2
-   Compiling winit v0.29.15
-    Checking clap v4.5.60
-    Checking is-wsl v0.4.0
-    Checking num v0.4.3
-    Checking symphonia v0.5.5
-    Checking copypasta v0.10.2
-    Checking ratatui v0.30.0
-    Checking tinyaudio v2.0.0
-    Checking parry3d v0.25.3
-    Checking wgpu-core-deps-windows-linux-android v29.0.0
-    Checking hrtf v0.8.1
-    Checking fyrox-material v1.0.0-rc.3
-    Checking directories v5.0.1
-    Checking parry2d v0.25.3
-    Checking bevy_time v0.18.1
-    Checking fyrox-graph v1.0.0-rc.2
-    Checking fyrox-animation v1.0.0-rc.2
-    Checking bstr v1.12.1
-    Checking uvgen v0.3.0
-    Checking rand_distr v0.4.3
-    Checking sysinfo v0.29.11
-   Compiling wgpu v29.0.0
-    Checking itertools v0.12.1
-   Compiling tiny-xlib v0.2.4
-    Checking cargo-platform v0.3.2
-    Checking glow v0.16.0
-    Checking tap v1.0.1
-    Checking serde_spanned v1.0.4
-    Checking pathdiff v0.2.3
-    Checking adler32 v1.2.0
-    Checking hound v3.5.1
-    Checking const-fnv1a-hash v1.1.0
-    Checking toml_writer v1.0.6+spec-1.1.0
-    Checking fyrox-sound v1.0.0-rc.2
-    Checking toml_edit v0.23.10+spec-1.0.0
-    Checking imageproc v0.25.0
-    Checking bevy_diagnostic v0.18.1
-    Checking fyrox-graphics-gl v1.0.0-rc.2
-    Checking inflate v0.4.5
-    Checking open v5.3.3
-    Checking toml v0.9.12+spec-1.1.0
-    Checking wyz v0.5.1
-    Checking fyrox-ui v1.0.0-rc.3
-    Checking cargo_metadata v0.22.0
-    Checking lightmap v0.4.0
-    Checking rapier2d v0.30.1
-    Checking opener v0.8.4
-    Checking rapier3d v0.30.1
-    Checking sctk-adwaita v0.8.3
-    Checking drm-ffi v0.9.1
-    Checking wasm-bindgen-futures v0.4.64
-    Checking web-sys v0.3.91
-    Checking bevy_input v0.18.1
-    Checking bevy_transform v0.18.1
-    Checking wayland-protocols-plasma v0.2.0
-    Checking console_error_panic_hook v0.1.7
-    Checking beamterm-data v0.10.0
-    Checking fyrox-autotile v1.0.0-rc.2
-    Checking funty v2.0.0
-    Checking ctor-lite v0.1.2
-    Checking rust-fuzzy-search v0.1.1
-    Checking bitvec v1.0.1
-    Checking bevy_internal v0.18.1
-    Checking drm v0.14.1
-    Checking fyrox-impl v1.0.0-rc.2
+warning: this function has too many lines (240/100)
+   --> crates/abrash-core/src/clipping.rs:118:1
+    |
+118 | / pub fn clip_triangle_to_frustum<V: Copy>(
+119 | |     v0: V,
+120 | |     v1: V,
+121 | |     v2: V,
+122 | |     get_pos: impl Fn(&V) -> (Vec3, f32),
+123 | |     lerp: impl Fn(V, V, f32) -> V,
+124 | | ) -> ClippedTriangles<V> {
+    | |________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+    = note: requested on the command line with `-W clippy::too-many-lines`
+
+warning: this function has too many lines (120/100)
+   --> crates/abrash-core/src/math/mat4.rs:812:5
+    |
+812 | /     unsafe fn transform_points_avx2(
+813 | |         &self,
+814 | |         points: &[Vec3],
+815 | |         output: &mut [MaybeUninit<(Vec3, f32)>],
+816 | |     ) {
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (155/100)
+    --> crates/abrash-core/src/math/mat4.rs:1073:5
+     |
+1073 |     pub fn inverse(&self) -> Self {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: `abrash-core` (lib) generated 3 warnings
     Checking abrash-render v0.1.0 (/app/crates/abrash-render)
     Checking abrash-anim v0.1.0 (/app/crates/abrash-anim)
-    Checking pollster v0.3.0
-    Checking abrash-skeletal v0.1.0 (/app/crates/abrash-skeletal)
-    Checking softbuffer v0.4.8
-    Checking bevy v0.18.1
     Checking abrash-raycast v0.1.0 (/app/crates/abrash-raycast)
-    Checking comfy-table v7.2.2
-    Checking rand_core v0.9.5
-    Checking plotters-backend v0.3.7
-    Checking ciborium-io v0.2.2
-    Checking ciborium-ll v0.2.2
-    Checking plotters-svg v0.3.7
-    Checking tempfile v3.26.0
-    Checking abrash-gpu-render v0.1.0 (/app/crates/abrash-gpu-render)
-    Checking itertools v0.10.5
-    Checking beamterm-renderer v0.10.0
-    Checking ratzilla v0.3.0
-    Checking wait-timeout v0.2.1
-    Checking fnv v1.0.7
-    Checking quick-error v1.2.3
-    Checking cast v0.3.0
-    Checking rusty-fork v0.3.1
-    Checking criterion-plot v0.5.0
-    Checking plotters v0.3.7
-    Checking ciborium v0.2.2
-    Checking rand_chacha v0.9.0
-    Checking rand v0.9.2
-    Checking rand_xorshift v0.4.0
-    Checking bit-set v0.8.0
-    Checking tinytemplate v1.2.1
-    Checking is-terminal v0.4.17
-    Checking anes v0.1.6
-    Checking oorandom v11.1.5
-    Checking unarray v0.1.4
-    Checking proptest v1.11.0
-    Checking criterion v0.5.1
-    Checking fyrox v1.0.0-rc.2
-    Checking abrash v0.1.0 (/app)
-error: variables can be used directly in the `format!` string
-  --> benches/heat_vision_bench.rs:29:30
-   |
-29 |         group.bench_function(format!("{}x{}", w, h), |b| {
-   |                              ^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#uninlined_format_args
-   = note: `-D clippy::uninlined-format-args` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(clippy::uninlined_format_args)]`
-help: change this to
-   |
-29 -         group.bench_function(format!("{}x{}", w, h), |b| {
-29 +         group.bench_function(format!("{w}x{h}"), |b| {
-   |
+    Checking abrash-skeletal v0.1.0 (/app/crates/abrash-skeletal)
+warning: this function has too many lines (104/100)
+   --> crates/abrash-render/src/rasterizer/flat.rs:343:1
+    |
+343 | / pub fn fill_triangle_3d(
+344 | |     fb: &mut Framebuffer,
+345 | |     zb: &mut ZBuffer,
+346 | |     v0: (Vec3, f32),
+...   |
+349 | |     color: u32,
+350 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+    = note: requested on the command line with `-W clippy::too-many-lines`
 
-error: could not compile `abrash` (bench "heat_vision_bench") due to 1 previous error
-warning: build failed, waiting for other jobs to finish...
+warning: this function has too many lines (130/100)
+   --> crates/abrash-render/src/rasterizer/gouraud.rs:323:1
+    |
+323 | / pub fn draw_scanline_gouraud_i32(
+324 | |     fb: &mut Framebuffer,
+325 | |     zb: &mut ZBuffer,
+326 | |     y: i32,
+...   |
+332 | |     dc_dx: (i32, i32, i32),
+333 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (120/100)
+   --> crates/abrash-render/src/rasterizer/gouraud.rs:691:1
+    |
+691 | / pub fn fill_triangle_gouraud(
+692 | |     fb: &mut Framebuffer,
+693 | |     zb: &mut ZBuffer,
+694 | |     v0: ((Vec3, f32), Vec3), // ((position, w), color)
+695 | |     v1: ((Vec3, f32), Vec3),
+696 | |     v2: ((Vec3, f32), Vec3),
+697 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (149/100)
+   --> crates/abrash-render/src/rasterizer/pbr.rs:329:1
+    |
+329 | / pub fn fill_triangle_pbr(
+330 | |     fb: &mut Framebuffer,
+331 | |     zb: &mut ZBuffer,
+332 | |     v0: ((Vec3, f32), Vec3, Vec3), // ((ClipPos, W), Normal, WorldPos)
+...   |
+341 | |     view_pos: Vec3,
+342 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (311/100)
+  --> crates/abrash-render/src/rasterizer/phong.rs:29:1
+   |
+29 | / unsafe fn draw_scanline_phong_shadowed_simd(
+30 | |     fb_slice: &mut [u32],
+31 | |     zb_slice: &mut [f32],
+32 | |     start: ShadowPhongSpanStart,
+...  |
+38 | |     light_vp: Mat4,
+39 | | ) {
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (177/100)
+   --> crates/abrash-render/src/rasterizer/phong.rs:401:1
+    |
+401 | / unsafe fn draw_scanline_point_lit_simd(
+402 | |     fb_slice: &mut [u32],
+403 | |     zb_slice: &mut [f32],
+404 | |     z: f32,
+...   |
+416 | |     attenuation: Vec3,
+417 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (153/100)
+   --> crates/abrash-render/src/rasterizer/phong.rs:783:1
+    |
+783 | / pub fn fill_triangle_point_lit(
+784 | |     fb: &mut Framebuffer,
+785 | |     zb: &mut ZBuffer,
+786 | |     v0: ((Vec3, f32), Vec3, Vec3), // ((ClipPos, W), Normal, WorldPos)
+...   |
+792 | |     attenuation: Vec3,
+793 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (129/100)
+   --> crates/abrash-render/src/rasterizer/phong.rs:981:1
+    |
+981 | / fn draw_scanline_phong_shadowed(
+982 | |     fb: &mut Framebuffer,
+983 | |     zb: &mut ZBuffer,
+984 | |     y: i32,
+...   |
+993 | |     light_vp: Mat4,
+994 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (156/100)
+    --> crates/abrash-render/src/rasterizer/phong.rs:1202:1
+     |
+1202 | / pub fn fill_triangle_phong_shadowed(
+1203 | |     fb: &mut Framebuffer,
+1204 | |     zb: &mut ZBuffer,
+1205 | |     v0: ((Vec3, f32), Vec3, Vec3), // ((ClipPos, W), Normal, WorldPos)
+...    |
+1213 | |     light_vp: Mat4,
+1214 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (122/100)
+    --> crates/abrash-render/src/rasterizer/phong.rs:1599:1
+     |
+1599 | / unsafe fn draw_scanline_phong_simd(
+1600 | |     fb_slice: &mut [u32],
+1601 | |     zb_slice: &mut [f32],
+1602 | |     z: f32,
+...    |
+1609 | |     ambient_255: Vec3, // Pre-scaled by 255.0
+1610 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (123/100)
+    --> crates/abrash-render/src/rasterizer/phong.rs:1934:1
+     |
+1934 | / pub fn fill_triangle_phong(
+1935 | |     fb: &mut Framebuffer,
+1936 | |     zb: &mut ZBuffer,
+1937 | |     v0: ((Vec3, f32), Vec3),
+...    |
+1943 | |     ambient: Vec3,
+1944 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (134/100)
+   --> crates/abrash-render/src/rasterizer/rect.rs:239:1
+    |
+239 | / pub fn draw_rounded_rect(
+240 | |     fb: &mut Framebuffer,
+241 | |     x: i32,
+242 | |     y: i32,
+...   |
+246 | |     color: u32,
+247 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (123/100)
+   --> crates/abrash-render/src/rasterizer/rect.rs:438:1
+    |
+438 | / pub fn fill_rounded_rect(
+439 | |     fb: &mut Framebuffer,
+440 | |     x: i32,
+441 | |     y: i32,
+...   |
+445 | |     color: u32,
+446 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (161/100)
+  --> crates/abrash-render/src/rasterizer/reflection.rs:28:1
+   |
+28 | / unsafe fn draw_scanline_reflection_simd(
+29 | |     fb_slice: &mut [u32],
+30 | |     zb_slice: &mut [f32],
+31 | |     start: ReflectionSpanStart,
+...  |
+34 | |     cubemap: &Cubemap,
+35 | | ) {
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (102/100)
+   --> crates/abrash-render/src/rasterizer/reflection.rs:240:1
+    |
+240 | / fn draw_scanline_reflection(
+241 | |     fb: &mut Framebuffer,
+242 | |     zb: &mut ZBuffer,
+243 | |     y: i32,
+...   |
+249 | |     cubemap: &Cubemap,
+250 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (150/100)
+   --> crates/abrash-render/src/rasterizer/reflection.rs:393:1
+    |
+393 | / pub fn fill_triangle_reflection(
+394 | |     fb: &mut Framebuffer,
+395 | |     zb: &mut ZBuffer,
+396 | |     v0: ((Vec3, f32), Vec3, Vec3), // ((ClipPos, W), Normal, WorldPos)
+...   |
+400 | |     cubemap: &Cubemap,
+401 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (132/100)
+   --> crates/abrash-render/src/rasterizer/texture.rs:397:1
+    |
+397 | / pub(crate) fn draw_span_bilinear(
+398 | |     fb_slice: &mut [u32],
+399 | |     zb_slice: &mut [f32],
+400 | |     texture: &Texture,
+...   |
+406 | |     dv_fix: i32,
+407 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (229/100)
+   --> crates/abrash-render/src/rasterizer/texture.rs:573:1
+    |
+573 | / pub(crate) unsafe fn draw_span_bilinear_simd(
+574 | |     fb_slice: &mut [u32],
+575 | |     zb_slice: &mut [f32],
+576 | |     texture: &Texture,
+...   |
+582 | |     dv_fix: i32,
+583 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (167/100)
+   --> crates/abrash-render/src/rasterizer/texture.rs:951:1
+    |
+951 | / pub(crate) unsafe fn draw_span_nearest_simd(
+952 | |     fb_slice: &mut [u32],
+953 | |     zb_slice: &mut [f32],
+954 | |     texture: &Texture,
+...   |
+960 | |     dv_fix: i32,
+961 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (140/100)
+    --> crates/abrash-render/src/rasterizer/texture.rs:1186:1
+     |
+1186 | / unsafe fn draw_scanline_textured_perspective_simd(
+1187 | |     fb_slice: &mut [u32],
+1188 | |     zb_slice: &mut [f32],
+1189 | |     z: f32,
+...    |
+1194 | |     texture: &Texture,
+1195 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (230/100)
+    --> crates/abrash-render/src/rasterizer/texture.rs:1382:1
+     |
+1382 | / pub fn draw_scanline_textured_perspective(
+1383 | |     fb: &mut Framebuffer,
+1384 | |     zb: &mut ZBuffer,
+1385 | |     texture: &Texture,
+...    |
+1390 | |     gradients: &PerspectiveTextureGradients,
+1391 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (130/100)
+    --> crates/abrash-render/src/rasterizer/texture.rs:1968:1
+     |
+1968 | / fn fill_projected_triangle_textured_with_gradients(
+1969 | |     fb: &mut Framebuffer,
+1970 | |     zb: &mut ZBuffer,
+1971 | |     p0: ScreenPoint,
+...    |
+1982 | |     check_backface: bool,
+1983 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (225/100)
+    --> crates/abrash-render/src/rasterizer/texture.rs:2487:1
+     |
+2487 | / unsafe fn draw_scanline_normal_mapped_simd(
+2488 | |     fb_slice: &mut [u32],
+2489 | |     zb_slice: &mut [f32],
+2490 | |     z: f32,
+...    |
+2501 | |     ambient: Vec3,
+2502 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (214/100)
+    --> crates/abrash-render/src/rasterizer/texture.rs:2799:1
+     |
+2799 | / pub(crate) unsafe fn draw_span_trilinear_simd(
+2800 | |     fb_slice: &mut [u32],
+2801 | |     zb_slice: &mut [f32],
+2802 | |     texture: &Texture,
+...    |
+2809 | |     lod: f32,
+2810 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (165/100)
+    --> crates/abrash-render/src/rasterizer/texture.rs:3271:1
+     |
+3271 | / pub fn fill_triangle_normal_mapped(
+3272 | |     fb: &mut Framebuffer,
+3273 | |     zb: &mut ZBuffer,
+3274 | |     v0: ((Vec3, f32), Vec2, Vec3, Vec4),
+...    |
+3281 | |     ambient: Vec3,
+3282 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (130/100)
+    --> crates/abrash-render/src/rasterizer/texture.rs:3741:1
+     |
+3741 | / unsafe fn draw_span_textured_gouraud_simd(
+3742 | |     fb_slice: &mut [u32],
+3743 | |     zb_slice: &mut [f32],
+3744 | |     texture: &Texture,
+...    |
+3756 | |     db_dx: i32,
+3757 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (222/100)
+    --> crates/abrash-render/src/rasterizer/texture.rs:3936:1
+     |
+3936 | / unsafe fn draw_span_textured_gouraud_bilinear_simd(
+3937 | |     fb_slice: &mut [u32],
+3938 | |     zb_slice: &mut [f32],
+3939 | |     texture: &Texture,
+...    |
+3951 | |     db_dx: i32,
+3952 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (220/100)
+    --> crates/abrash-render/src/rasterizer/texture.rs:4329:1
+     |
+4329 | / pub fn draw_scanline_textured_gouraud(
+4330 | |     fb: &mut Framebuffer,
+4331 | |     zb: &mut ZBuffer,
+4332 | |     y: i32,
+...    |
+4337 | |     texture: &Texture,
+4338 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (124/100)
+    --> crates/abrash-render/src/rasterizer/texture.rs:5260:1
+     |
+5260 | / pub fn fill_triangle_laplacian_blend(
+5261 | |     fb: &mut Framebuffer,
+5262 | |     zb: &mut ZBuffer,
+5263 | |     v0: ((Vec3, f32), Vec2),
+...    |
+5269 | |     num_levels: usize,
+5270 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (187/100)
+    --> crates/abrash-render/src/rasterizer/tile.rs:1187:1
+     |
+1187 | / fn rasterize_scanline_textured(
+1188 | |     pixels: &mut [u32],
+1189 | |     depths: &mut [f32],
+1190 | |     texture: &Texture,
+1191 | |     start: PerspectiveSpanStart,
+1192 | |     gradients: &PerspectiveTextureGradients,
+1193 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (186/100)
+    --> crates/abrash-render/src/rasterizer/tile.rs:1993:5
+     |
+1993 | /     pub fn end_frame_into_slices(
+1994 | |         &mut self,
+1995 | |         width: u32,
+1996 | |         height: u32,
+1997 | |         pixels: &mut [u32],
+1998 | |         depths: &mut [f32],
+1999 | |     ) {
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (217/100)
+    --> crates/abrash-render/src/rasterizer/tile.rs:2328:5
+     |
+2328 | /     pub fn render_batch_textured_into_slices(
+2329 | |         &mut self,
+2330 | |         width: u32,
+2331 | |         height: u32,
+...    |
+2335 | |         texture: &Texture,
+2336 | |     ) {
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (206/100)
+    --> crates/abrash-render/src/rasterizer/tile.rs:2577:5
+     |
+2577 | /     pub fn render_batch_gouraud(
+2578 | |         &mut self,
+2579 | |         fb: &mut Framebuffer,
+2580 | |         zb: &mut ZBuffer,
+...    |
+2585 | |         )],
+2586 | |     ) {
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (109/100)
+  --> crates/abrash-render/src/experimental/boids.rs:83:5
+   |
+83 |     pub fn update(&mut self, delta_time: f32) {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (108/100)
+  --> crates/abrash-render/src/experimental/conway.rs:58:1
+   |
+58 | pub fn apply_conway(fb: &mut Framebuffer, config: &ConwayConfig) {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (101/100)
+  --> crates/abrash-render/src/experimental/mosaic.rs:23:1
+   |
+23 | pub fn apply_hex_mosaic(fb: &mut Framebuffer, cell_size: f32, border_size: f32, border_color: u32) {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (107/100)
+  --> crates/abrash-render/src/experimental/paper_cutout.rs:55:1
+   |
+55 | pub fn apply_paper_cutout(fb: &mut Framebuffer, zb: &ZBuffer, config: &PaperCutoutConfig) {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (154/100)
+  --> crates/abrash-render/src/experimental/physarum.rs:81:1
+   |
+81 | pub fn apply_physarum(fb: &mut Framebuffer, config: &PhysarumConfig) {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (126/100)
+  --> crates/abrash-render/src/experimental/radial_blur.rs:22:1
+   |
+22 | / pub fn apply_radial_blur(
+23 | |     fb: &mut Framebuffer,
+24 | |     cx: usize,
+25 | |     cy: usize,
+26 | |     strength: f32,
+27 | |     samples: usize,
+28 | | ) {
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: this function has too many lines (306/100)
+  --> crates/abrash-render/src/experimental/voronoi.rs:51:1
+   |
+51 | pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: `abrash-render` (lib) generated 40 warnings
+    Checking abrash-gpu-render v0.1.0 (/app/crates/abrash-gpu-render)
+    Checking abrash v0.1.0 (/app)
+warning: this function has too many lines (112/100)
+  --> examples/reflection_demo.rs:48:1
+   |
+48 | fn main() {
+   | ^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+   = note: requested on the command line with `-W clippy::too-many-lines`
+
+warning: `abrash` (example "reflection_demo") generated 1 warning
+warning: this function has too many lines (107/100)
+  --> examples/gpu_obj.rs:31:1
+   |
+31 | fn main() {
+   | ^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+   = note: requested on the command line with `-W clippy::too-many-lines`
+
+warning: `abrash` (example "gpu_obj") generated 1 warning
+warning: this function has too many lines (111/100)
+  --> benches/clipping_optimization.rs:33:1
+   |
+33 | / pub fn clip_triangle_to_frustum_legacy<V: Lerp + Copy + Default>(
+34 | |     v0: V,
+35 | |     v1: V,
+36 | |     v2: V,
+37 | |     get_pos: impl Fn(&V) -> (Vec3, f32),
+38 | | ) -> ClippedTriangles<V> {
+   | |________________________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+   = note: requested on the command line with `-W clippy::too-many-lines`
+
+warning: `abrash` (bench "clipping_optimization") generated 1 warning
+warning: this function has too many lines (222/100)
+   --> examples/obj_viewer.rs:334:1
+    |
+334 | fn main() -> Result<(), Box<dyn std::error::Error>> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+    = note: requested on the command line with `-W clippy::too-many-lines`
+
+warning: `abrash` (example "obj_viewer") generated 1 warning
+warning: this function has too many lines (101/100)
+   --> examples/gpu_deferred_showcase.rs:122:5
+    |
+122 |     fn build_frame(&self, elapsed: f32, aspect: f32) -> Frame {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+    = note: requested on the command line with `-W clippy::too-many-lines`
+
+warning: this function has too many lines (124/100)
+   --> examples/gpu_deferred_showcase.rs:270:5
+    |
+270 |     fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+warning: `abrash` (example "gpu_deferred_showcase") generated 2 warnings
+warning: this function has too many lines (107/100)
+  --> tests/security_scanline_bounds.rs:12:1
+   |
+12 | fn test_scanlines_handle_out_of_bounds_y_gracefully() {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+   = note: requested on the command line with `-W clippy::too-many-lines`
+
+warning: `abrash` (test "security_scanline_bounds") generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 20.93s
