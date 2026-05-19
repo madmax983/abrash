@@ -25,6 +25,10 @@ fn bench_zbuffer_clear(c: &mut Criterion) {
         b.iter(|| zb_4k.clear_rect(200, 200, 2000, 1000));
     });
 
+    group.bench_function("clear_rect_parallel_4k_bench", |b| {
+        b.iter(|| zb_4k.clear_rect(0, 0, 3840, 2000));
+    });
+
     group.finish();
 }
 
