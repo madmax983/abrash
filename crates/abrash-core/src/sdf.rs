@@ -70,15 +70,45 @@ fn mix(a: f32, b: f32, t: f32) -> f32 {
 
 // ── 2D primitives ─────────────────────────────────────────────────────────────
 
-/// Signed distance from `p` to a circle centred at `centre` with `radius`.
+/// Computes the signed distance from a point to a 2D circle.
+///
+/// This is the most fundamental 2D SDF. It exists to define spherical volumes in 2D space,
+/// which are computationally cheap and form the basis of many procedural shapes through blending.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::circle_2d;
+/// use abrash_core::math::Vec2;
+///
+/// // A circle of radius 5.0 at the origin
+/// let dist = circle_2d(Vec2::new(5.0, 0.0), Vec2::ZERO, 5.0);
+/// assert!((dist).abs() < 1e-5); // Exactly on the edge
+///
+/// let inside = circle_2d(Vec2::new(0.0, 0.0), Vec2::ZERO, 5.0);
+/// assert_eq!(inside, -5.0); // Inside by 5 units
+/// ```
 #[must_use]
 #[inline]
 pub fn circle_2d(p: Vec2, centre: Vec2, radius: f32) -> f32 {
     (p - centre).length() - radius
 }
 
-/// Signed distance from `p` to an axis-aligned rectangle centred at `centre`
-/// with half-extents `half_size` (i.e. the rect spans `centre ± half_size`).
+/// Computes the signed distance from a point to an axis-aligned 2D rectangle.
+///
+/// This function is used to create hard-edged boxy shapes. The `half_size` parameter
+/// defines the distance from the `centre` to the edges (so the total width is `2.0 * half_size.x`).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::rect_2d;
+/// use abrash_core::math::Vec2;
+///
+/// // A 4x4 square centred at the origin (half_size = 2x2)
+/// let dist = rect_2d(Vec2::new(3.0, 0.0), Vec2::ZERO, Vec2::new(2.0, 2.0));
+/// assert_eq!(dist, 1.0); // 1 unit outside the right edge
+/// ```
 #[must_use]
 #[inline]
 pub fn rect_2d(p: Vec2, centre: Vec2, half_size: Vec2) -> f32 {
@@ -216,15 +246,44 @@ pub fn half_plane_2d(p: Vec2, normal: Vec2, d: f32) -> f32 {
 
 // ── 3D primitives ─────────────────────────────────────────────────────────────
 
-/// Signed distance from `p` to a sphere centred at `centre`.
+/// Computes the signed distance from a point to a 3D sphere.
+///
+/// This is the most fundamental 3D SDF. It is used as a cheap bounding volume
+/// or as a primary building block for creating organic, rounded 3D structures via [`smooth_union`].
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::sphere_3d;
+/// use abrash_core::math::Vec3;
+///
+/// let centre = Vec3::new(0.0, 10.0, 0.0);
+/// let dist = sphere_3d(Vec3::new(0.0, 12.0, 0.0), centre, 1.0);
+/// assert_eq!(dist, 1.0); // 1 unit away from the sphere's surface
+/// ```
 #[must_use]
 #[inline]
 pub fn sphere_3d(p: Vec3, centre: Vec3, radius: f32) -> f32 {
     (p - centre).length() - radius
 }
 
-/// Signed distance from `p` to an axis-aligned box centred at `centre`
-/// with half-extents `half_size`.
+/// Computes the signed distance from a point to an axis-aligned 3D box.
+///
+/// The box is defined by its `centre` and a `half_size` vector extending from the centre
+/// to the positive bounds along each axis. It is commonly used for man-made structures or
+/// hard-edged mechanical parts.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::box_3d;
+/// use abrash_core::math::Vec3;
+///
+/// // A 2x2x2 cube at the origin
+/// let half_size = Vec3::new(1.0, 1.0, 1.0);
+/// let dist = box_3d(Vec3::new(2.0, 0.0, 0.0), Vec3::ZERO, half_size);
+/// assert_eq!(dist, 1.0); // 1 unit away on the X axis
+/// ```
 #[must_use]
 #[inline]
 pub fn box_3d(p: Vec3, centre: Vec3, half_size: Vec3) -> f32 {
@@ -518,9 +577,24 @@ pub fn link_3d(p: Vec3, centre: Vec3, r1: f32, r2: f32, le: f32) -> f32 {
     (qx * qx + qy.max(0.0) * qy.max(0.0)).sqrt() - r2
 }
 
-/// Smooth union blends two shapes with a soft merging radius `k`.
+/// Smoothly combines two SDFs, creating an organic, blob-like merge instead of a hard crease.
 ///
-/// `k = 0` degenerates to `min(a, b)`. Larger `k` creates a fatter junction.
+/// This exists to model biological forms, melting objects, or clay-like intersections.
+/// A smoothing factor `k` controls the radius of the blend. If `k = 0.0`, it behaves exactly
+/// like a standard boolean union (minimum of the two distances).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::{sphere_3d, smooth_union};
+/// use abrash_core::math::Vec3;
+///
+/// let d1 = sphere_3d(Vec3::new(0.5, 0.0, 0.0), Vec3::ZERO, 1.0);
+/// let d2 = sphere_3d(Vec3::new(0.5, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0), 1.0);
+///
+/// // Smoothly merge them with a blend radius of 0.5
+/// let merged = smooth_union(d1, d2, 0.5);
+/// ```
 #[must_use]
 #[inline]
 pub fn smooth_union(a: f32, b: f32, k: f32) -> f32 {
@@ -531,7 +605,24 @@ pub fn smooth_union(a: f32, b: f32, k: f32) -> f32 {
     mix(b, a, h) - k * h * (1.0 - h)
 }
 
-/// Smooth intersection of two shapes.
+/// Smoothly intersects two SDFs, rounding off the sharp corners where they overlap.
+///
+/// While a standard intersection (maximum of two distances) creates sharp inner corners,
+/// this operation adds a fillet of radius `k` to the internal junction.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::{box_3d, sphere_3d, smooth_intersection};
+/// use abrash_core::math::Vec3;
+///
+/// let point = Vec3::new(0.5, 0.5, 0.0);
+/// let d_box = box_3d(point, Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+/// let d_sphere = sphere_3d(point, Vec3::ZERO, 1.2);
+///
+/// // Create a cube with smoothly chamfered spherical faces
+/// let shape = smooth_intersection(d_box, d_sphere, 0.2);
+/// ```
 #[must_use]
 #[inline]
 pub fn smooth_intersection(a: f32, b: f32, k: f32) -> f32 {
@@ -542,7 +633,24 @@ pub fn smooth_intersection(a: f32, b: f32, k: f32) -> f32 {
     mix(b, a, h) + k * h * (1.0 - h)
 }
 
-/// Smooth subtraction (`a` minus `b`).
+/// Smoothly subtracts one SDF (`b`) from another (`a`), leaving a rounded cavity.
+///
+/// This exists to model smooth indentations, craters, or bites taken out of an object.
+/// It subtracts the volume of `b` from `a`, softening the resulting inner edge by `k`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::{sphere_3d, smooth_subtraction};
+/// use abrash_core::math::Vec3;
+///
+/// let point = Vec3::new(0.5, 0.0, 0.0);
+/// let apple = sphere_3d(point, Vec3::ZERO, 2.0);
+/// let bite = sphere_3d(point, Vec3::new(2.0, 0.0, 0.0), 1.0);
+///
+/// // Take a smooth bite out of the apple
+/// let shape = smooth_subtraction(apple, bite, 0.3);
+/// ```
 #[must_use]
 #[inline]
 pub fn smooth_subtraction(a: f32, b: f32, k: f32) -> f32 {
