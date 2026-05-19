@@ -185,6 +185,8 @@ impl LSystem {
         // Fallback for unicode
         // ⚡ Bolt: Defer `axiom.clone()` until after the ASCII fast-path check
         // to completely eliminate an unnecessary `String` heap allocation on the hot path.
+        // Eliminates a redundant `String::new()` empty heap allocation and immediate `.push_str()`
+        // capacity resizing overhead. `self.axiom.clone()` is faster by directly cloning the buffer.
         let mut current = self.axiom.clone();
 
         let mut rules_array: [Option<&str>; 128] = [None; 128];
