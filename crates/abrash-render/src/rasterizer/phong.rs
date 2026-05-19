@@ -917,9 +917,9 @@ pub fn fill_triangle_point_lit(
                 q_left,
             ) = if long_edge_is_left {
                 (
-                    (edge_a.x >> 16) as i32,
-                    (edge_b.x >> 16) as i32,
-                    edge_a.z,
+                    (edge_a.base.x >> 16) as i32,
+                    (edge_b.base.x >> 16) as i32,
+                    edge_a.base.z,
                     edge_a.nx,
                     edge_a.ny,
                     edge_a.nz,
@@ -930,9 +930,9 @@ pub fn fill_triangle_point_lit(
                 )
             } else {
                 (
-                    (edge_b.x >> 16) as i32,
-                    (edge_a.x >> 16) as i32,
-                    edge_b.z,
+                    (edge_b.base.x >> 16) as i32,
+                    (edge_a.base.x >> 16) as i32,
+                    edge_b.base.z,
                     edge_b.nx,
                     edge_b.ny,
                     edge_b.nz,
@@ -1341,9 +1341,9 @@ pub fn fill_triangle_phong_shadowed(
                 q_left,
             ) = if long_edge_is_left {
                 (
-                    (edge_a.x >> 16) as i32,
-                    (edge_b.x >> 16) as i32,
-                    edge_a.z,
+                    (edge_a.base.x >> 16) as i32,
+                    (edge_b.base.x >> 16) as i32,
+                    edge_a.base.z,
                     edge_a.nx,
                     edge_a.ny,
                     edge_a.nz,
@@ -1354,9 +1354,9 @@ pub fn fill_triangle_phong_shadowed(
                 )
             } else {
                 (
-                    (edge_b.x >> 16) as i32,
-                    (edge_a.x >> 16) as i32,
-                    edge_b.z,
+                    (edge_b.base.x >> 16) as i32,
+                    (edge_a.base.x >> 16) as i32,
+                    edge_b.base.z,
                     edge_b.nx,
                     edge_b.ny,
                     edge_b.nz,
@@ -1494,8 +1494,7 @@ impl ShadowPhongGradients {
 }
 
 struct ShadowPhongEdgeWalker {
-    x: i64,
-    z: f32,
+    base: crate::rasterizer::core::EdgeWalker,
     q: f32,
     nx: f32,
     ny: f32,
@@ -1503,8 +1502,6 @@ struct ShadowPhongEdgeWalker {
     wx: f32,
     wy: f32,
     wz: f32,
-    dx_dy: i64,
-    dz_dy: f32,
     dq_dy: f32,
     dnx_dy: f32,
     dny_dy: f32,
@@ -1526,19 +1523,18 @@ impl ShadowPhongEdgeWalker {
         w_start: Vec3,
         w_end: Vec3,
     ) -> Self {
-        let base = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
+        let base_delta = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
 
-        let dq_dy = (q_end - q_start) * base.inv_h;
-        let dnx_dy = (n_end.x - n_start.x) * base.inv_h;
-        let dny_dy = (n_end.y - n_start.y) * base.inv_h;
-        let dnz_dy = (n_end.z - n_start.z) * base.inv_h;
-        let dwx_dy = (w_end.x - w_start.x) * base.inv_h;
-        let dwy_dy = (w_end.y - w_start.y) * base.inv_h;
-        let dwz_dy = (w_end.z - w_start.z) * base.inv_h;
+        let dq_dy = (q_end - q_start) * base_delta.inv_h;
+        let dnx_dy = (n_end.x - n_start.x) * base_delta.inv_h;
+        let dny_dy = (n_end.y - n_start.y) * base_delta.inv_h;
+        let dnz_dy = (n_end.z - n_start.z) * base_delta.inv_h;
+        let dwx_dy = (w_end.x - w_start.x) * base_delta.inv_h;
+        let dwy_dy = (w_end.y - w_start.y) * base_delta.inv_h;
+        let dwz_dy = (w_end.z - w_start.z) * base_delta.inv_h;
 
         Self {
-            x: base.x_start,
-            z: p_start.z,
+            base: crate::rasterizer::core::EdgeWalker::from_base(&base_delta, p_start),
             q: q_start,
             nx: n_start.x,
             ny: n_start.y,
@@ -1546,8 +1542,6 @@ impl ShadowPhongEdgeWalker {
             wx: w_start.x,
             wy: w_start.y,
             wz: w_start.z,
-            dx_dy: base.dx_dy,
-            dz_dy: base.dz_dy,
             dq_dy,
             dnx_dy,
             dny_dy,
@@ -1559,8 +1553,7 @@ impl ShadowPhongEdgeWalker {
     }
 
     fn step(&mut self) {
-        self.x += self.dx_dy;
-        self.z += self.dz_dy;
+        self.base.step();
         self.q += self.dq_dy;
         self.nx += self.dnx_dy;
         self.ny += self.dny_dy;
@@ -1571,9 +1564,8 @@ impl ShadowPhongEdgeWalker {
     }
 
     fn step_n(&mut self, n: i64) {
+        self.base.step_n(n);
         let n_f = n as f32;
-        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
-        self.z += self.dz_dy * n_f;
         self.q += self.dq_dy * n_f;
         self.nx += self.dnx_dy * n_f;
         self.ny += self.dny_dy * n_f;
@@ -2046,18 +2038,18 @@ pub fn fill_triangle_phong(
 
             let (x_start, x_end, z_left, nx_left, ny_left, nz_left) = if long_edge_is_left {
                 (
-                    (edge_a.x >> 16) as i32,
-                    (edge_b.x >> 16) as i32,
-                    edge_a.z,
+                    (edge_a.base.x >> 16) as i32,
+                    (edge_b.base.x >> 16) as i32,
+                    edge_a.base.z,
                     edge_a.nx,
                     edge_a.ny,
                     edge_a.nz,
                 )
             } else {
                 (
-                    (edge_b.x >> 16) as i32,
-                    (edge_a.x >> 16) as i32,
-                    edge_b.z,
+                    (edge_b.base.x >> 16) as i32,
+                    (edge_a.base.x >> 16) as i32,
+                    edge_b.base.z,
                     edge_b.nx,
                     edge_b.ny,
                     edge_b.nz,
@@ -2174,13 +2166,10 @@ impl PhongGradients {
 }
 
 struct PhongEdgeWalker {
-    x: i64,
-    z: f32,
+    base: crate::rasterizer::core::EdgeWalker,
     nx: f32,
     ny: f32,
     nz: f32,
-    dx_dy: i64,
-    dz_dy: f32,
     dnx_dy: f32,
     dny_dy: f32,
     dnz_dy: f32,
@@ -2189,20 +2178,17 @@ struct PhongEdgeWalker {
 impl PhongEdgeWalker {
     #[allow(clippy::too_many_arguments)]
     fn new(p_start: ScreenPoint, p_end: ScreenPoint, n_start: Vec3, n_end: Vec3) -> Self {
-        let base = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
+        let base_delta = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
 
-        let dnx_dy = (n_end.x - n_start.x) * base.inv_h;
-        let dny_dy = (n_end.y - n_start.y) * base.inv_h;
-        let dnz_dy = (n_end.z - n_start.z) * base.inv_h;
+        let dnx_dy = (n_end.x - n_start.x) * base_delta.inv_h;
+        let dny_dy = (n_end.y - n_start.y) * base_delta.inv_h;
+        let dnz_dy = (n_end.z - n_start.z) * base_delta.inv_h;
 
         Self {
-            x: base.x_start,
-            z: p_start.z,
+            base: crate::rasterizer::core::EdgeWalker::from_base(&base_delta, p_start),
             nx: n_start.x,
             ny: n_start.y,
             nz: n_start.z,
-            dx_dy: base.dx_dy,
-            dz_dy: base.dz_dy,
             dnx_dy,
             dny_dy,
             dnz_dy,
@@ -2210,17 +2196,15 @@ impl PhongEdgeWalker {
     }
 
     fn step(&mut self) {
-        self.x += self.dx_dy;
-        self.z += self.dz_dy;
+        self.base.step();
         self.nx += self.dnx_dy;
         self.ny += self.dny_dy;
         self.nz += self.dnz_dy;
     }
 
     fn step_n(&mut self, n: i64) {
+        self.base.step_n(n);
         let n_f = n as f32;
-        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
-        self.z += self.dz_dy * n_f;
         self.nx += self.dnx_dy * n_f;
         self.ny += self.dny_dy * n_f;
         self.nz += self.dnz_dy * n_f;

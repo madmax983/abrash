@@ -170,13 +170,10 @@ impl PerspectiveTextureGradients {
 }
 
 pub(crate) struct PerspectiveTextureEdgeWalker {
-    pub(crate) x: i64,
-    pub(crate) z: f32,
+    pub(crate) base: crate::rasterizer::core::EdgeWalker,
     pub(crate) q: f32, // 1/w
     pub(crate) u: f32, // u/w
     pub(crate) v: f32, // v/w
-    dx_dy: i64,
-    dz_dy: f32,
     dq_dy: f32,
     du_dy: f32,
     dv_dy: f32,
@@ -194,19 +191,16 @@ impl PerspectiveTextureEdgeWalker {
         v_start: f32,
         v_end: f32,
     ) -> Self {
-        let base = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
-        let dq_dy = (q_end - q_start) * base.inv_h;
-        let du_dy = (u_end - u_start) * base.inv_h;
-        let dv_dy = (v_end - v_start) * base.inv_h;
+        let base_delta = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
+        let dq_dy = (q_end - q_start) * base_delta.inv_h;
+        let du_dy = (u_end - u_start) * base_delta.inv_h;
+        let dv_dy = (v_end - v_start) * base_delta.inv_h;
 
         Self {
-            x: base.x_start,
-            z: p_start.z,
+            base: crate::rasterizer::core::EdgeWalker::from_base(&base_delta, p_start),
             q: q_start,
             u: u_start,
             v: v_start,
-            dx_dy: base.dx_dy,
-            dz_dy: base.dz_dy,
             dq_dy,
             du_dy,
             dv_dy,
@@ -214,17 +208,15 @@ impl PerspectiveTextureEdgeWalker {
     }
 
     pub(crate) fn step(&mut self) {
-        self.x += self.dx_dy;
-        self.z += self.dz_dy;
+        self.base.step();
         self.q += self.dq_dy;
         self.u += self.du_dy;
         self.v += self.dv_dy;
     }
 
     pub(crate) fn step_n(&mut self, n: i64) {
+        self.base.step_n(n);
         let n_f = n as f32;
-        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
-        self.z += self.dz_dy * n_f;
         self.q += self.dq_dy * n_f;
         self.u += self.du_dy * n_f;
         self.v += self.dv_dy * n_f;
@@ -2044,18 +2036,18 @@ fn fill_projected_triangle_textured_with_gradients(
 
         let (x_start, x_end, z_left, q_left, u_left, v_left) = if long_edge_is_left {
             (
-                (edge_a.x >> 16) as i32,
-                (edge_b.x >> 16) as i32,
-                edge_a.z,
+                (edge_a.base.x >> 16) as i32,
+                (edge_b.base.x >> 16) as i32,
+                edge_a.base.z,
                 edge_a.q,
                 edge_a.u,
                 edge_a.v,
             )
         } else {
             (
-                (edge_b.x >> 16) as i32,
-                (edge_a.x >> 16) as i32,
-                edge_b.z,
+                (edge_b.base.x >> 16) as i32,
+                (edge_a.base.x >> 16) as i32,
+                edge_b.base.z,
                 edge_b.q,
                 edge_b.u,
                 edge_b.v,
@@ -2383,16 +2375,13 @@ impl NormalMapGradients {
 }
 
 struct NormalMapEdgeWalker {
-    x: i64,
-    z: f32,
+    base: crate::rasterizer::core::EdgeWalker,
     q: f32,
     u: f32,
     v: f32,
     lx: f32,
     ly: f32,
     lz: f32,
-    dx_dy: i64,
-    dz_dy: f32,
     dq_dy: f32,
     du_dy: f32,
     dv_dy: f32,
@@ -2415,26 +2404,23 @@ impl NormalMapEdgeWalker {
         l_start: Vec3,
         l_end: Vec3,
     ) -> Self {
-        let base = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
+        let base_delta = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
 
-        let dq_dy = (q_end - q_start) * base.inv_h;
-        let du_dy = (u_end - u_start) * base.inv_h;
-        let dv_dy = (v_end - v_start) * base.inv_h;
-        let dlx_dy = (l_end.x - l_start.x) * base.inv_h;
-        let dly_dy = (l_end.y - l_start.y) * base.inv_h;
-        let dlz_dy = (l_end.z - l_start.z) * base.inv_h;
+        let dq_dy = (q_end - q_start) * base_delta.inv_h;
+        let du_dy = (u_end - u_start) * base_delta.inv_h;
+        let dv_dy = (v_end - v_start) * base_delta.inv_h;
+        let dlx_dy = (l_end.x - l_start.x) * base_delta.inv_h;
+        let dly_dy = (l_end.y - l_start.y) * base_delta.inv_h;
+        let dlz_dy = (l_end.z - l_start.z) * base_delta.inv_h;
 
         Self {
-            x: base.x_start,
-            z: p_start.z,
+            base: crate::rasterizer::core::EdgeWalker::from_base(&base_delta, p_start),
             q: q_start,
             u: u_start,
             v: v_start,
             lx: l_start.x,
             ly: l_start.y,
             lz: l_start.z,
-            dx_dy: base.dx_dy,
-            dz_dy: base.dz_dy,
             dq_dy,
             du_dy,
             dv_dy,
@@ -2445,8 +2431,7 @@ impl NormalMapEdgeWalker {
     }
 
     fn step(&mut self) {
-        self.x += self.dx_dy;
-        self.z += self.dz_dy;
+        self.base.step();
         self.q += self.dq_dy;
         self.u += self.du_dy;
         self.v += self.dv_dy;
@@ -2456,9 +2441,8 @@ impl NormalMapEdgeWalker {
     }
 
     fn step_n(&mut self, n: i64) {
+        self.base.step_n(n);
         let n_f = n as f32;
-        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
-        self.z += self.dz_dy * n_f;
         self.q += self.dq_dy * n_f;
         self.u += self.du_dy * n_f;
         self.v += self.dv_dy * n_f;
@@ -3436,9 +3420,9 @@ pub fn fill_triangle_normal_mapped(
             let (x_start, x_end, z_left, q_left, u_left, v_left, lx_left, ly_left, lz_left) =
                 if long_edge_is_left {
                     (
-                        (edge_a.x >> 16) as i32,
-                        (edge_b.x >> 16) as i32,
-                        edge_a.z,
+                        (edge_a.base.x >> 16) as i32,
+                        (edge_b.base.x >> 16) as i32,
+                        edge_a.base.z,
                         edge_a.q,
                         edge_a.u,
                         edge_a.v,
@@ -3448,9 +3432,9 @@ pub fn fill_triangle_normal_mapped(
                     )
                 } else {
                     (
-                        (edge_b.x >> 16) as i32,
-                        (edge_a.x >> 16) as i32,
-                        edge_b.z,
+                        (edge_b.base.x >> 16) as i32,
+                        (edge_a.base.x >> 16) as i32,
+                        edge_b.base.z,
                         edge_b.q,
                         edge_b.u,
                         edge_b.v,
@@ -3630,16 +3614,13 @@ impl TexturedGouraudGradients {
 }
 
 pub(crate) struct TexturedGouraudEdgeWalker {
-    pub(crate) x: i64,
-    pub(crate) z: f32,
+    pub(crate) base: crate::rasterizer::core::EdgeWalker,
     pub(crate) q: f32, // 1/w
     pub(crate) u: f32, // u/w
     pub(crate) v: f32, // v/w
     pub(crate) r: f32, // r
     pub(crate) g: f32, // g
     pub(crate) b: f32, // b
-    dx_dy: i64,
-    dz_dy: f32,
     dq_dy: f32,
     du_dy: f32,
     dv_dy: f32,
@@ -3662,26 +3643,23 @@ impl TexturedGouraudEdgeWalker {
         c_start: Vec3,
         c_end: Vec3,
     ) -> Self {
-        let base = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
+        let base_delta = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
 
-        let dq_dy = (q_end - q_start) * base.inv_h;
-        let du_dy = (u_end - u_start) * base.inv_h;
-        let dv_dy = (v_end - v_start) * base.inv_h;
-        let dr_dy = (c_end.x - c_start.x) * base.inv_h;
-        let dg_dy = (c_end.y - c_start.y) * base.inv_h;
-        let db_dy = (c_end.z - c_start.z) * base.inv_h;
+        let dq_dy = (q_end - q_start) * base_delta.inv_h;
+        let du_dy = (u_end - u_start) * base_delta.inv_h;
+        let dv_dy = (v_end - v_start) * base_delta.inv_h;
+        let dr_dy = (c_end.x - c_start.x) * base_delta.inv_h;
+        let dg_dy = (c_end.y - c_start.y) * base_delta.inv_h;
+        let db_dy = (c_end.z - c_start.z) * base_delta.inv_h;
 
         Self {
-            x: base.x_start,
-            z: p_start.z,
+            base: crate::rasterizer::core::EdgeWalker::from_base(&base_delta, p_start),
             q: q_start,
             u: u_start,
             v: v_start,
             r: c_start.x,
             g: c_start.y,
             b: c_start.z,
-            dx_dy: base.dx_dy,
-            dz_dy: base.dz_dy,
             dq_dy,
             du_dy,
             dv_dy,
@@ -3692,8 +3670,7 @@ impl TexturedGouraudEdgeWalker {
     }
 
     pub(crate) fn step(&mut self) {
-        self.x += self.dx_dy;
-        self.z += self.dz_dy;
+        self.base.step();
         self.q += self.dq_dy;
         self.u += self.du_dy;
         self.v += self.dv_dy;
@@ -3703,9 +3680,8 @@ impl TexturedGouraudEdgeWalker {
     }
 
     pub(crate) fn step_n(&mut self, n: i64) {
+        self.base.step_n(n);
         let n_f = n as f32;
-        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
-        self.z += self.dz_dy * n_f;
         self.q += self.dq_dy * n_f;
         self.u += self.du_dy * n_f;
         self.v += self.dv_dy * n_f;
@@ -4801,9 +4777,9 @@ fn fill_projected_triangle_textured_gouraud_with_gradients(
         let (x_start, x_end, z_left, q_left, u_left, v_left, r_left, g_left, b_left) =
             if long_edge_is_left {
                 (
-                    (edge_a.x >> 16) as i32,
-                    (edge_b.x >> 16) as i32,
-                    edge_a.z,
+                    (edge_a.base.x >> 16) as i32,
+                    (edge_b.base.x >> 16) as i32,
+                    edge_a.base.z,
                     edge_a.q,
                     edge_a.u,
                     edge_a.v,
@@ -4813,9 +4789,9 @@ fn fill_projected_triangle_textured_gouraud_with_gradients(
                 )
             } else {
                 (
-                    (edge_b.x >> 16) as i32,
-                    (edge_a.x >> 16) as i32,
-                    edge_b.z,
+                    (edge_b.base.x >> 16) as i32,
+                    (edge_a.base.x >> 16) as i32,
+                    edge_b.base.z,
                     edge_b.q,
                     edge_b.u,
                     edge_b.v,
@@ -5378,18 +5354,18 @@ pub fn fill_triangle_laplacian_blend(
 
             let (x_start, x_end, z_left, q_left, u_left, v_left) = if long_edge_is_left {
                 (
-                    (edge_a.x >> 16) as i32,
-                    (edge_b.x >> 16) as i32,
-                    edge_a.z,
+                    (edge_a.base.x >> 16) as i32,
+                    (edge_b.base.x >> 16) as i32,
+                    edge_a.base.z,
                     edge_a.q,
                     edge_a.u,
                     edge_a.v,
                 )
             } else {
                 (
-                    (edge_b.x >> 16) as i32,
-                    (edge_a.x >> 16) as i32,
-                    edge_b.z,
+                    (edge_b.base.x >> 16) as i32,
+                    (edge_a.base.x >> 16) as i32,
+                    edge_b.base.z,
                     edge_b.q,
                     edge_b.u,
                     edge_b.v,

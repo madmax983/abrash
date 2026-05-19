@@ -8,3 +8,7 @@
 **Learning:** Functions like `execute_draw_list_owned` and `execute_draw_list_into` contained identical internal rendering logic causing duplication and reducing maintainability.
 **Action:** Extract this identical rendering logic into a single private helper function (e.g., `execute_draw_list_inner`) that both functions can delegate to. This adheres to DRY principles and eliminates duplication.
 **[Extract Shared EdgeWalker Init]**\n**Learning:** When implementing multiple struct variants that share similar primitive logic (e.g., `EdgeWalker` implementations across different rasterizers like Phong, Pbr, or Gouraud), screen-space delta math and setup routines (`inv_h`, `dx_dy`, `dz_dy`) are frequently duplicated in their `new()` constructors.\n**Action:** Extract this common 2D coordinate initialization into a shared helper struct (e.g., `BaseEdgeDelta`) in a common module (like `core.rs`) effectively eliminating these "Primitive Cluster" and "God Function" anti-patterns.
+
+**[Extract Shared EdgeWalker Init]**
+**Learning:** When multiple struct variants (like EdgeWalkers in software rasterizers) share identical baseline fields and delta-stepping math, duplicating these fields (`x`, `z`, `dx_dy`, `dz_dy`) and update logic (`step`, `step_n`) creates a 'Primitive Cluster' anti-pattern.
+**Action:** Extract this duplicated initialization and state into a composed base struct (e.g., `base: EdgeWalker`) from a core module, delegating shared stepping logic and replacing duplicate fields with `base.x` and `base.z`.
