@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Apply Vignette Scalar Opt]**
+**Learning:** Re-calculating X-coordinate dependent values in the inner loop of 2D screen effects, and applying scaling to R/G/B channels separately is extremely inefficient. Furthermore, allocating `Vec` scratch buffers in per-frame rendering pipelines introduces severe memory allocation overhead which fights optimizations.
+**Action:** Use `thread_local!` to retain scratch buffer capacity across frames to hoist X-invariants. Use parallel channel masking (e.g. `p & 0x00FF_00FF`) to apply SIMD-like operations manually on scalar integers to combine channel calculations.

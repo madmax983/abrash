@@ -870,38 +870,59 @@ fn apply_vignette_scalar(
 
     let scale = intensity * inv_max_dist_sq;
 
-    // ⚡ Bolt: Eliminate Manual Slice Bounds Checks in 2D Block Iteration
-    // Iterate over chunks instead of doing index calculations inside the hot loop.
-    for (y, row) in pixels.chunks_exact_mut(width).take(height).enumerate() {
-        let dy = y as f32 - center_y;
-        let dy_sq_scaled = dy * dy * scale;
-        let row_base_factor = 1.0 - dy_sq_scaled;
-
-        for (x, p_ref) in row.iter_mut().enumerate() {
-            let dx = x as f32 - center_x;
-            let dx_sq_scaled = dx * dx * scale;
-
-            // Quadratic falloff
-            let factor = (row_base_factor - dx_sq_scaled).clamp(0.0, 1.0);
-
-            // Fixed point approximation to match SIMD precision (8.8 fixed point)
-            let factor_fixed = (factor * 256.0) as u32;
-
-            let p = *p_ref;
-
-            let a = p & 0xFF00_0000;
-            let r = (p >> 16) & 0xFF;
-            let g = (p >> 8) & 0xFF;
-            let b = p & 0xFF;
-
-            // Note: This truncating division matches SIMD _mm256_mullo_epi16 followed by _mm256_srli_epi16
-            let new_r = (r * factor_fixed) >> 8;
-            let new_g = (g * factor_fixed) >> 8;
-            let new_b = (b * factor_fixed) >> 8;
-
-            *p_ref = a | (new_r << 16) | (new_g << 8) | new_b;
-        }
+    // ⚡ Bolt: Thread-local capacity-retained scratch buffer to hoist
+    // X-invariant calculations without introducing per-frame heap allocations.
+    thread_local! {
+        static DX_SQ_SCALED: std::cell::RefCell<Vec<f32>> = const { std::cell::RefCell::new(Vec::new()) };
     }
+
+    DX_SQ_SCALED.with(|buf_cell| {
+        let mut dx_sq_scaled_arr = buf_cell.borrow_mut();
+
+        // Re-use allocation. We only resize when necessary.
+        if dx_sq_scaled_arr.len() < width {
+            dx_sq_scaled_arr.resize(width, 0.0);
+        }
+
+        let scratch = &mut dx_sq_scaled_arr[..width];
+        for x in 0..width {
+            let dx = x as f32 - center_x;
+            scratch[x] = dx * dx * scale;
+        }
+
+        // ⚡ Bolt: Eliminate Manual Slice Bounds Checks in 2D Block Iteration
+        // Iterate over chunks instead of doing index calculations inside the hot loop.
+        for (y, row) in pixels.chunks_exact_mut(width).take(height).enumerate() {
+            let dy = y as f32 - center_y;
+            let dy_sq_scaled = dy * dy * scale;
+            let row_base_factor = 1.0 - dy_sq_scaled;
+
+            for (x, p_ref) in row.iter_mut().enumerate() {
+                // Bounds check elided since row and scratch share the same `width` limit.
+                let dx_sq_scaled = scratch[x];
+
+                // Quadratic falloff.
+                // row_base_factor is at most 1.0. We only need to clamp below 0.0.
+                let factor = f32::max(0.0, row_base_factor - dx_sq_scaled);
+
+                // Fixed point approximation to match SIMD precision (8.8 fixed point)
+                let factor_fixed = (factor * 256.0) as u32;
+
+                let p = *p_ref;
+
+                let a = p & 0xFF00_0000;
+
+                // Mask RGB channels to process in parallel
+                let rb = p & 0x00FF_00FF;
+                let g = p & 0x0000_FF00;
+
+                let new_rb = ((rb * factor_fixed) >> 8) & 0x00FF_00FF;
+                let new_g = ((g >> 8) * factor_fixed) & 0x0000_FF00;
+
+                *p_ref = a | new_rb | new_g;
+            }
+        }
+    });
 }
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
