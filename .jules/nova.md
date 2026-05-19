@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## Sepia Filter
+**Concept:** A post-processing sepia filter added to the experimental module that applies the standard sepia matrix coefficients to a framebuffer. The effect is mathematically accurate and parallelized using Rayon for excellent performance.
+**Fate:** Merged.
+**Lesson:** Iterating over flat 1D arrays of framebuffers using Rayon's `par_chunks_exact_mut` scales very well when doing simple localized pixel algebra without dependencies.

@@ -93,6 +93,7 @@ pub mod raytracer;
 pub mod reaction_diffusion;
 pub mod sdf;
 pub mod selective_color;
+pub mod sepia;
 pub mod sharpen;
 pub mod slitscan;
 pub mod sonar;
