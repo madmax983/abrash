@@ -3,25 +3,16 @@ use abrash::math::Vec3;
 use criterion::{Criterion, black_box, criterion_group, criterion_main}; // The new optimized implementation
 
 // Helper traits/structs copied for benchmark legacy implementation
-pub trait Lerp: Copy + Clone {
-    #[must_use]
-    fn lerp(self, other: Self, t: f32) -> Self;
-}
-
-impl Lerp for (Vec3, f32) {
-    fn lerp(self, other: Self, t: f32) -> Self {
-        fn lerp_f32(a: f32, b: f32, t: f32) -> f32 {
-            a + (b - a) * t
-        }
-        fn lerp_vec3(a: Vec3, b: Vec3, t: f32) -> Vec3 {
-            Vec3 {
-                x: lerp_f32(a.x, b.x, t),
-                y: lerp_f32(a.y, b.y, t),
-                z: lerp_f32(a.z, b.z, t),
-            }
-        }
-        (lerp_vec3(self.0, other.0, t), lerp_f32(self.1, other.1, t))
+fn lerp_tuple(a: (Vec3, f32), b: (Vec3, f32), t: f32) -> (Vec3, f32) {
+    fn lerp_f32(a: f32, b: f32, t: f32) -> f32 {
+        a + (b - a) * t
     }
+    let p = Vec3 {
+        x: lerp_f32(a.0.x, b.0.x, t),
+        y: lerp_f32(a.0.y, b.0.y, t),
+        z: lerp_f32(a.0.z, b.0.z, t),
+    };
+    (p, lerp_f32(a.1, b.1, t))
 }
 
 pub struct ClippedTriangles<V> {
@@ -30,12 +21,12 @@ pub struct ClippedTriangles<V> {
 }
 
 // Legacy implementation (slow version)
-pub fn clip_triangle_to_frustum_legacy<V: Lerp + Copy + Default>(
-    v0: V,
-    v1: V,
-    v2: V,
-    get_pos: impl Fn(&V) -> (Vec3, f32),
-) -> ClippedTriangles<V> {
+pub fn clip_triangle_to_frustum_legacy(
+    v0: (Vec3, f32),
+    v1: (Vec3, f32),
+    v2: (Vec3, f32),
+    get_pos: impl Fn(&(Vec3, f32)) -> (Vec3, f32),
+) -> ClippedTriangles<(Vec3, f32)> {
     let (p0, w0) = get_pos(&v0);
     let (p1, w1) = get_pos(&v1);
     let (p2, w2) = get_pos(&v2);
@@ -118,7 +109,7 @@ pub fn clip_triangle_to_frustum_legacy<V: Lerp + Copy + Default>(
                 if prev_d < 0.0 {
                     let t = prev_d / (prev_d - curr_d);
                     if out_count < 12 {
-                        buf2[out_count] = prev_v.lerp(curr_v, t);
+                        buf2[out_count] = lerp_tuple(prev_v, curr_v, t);
                         out_count += 1;
                     }
                 }
@@ -129,7 +120,7 @@ pub fn clip_triangle_to_frustum_legacy<V: Lerp + Copy + Default>(
             } else if prev_d >= 0.0 {
                 let t = prev_d / (prev_d - curr_d);
                 if out_count < 12 {
-                    buf2[out_count] = prev_v.lerp(curr_v, t);
+                    buf2[out_count] = lerp_tuple(prev_v, curr_v, t);
                     out_count += 1;
                 }
             }
