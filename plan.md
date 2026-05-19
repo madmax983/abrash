@@ -1,11 +1,17 @@
-1.  **Refactor Heat Vision to Fixed Point Math**
-    - The current `heat_vision.rs` uses floating-point math (`(normalized - 0.25) * 4.0`, etc.) inside a hot pixel loop to map depths to colors.
-    - We will follow the `[Posterize Float to Integer Math Optimization]` learning from `.jules/bolt.md` to map `0.0..1.0` depth range into integer `0..255`, and calculate RGB entirely using integer math (`t * 255 / scale`, etc.).
-    - We will pre-calculate `min_z` and `max_z` like before, calculate a `z_range` integer mapping multiplier, and use simple `(depth - min_z) * scale` to avoid floats in the main loop.
-2.  **Ensure Correctness**
-    - Ensure all existing tests in `heat_vision.rs` pass.
-3.  **Run Benchmark**
-    - Ensure `cargo bench --bench heat_vision_bench` runs successfully and shows performance improvements.
-4.  **Complete pre commit steps**
-    - Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done.
-5.  **Submit PR**
+1. **Fix `AsciiConverter` integer overflow in `to_colored_string`**
+   - The capacity calculation `((width * 20) * height) as usize` can overflow a 32-bit integer when `width` and `height` are very large (as exposed by the `havoc_ascii_proptest.rs` test).
+   - *Fix*: Calculate the capacity using `usize` up front with saturating multiplication to avoid panic: `(width as usize).saturating_mul(20).saturating_mul(height as usize)`.
+
+2. **Fix `apply_radial_blur` coordinate calculation overflow**
+   - The `cur_x += step_x;` and `cur_y += step_y;` loops could overflow `i32` bounds if the variables got extremely large.
+   - *Fix*: Use `saturating_add` for `cur_x` and `cur_y` updates to prevent panic.
+
+3. **Fix `PreparedTrianglesList::into_par_iter` Use-After-Free/UB**
+   - The parallel iterator for `PreparedTrianglesList` calls `assume_init()` on uninitialized portions of the inner array, and then returns them via `flatten()`. Since `PreparedTriangle` is trivially copyable, using `assume_init_read()` instead safely extracts values out of the `MaybeUninit` union without executing a potentially dangerous move that invalidates the state.
+   - *Fix*: Change `assume_init()` to `assume_init_read()` in `into_par_iter` for both `PreparedTrianglesList` and `PreparedTexturedTrianglesList`.
+
+4. **Complete Pre-Commit Steps**
+   - Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
+
+5. **Submit the PR**
+   - I will submit the PR to close out this issue.

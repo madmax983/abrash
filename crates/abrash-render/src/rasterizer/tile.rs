@@ -550,7 +550,8 @@ impl rayon::iter::IntoParallelIterator for PreparedTrianglesList {
         // ⚡ Bolt: Elides dynamic heap allocation by mapping directly over a stack array
         let mut arr: [Option<PreparedTriangle>; 8] = [None; 8];
         for i in 0..self.count {
-            arr[i] = Some(unsafe { self.tris[i].assume_init() });
+            // Use read() to copy out of the union safely, assuming it is T (since it's trivially copyable)
+            arr[i] = Some(unsafe { self.tris[i].assume_init_read() });
         }
         arr.into_par_iter().flatten()
     }
@@ -567,7 +568,7 @@ impl rayon::iter::IntoParallelIterator for PreparedTexturedTrianglesList {
         // ⚡ Bolt: Elides dynamic heap allocation by mapping directly over a stack array
         let mut arr: [Option<PreparedTexturedTriangle>; 8] = [None; 8];
         for i in 0..self.count {
-            arr[i] = Some(unsafe { self.tris[i].assume_init() });
+            arr[i] = Some(unsafe { self.tris[i].assume_init_read() });
         }
         arr.into_par_iter().flatten()
     }
