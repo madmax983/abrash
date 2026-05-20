@@ -74,7 +74,10 @@ pub fn apply_paper_cutout(fb: &mut Framebuffer, zb: &ZBuffer, config: &PaperCuto
     let mut has_content = false;
 
     for &z in depths {
-        if z != f32::INFINITY {
+        // Bolt Performance Optimization:
+        // By replacing the floating-point `!= f32::INFINITY` check with its integer bitwise equivalent,
+        // we eliminate FPU comparison overhead in this hot scalar rendering loop.
+        if z.to_bits() != 0x7F80_0000 {
             if z < min_z {
                 min_z = z;
             }
@@ -116,7 +119,10 @@ pub fn apply_paper_cutout(fb: &mut Framebuffer, zb: &ZBuffer, config: &PaperCuto
             .par_iter_mut()
             .zip(depths.par_iter())
             .for_each(|(l, &d)| {
-                *l = if d == f32::INFINITY {
+                *l = // Bolt Performance Optimization:
+                // By replacing the floating-point `== f32::INFINITY` check with its integer bitwise equivalent,
+                // we eliminate FPU comparison overhead in this hot scalar rendering loop.
+                if d.to_bits() == 0x7F80_0000 {
                     layers_count as i32 + 1 // Use +1 for infinity so valid objects at max depth still get quantized
                 } else {
                     let normalized = (d - min_z) * inv_range;
@@ -127,7 +133,10 @@ pub fn apply_paper_cutout(fb: &mut Framebuffer, zb: &ZBuffer, config: &PaperCuto
     #[cfg(not(feature = "parallel"))]
     {
         for (l, &d) in layers_slice.iter_mut().zip(depths.iter()) {
-            *l = if d == f32::INFINITY {
+            *l = // Bolt Performance Optimization:
+                // By replacing the floating-point `== f32::INFINITY` check with its integer bitwise equivalent,
+                // we eliminate FPU comparison overhead in this hot scalar rendering loop.
+                if d.to_bits() == 0x7F80_0000 {
                 layers_count as i32 + 1 // +1 for infinity
             } else {
                 let normalized = (d - min_z) * inv_range;

@@ -1,11 +1,12 @@
-1.  **Refactor Heat Vision to Fixed Point Math**
-    - The current `heat_vision.rs` uses floating-point math (`(normalized - 0.25) * 4.0`, etc.) inside a hot pixel loop to map depths to colors.
-    - We will follow the `[Posterize Float to Integer Math Optimization]` learning from `.jules/bolt.md` to map `0.0..1.0` depth range into integer `0..255`, and calculate RGB entirely using integer math (`t * 255 / scale`, etc.).
-    - We will pre-calculate `min_z` and `max_z` like before, calculate a `z_range` integer mapping multiplier, and use simple `(depth - min_z) * scale` to avoid floats in the main loop.
-2.  **Ensure Correctness**
-    - Ensure all existing tests in `heat_vision.rs` pass.
-3.  **Run Benchmark**
-    - Ensure `cargo bench --bench heat_vision_bench` runs successfully and shows performance improvements.
-4.  **Complete pre commit steps**
-    - Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done.
-5.  **Submit PR**
+1. **Optimize floating-point infinity checks in `heat_vision.rs`**
+   - Replace strict float `== f32::INFINITY` and `!= f32::INFINITY` equality checks with the integer bitwise equivalent `z.to_bits() == 0x7F80_0000` (or `!=`).
+   - This bypasses the FPU entirely in the hot scalar rendering path, eliminating comparison overhead.
+2. **Optimize floating-point infinity checks in `paper_cutout.rs`**
+   - Apply the same optimization replacing `== f32::INFINITY` with `to_bits() == 0x7F80_0000` in the `apply_paper_cutout` loop.
+3. **Verify impact**
+   - Run `cargo test -p abrash-render --all-features` to ensure no functionality is broken.
+   - Run `cargo fmt --all` and `cargo clippy --all-targets --all-features -- -D warnings`.
+4. **Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done**
+   - Use the `pre_commit_instructions` tool to execute standard pre-submit checks.
+5. **Submit the PR**
+   - Commit and submit the code with a descriptive PR tracking the optimization details.
