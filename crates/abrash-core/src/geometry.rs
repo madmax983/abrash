@@ -417,7 +417,17 @@ impl Cylinder {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
+
+/// A bounding sphere in 3D space.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::geometry::BoundingSphere;
+/// use abrash_core::math::Vec3;
+/// let bs = BoundingSphere { center: Vec3::ZERO, radius: 1.0 };
+/// assert_eq!(bs.radius, 1.0);
+/// ```
 pub struct BoundingSphere {
     pub center: Vec3,
     pub radius: f32,
@@ -607,7 +617,16 @@ impl BoundingSphere {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
+
+/// An Axis-Aligned Bounding Box (AABB).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::geometry::AABB;
+/// use abrash_core::math::Vec3;
+/// let aabb = AABB { min: Vec3::ZERO, max: Vec3::new(1.0, 1.0, 1.0), pad0: 0.0, pad1: 0.0 };
+/// ```
 pub struct AABB {
     pub min: Vec3,
     #[doc(hidden)]

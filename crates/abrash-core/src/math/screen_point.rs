@@ -5,7 +5,16 @@ use std::ops::{Add, Mul, Sub};
 
 /// A 3D point that has been projected into 2D screen coordinates.
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
+
+/// A 2D point on the screen with an associated depth value and $1/w$ coordinate.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::ScreenPoint;
+/// let p = ScreenPoint { x: 0, y: 0, z: 0.0, inv_w: 1.0 };
+/// assert_eq!(p.x, 0);
+/// ```
 pub struct ScreenPoint {
     pub x: i32,
     pub y: i32,

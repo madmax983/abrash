@@ -18,7 +18,15 @@ use std::ops::{Add, Mul, Sub};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
+
+/// A 3x3 matrix.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Mat3;
+/// let m = Mat3::identity();
+/// ```
 pub struct Mat3 {
     pub m: [[f32; 3]; 3],
 }

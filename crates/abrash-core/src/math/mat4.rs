@@ -44,7 +44,15 @@ use std::ops::{Add, Mul, Sub};
 /// ```
 #[repr(C, align(16))]
 #[derive(Debug, Clone, Copy)]
-#[allow(missing_docs)]
+
+/// A 4x4 matrix.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Mat4;
+/// let m = Mat4::identity();
+/// ```
 pub struct Mat4 {
     pub m: [[f32; 4]; 4],
 }

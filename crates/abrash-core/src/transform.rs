@@ -30,7 +30,15 @@ use crate::quat::Quat;
 /// assert_eq!(i.scale, Vec3::ONE);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
+
+/// A 3D transformation containing position, rotation, and scale.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::transform::Transform;
+/// let t = Transform::default();
+/// ```
 pub struct Transform {
     pub position: Vec3,
     pub rotation: Quat,

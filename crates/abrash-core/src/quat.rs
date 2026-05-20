@@ -33,7 +33,16 @@ use crate::math::{Mat4, Vec3, fast_inv_sqrt};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
+
+/// A quaternion used for 3D rotations.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::quat::Quat;
+/// let q = Quat::identity();
+/// assert_eq!(q.w, 1.0);
+/// ```
 pub struct Quat {
     pub x: f32,
     pub y: f32,

@@ -15,20 +15,28 @@ use std::ops::{Add, Mul, Sub};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
-#[allow(missing_docs)]
+
+/// A 2-dimensional vector.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// let v = Vec2::new(1.0, 2.0);
+/// assert_eq!(v.x, 1.0);
+/// ```
 pub struct Vec2 {
     pub x: f32,
     pub y: f32,
 }
 
 impl Vec2 {
-    #[allow(missing_docs)]
     pub const ZERO: Self = Self { x: 0.0, y: 0.0 };
-    #[allow(missing_docs)]
+
     pub const ONE: Self = Self { x: 1.0, y: 1.0 };
-    #[allow(missing_docs)]
+
     pub const X: Self = Self { x: 1.0, y: 0.0 };
-    #[allow(missing_docs)]
+
     pub const Y: Self = Self { x: 0.0, y: 1.0 };
 
     /// Creates a vector with both components set to `v`.

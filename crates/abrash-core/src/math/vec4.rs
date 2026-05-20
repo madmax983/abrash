@@ -19,7 +19,16 @@ use std::ops::{Add, Mul, Sub};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
-#[allow(missing_docs)]
+
+/// A 4-dimensional vector.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec4;
+/// let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
+/// assert_eq!(v.x, 1.0);
+/// ```
 pub struct Vec4 {
     pub x: f32,
     pub y: f32,
@@ -28,14 +37,13 @@ pub struct Vec4 {
 }
 
 impl Vec4 {
-    #[allow(missing_docs)]
     pub const ZERO: Self = Self {
         x: 0.0,
         y: 0.0,
         z: 0.0,
         w: 0.0,
     };
-    #[allow(missing_docs)]
+
     pub const ONE: Self = Self {
         x: 1.0,
         y: 1.0,

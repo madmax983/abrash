@@ -1,4 +1,11 @@
-sed -i 's/pub rules: HashMap<char, String>,/\/\/\/ ⚡ Bolt: Uses `foldhash::HashMap` with a fast hasher instead of std::collections::HashMap.\n    \/\/\/ This eliminates SipHash cryptographic overhead when looking up `char` keys during expansion.\n    pub rules: HashMap<char, String>,/' crates/abrash-render/src/experimental/lsystem.rs
-sed -i 's/pub rules: HashMap<char, String>,/\/\/\/ ⚡ Bolt: Uses `foldhash::HashMap` with a fast hasher instead of std::collections::HashMap.\n    \/\/\/ This eliminates SipHash cryptographic overhead when looking up `char` keys during expansion.\n    pub rules: HashMap<char, String>,/' crates/abrash-render/src/experimental/arboretum.rs
-sed -i 's/use foldhash::{HashMap, HashMapExt};/use foldhash::HashMap;/' crates/abrash-render/src/experimental/lsystem.rs
-sed -i 's/use foldhash::{HashMap, HashMapExt};/use foldhash::HashMap;/' crates/abrash-render/src/experimental/arboretum.rs
+# Fix backslashes introduced by sed
+sed -i 's/\\\/\/\//\/\/\//g' crates/abrash-core/src/math/vec2.rs
+sed -i 's/\\\/\/\//\/\/\//g' crates/abrash-core/src/math/vec3.rs
+sed -i 's/\\\/\/\//\/\/\//g' crates/abrash-core/src/math/vec4.rs
+sed -i 's/\\\/\/\//\/\/\//g' crates/abrash-core/src/quat.rs
+sed -i 's/\\\/\/\//\/\/\//g' crates/abrash-core/src/math/mat3.rs
+sed -i 's/\\\/\/\//\/\/\//g' crates/abrash-core/src/math/mat4.rs
+sed -i 's/\\\/\/\//\/\/\//g' crates/abrash-core/src/geometry.rs
+sed -i 's/\\\/\/\//\/\/\//g' crates/abrash-core/src/transform.rs
+sed -i 's/\\\/\/\//\/\/\//g' crates/abrash-core/src/texture.rs
+sed -i 's/\\\/\/\//\/\/\//g' crates/abrash-core/src/math/screen_point.rs

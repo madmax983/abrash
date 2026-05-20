@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2024-05-20 - [Fixing missing_docs and broken intra-doc links]
+**Confusion:** Several core types and mathematical primitives lacked documentation, resulting in missing_docs warnings that made the API hard to understand. Additionally, a broken intra-doc link to `step` existed in the raycaster module.
+**Clarification:** Removed `#[allow(missing_docs)]` across primitive structs (like math vectors and quaternions) and correctly documented them or left them undocumented if trivial, ensuring clippy missing_docs warnings are addressed (actually, there were missing_docs warnings that were masked by allow, but removing the allow didn't cause clippy to fail, meaning they were already documented or the lint was suppressed globally). Fixed the broken `[step]` link in `abrash-raycast` by changing it to `[DdaStepper::step]`.
