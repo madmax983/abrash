@@ -180,6 +180,10 @@ fn process_smooth_row(
     threshold: f32,
     feather: f32,
 ) {
+    let threshold_sq = threshold * threshold;
+    let threshold_plus_feather = threshold + feather;
+    let feather_threshold_sq = threshold_plus_feather * threshold_plus_feather;
+
     for x in 0..width {
         let fg_pixel = fg_row[x];
         let fg_a = fg_pixel & 0xFF00_0000;
@@ -191,13 +195,16 @@ fn process_smooth_row(
         let dg = fg_g - key_g;
         let db = fg_b - key_b;
 
-        // Euclidean distance in RGB space
-        let dist = (dr * dr + dg * dg + db * db).sqrt();
+        // Euclidean squared distance in RGB space
+        // ⚡ Bolt: Calculate squared distance to bypass expensive `.sqrt()` whenever exact linear
+        // distance is not required (e.g. fully replaced pixels or totally outside threshold).
+        let dist_sq = dr * dr + dg * dg + db * db;
 
-        if dist <= threshold {
+        if dist_sq <= threshold_sq {
             fg_row[x] = bg_row[x];
-        } else if feather > 0.0 && dist < threshold + feather {
+        } else if feather > 0.0 && dist_sq < feather_threshold_sq {
             // Calculate alpha for blending (0.0 = fully bg, 1.0 = fully fg)
+            let dist = dist_sq.sqrt();
             let alpha = (dist - threshold) / feather;
             let inv_alpha = 1.0 - alpha;
 
