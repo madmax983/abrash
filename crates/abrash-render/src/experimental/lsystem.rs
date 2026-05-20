@@ -126,8 +126,8 @@ impl LSystem {
         // ⚡ Bolt: Rely on natural allocator growth instead of unconditionally pre-allocating `max_capacity`.
         // When `max_capacity` is exceptionally large (e.g., 100MB), pre-allocating it immediately causes
         // severe initialization overhead. Natural capacity growth via `.push_str()` is significantly faster.
-        let mut current_string = String::new();
-        current_string.push_str(&self.axiom);
+        // We clone `self.axiom` directly instead of `String::new()` followed by `.push_str()`.
+        let mut current_string = self.axiom.clone();
 
         // Bolt Performance Optimization:
         // By pre-calculating a flat array for ASCII replacement lookups,
