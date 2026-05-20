@@ -11,8 +11,8 @@ use abrash::zbuffer::ZBuffer;
 
 use comfy_table::{Cell as TableCell, Color, Table, presets};
 use crossterm::style::Stylize;
-use winit::event::{ElementState, KeyEvent, WindowEvent};
-use winit::keyboard::{Key, NamedKey};
+use abrash::platform::{ElementState, KeyEvent, WindowEvent};
+use abrash::platform::{Key, NamedKey};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;

@@ -22,8 +22,8 @@ use abrash_render::render_api::material::{Material, ShadingMode};
 use std::error::Error;
 use std::fmt;
 use std::time::Instant;
-use winit::event::{ElementState, KeyEvent, WindowEvent};
-use winit::keyboard::{Key, NamedKey};
+use abrash::platform::{ElementState, KeyEvent, WindowEvent};
+use abrash::platform::{Key, NamedKey};
 
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;

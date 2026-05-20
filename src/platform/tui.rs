@@ -253,3 +253,319 @@ impl Drop for TuiWindow {
         let _ = self.terminal.show_cursor();
     }
 }
+
+// --- Winit Backend Shim ---
+use std::error::Error;
+use std::fmt;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WindowHostConfig {
+    pub title: String,
+    pub width: u32,
+    pub height: u32,
+    pub vsync: bool,
+}
+
+impl Default for WindowHostConfig {
+    fn default() -> Self {
+        Self {
+            title: "Abrash TUI".to_string(),
+            width: 80,
+            height: 40,
+            vsync: true,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum HostError {
+    App(String),
+    Window(String),
+    EventLoop(String),
+    Present(String),
+}
+
+impl fmt::Display for HostError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::App(s) => write!(f, "App error: {s}"),
+            Self::Window(s) => write!(f, "Window error: {s}"),
+            Self::EventLoop(s) => write!(f, "Event loop error: {s}"),
+            Self::Present(s) => write!(f, "Present error: {s}"),
+        }
+    }
+}
+
+impl Error for HostError {}
+
+#[derive(Clone)]
+pub struct WindowContext<'a> {
+    pub dt_seconds: f32,
+    pub window: std::sync::Arc<()>,
+    pub event_loop: &'a (),
+}
+
+pub trait WindowApp {
+    type Error: Error + Send + Sync + 'static;
+
+    fn config(&self) -> WindowHostConfig;
+
+    #[allow(clippy::missing_errors_doc)]
+    fn init(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    fn resize(&mut self, _ctx: WindowContext<'_>, _width: u32, _height: u32) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    fn input(&mut self, _ctx: WindowContext<'_>, _event: &WindowEvent) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error>;
+
+    #[allow(clippy::missing_errors_doc)]
+    fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error>;
+}
+
+#[derive(Debug)]
+pub struct FrameClock {
+    last_tick: Instant,
+}
+
+impl FrameClock {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            last_tick: Instant::now(),
+        }
+    }
+
+    pub fn tick(&mut self) -> f32 {
+        let now = Instant::now();
+        let dt = now.duration_since(self.last_tick).as_secs_f32();
+        self.last_tick = now;
+        dt
+    }
+}
+
+impl Default for FrameClock {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ElementState {
+    Pressed,
+    Released,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeyEvent {
+    pub logical_key: Key,
+    pub state: ElementState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WindowEvent {
+    CloseRequested,
+    Resized(PhysicalSize),
+    RedrawRequested,
+    KeyboardInput { event: KeyEvent },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PhysicalSize {
+    pub width: u32,
+    pub height: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Key {
+    Named(NamedKey),
+    Character(String),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NamedKey {
+    Escape,
+    Enter,
+    Space,
+    ArrowUp,
+    ArrowDown,
+    ArrowLeft,
+    ArrowRight,
+}
+
+// Global channel for software presenter -> loop
+use std::sync::mpsc::{sync_channel, SyncSender};
+
+std::thread_local! {
+    static FB_SENDER: std::cell::RefCell<Option<SyncSender<(u32, u32, Vec<u32>)>>> = std::cell::RefCell::new(None);
+}
+
+pub struct SoftwarePresenter {
+    // Empty, since we use the global sender
+}
+
+impl SoftwarePresenter {
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new(_window: std::sync::Arc<()>) -> Result<Self, HostError> {
+        Ok(Self {})
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn present(&mut self, framebuffer: &Framebuffer) -> Result<(), HostError> {
+        let fb = (framebuffer.width(), framebuffer.height(), framebuffer.as_slice().to_vec());
+        FB_SENDER.with(|sender| {
+            if let Some(tx) = sender.borrow().as_ref() {
+                let _ = tx.send(fb);
+            }
+        });
+        Ok(())
+    }
+}
+
+use comfy_table::{Cell, Color as ComfyColor, Table, presets};
+
+fn print_host_error_and_exit(err: &HostError) -> ! {
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("❌ Window Application Error")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(ComfyColor::Red),
+        ])
+        .add_row(vec![Cell::new(format!("{err}")).fg(ComfyColor::Yellow)]);
+
+    eprintln!("\n{table}");
+    std::process::exit(1);
+}
+
+#[allow(clippy::missing_panics_doc)]
+pub fn run_windowed<A: WindowApp>(mut app: A) {
+    let config = app.config();
+    let mut window = match TuiWindow::new(&config.title, config.width, config.height) {
+        Ok(w) => w,
+        Err(e) => {
+            print_host_error_and_exit(&HostError::Window(e.to_string()));
+        }
+    };
+
+    let (tx, rx) = sync_channel::<(u32, u32, Vec<u32>)>(1);
+    FB_SENDER.with(|sender| {
+        *sender.borrow_mut() = Some(tx);
+    });
+
+    let window_handle = std::sync::Arc::new(());
+    let mut clock = FrameClock::new();
+
+    if let Err(e) = app.init(WindowContext {
+        dt_seconds: 0.0,
+        window: window_handle.clone(),
+        event_loop: &(),
+    }) {
+        print_host_error_and_exit(&HostError::App(e.to_string()));
+    }
+
+    while window.is_open() {
+        // Poll input events
+        let mut events = Vec::new();
+        if event::poll(Duration::from_millis(0)).unwrap_or(false) {
+            if let Ok(event::Event::Key(key)) = event::read() {
+                if key.kind == KeyEventKind::Press {
+                    if let Some(logical_key) = crossterm_key_to_winit(key.code) {
+                        events.push(WindowEvent::KeyboardInput {
+                            event: KeyEvent {
+                                logical_key,
+                                state: ElementState::Pressed,
+                            },
+                        });
+                    }
+                    if matches!(key.code, KeyCode::Char('q') | KeyCode::Esc) {
+                        events.push(WindowEvent::CloseRequested);
+                    }
+                }
+            } else if let Ok(event::Event::Resize(w, h)) = event::read() {
+                events.push(WindowEvent::Resized(PhysicalSize {
+                    width: u32::from(w),
+                    height: u32::from(h),
+                }));
+            }
+        }
+
+        for wev in events {
+            match &wev {
+                WindowEvent::CloseRequested => {
+                    return;
+                }
+                WindowEvent::Resized(size) => {
+                    if let Err(e) = app.resize(
+                        WindowContext {
+                            dt_seconds: 0.0,
+                            window: window_handle.clone(),
+                            event_loop: &(),
+                        },
+                        size.width,
+                        size.height,
+                    ) {
+                        print_host_error_and_exit(&HostError::App(e.to_string()));
+                    }
+                }
+                _ => {}
+            }
+
+            if let Err(e) = app.input(
+                WindowContext {
+                    dt_seconds: 0.0,
+                    window: window_handle.clone(),
+                    event_loop: &(),
+                },
+                &wev,
+            ) {
+                print_host_error_and_exit(&HostError::App(e.to_string()));
+            }
+        }
+
+        let dt = clock.tick();
+        let ctx = WindowContext {
+            dt_seconds: dt,
+            window: window_handle.clone(),
+            event_loop: &(),
+        };
+
+        if let Err(e) = app.update(ctx.clone()) {
+            print_host_error_and_exit(&HostError::App(e.to_string()));
+        }
+        if let Err(e) = app.render(ctx.clone()) {
+            print_host_error_and_exit(&HostError::App(e.to_string()));
+        }
+
+        if let Ok((width, height, pixels)) = rx.try_recv() {
+            let mut fb = Framebuffer::new(width, height).unwrap();
+            fb.as_mut_slice().copy_from_slice(&pixels);
+            window.blit_framebuffer(&fb);
+        }
+    }
+}
+
+fn crossterm_key_to_winit(key: KeyCode) -> Option<Key> {
+    match key {
+        KeyCode::Char(' ') => Some(Key::Named(NamedKey::Space)),
+        KeyCode::Char(c) => Some(Key::Character(c.to_string())),
+        KeyCode::Esc => Some(Key::Named(NamedKey::Escape)),
+        KeyCode::Enter => Some(Key::Named(NamedKey::Enter)),
+        KeyCode::Up => Some(Key::Named(NamedKey::ArrowUp)),
+        KeyCode::Down => Some(Key::Named(NamedKey::ArrowDown)),
+        KeyCode::Left => Some(Key::Named(NamedKey::ArrowLeft)),
+        KeyCode::Right => Some(Key::Named(NamedKey::ArrowRight)),
+        _ => None,
+    }
+}

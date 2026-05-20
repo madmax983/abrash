@@ -43,6 +43,20 @@ pub mod framebuffer_widget;
 pub mod winit;
 
 #[cfg(feature = "backend-winit")]
+
+#[cfg(feature = "backend-winit")]
+pub use ::winit::event::{ElementState, KeyEvent, WindowEvent};
+#[cfg(feature = "backend-winit")]
+pub use ::winit::keyboard::{Key, NamedKey};
+
+#[cfg(all(feature = "backend-tui", not(feature = "backend-winit")))]
+pub use tui::{
+    ElementState, KeyEvent, WindowEvent, Key, NamedKey,
+    FrameClock, HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig,
+    run_windowed,
+};
+
+#[cfg(feature = "backend-winit")]
 pub use winit::{
     FrameClock, HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig,
     run_windowed,
