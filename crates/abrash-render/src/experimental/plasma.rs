@@ -33,35 +33,61 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
     #[cfg(not(feature = "parallel"))]
     let row_iter = pixels.chunks_exact_mut(width).enumerate();
 
+    let pi = std::f32::consts::PI;
+    let tau = std::f32::consts::TAU;
+    let time_mod_tau = time % tau;
+
+    // Precompute a row of x sinusoids to reuse across all y rows
+    // This avoids recalculating sin(x * scale + time) for every pixel in every row
+    let mut x_sins = Vec::with_capacity(width);
+    for x in 0..width {
+        let x_f32 = x as f32;
+        let x_scaled_time = (x_f32 * scale + time_mod_tau) % tau;
+        let (x_sin, _) = fast_sin_cos(x_scaled_time);
+        x_sins.push(x_sin);
+    }
+
+    // Precompute a row of color values to reuse
+    // The c mapping: r = (c*255).min(255), etc
+    let mut palette = Vec::with_capacity(256);
+    for i in 0..256 {
+        let c = i as f32 / 255.0;
+        let r = (c * 255.0) as u32;
+        let g = (((c + 0.33) % 1.0) * 255.0) as u32;
+        let b = (((c + 0.66) % 1.0) * 255.0) as u32;
+        palette.push(0xFF00_0000 | (r << 16) | (g << 8) | b);
+    }
+
     row_iter.for_each(|(y, row)| {
         let y_f32 = y as f32;
-        let y_scaled_time = (y_f32 * scale + time) % std::f32::consts::TAU;
+        let y_scaled_time = (y_f32 * scale + time_mod_tau) % tau;
         let (y_sin, y_cos) = fast_sin_cos(y_scaled_time);
 
-        for (x, pixel) in row.iter_mut().enumerate().take(width) {
-            let x_f32 = x as f32;
-            let x_scaled_time = (x_f32 * scale + time) % std::f32::consts::TAU;
-            let (x_sin, _) = fast_sin_cos(x_scaled_time);
+        for (x, pixel) in row.iter_mut().enumerate() {
+            let x_sin = x_sins[x];
 
             // Calculate plasma value using multiple sine waves
             let mut v = 0.0;
             v += x_sin;
             v += y_sin;
-            let (v_sin, _) = fast_sin_cos(x_sin + y_cos);
+
+            let x_f32 = x as f32;
+            let x_scaled_time = (x_f32 * scale + time_mod_tau) % tau;
+            let (x_sin_raw, _) = fast_sin_cos(x_scaled_time);
+
+            let (v_sin, _) = fast_sin_cos(x_sin_raw + y_cos);
             v += v_sin;
 
             // Map the value from [-3.0, 3.0] to roughly [0.0, 1.0]
             // We use PI to create cyclical colors
-            let (c_sin, _) = fast_sin_cos(v * std::f32::consts::PI);
+            let (c_sin, _) = fast_sin_cos(v * pi);
             let c = c_sin * 0.5 + 0.5;
 
             // Map the normalized value to RGB colors
             // Simple color palette generation based on the phase
-            let r = ((c * 255.0) as u32).min(255);
-            let g = (((c + 0.33) % 1.0 * 255.0) as u32).min(255);
-            let b = (((c + 0.66) % 1.0 * 255.0) as u32).min(255);
+            let i = ((c * 255.0) as usize).min(255);
 
-            *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+            *pixel = palette[i];
         }
     });
 }

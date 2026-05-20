@@ -983,4 +983,5 @@ name = "heat_vision_bench"
 harness = false
 [[bench]]
 name = "plasma_procedural_bench"
+path = "crates/abrash-render/benches/plasma_procedural_bench.rs"
 harness = false
