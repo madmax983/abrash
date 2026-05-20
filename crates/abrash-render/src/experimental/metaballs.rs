@@ -130,15 +130,11 @@ impl Metaballs {
         let num_balls = self.balls.len();
 
         // Cache ball positions and square sizes to avoid repeated property access in hot loop
-        let mut b_xs = Vec::with_capacity(num_balls);
-        let mut b_ys = Vec::with_capacity(num_balls);
-        let mut b_r_sqs = Vec::with_capacity(num_balls);
-
+        let mut cached_balls = std::vec::Vec::with_capacity(num_balls);
         for ball in &self.balls {
-            b_xs.push(ball.position.x);
-            b_ys.push(ball.position.y);
-            b_r_sqs.push(ball.size * ball.size);
+            cached_balls.push((ball.position.x, ball.position.y, ball.size * ball.size));
         }
+        let cached_balls_slice = cached_balls.as_slice();
 
         #[cfg(feature = "parallel")]
         let iter = pixels.par_chunks_exact_mut(width_u).enumerate();
@@ -151,15 +147,15 @@ impl Metaballs {
                 let fx = x as f32;
 
                 let mut sum = 0.0;
-                for i in 0..num_balls {
-                    let dx = fx - b_xs[i];
-                    let dy = fy - b_ys[i];
+                for &(bx, by, r_sq) in cached_balls_slice {
+                    let dx = fx - bx;
+                    let dy = fy - by;
                     let dist_sq = dx * dx + dy * dy;
 
                     // Prevent divide by zero if exactly on center
                     if dist_sq > 0.001 {
                         // Formula: f(x, y) = r^2 / d^2
-                        sum += b_r_sqs[i] / dist_sq;
+                        sum += r_sq / dist_sq;
                     }
                 }
 

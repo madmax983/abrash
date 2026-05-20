@@ -171,7 +171,6 @@ pub fn apply_paper_cutout(fb: &mut Framebuffer, zb: &ZBuffer, config: &PaperCuto
                 let r = r | (r >> 3);
                 let g = g | (g >> 3);
                 let b = b | (b >> 3);
-                color = 0xFF00_0000 | (r << 16) | (g << 8) | b;
             }
 
             // Check if this pixel is in a shadow cast by a shallower layer
@@ -185,10 +184,12 @@ pub fn apply_paper_cutout(fb: &mut Framebuffer, zb: &ZBuffer, config: &PaperCuto
                 // If the layer casting the shadow is shallower (closer to camera / lower index)
                 // than the current pixel's layer, apply shadow.
                 if caster_layer < current_layer {
-                    let r = ((color >> 16) & 0xFF) * shadow_mult_fixed / 256;
-                    let g = ((color >> 8) & 0xFF) * shadow_mult_fixed / 256;
-                    let b = (color & 0xFF) * shadow_mult_fixed / 256;
-                    color = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                    // Parallel channel multiplication
+                    let rb = color & 0x00FF_00FF;
+                    let g = color & 0x0000_FF00;
+                    let rb_shadow = ((rb * shadow_mult_fixed) >> 8) & 0x00FF_00FF;
+                    let g_shadow = ((g * shadow_mult_fixed) >> 8) & 0x0000_FF00;
+                    color = 0xFF00_0000 | rb_shadow | g_shadow;
                 }
             }
 
@@ -265,8 +266,8 @@ mod tests {
         let mut fb = Framebuffer::new(20, 20).unwrap();
         let zb = ZBuffer::new(20, 20).unwrap();
         let config = PaperCutoutConfig::default();
-        fb.clear(0xFFFFFFFF);
+        fb.clear(0xFFFF_FFFF);
         apply_paper_cutout(&mut fb, &zb, &config);
-        assert_eq!(fb.get_pixel(10, 10).unwrap(), 0xFFFFFFFF);
+        assert_eq!(fb.get_pixel(10, 10).unwrap(), 0xFFFF_FFFF);
     }
 }
