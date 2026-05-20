@@ -1,11 +1,11 @@
-1.  **Refactor Heat Vision to Fixed Point Math**
-    - The current `heat_vision.rs` uses floating-point math (`(normalized - 0.25) * 4.0`, etc.) inside a hot pixel loop to map depths to colors.
-    - We will follow the `[Posterize Float to Integer Math Optimization]` learning from `.jules/bolt.md` to map `0.0..1.0` depth range into integer `0..255`, and calculate RGB entirely using integer math (`t * 255 / scale`, etc.).
-    - We will pre-calculate `min_z` and `max_z` like before, calculate a `z_range` integer mapping multiplier, and use simple `(depth - min_z) * scale` to avoid floats in the main loop.
-2.  **Ensure Correctness**
-    - Ensure all existing tests in `heat_vision.rs` pass.
-3.  **Run Benchmark**
-    - Ensure `cargo bench --bench heat_vision_bench` runs successfully and shows performance improvements.
-4.  **Complete pre commit steps**
-    - Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done.
-5.  **Submit PR**
+1. **Fix integer overflow in `AsciiConverter::to_colored_string`**
+   - The method computes the capacity using `((width * 20) * height) as usize`. Since `width` and `height` are `u32`, this calculation will panic on `u32` overflow if `width * 20` exceeds `u32::MAX`, even if the actual number of pixels `width * height` is small (e.g., when `height` is 0).
+   - Change it to use `usize` arithmetic: `let capacity = (width as usize).saturating_mul(20).saturating_mul(height as usize);`
+   - Use `String::with_capacity(capacity)`
+   - Verify by running `cargo test --test havoc_ascii_proptest` and expecting it to pass without panic.
+
+2. **Complete pre-commit steps**
+   - Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
+
+3. **Submit the changes**
+   - Commit and submit.
