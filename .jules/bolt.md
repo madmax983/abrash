@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+## 2024-05-19 - [Eliding Redundant String Allocation]
+**Learning:** Replacing `String::new()` followed by `.push_str(&existing_string)` with `existing_string.clone()` eliminates the redundant initialization of an empty string buffer and the subsequent immediate capacity resizing overhead. Although instructed to use doc comments (`///`) to explain optimizations, using them on internal statements inside a function body triggers the `unused_doc_comments` lint under `-D warnings`.
+**Action:** Use plain comments (`//`) to explain internal statements instead.
