@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [SVG Halftone Exporter]
+**Concept:** A custom exporter that converts the raster 2D framebuffer into a Scalable Vector Graphics (SVG) format, styling the output as a halftone image with varying radius dots mapping to the luminance.
+**Fate:** Implemented
+**Lesson:** Exporting directly to standard XML vector string formatting from internal framebuffers is a fast and simple approach that avoids heavy external DOM dependencies while keeping the experimental feature perfectly isolated.
