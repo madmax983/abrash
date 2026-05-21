@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [SVG Exporter]
+**Concept:** A basic exporter that converts the 2D pixel framebuffer into an SVG vector graphics file. It maps active pixels (alpha > 0) to standard `<rect>` or `<circle>` XML tags.
+**Fate:** Implemented
+**Lesson:** Writing out formatted XML text directly to a String using `std::fmt::Write` is remarkably simple and dependency-free. By grouping contiguous horizontal pixels of the same color into a single `<rect>` tag instead of individual 1x1 pixels, we drastically reduce the output string size and memory footprint.
