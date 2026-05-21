@@ -548,10 +548,13 @@ impl rayon::iter::IntoParallelIterator for PreparedTrianglesList {
         use rayon::iter::IntoParallelIterator;
         use rayon::iter::ParallelIterator;
         // ⚡ Bolt: Elides dynamic heap allocation by mapping directly over a stack array
-        let mut arr: [Option<PreparedTriangle>; 8] = [None; 8];
-        for i in 0..self.count {
-            arr[i] = Some(unsafe { self.tris[i].assume_init() });
-        }
+        let arr: [Option<PreparedTriangle>; 8] = core::array::from_fn(|i| {
+            if i < self.count {
+                Some(unsafe { self.tris[i].assume_init() })
+            } else {
+                None
+            }
+        });
         arr.into_par_iter().flatten()
     }
 }
@@ -565,10 +568,13 @@ impl rayon::iter::IntoParallelIterator for PreparedTexturedTrianglesList {
         use rayon::iter::IntoParallelIterator;
         use rayon::iter::ParallelIterator;
         // ⚡ Bolt: Elides dynamic heap allocation by mapping directly over a stack array
-        let mut arr: [Option<PreparedTexturedTriangle>; 8] = [None; 8];
-        for i in 0..self.count {
-            arr[i] = Some(unsafe { self.tris[i].assume_init() });
-        }
+        let arr: [Option<PreparedTexturedTriangle>; 8] = core::array::from_fn(|i| {
+            if i < self.count {
+                Some(unsafe { self.tris[i].assume_init() })
+            } else {
+                None
+            }
+        });
         arr.into_par_iter().flatten()
     }
 }
@@ -582,10 +588,13 @@ impl rayon::iter::IntoParallelIterator for PreparedGouraudTrianglesList {
         use rayon::iter::IntoParallelIterator;
         use rayon::iter::ParallelIterator;
         // ⚡ Bolt: Elides dynamic heap allocation by mapping directly over a stack array
-        let mut arr: [Option<PreparedGouraudTriangle>; 8] = [None; 8];
-        for i in 0..self.count {
-            arr[i] = Some(unsafe { self.tris[i].assume_init() });
-        }
+        let arr: [Option<PreparedGouraudTriangle>; 8] = core::array::from_fn(|i| {
+            if i < self.count {
+                Some(unsafe { self.tris[i].assume_init() })
+            } else {
+                None
+            }
+        });
         arr.into_par_iter().flatten()
     }
 }

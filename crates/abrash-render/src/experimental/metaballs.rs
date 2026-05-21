@@ -147,14 +147,21 @@ impl Metaballs {
 
         iter.for_each(|(y, row)| {
             let fy = y as f32;
+            let mut dy_sqs = [0.0; 64];
+            let active_balls = num_balls.min(64);
+
+            for i in 0..active_balls {
+                let dy = fy - b_ys[i];
+                dy_sqs[i] = dy * dy;
+            }
+
             for (x, pixel) in row.iter_mut().enumerate() {
                 let fx = x as f32;
 
                 let mut sum = 0.0;
-                for i in 0..num_balls {
+                for i in 0..active_balls {
                     let dx = fx - b_xs[i];
-                    let dy = fy - b_ys[i];
-                    let dist_sq = dx * dx + dy * dy;
+                    let dist_sq = dx * dx + dy_sqs[i];
 
                     // Prevent divide by zero if exactly on center
                     if dist_sq > 0.001 {
