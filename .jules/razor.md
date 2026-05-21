@@ -21,3 +21,7 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+## [Reduction]
+**Bloat:** Duplicated boolean SDF functions (`sdf_op_union`, `sdf_op_subtract`, `sdf_op_intersect`, `sdf_op_smooth_union`, `sdf_op_round`, `sdf_op_onion`, `sdf_op_repeat_3d`, `sdf_op_smooth_subtract`, `sdf_op_smooth_intersect`, `sdf_op_elongate`, `sdf_op_twist`) in `math/funcs.rs` that did exactly the same as in `sdf.rs`.
+**Cut:** Deleted the duplicated functions from `math/funcs.rs` and replaced usages with imports from `sdf.rs`. Also deleted redundant tests.
+**Saved:** ~900 lines of duplicated code and tests, enforcing DRY.

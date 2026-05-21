@@ -7597,60 +7597,6 @@ pub fn sdf_cylinder_finite(p: Vec3, a: Vec3, b: Vec3, r: f32) -> f32 {
     outer + inner
 }
 
-// ── SDF boolean operators ─────────────────────────────────────────────────────
-
-/// SDF union (take closer surface).
-#[inline]
-pub const fn sdf_op_union(a: f32, b: f32) -> f32 {
-    a.min(b)
-}
-
-/// SDF subtraction: remove `b` from `a`.
-#[inline]
-pub fn sdf_op_subtract(a: f32, b: f32) -> f32 {
-    a.max(-b)
-}
-
-/// SDF intersection: keep only the overlap.
-#[inline]
-pub const fn sdf_op_intersect(a: f32, b: f32) -> f32 {
-    a.max(b)
-}
-
-/// SDF smooth union using the polynomial smooth-min (Quilez k-factor).
-///
-/// Blends two surfaces within distance `k` of each other.
-/// Uses `smooth_min_poly` internally.
-#[inline]
-pub fn sdf_op_smooth_union(a: f32, b: f32, k: f32) -> f32 {
-    smooth_min_poly(a, b, k)
-}
-
-/// SDF round: expand a shape outward by `r` (rounds all edges/corners).
-#[inline]
-pub fn sdf_op_round(d: f32, r: f32) -> f32 {
-    d - r
-}
-
-/// SDF onion: hollow shell of thickness `r` from an existing SDF.
-#[inline]
-pub fn sdf_op_onion(d: f32, r: f32) -> f32 {
-    d.abs() - r
-}
-
-/// SDF domain repeat: tile 3D space with period `c` (per axis).
-///
-/// Returns the remapped point to evaluate in; call your SDF on the result.
-/// The repeat cell is centred at the origin.
-#[inline]
-pub fn sdf_op_repeat_3d(p: Vec3, c: Vec3) -> Vec3 {
-    Vec3::new(
-        p.x - c.x * (p.x / c.x).round(),
-        p.y - c.y * (p.y / c.y).round(),
-        p.z - c.z * (p.z / c.z).round(),
-    )
-}
-
 // ── Tests — Pass 53 ───────────────────────────────────────────────────────────
 
 // ── Pass 54 — hash functions, XYZ/RGB, blackbody, Hilbert curve ───────────────
@@ -8384,51 +8330,6 @@ pub fn sdf_pyramid(p: Vec3, h: f32) -> f32 {
         a.min(b)
     };
     ((d + q.z * q.z) / m2).sqrt() * (-qy).max(q.z).signum()
-}
-
-/// Smooth CSG subtraction: `a` minus `b`, with a soft blend of radius `k`.
-///
-/// Analogous to [`sdf_op_smooth_union`] but for subtraction.  Returns a
-/// negative value (inside) only where `a` is solid and `b` is not.
-pub fn sdf_op_smooth_subtract(a: f32, b: f32, k: f32) -> f32 {
-    let h = (k - (a + b).abs()).max(0.0) / k;
-    a.max(-b) + h * h * k * 0.25
-}
-
-/// Smooth CSG intersection: the overlap of `a` and `b`, with a blend of radius `k`.
-pub fn sdf_op_smooth_intersect(a: f32, b: f32, k: f32) -> f32 {
-    let h = (k - (a - b).abs()).max(0.0) / k;
-    a.max(b) - h * h * k * 0.25
-}
-
-/// Elongate an SDF along a local axis by half-extents `h`.
-///
-/// Stretches the point `p` by clamping each axis independently before passing
-/// it to the inner SDF.  Call as `sdf_op_elongate(p, h)` and use the result
-/// as the point argument to any SDF primitive.
-///
-/// ```text
-/// let p_elong = sdf_op_elongate(p, Vec3::new(0.5, 0.0, 0.0));
-/// let d = sdf_sphere(p_elong, 0.3);
-/// ```
-pub fn sdf_op_elongate(p: Vec3, h: Vec3) -> Vec3 {
-    // Vec3 has no Neg — negate component-wise.
-    let neg_h = Vec3::new(-h.x, -h.y, -h.z);
-    p - p.clamp(neg_h, h)
-}
-
-/// Twist space around the Y axis before evaluating an SDF.
-///
-/// Rotates the XZ plane by `k * p.y` radians, leaving Y unchanged.  Pass the
-/// returned point as the argument to any SDF primitive.
-///
-/// ```text
-/// let p_tw = sdf_op_twist(p, 2.0);
-/// let d = sdf_box_3d(p_tw, Vec3::splat(0.3));
-/// ```
-pub fn sdf_op_twist(p: Vec3, k: f32) -> Vec3 {
-    let (s, c) = (k * p.y).sin_cos();
-    Vec3::new(c * p.x - s * p.z, p.y, s * p.x + c * p.z)
 }
 
 /// Barrel / pincushion lens distortion of a UV coordinate.
