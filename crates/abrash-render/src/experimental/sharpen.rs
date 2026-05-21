@@ -40,8 +40,10 @@ pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
 
     SOURCE_PIXELS.with(|buf| {
         let mut src_pixels = buf.borrow_mut();
-        src_pixels.clear();
-        src_pixels.extend_from_slice(fb.as_slice());
+        // ⚡ Bolt: Use `resize` and `copy_from_slice` instead of `clear()` followed by `extend_from_slice()`.
+        // This avoids iterative bounds and capacity checks in `extend` and utilizes a fast `memcpy`.
+        src_pixels.resize(fb.as_slice().len(), 0);
+        src_pixels.copy_from_slice(fb.as_slice());
 
         let src = src_pixels.as_slice(); // use the thread_local buffer
         let dst = fb.as_mut_slice();

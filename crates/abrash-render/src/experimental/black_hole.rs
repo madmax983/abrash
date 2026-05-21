@@ -36,8 +36,10 @@ pub fn apply_black_hole(fb: &mut Framebuffer, center_x: f32, center_y: f32, mass
 
     SOURCE_PIXELS.with(|buf| {
         let mut src_pixels = buf.borrow_mut();
-        src_pixels.clear();
-        src_pixels.extend_from_slice(fb.as_slice());
+        // ⚡ Bolt: Use `resize` and `copy_from_slice` instead of `clear()` followed by `extend_from_slice()`.
+        // This avoids iterative bounds and capacity checks in `extend` and utilizes a fast `memcpy`.
+        src_pixels.resize(fb.as_slice().len(), 0);
+        src_pixels.copy_from_slice(fb.as_slice());
 
         // Extract a primitive slice to prevent capturing the `!Send` `RefMut` in the Rayon closure
         let src_pixels_slice = src_pixels.as_slice();

@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Fast Slice Copy]**
+**Learning:** `Vec::extend_from_slice()` requires repetitive capacity checks for small or empty vectors, even when capacity is pre-allocated. It is significantly slower (~6x to 40x depending on the compiler optimizations) than `resize()` followed by `copy_from_slice()` for thread-local buffers used across frames in rendering loops.
+**Action:** Always prefer `resize()` and `copy_from_slice()` over `clear()` and `extend_from_slice()` for copying large swaths of memory into vectors where `clone_from` is unavailable.
