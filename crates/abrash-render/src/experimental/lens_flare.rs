@@ -29,11 +29,31 @@ impl Default for LensFlareConfig {
     fn default() -> Self {
         Self {
             ghosts: vec![
-                FlareGhost { offset_scale: 0.2, radius: 40.0, color: 0x44FF_AA33 },
-                FlareGhost { offset_scale: -0.3, radius: 25.0, color: 0x4433_FF55 },
-                FlareGhost { offset_scale: -0.5, radius: 70.0, color: 0x2233_AAFF },
-                FlareGhost { offset_scale: -0.9, radius: 15.0, color: 0x66FF_3333 },
-                FlareGhost { offset_scale: 1.0, radius: 120.0, color: 0x11FF_FFFF },
+                FlareGhost {
+                    offset_scale: 0.2,
+                    radius: 40.0,
+                    color: 0x44FF_AA33,
+                },
+                FlareGhost {
+                    offset_scale: -0.3,
+                    radius: 25.0,
+                    color: 0x4433_FF55,
+                },
+                FlareGhost {
+                    offset_scale: -0.5,
+                    radius: 70.0,
+                    color: 0x2233_AAFF,
+                },
+                FlareGhost {
+                    offset_scale: -0.9,
+                    radius: 15.0,
+                    color: 0x66FF_3333,
+                },
+                FlareGhost {
+                    offset_scale: 1.0,
+                    radius: 120.0,
+                    color: 0x11FF_FFFF,
+                },
             ],
             halo_radius: 150.0,
             halo_thickness: 10.0,
@@ -46,25 +66,21 @@ impl Default for LensFlareConfig {
 /// Uses pure integer arithmetic. Intensity is expected to be 0-256 (where 256 is 1.0).
 #[inline(always)]
 fn add_blend_int(dest: u32, src: u32, intensity: u32) -> u32 {
-    let a1 = (dest >> 24) & 0xFF;
-    let r1 = (dest >> 16) & 0xFF;
-    let g1 = (dest >> 8) & 0xFF;
-    let b1 = dest & 0xFF;
+    let src_rb = src & 0x00FF_00FF;
+    let src_ag = (src >> 8) & 0x00FF_00FF;
 
-    let a2 = (src >> 24) & 0xFF;
-    let r2 = (src >> 16) & 0xFF;
-    let g2 = (src >> 8) & 0xFF;
-    let b2 = src & 0xFF;
+    let src_rb_scaled = (src_rb * intensity) >> 8;
+    let src_ag_scaled = (src_ag * intensity) >> 8;
 
-    let a_src = (a2 * intensity) >> 8;
-    let r_src = (r2 * intensity) >> 8;
-    let g_src = (g2 * intensity) >> 8;
-    let b_src = (b2 * intensity) >> 8;
+    let src_r = (src_rb_scaled >> 16) & 0xFF;
+    let src_b = src_rb_scaled & 0xFF;
+    let src_a = (src_ag_scaled >> 16) & 0xFF;
+    let src_g = src_ag_scaled & 0xFF;
 
-    let a_out = (a1 + a_src).min(255);
-    let r_out = (r1 + r_src).min(255);
-    let g_out = (g1 + g_src).min(255);
-    let b_out = (b1 + b_src).min(255);
+    let a_out = (((dest >> 24) & 0xFF) + src_a).min(255);
+    let r_out = (((dest >> 16) & 0xFF) + src_r).min(255);
+    let g_out = (((dest >> 8) & 0xFF) + src_g).min(255);
+    let b_out = ((dest & 0xFF) + src_b).min(255);
 
     (a_out << 24) | (r_out << 16) | (g_out << 8) | b_out
 }
@@ -81,9 +97,6 @@ struct RenderableGhost {
     max_x: i32,
 }
 
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlareConfig) {
     let width = fb.width() as i32;
     let height = fb.height() as i32;
@@ -178,7 +191,8 @@ pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlar
                     let intensity = (256.0 * (1.0 - (center_dist / config.halo_thickness))) as i32;
                     if intensity > 0 {
                         let idx = x as usize;
-                        row_slice[idx] = add_blend_int(row_slice[idx], config.halo_color, intensity as u32);
+                        row_slice[idx] =
+                            add_blend_int(row_slice[idx], config.halo_color, intensity as u32);
                     }
                 }
             }
@@ -187,15 +201,33 @@ pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlar
 
     #[cfg(feature = "parallel")]
     {
-        pixels.par_chunks_exact_mut(width as usize).enumerate().for_each(|(y, row_slice)| {
-            process_row(y as i32, row_slice);
-        });
+        pixels
+            .par_chunks_exact_mut(width as usize)
+            .enumerate()
+            .for_each(|(y, row_slice)| {
+                process_row(y as i32, row_slice);
+            });
     }
 
     #[cfg(not(feature = "parallel"))]
     {
-        pixels.chunks_exact_mut(width as usize).enumerate().for_each(|(y, row_slice)| {
-            process_row(y as i32, row_slice);
-        });
+        pixels
+            .chunks_exact_mut(width as usize)
+            .enumerate()
+            .for_each(|(y, row_slice)| {
+                process_row(y as i32, row_slice);
+            });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lens_flare_no_crash() {
+        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let config = LensFlareConfig::default();
+        apply_lens_flare(&mut fb, Vec2::new(50.0, 50.0), &config);
     }
 }
