@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Temporal Ghosting Filter]
+**Concept:** A post-processing effect that blends the current frame with previous frames to create motion blur, ghosting, or light trail effects. It maintains a stateful history buffer to carry over pixels from the past.
+**Fate:** Implemented
+**Lesson:** Storing the history as a stateful struct, instead of using thread-local variables, is safer and prevents cross-talk between multiple rendering contexts. For light trails, doing a mathematical max-blend ensures bright moving objects leave a clean trail that decays gracefully without just turning into muddy alpha-blended sludge.
