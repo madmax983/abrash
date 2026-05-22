@@ -69,15 +69,31 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     let mut max_z = f32::MIN;
     let mut has_content = false;
 
-    for &z in depths {
-        if z != f32::INFINITY {
-            if z < min_z {
-                min_z = z;
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    let use_simd = std::is_x86_feature_detected!("avx2");
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+    let use_simd = false;
+
+    if use_simd {
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        unsafe {
+            let (new_min, new_max, new_has_content) =
+                find_min_max_depth_simd(depths, min_z, max_z, has_content);
+            min_z = new_min;
+            max_z = new_max;
+            has_content = new_has_content;
+        }
+    } else {
+        for &z in depths {
+            if z != f32::INFINITY {
+                if z < min_z {
+                    min_z = z;
+                }
+                if z > max_z {
+                    max_z = z;
+                }
+                has_content = true;
             }
-            if z > max_z {
-                max_z = z;
-            }
-            has_content = true;
         }
     }
 
@@ -116,6 +132,87 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
         *pixel = unsafe { *LUT.get_unchecked(t as usize) };
     }
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+unsafe fn find_min_max_depth_simd(
+    depths: &[f32],
+    mut min_z: f32,
+    mut max_z: f32,
+    mut has_content: bool,
+) -> (f32, f32, bool) {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::*;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::{
+        _CMP_NEQ_OQ, _mm256_blendv_ps, _mm256_cmp_ps, _mm256_loadu_ps, _mm256_max_ps,
+        _mm256_min_ps, _mm256_movemask_ps, _mm256_or_ps, _mm256_set1_ps, _mm256_setzero_ps,
+        _mm256_storeu_ps,
+    };
+
+    let len = depths.len();
+    let mut i = 0;
+
+    let inf_vec = _mm256_set1_ps(f32::INFINITY);
+    let mut min_vec = _mm256_set1_ps(f32::MAX);
+    let mut max_vec = _mm256_set1_ps(f32::MIN);
+    let mut any_content = _mm256_setzero_ps();
+
+    while i + 8 <= len {
+        let d_ptr = depths.as_ptr().add(i);
+        let d_val = _mm256_loadu_ps(d_ptr);
+
+        // mask for elements not equal to infinity
+        let is_not_inf = _mm256_cmp_ps(d_val, inf_vec, _CMP_NEQ_OQ);
+
+        // Accumulate content mask
+        any_content = _mm256_or_ps(any_content, is_not_inf);
+
+        // For min: replace inf with MAX
+        let d_for_min = _mm256_blendv_ps(_mm256_set1_ps(f32::MAX), d_val, is_not_inf);
+        min_vec = _mm256_min_ps(min_vec, d_for_min);
+
+        // For max: replace inf with MIN
+        let d_for_max = _mm256_blendv_ps(_mm256_set1_ps(f32::MIN), d_val, is_not_inf);
+        max_vec = _mm256_max_ps(max_vec, d_for_max);
+
+        i += 8;
+    }
+
+    // horizontal reduction
+    let mut min_arr = [0.0; 8];
+    let mut max_arr = [0.0; 8];
+    _mm256_storeu_ps(min_arr.as_mut_ptr(), min_vec);
+    _mm256_storeu_ps(max_arr.as_mut_ptr(), max_vec);
+
+    let content_mask = _mm256_movemask_ps(any_content);
+    if content_mask != 0 {
+        has_content = true;
+        for j in 0..8 {
+            if min_arr[j] < min_z {
+                min_z = min_arr[j];
+            }
+            if max_arr[j] > max_z {
+                max_z = max_arr[j];
+            }
+        }
+    }
+
+    // Tail processing
+    for &z in &depths[i..len] {
+        if z != f32::INFINITY {
+            if z < min_z {
+                min_z = z;
+            }
+            if z > max_z {
+                max_z = z;
+            }
+            has_content = true;
+        }
+    }
+
+    (min_z, max_z, has_content)
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
