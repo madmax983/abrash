@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Algorithmic Over-Complexity / Union-Find]**
+**Learning:** In algorithms that process sequential data strictly monotonically (e.g., left-to-right pixel processing like stereogram generation), avoid building multi-pass structures like O(N) Union-Find arrays for path compression. Instead, resolve dependencies in a single forward pass by directly querying the already-resolved prior elements.
+**Action:** Replace `thread_local!` buffers and multi-pass Union-Find logic in monotonic pixel loops with a single O(N) in-place overwrite pass.

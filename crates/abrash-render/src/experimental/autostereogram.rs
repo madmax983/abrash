@@ -42,53 +42,26 @@ pub fn apply_autostereogram(fb: &mut Framebuffer, zb: &ZBuffer, config: Autoster
     {
         use rayon::prelude::*;
 
-        std::thread_local! {
-            static ROW_BUFFERS: std::cell::RefCell<(Vec<usize>, Vec<u32>)> = const { std::cell::RefCell::new((Vec::new(), Vec::new())) };
-        }
-
         pixels
             .par_chunks_exact_mut(width)
             .enumerate()
             .for_each(|(y, row_pixels)| {
-                ROW_BUFFERS.with(|buffers| {
-                    let mut b = buffers.borrow_mut();
-                    if b.0.len() < width {
-                        b.0.resize(width, 0);
-                        b.1.resize(width, 0);
-                    }
+                let row_start = y * width;
+                let row_depths = &depths[row_start..row_start + width];
 
-                    let row_start = y * width;
-                    let row_depths = &depths[row_start..row_start + width];
-                    let (ref mut links_buf, ref mut colors_buf) = *b;
-                    let t_links = &mut links_buf[..width];
-                    let t_colors = &mut colors_buf[..width];
-
-                    process_row(
-                        y as u32, row_pixels, row_depths, t_links, t_colors, width, config,
-                    );
-                });
+                process_row(y as u32, row_pixels, row_depths, width, config);
             });
     }
 
     #[cfg(not(feature = "parallel"))]
     {
-        let mut links = vec![0; width];
-        let mut colors = vec![0; width];
         pixels
             .chunks_exact_mut(width)
             .enumerate()
             .for_each(|(y, row_pixels)| {
                 let row_start = y * width;
                 let row_depths = &depths[row_start..row_start + width];
-                process_row(
-                    y as u32,
-                    row_pixels,
-                    row_depths,
-                    &mut links,
-                    &mut colors,
-                    width,
-                    config,
-                );
+                process_row(y as u32, row_pixels, row_depths, width, config);
             });
     }
 }
@@ -97,17 +70,24 @@ fn process_row(
     row_idx: u32,
     row_pixels: &mut [u32],
     row_depths: &[f32],
-    links: &mut [usize],
-    colors: &mut [u32],
     width: usize,
     config: AutostereogramConfig,
 ) {
-    // Initialize links to point to themselves
-    for x in 0..width {
-        links[x] = x;
-    }
+    // A simple PRNG seeded with row index to ensure deterministic noise per row
+    let mut seed: u32 = 0xDEAD_BEEF ^ (row_idx * 1337);
+    let mut next_rand = || {
+        seed ^= seed << 13;
+        seed ^= seed >> 17;
+        seed ^= seed << 5;
+        seed
+    };
 
-    // Link pixels that should be the same color based on depth
+    // ⚡ Bolt Performance Optimization:
+    // Stereogram generation using Union-Find for `links[x] = x - separation` where pixels
+    // are processed left-to-right ensures `x - separation` is always fully resolved.
+    // By fusing the depth lookup, pattern matching, and color generation into a single forward pass,
+    // we completely eliminate O(N) array allocations (links/colors), the O(N) union-find path
+    // compressions, and multi-pass loop overhead.
     for x in 0..width {
         let depth = row_depths[x];
 
@@ -125,68 +105,17 @@ fn process_row(
             s.min(config.pattern_width - 1)
         };
 
-        let separation = config.pattern_width - shift;
+        let separation = (config.pattern_width - shift) as usize;
 
-        // In actual stereogram generation, we link pixel `x` with `x - separation`.
-        if x >= separation as usize {
-            let left = x - separation as usize;
-            let right = x;
-
-            // Union-find: find roots
-            let mut root_left = left;
-            while root_left != links[root_left] {
-                root_left = links[root_left];
-            }
-
-            let mut root_right = right;
-            while root_right != links[root_right] {
-                root_right = links[root_right];
-            }
-
-            // Link them
-            if root_left < root_right {
-                links[root_right] = root_left;
-            } else if root_right < root_left {
-                links[root_left] = root_right;
-            }
-        }
-    }
-
-    // A simple PRNG seeded with row index to ensure deterministic noise per row
-    let mut seed: u32 = 0xDEAD_BEEF ^ (row_idx * 1337);
-    let mut next_rand = || {
-        seed ^= seed << 13;
-        seed ^= seed >> 17;
-        seed ^= seed << 5;
-        seed
-    };
-
-    // Generate colors for root nodes and assign to linked nodes
-    for x in 0..width {
-        let root = {
-            let mut curr = x;
-            while curr != links[curr] {
-                curr = links[curr];
-            }
-            // Path compression
-            let mut compress = x;
-            while compress != links[compress] {
-                let next = links[compress];
-                links[compress] = curr;
-                compress = next;
-            }
-            curr
-        };
-
-        if root == x {
-            // Generate random grayscale color for root
-            let intensity = (next_rand() % 256) as u32;
-            colors[x] = 0xFF00_0000 | (intensity << 16) | (intensity << 8) | intensity;
+        if x >= separation {
+            // Because `left` < `x`, its final color is already fully computed.
+            let left = x - separation;
+            row_pixels[x] = row_pixels[left];
         } else {
-            colors[x] = colors[root];
+            // Generate random grayscale color for new pattern roots
+            let intensity = (next_rand() & 255) as u32;
+            row_pixels[x] = 0xFF00_0000 | (intensity << 16) | (intensity << 8) | intensity;
         }
-
-        row_pixels[x] = colors[x];
     }
 }
 
