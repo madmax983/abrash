@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**Optimize gaussian_kernel_1d normalization and allocation**
+**Learning:** When generating numerical collections like filter kernels, relying on `.collect()` incurs dynamic allocation overhead. Additionally, calling `.iter().sum()` followed by a loop of `/ sum` requires multiple passes and performs expensive floating point division.
+**Action:** Use `Vec::with_capacity()` to elide dynamic allocations. Compute the `sum` concurrently with element generation in a single pass, then multiply by the inverse sum (`1.0 / sum`) instead of dividing.
