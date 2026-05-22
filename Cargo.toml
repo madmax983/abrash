@@ -984,3 +984,14 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[bench]]
+name = "rotozoom_bench"
+harness = false
+required-features = ["nova"]
+path = "crates/abrash-render/benches/rotozoom_bench.rs"
+
+[[example]]
+name = "rotozoom_demo"
+path = "examples/rotozoom_demo.rs"
+required-features = ["nova"]
