@@ -24,6 +24,8 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
 
     let (sin_a, cos_a) = angle_radians.sin_cos();
     let max_dist_sq = (dot_size * dot_size) / 2.0;
+    // Maximum lum_i is 254
+    let max_dist_sq_per_lum = max_dist_sq / 254.0;
 
     let pixels = fb.as_mut_slice();
 
@@ -56,7 +58,6 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
             let b = (p & 0xFF) as u32;
 
             let lum_i = (19595 * r + 38469 * g + 7471 * b) >> 16;
-            let lum = (lum_i as f32 / 254.0).min(1.0);
 
             // Find the center of the nearest halftone cell in the rotated space.
             // ⚡ Bolt: Replace f32::round() with fast integer casting
@@ -72,7 +73,7 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
             let dist_sq = dx * dx + dy * dy;
 
             // The radius of the dot we should draw (squared).
-            let dot_radius_sq = (1.0 - lum) * max_dist_sq;
+            let dot_radius_sq = (254 - lum_i.min(254)) as f32 * max_dist_sq_per_lum;
 
             // If the pixel is inside the dot radius, it's black. Otherwise, white.
             *pixel = if dist_sq < dot_radius_sq {
@@ -123,4 +124,23 @@ mod tests {
             assert_eq!(pixel, 0xFFFF_FFFF);
         }
     }
+}
+
+#[test]
+fn test_apply_halftone_gradient() {
+    let mut fb = Framebuffer::new(3, 1).unwrap();
+    // Left is black, middle is grey, right is white.
+    fb.set_pixel(0, 0, 0xFF00_0000);
+    fb.set_pixel(1, 0, 0xFF80_8080);
+    fb.set_pixel(2, 0, 0xFFFF_FFFF);
+
+    apply_halftone(&mut fb, 1.0, 0.0);
+
+    let p_black = fb.get_pixel(0, 0).unwrap();
+    let p_white = fb.get_pixel(2, 0).unwrap();
+
+    // The exact color depends on dot calculation logic, but we can verify it doesn't crash
+    // and modifies the values properly without overflowing the integer clamping logic.
+    assert_eq!(p_black, 0xFF00_0000);
+    assert_eq!(p_white, 0xFFFF_FFFF);
 }
