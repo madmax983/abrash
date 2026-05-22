@@ -45,23 +45,28 @@ impl Default for PosterizeConfig {
 /// assert_eq!(fb.get_pixel(1, 0).unwrap(), 0xFF_555555);
 /// ```
 pub fn apply_posterize(fb: &mut Framebuffer, config: &PosterizeConfig) {
-    // ⚡ Bolt: Use pure integer math to avoid f32 conversions in the hot loop
+    // ⚡ Bolt: Precompute a lookup table (LUT) to avoid complex math in the hot loop
     let levels = config.levels.max(2.0);
     let levels_minus_1 = (levels - 1.0) as u32;
     let safe_divisor = levels_minus_1.max(1);
 
+    let mut lut = [0u32; 256];
+    for (i, val) in lut.iter_mut().enumerate() {
+        let quantized = ((i as u32 * levels_minus_1 + 127) / 255 * 255) / safe_divisor;
+        *val = quantized.min(255);
+    }
+
     for pixel in fb.as_mut_slice().iter_mut() {
         let p = *pixel;
         let a = p & 0xFF00_0000;
-        let r = (p >> 16) & 0xFF;
-        let g = (p >> 8) & 0xFF;
-        let b = p & 0xFF;
 
-        let new_r = ((r * levels_minus_1 + 127) / 255 * 255) / safe_divisor;
-        let new_g = ((g * levels_minus_1 + 127) / 255 * 255) / safe_divisor;
-        let new_b = ((b * levels_minus_1 + 127) / 255 * 255) / safe_divisor;
+        // SAFETY: The bitwise AND with 0xFF guarantees the value is strictly between 0 and 255,
+        // which exactly matches the 256 bounds of our precomputed LUT array.
+        let r = unsafe { *lut.get_unchecked(((p >> 16) & 0xFF) as usize) };
+        let g = unsafe { *lut.get_unchecked(((p >> 8) & 0xFF) as usize) };
+        let b = unsafe { *lut.get_unchecked((p & 0xFF) as usize) };
 
-        *pixel = a | (new_r.min(255) << 16) | (new_g.min(255) << 8) | new_b.min(255);
+        *pixel = a | (r << 16) | (g << 8) | b;
     }
 }
 
