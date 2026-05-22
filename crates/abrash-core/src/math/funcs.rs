@@ -6959,9 +6959,15 @@ pub fn convolve_1d(signal: &[f32], kernel: &[f32]) -> Vec<f32> {
     }
     let out_len = signal.len() + kernel.len() - 1;
     let mut out = vec![0.0_f32; out_len];
+
+    // ⚡ Bolt: Using `.zip()` over a sliced destination elides bounds checks in the inner loop,
+    // resulting in significant performance improvements for dense convolution.
     for (i, &s) in signal.iter().enumerate() {
-        for (j, &k) in kernel.iter().enumerate() {
-            out[i + j] += s * k;
+        if s == 0.0 {
+            continue;
+        }
+        for (out_val, &k) in out[i..i + kernel.len()].iter_mut().zip(kernel) {
+            *out_val += s * k;
         }
     }
     out

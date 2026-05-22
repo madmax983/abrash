@@ -36,3 +36,7 @@ too_many_lines = "allow"
 struct_field_names = "allow"
 suboptimal_flops = "allow"
 tuple_array_conversions = "allow"
+
+[[bench]]
+name = "convolve_bench"
+harness = false
