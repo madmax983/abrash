@@ -1,4 +1,4 @@
-//! BSP texture provider trait and distance-based colormap lighting.
+//! BSP texture cache and distance-based colormap lighting.
 //!
 //! Consumers implement [`BspTextureCache`] to bridge their texture caches (WAD
 //! lumps, custom atlases, etc.) into the BSP renderer.  The [`colormap_index`]

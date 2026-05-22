@@ -1,4 +1,4 @@
-//! Core animation evaluation trait and sample type.
+//! Core animation evaluation enum and sample type.
 
 use abrash_core::animatable::Animatable;
 
