@@ -21,7 +21,15 @@ fn havoc_texture_overflow_simd() {
 
     unsafe {
         draw_span_nearest_simd(
-            &mut fb, &mut zb, &tex, z, dz_dx, u_fix, v_fix, du_fix, dv_fix,
+            &mut fb,
+            &mut zb,
+            &tex,
+            super::texture::TexSpanState { z, u_fix, v_fix },
+            super::texture::TexSpanStep {
+                dz_dx,
+                du_fix,
+                dv_fix,
+            },
         );
     }
 }
@@ -42,7 +50,15 @@ fn havoc_texture_simd_buffer_mismatch() {
 
     unsafe {
         draw_span_nearest_simd(
-            &mut fb, &mut zb, &tex, z, dz_dx, u_fix, v_fix, du_fix, dv_fix,
+            &mut fb,
+            &mut zb,
+            &tex,
+            super::texture::TexSpanState { z, u_fix, v_fix },
+            super::texture::TexSpanStep {
+                dz_dx,
+                du_fix,
+                dv_fix,
+            },
         );
     }
 }
@@ -64,7 +80,15 @@ fn havoc_texture_simd_zero_fb() {
 
     unsafe {
         draw_span_nearest_simd(
-            &mut fb, &mut zb, &tex, z, dz_dx, u_fix, v_fix, du_fix, dv_fix,
+            &mut fb,
+            &mut zb,
+            &tex,
+            super::texture::TexSpanState { z, u_fix, v_fix },
+            super::texture::TexSpanStep {
+                dz_dx,
+                du_fix,
+                dv_fix,
+            },
         );
     }
 }

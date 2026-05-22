@@ -52,7 +52,35 @@ use super::core::blend_swar_simd;
 ///
 /// These gradients are calculated once per triangle and used to step the
 /// edge walkers and scanline interpolators.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
+pub struct TexSpanState {
+    pub z: f32,
+    pub u_fix: i32,
+    pub v_fix: i32,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct TexSpanStep {
+    pub dz_dx: f32,
+    pub du_fix: i32,
+    pub dv_fix: i32,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct GouraudSpanState {
+    pub r_fix: i32,
+    pub g_fix: i32,
+    pub b_fix: i32,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct GouraudSpanStep {
+    pub dr_dx: i32,
+    pub dg_dx: i32,
+    pub db_dx: i32,
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct PerspectiveTextureGradients {
     /// Change in depth (Z) per X pixel.
     /// Change in depth per pixel in X direction.
@@ -270,12 +298,8 @@ pub(crate) fn draw_span_nearest(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    mut z: f32,
-    dz_dx: f32,
-    mut u_fix: i32,
-    mut v_fix: i32,
-    du_fix: i32,
-    dv_fix: i32,
+    mut state: TexSpanState,
+    step: TexSpanStep,
 ) {
     let tex_pixels = &texture.pixels;
     let tex_w = texture.width;
@@ -288,8 +312,8 @@ pub(crate) fn draw_span_nearest(
     let len = fb_slice.len().min(zb_slice.len()) as i32;
     let can_use_fast_path = if len > 0 {
         // Calculate range of u_fix and v_fix using i64 to prevent wrap-around bypassing bounds checks.
-        let u_start_64 = i64::from(u_fix);
-        let du_64 = i64::from(du_fix);
+        let u_start_64 = i64::from(state.u_fix);
+        let du_64 = i64::from(step.du_fix);
         let u_end_64 = u_start_64 + du_64 * i64::from(len - 1);
 
         let (u_min_64, u_max_64) = if du_64 >= 0 {
@@ -298,8 +322,8 @@ pub(crate) fn draw_span_nearest(
             (u_end_64, u_start_64)
         };
 
-        let v_start_64 = i64::from(v_fix);
-        let dv_64 = i64::from(dv_fix);
+        let v_start_64 = i64::from(state.v_fix);
+        let dv_64 = i64::from(step.dv_fix);
         let v_end_64 = v_start_64 + dv_64 * i64::from(len - 1);
 
         let (v_min_64, v_max_64) = if dv_64 >= 0 {
@@ -325,12 +349,12 @@ pub(crate) fn draw_span_nearest(
     macro_rules! process_span_nearest {
         ($fetch_block:block) => {
             for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                if z < *depth_val {
+                if state.z < *depth_val {
                     let color = $fetch_block;
 
                     let alpha = (color >> 24) & 0xFF;
                     if alpha == 255 {
-                        *depth_val = z;
+                        *depth_val = state.z;
                         *pixel = color;
                     } else if alpha > 0 {
                         let dest = *pixel;
@@ -340,9 +364,9 @@ pub(crate) fn draw_span_nearest(
                         *pixel = blend_swar(color, dest, 255 - alpha, alpha);
                     }
                 }
-                z += dz_dx;
-                u_fix = u_fix.wrapping_add(du_fix);
-                v_fix = v_fix.wrapping_add(dv_fix);
+                state.z += step.dz_dx;
+                state.u_fix = state.u_fix.wrapping_add(step.du_fix);
+                state.v_fix = state.v_fix.wrapping_add(step.dv_fix);
             }
         };
     }
@@ -351,15 +375,15 @@ pub(crate) fn draw_span_nearest(
         // FAST PATH: No bounds checks inside loop
         if shift < 32 {
             process_span_nearest!({
-                let u = (u_fix >> 16) as usize;
-                let v = (v_fix >> 16) as usize;
+                let u = (state.u_fix >> 16) as usize;
+                let v = (state.v_fix >> 16) as usize;
                 // SAFETY: Verified entire span is within bounds.
                 unsafe { *tex_pixels.get_unchecked((v << shift) + u) }
             });
         } else {
             process_span_nearest!({
-                let u = (u_fix >> 16) as usize;
-                let v = (v_fix >> 16) as usize;
+                let u = (state.u_fix >> 16) as usize;
+                let v = (state.v_fix >> 16) as usize;
                 // SAFETY: Verified entire span is within bounds.
                 unsafe { *tex_pixels.get_unchecked(v * tex_w_usize + u) }
             });
@@ -368,8 +392,8 @@ pub(crate) fn draw_span_nearest(
         // SLOW PATH: Per-pixel bounds checks (handling repeat/clamp/overflow)
         if shift < 32 {
             process_span_nearest!({
-                let u = u_fix >> 16;
-                let v = v_fix >> 16;
+                let u = state.u_fix >> 16;
+                let v = state.v_fix >> 16;
                 if (u as u32) < tex_w && (v as u32) < tex_h {
                     // SAFETY: Checked bounds
                     unsafe { *tex_pixels.get_unchecked(((v as usize) << shift) + (u as usize)) }
@@ -379,8 +403,8 @@ pub(crate) fn draw_span_nearest(
             });
         } else {
             process_span_nearest!({
-                let u = u_fix >> 16;
-                let v = v_fix >> 16;
+                let u = state.u_fix >> 16;
+                let v = state.v_fix >> 16;
                 if (u as u32) < tex_w && (v as u32) < tex_h {
                     // SAFETY: Checked bounds
                     unsafe { *tex_pixels.get_unchecked((v as usize) * tex_w_usize + (u as usize)) }
@@ -398,12 +422,8 @@ pub(crate) fn draw_span_bilinear(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    mut z: f32,
-    dz_dx: f32,
-    mut u_fix: i32,
-    mut v_fix: i32,
-    du_fix: i32,
-    dv_fix: i32,
+    mut state: TexSpanState,
+    step: TexSpanStep,
 ) {
     let tex_pixels = &texture.pixels;
     let tex_w = texture.width;
@@ -418,8 +438,8 @@ pub(crate) fn draw_span_bilinear(
     let len = fb_slice.len().min(zb_slice.len()) as i32;
     let can_use_fast_path = if len > 0 {
         // Calculate range of u_fix and v_fix using i64 to prevent wrap-around bypassing bounds checks.
-        let u_start_64 = i64::from(u_fix);
-        let du_64 = i64::from(du_fix);
+        let u_start_64 = i64::from(state.u_fix);
+        let du_64 = i64::from(step.du_fix);
         let u_end_64 = u_start_64 + du_64 * i64::from(len - 1);
 
         let (u_min_64, u_max_64) = if du_64 >= 0 {
@@ -428,8 +448,8 @@ pub(crate) fn draw_span_bilinear(
             (u_end_64, u_start_64)
         };
 
-        let v_start_64 = i64::from(v_fix);
-        let dv_64 = i64::from(dv_fix);
+        let v_start_64 = i64::from(state.v_fix);
+        let dv_64 = i64::from(step.dv_fix);
         let v_end_64 = v_start_64 + dv_64 * i64::from(len - 1);
 
         let (v_min_64, v_max_64) = if dv_64 >= 0 {
@@ -461,9 +481,9 @@ pub(crate) fn draw_span_bilinear(
             let mut c11 = 0;
 
             for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                if z < *depth_val {
-                    let u_img_fixed = u_fix >> 8;
-                    let v_img_fixed = v_fix >> 8;
+                if state.z < *depth_val {
+                    let u_img_fixed = state.u_fix >> 8;
+                    let v_img_fixed = state.v_fix >> 8;
 
                     let x0_raw = u_img_fixed >> 8;
                     let y0_raw = v_img_fixed >> 8;
@@ -535,16 +555,16 @@ pub(crate) fn draw_span_bilinear(
 
                     let alpha = (final_color >> 24) & 0xFF;
                     if alpha == 255 {
-                        *depth_val = z;
+                        *depth_val = state.z;
                         *pixel = final_color;
                     } else if alpha > 0 {
                         let dest = *pixel;
                         *pixel = blend_swar(final_color, dest, 255 - alpha, alpha);
                     }
                 }
-                z += dz_dx;
-                u_fix = u_fix.wrapping_add(du_fix);
-                v_fix = v_fix.wrapping_add(dv_fix);
+                state.z += step.dz_dx;
+                state.u_fix = state.u_fix.wrapping_add(step.du_fix);
+                state.v_fix = state.v_fix.wrapping_add(step.dv_fix);
             }
         };
     }
@@ -574,12 +594,8 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    z_start: f32,
-    dz_dx: f32,
-    u_fix_start: i32,
-    v_fix_start: i32,
-    du_fix: i32,
-    dv_fix: i32,
+    state: TexSpanState,
+    step: TexSpanStep,
 ) {
     use std::arch::x86_64::*;
 
@@ -597,9 +613,9 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
     };
     let pre_simd_count = pre_simd_count.min(len);
 
-    let mut z_curr = z_start;
-    let mut u_curr = u_fix_start;
-    let mut v_curr = v_fix_start;
+    let mut z_curr = state.z;
+    let mut u_curr = state.u_fix;
+    let mut v_curr = state.v_fix;
 
     // Scalar pre-loop
     for k in 0..pre_simd_count {
@@ -675,17 +691,17 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
                 }
             }
         }
-        z_curr += dz_dx;
-        u_curr = u_curr.wrapping_add(du_fix);
-        v_curr = v_curr.wrapping_add(dv_fix);
+        z_curr += step.dz_dx;
+        u_curr = u_curr.wrapping_add(step.du_fix);
+        v_curr = v_curr.wrapping_add(step.dv_fix);
     }
 
     i += pre_simd_count;
 
     unsafe {
-        let dz_dx_vec = _mm256_set1_ps(dz_dx);
-        let du_fix_vec = _mm256_set1_epi32(du_fix);
-        let dv_fix_vec = _mm256_set1_epi32(dv_fix);
+        let dz_dx_vec = _mm256_set1_ps(step.dz_dx);
+        let du_fix_vec = _mm256_set1_epi32(step.du_fix);
+        let dv_fix_vec = _mm256_set1_epi32(step.dv_fix);
 
         let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
         let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
@@ -867,20 +883,20 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
     // Scalar Tail
     if i < len {
         // Recalculate currents based on i (which advanced)
-        let z_tail = z_start + (i as f32) * dz_dx;
-        let u_tail = u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32));
-        let v_tail = v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32));
+        let z_tail = state.z + (i as f32) * step.dz_dx;
+        let u_tail = state.u_fix.wrapping_add(step.du_fix.wrapping_mul(i as i32));
+        let v_tail = state.v_fix.wrapping_add(step.dv_fix.wrapping_mul(i as i32));
 
         draw_span_bilinear(
             &mut fb_slice[i..],
             &mut zb_slice[i..],
             texture,
-            z_tail,
-            dz_dx,
-            u_tail,
-            v_tail,
-            du_fix,
-            dv_fix,
+            TexSpanState {
+                z: z_tail,
+                u_fix: u_tail,
+                v_fix: v_tail,
+            },
+            step,
         );
     }
 }
@@ -915,30 +931,26 @@ pub(crate) fn draw_span_trilinear(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    mut z: f32,
-    dz_dx: f32,
-    mut u_fix: i32,
-    mut v_fix: i32,
-    du_fix: i32,
-    dv_fix: i32,
+    mut state: TexSpanState,
+    step: TexSpanStep,
     lod: f32,
 ) {
     for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-        if z < *depth_val {
-            let color = texture.get_pixel_trilinear_fixed(u_fix, v_fix, lod);
+        if state.z < *depth_val {
+            let color = texture.get_pixel_trilinear_fixed(state.u_fix, state.v_fix, lod);
             let alpha = (color >> 24) & 0xFF;
 
             if alpha == 255 {
-                *depth_val = z;
+                *depth_val = state.z;
                 *pixel = color;
             } else if alpha > 0 {
                 let dest = *pixel;
                 *pixel = blend_swar(color, dest, 255 - alpha, alpha);
             }
         }
-        z += dz_dx;
-        u_fix = u_fix.wrapping_add(du_fix);
-        v_fix = v_fix.wrapping_add(dv_fix);
+        state.z += step.dz_dx;
+        state.u_fix = state.u_fix.wrapping_add(step.du_fix);
+        state.v_fix = state.v_fix.wrapping_add(step.dv_fix);
     }
 }
 
@@ -952,12 +964,8 @@ pub(crate) unsafe fn draw_span_nearest_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    z_start: f32,
-    dz_dx: f32,
-    u_fix_start: i32,
-    v_fix_start: i32,
-    du_fix: i32,
-    dv_fix: i32,
+    state: TexSpanState,
+    step: TexSpanStep,
 ) {
     use std::arch::x86_64::*;
 
@@ -975,9 +983,9 @@ pub(crate) unsafe fn draw_span_nearest_simd(
     };
     let pre_simd_count = pre_simd_count.min(len);
 
-    let mut z_curr = z_start;
-    let mut u_curr = u_fix_start;
-    let mut v_curr = v_fix_start;
+    let mut z_curr = state.z;
+    let mut u_curr = state.u_fix;
+    let mut v_curr = state.v_fix;
 
     // Scalar pre-loop
     for k in 0..pre_simd_count {
@@ -1009,17 +1017,17 @@ pub(crate) unsafe fn draw_span_nearest_simd(
                 }
             }
         }
-        z_curr += dz_dx;
-        u_curr = u_curr.wrapping_add(du_fix);
-        v_curr = v_curr.wrapping_add(dv_fix);
+        z_curr += step.dz_dx;
+        u_curr = u_curr.wrapping_add(step.du_fix);
+        v_curr = v_curr.wrapping_add(step.dv_fix);
     }
 
     i += pre_simd_count;
 
     unsafe {
-        let dz_dx_vec = _mm256_set1_ps(dz_dx);
-        let du_fix_vec = _mm256_set1_epi32(du_fix);
-        let dv_fix_vec = _mm256_set1_epi32(dv_fix);
+        let dz_dx_vec = _mm256_set1_ps(step.dz_dx);
+        let du_fix_vec = _mm256_set1_epi32(step.du_fix);
+        let dv_fix_vec = _mm256_set1_epi32(step.dv_fix);
 
         let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
         let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
@@ -1134,9 +1142,9 @@ pub(crate) unsafe fn draw_span_nearest_simd(
     }
 
     // Scalar Tail
-    let mut z_curr = z_start + (i as f32) * dz_dx;
-    let mut u_curr = u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32));
-    let mut v_curr = v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32));
+    let mut z_curr = state.z + (i as f32) * step.dz_dx;
+    let mut u_curr = state.u_fix.wrapping_add(step.du_fix.wrapping_mul(i as i32));
+    let mut v_curr = state.v_fix.wrapping_add(step.dv_fix.wrapping_mul(i as i32));
 
     while i < len {
         unsafe {
@@ -1170,9 +1178,9 @@ pub(crate) unsafe fn draw_span_nearest_simd(
                 }
             }
         }
-        z_curr += dz_dx;
-        u_curr = u_curr.wrapping_add(du_fix);
-        v_curr = v_curr.wrapping_add(dv_fix);
+        z_curr += step.dz_dx;
+        u_curr = u_curr.wrapping_add(step.du_fix);
+        v_curr = v_curr.wrapping_add(step.dv_fix);
         i += 1;
     }
 }
@@ -1487,96 +1495,48 @@ pub fn draw_scanline_textured_perspective(
                 let v_fix = (v_tex_start * 65536.0) as i32;
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
+                let state = TexSpanState { z, u_fix, v_fix };
+                let step = TexSpanStep {
+                    dz_dx: gradients.dz_dx,
+                    du_fix,
+                    dv_fix,
+                };
 
                 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
                 if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
-                        draw_span_nearest_simd(
-                            fb_slice,
-                            zb_slice,
-                            texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
-                        );
+                        draw_span_nearest_simd(fb_slice, zb_slice, texture, state, step);
                     }
                 } else {
-                    draw_span_nearest(
-                        fb_slice,
-                        zb_slice,
-                        texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
-                    );
+                    draw_span_nearest(fb_slice, zb_slice, texture, state, step);
                 }
 
                 #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
-                draw_span_nearest(
-                    fb_slice,
-                    zb_slice,
-                    texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
-                );
+                draw_span_nearest(fb_slice, zb_slice, texture, state, step);
             }
             FilterMode::Bilinear => {
                 let u_fix = ((u_tex_start * 65536.0) as i32).wrapping_sub(32768);
                 let v_fix = ((v_tex_start * 65536.0) as i32).wrapping_sub(32768);
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
+                let state = TexSpanState { z, u_fix, v_fix };
+                let step = TexSpanStep {
+                    dz_dx: gradients.dz_dx,
+                    du_fix,
+                    dv_fix,
+                };
 
                 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
                 if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
-                        draw_span_bilinear_simd(
-                            fb_slice,
-                            zb_slice,
-                            texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
-                        );
+                        draw_span_bilinear_simd(fb_slice, zb_slice, texture, state, step);
                     }
                 } else {
-                    draw_span_bilinear(
-                        fb_slice,
-                        zb_slice,
-                        texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
-                    );
+                    draw_span_bilinear(fb_slice, zb_slice, texture, state, step);
                 }
 
                 #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
-                draw_span_bilinear(
-                    fb_slice,
-                    zb_slice,
-                    texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
-                );
+                draw_span_bilinear(fb_slice, zb_slice, texture, state, step);
             }
             FilterMode::Trilinear => {
                 // For Trilinear, we need LOD.
@@ -1596,51 +1556,24 @@ pub fn draw_scanline_textured_perspective(
                 let v_fix = (v_tex_start * 65536.0) as i32;
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
+                let state = TexSpanState { z, u_fix, v_fix };
+                let step = TexSpanStep {
+                    dz_dx: gradients.dz_dx,
+                    du_fix,
+                    dv_fix,
+                };
 
                 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
                 if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
-                        draw_span_trilinear_simd(
-                            fb_slice,
-                            zb_slice,
-                            texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
-                            lod,
-                        );
+                        draw_span_trilinear_simd(fb_slice, zb_slice, texture, state, step, lod);
                     }
                 } else {
-                    draw_span_trilinear(
-                        fb_slice,
-                        zb_slice,
-                        texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
-                        lod,
-                    );
+                    draw_span_trilinear(fb_slice, zb_slice, texture, state, step, lod);
                 }
 
                 #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
-                draw_span_trilinear(
-                    fb_slice,
-                    zb_slice,
-                    texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
-                    lod,
-                );
+                draw_span_trilinear(fb_slice, zb_slice, texture, state, step, lod);
             }
         }
 
@@ -2800,12 +2733,8 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    z_start: f32,
-    dz_dx: f32,
-    u_fix_start: i32,
-    v_fix_start: i32,
-    du_fix: i32,
-    dv_fix: i32,
+    state: TexSpanState,
+    step: TexSpanStep,
     lod: f32,
 ) {
     use std::arch::x86_64::*;
@@ -2813,11 +2742,19 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
     if lod <= 0.0 || texture.mips.is_empty() {
         // Fallback to bilinear if LOD is 0 or no mips
         // u_fix_start is 16.16 (center). Bilinear simd expects 16.16 (offset -0.5).
-        let u_fix = u_fix_start.wrapping_sub(32768);
-        let v_fix = v_fix_start.wrapping_sub(32768);
+        let u_fix = state.u_fix.wrapping_sub(32768);
+        let v_fix = state.v_fix.wrapping_sub(32768);
         unsafe {
             draw_span_bilinear_simd(
-                fb_slice, zb_slice, texture, z_start, dz_dx, u_fix, v_fix, du_fix, dv_fix,
+                fb_slice,
+                zb_slice,
+                texture,
+                TexSpanState {
+                    z: state.z,
+                    u_fix,
+                    v_fix,
+                },
+                step,
             );
         }
         return;
@@ -2890,9 +2827,9 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
     };
     let pre_simd_count = pre_simd_count.min(len);
 
-    let mut z_curr = z_start;
-    let mut u_curr = u_fix_start;
-    let mut v_curr = v_fix_start;
+    let mut z_curr = state.z;
+    let mut u_curr = state.u_fix;
+    let mut v_curr = state.v_fix;
 
     // Scalar pre-loop
     for k in 0..pre_simd_count {
@@ -2910,17 +2847,17 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
                 }
             }
         }
-        z_curr += dz_dx;
-        u_curr = u_curr.wrapping_add(du_fix);
-        v_curr = v_curr.wrapping_add(dv_fix);
+        z_curr += step.dz_dx;
+        u_curr = u_curr.wrapping_add(step.du_fix);
+        v_curr = v_curr.wrapping_add(step.dv_fix);
     }
 
     i += pre_simd_count;
 
     unsafe {
-        let dz_dx_vec = _mm256_set1_ps(dz_dx);
-        let du_fix_vec = _mm256_set1_epi32(du_fix);
-        let dv_fix_vec = _mm256_set1_epi32(dv_fix);
+        let dz_dx_vec = _mm256_set1_ps(step.dz_dx);
+        let du_fix_vec = _mm256_set1_epi32(step.du_fix);
+        let dv_fix_vec = _mm256_set1_epi32(step.dv_fix);
 
         let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
         let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
@@ -3085,20 +3022,20 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
     }
     // Scalar Tail
     if i < len {
-        let z_tail = z_start + (i as f32) * dz_dx;
-        let u_tail = u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32));
-        let v_tail = v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32));
+        let z_tail = state.z + (i as f32) * step.dz_dx;
+        let u_tail = state.u_fix.wrapping_add(step.du_fix.wrapping_mul(i as i32));
+        let v_tail = state.v_fix.wrapping_add(step.dv_fix.wrapping_mul(i as i32));
 
         draw_span_trilinear(
             &mut fb_slice[i..],
             &mut zb_slice[i..],
             texture,
-            z_tail,
-            dz_dx,
-            u_tail,
-            v_tail,
-            du_fix,
-            dv_fix,
+            TexSpanState {
+                z: z_tail,
+                u_fix: u_tail,
+                v_fix: v_tail,
+            },
+            step,
             lod,
         );
     }
@@ -3742,18 +3679,10 @@ unsafe fn draw_span_textured_gouraud_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    z_start: f32,
-    dz_dx: f32,
-    u_fix_start: i32,
-    v_fix_start: i32,
-    du_fix: i32,
-    dv_fix: i32,
-    r_start: i32,
-    g_start: i32,
-    b_start: i32,
-    dr_dx: i32,
-    dg_dx: i32,
-    db_dx: i32,
+    state: TexSpanState,
+    step: TexSpanStep,
+    g_state: GouraudSpanState,
+    g_step: GouraudSpanStep,
 ) {
     use std::arch::x86_64::*;
 
@@ -3761,17 +3690,17 @@ unsafe fn draw_span_textured_gouraud_simd(
     let mut i = 0;
 
     unsafe {
-        let dz_dx_vec = _mm256_set1_ps(dz_dx);
-        let du_fix_vec = _mm256_set1_epi32(du_fix);
-        let dv_fix_vec = _mm256_set1_epi32(dv_fix);
-        let dr_dx_vec = _mm256_set1_epi32(dr_dx);
-        let dg_dx_vec = _mm256_set1_epi32(dg_dx);
-        let db_dx_vec = _mm256_set1_epi32(db_dx);
+        let dz_dx_vec = _mm256_set1_ps(step.dz_dx);
+        let du_fix_vec = _mm256_set1_epi32(step.du_fix);
+        let dv_fix_vec = _mm256_set1_epi32(step.dv_fix);
+        let dr_dx_vec = _mm256_set1_epi32(g_step.dr_dx);
+        let dg_dx_vec = _mm256_set1_epi32(g_step.dg_dx);
+        let db_dx_vec = _mm256_set1_epi32(g_step.db_dx);
 
         let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
         let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 
-        let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
+        let mut z_vec = _mm256_add_ps(_mm256_set1_ps(state.z), _mm256_mul_ps(dz_dx_vec, offsets_f));
 
         let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
         let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
@@ -3779,11 +3708,11 @@ unsafe fn draw_span_textured_gouraud_simd(
         let dg_off = _mm256_mullo_epi32(dg_dx_vec, offsets_i);
         let db_off = _mm256_mullo_epi32(db_dx_vec, offsets_i);
 
-        let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_fix_start), du_off);
-        let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_fix_start), dv_off);
-        let mut r_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(r_start), dr_off);
-        let mut g_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(g_start), dg_off);
-        let mut b_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(b_start), db_off);
+        let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(state.u_fix), du_off);
+        let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(state.v_fix), dv_off);
+        let mut r_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(g_state.r_fix), dr_off);
+        let mut g_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(g_state.g_fix), dg_off);
+        let mut b_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(g_state.b_fix), db_off);
 
         let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
         let dr_step = _mm256_slli_epi32(dr_dx_vec, 3);
@@ -3912,18 +3841,24 @@ unsafe fn draw_span_textured_gouraud_simd(
         &mut fb_slice[i..],
         &mut zb_slice[i..],
         texture,
-        z_start + (i as f32) * dz_dx,
-        dz_dx,
-        u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32)),
-        v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32)),
-        du_fix,
-        dv_fix,
-        r_start.wrapping_add(dr_dx.wrapping_mul(i as i32)),
-        g_start.wrapping_add(dg_dx.wrapping_mul(i as i32)),
-        b_start.wrapping_add(db_dx.wrapping_mul(i as i32)),
-        dr_dx,
-        dg_dx,
-        db_dx,
+        TexSpanState {
+            z: state.z + (i as f32) * step.dz_dx,
+            u_fix: state.u_fix.wrapping_add(step.du_fix.wrapping_mul(i as i32)),
+            v_fix: state.v_fix.wrapping_add(step.dv_fix.wrapping_mul(i as i32)),
+        },
+        step,
+        GouraudSpanState {
+            r_fix: g_state
+                .r_fix
+                .wrapping_add(g_step.dr_dx.wrapping_mul(i as i32)),
+            g_fix: g_state
+                .g_fix
+                .wrapping_add(g_step.dg_dx.wrapping_mul(i as i32)),
+            b_fix: g_state
+                .b_fix
+                .wrapping_add(g_step.db_dx.wrapping_mul(i as i32)),
+        },
+        g_step,
     );
 }
 
@@ -3937,18 +3872,10 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    z_start: f32,
-    dz_dx: f32,
-    u_fix_start: i32,
-    v_fix_start: i32,
-    du_fix: i32,
-    dv_fix: i32,
-    r_start: i32,
-    g_start: i32,
-    b_start: i32,
-    dr_dx: i32,
-    dg_dx: i32,
-    db_dx: i32,
+    state: TexSpanState,
+    step: TexSpanStep,
+    g_state: GouraudSpanState,
+    g_step: GouraudSpanStep,
 ) {
     use std::arch::x86_64::*;
 
@@ -3956,17 +3883,17 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
     let mut i = 0;
 
     unsafe {
-        let dz_dx_vec = _mm256_set1_ps(dz_dx);
-        let du_fix_vec = _mm256_set1_epi32(du_fix);
-        let dv_fix_vec = _mm256_set1_epi32(dv_fix);
-        let dr_dx_vec = _mm256_set1_epi32(dr_dx);
-        let dg_dx_vec = _mm256_set1_epi32(dg_dx);
-        let db_dx_vec = _mm256_set1_epi32(db_dx);
+        let dz_dx_vec = _mm256_set1_ps(step.dz_dx);
+        let du_fix_vec = _mm256_set1_epi32(step.du_fix);
+        let dv_fix_vec = _mm256_set1_epi32(step.dv_fix);
+        let dr_dx_vec = _mm256_set1_epi32(g_step.dr_dx);
+        let dg_dx_vec = _mm256_set1_epi32(g_step.dg_dx);
+        let db_dx_vec = _mm256_set1_epi32(g_step.db_dx);
 
         let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
         let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 
-        let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
+        let mut z_vec = _mm256_add_ps(_mm256_set1_ps(state.z), _mm256_mul_ps(dz_dx_vec, offsets_f));
 
         let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
         let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
@@ -3974,11 +3901,11 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
         let dg_off = _mm256_mullo_epi32(dg_dx_vec, offsets_i);
         let db_off = _mm256_mullo_epi32(db_dx_vec, offsets_i);
 
-        let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_fix_start), du_off);
-        let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_fix_start), dv_off);
-        let mut r_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(r_start), dr_off);
-        let mut g_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(g_start), dg_off);
-        let mut b_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(b_start), db_off);
+        let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(state.u_fix), du_off);
+        let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(state.v_fix), dv_off);
+        let mut r_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(g_state.r_fix), dr_off);
+        let mut g_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(g_state.g_fix), dg_off);
+        let mut b_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(g_state.b_fix), db_off);
 
         let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
         let dr_step = _mm256_slli_epi32(dr_dx_vec, 3);
@@ -4185,12 +4112,18 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
     }
 
     // Scalar Tail
-    let mut z_curr = z_start + (i as f32) * dz_dx;
-    let mut u_curr = u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32));
-    let mut v_curr = v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32));
-    let mut r_curr = r_start.wrapping_add(dr_dx.wrapping_mul(i as i32));
-    let mut g_curr = g_start.wrapping_add(dg_dx.wrapping_mul(i as i32));
-    let mut b_curr = b_start.wrapping_add(db_dx.wrapping_mul(i as i32));
+    let mut z_curr = state.z + (i as f32) * step.dz_dx;
+    let mut u_curr = state.u_fix.wrapping_add(step.du_fix.wrapping_mul(i as i32));
+    let mut v_curr = state.v_fix.wrapping_add(step.dv_fix.wrapping_mul(i as i32));
+    let mut r_curr = g_state
+        .r_fix
+        .wrapping_add(g_step.dr_dx.wrapping_mul(i as i32));
+    let mut g_curr = g_state
+        .g_fix
+        .wrapping_add(g_step.dg_dx.wrapping_mul(i as i32));
+    let mut b_curr = g_state
+        .b_fix
+        .wrapping_add(g_step.db_dx.wrapping_mul(i as i32));
 
     while i < len {
         unsafe {
@@ -4228,12 +4161,12 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
                 }
             }
         }
-        z_curr += dz_dx;
-        u_curr = u_curr.wrapping_add(du_fix);
-        v_curr = v_curr.wrapping_add(dv_fix);
-        r_curr = r_curr.wrapping_add(dr_dx);
-        g_curr = g_curr.wrapping_add(dg_dx);
-        b_curr = b_curr.wrapping_add(db_dx);
+        z_curr += step.dz_dx;
+        u_curr = u_curr.wrapping_add(step.du_fix);
+        v_curr = v_curr.wrapping_add(step.dv_fix);
+        r_curr = r_curr.wrapping_add(g_step.dr_dx);
+        g_curr = g_curr.wrapping_add(g_step.dg_dx);
+        b_curr = b_curr.wrapping_add(g_step.db_dx);
         i += 1;
     }
 }
@@ -4243,18 +4176,10 @@ fn draw_span_textured_gouraud_scalar(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    mut z: f32,
-    dz_dx: f32,
-    mut u_fix: i32,
-    mut v_fix: i32,
-    du_fix: i32,
-    dv_fix: i32,
-    mut r_fix: i32,
-    mut g_fix: i32,
-    mut b_fix: i32,
-    dr_dx: i32,
-    dg_dx: i32,
-    db_dx: i32,
+    mut state: TexSpanState,
+    step: TexSpanStep,
+    mut g_state: GouraudSpanState,
+    g_step: GouraudSpanStep,
 ) {
     let tex_pixels = &texture.pixels;
     let tex_w = texture.width;
@@ -4263,9 +4188,9 @@ fn draw_span_textured_gouraud_scalar(
     let is_pot = shift < 32;
 
     for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-        if z < *depth_val {
-            let u = u_fix >> 16;
-            let v = v_fix >> 16;
+        if state.z < *depth_val {
+            let u = state.u_fix >> 16;
+            let v = state.v_fix >> 16;
 
             let color = if (u as u32) < tex_w && (v as u32) < tex_h {
                 if is_pot {
@@ -4288,9 +4213,9 @@ fn draw_span_textured_gouraud_scalar(
             // Shade is max 1.0 (65536). Tex is max 255.
             // tex * shade -> max ~1.67e7 (fits in i32).
             // Shift right 16 to get result in 0..255 range.
-            let r_clamped = r_fix.max(0);
-            let g_clamped = g_fix.max(0);
-            let b_clamped = b_fix.max(0);
+            let r_clamped = g_state.r_fix.max(0);
+            let g_clamped = g_state.g_fix.max(0);
+            let b_clamped = g_state.b_fix.max(0);
 
             let final_r = ((tex_r * r_clamped) >> 16).max(0).min(255) as u32;
             let final_g = ((tex_g * g_clamped) >> 16).max(0).min(255) as u32;
@@ -4299,7 +4224,7 @@ fn draw_span_textured_gouraud_scalar(
             let final_color = ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
 
             if tex_a == 255 {
-                *depth_val = z;
+                *depth_val = state.z;
                 *pixel = final_color;
             } else if tex_a > 0 {
                 let dest = *pixel;
@@ -4311,12 +4236,12 @@ fn draw_span_textured_gouraud_scalar(
                 );
             }
         }
-        z += dz_dx;
-        u_fix = u_fix.wrapping_add(du_fix);
-        v_fix = v_fix.wrapping_add(dv_fix);
-        r_fix = r_fix.wrapping_add(dr_dx);
-        g_fix = g_fix.wrapping_add(dg_dx);
-        b_fix = b_fix.wrapping_add(db_dx);
+        state.z += step.dz_dx;
+        state.u_fix = state.u_fix.wrapping_add(step.du_fix);
+        state.v_fix = state.v_fix.wrapping_add(step.dv_fix);
+        g_state.r_fix = g_state.r_fix.wrapping_add(g_step.dr_dx);
+        g_state.g_fix = g_state.g_fix.wrapping_add(g_step.dg_dx);
+        g_state.b_fix = g_state.b_fix.wrapping_add(g_step.db_dx);
     }
 }
 
@@ -4427,64 +4352,38 @@ pub fn draw_scanline_textured_gouraud(
                 let v_fix = (v_tex_start * 65536.0) as i32;
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
+                let state = TexSpanState { z, u_fix, v_fix };
+                let step = TexSpanStep {
+                    dz_dx: gradients.dz_dx,
+                    du_fix,
+                    dv_fix,
+                };
+                let g_state = GouraudSpanState {
+                    r_fix,
+                    g_fix,
+                    b_fix,
+                };
+                let g_step = GouraudSpanStep {
+                    dr_dx: dr_dx_i,
+                    dg_dx: dg_dx_i,
+                    db_dx: db_dx_i,
+                };
 
                 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
                 if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
                         draw_span_textured_gouraud_simd(
-                            fb_slice,
-                            zb_slice,
-                            texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
-                            r_fix,
-                            g_fix,
-                            b_fix,
-                            dr_dx_i,
-                            dg_dx_i,
-                            db_dx_i,
+                            fb_slice, zb_slice, texture, state, step, g_state, g_step,
                         );
                     }
                 } else {
                     draw_span_textured_gouraud_scalar(
-                        fb_slice,
-                        zb_slice,
-                        texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
-                        r_fix,
-                        g_fix,
-                        b_fix,
-                        dr_dx_i,
-                        dg_dx_i,
-                        db_dx_i,
+                        fb_slice, zb_slice, texture, state, step, g_state, g_step,
                     );
                 }
                 #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
                 draw_span_textured_gouraud_scalar(
-                    fb_slice,
-                    zb_slice,
-                    texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
-                    r_fix,
-                    g_fix,
-                    b_fix,
-                    dr_dx_i,
-                    dg_dx_i,
-                    db_dx_i,
+                    fb_slice, zb_slice, texture, state, step, g_state, g_step,
                 );
             }
             FilterMode::Bilinear | FilterMode::Trilinear => {
@@ -4492,26 +4391,28 @@ pub fn draw_scanline_textured_gouraud(
                 let v_fix = ((v_tex_start * 65536.0) as i32).wrapping_sub(32768);
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
+                let state = TexSpanState { z, u_fix, v_fix };
+                let step = TexSpanStep {
+                    dz_dx: gradients.dz_dx,
+                    du_fix,
+                    dv_fix,
+                };
+                let g_state = GouraudSpanState {
+                    r_fix,
+                    g_fix,
+                    b_fix,
+                };
+                let g_step = GouraudSpanStep {
+                    dr_dx: dr_dx_i,
+                    dg_dx: dg_dx_i,
+                    db_dx: db_dx_i,
+                };
 
                 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
                 if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
                         draw_span_textured_gouraud_bilinear_simd(
-                            fb_slice,
-                            zb_slice,
-                            texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
-                            r_fix,
-                            g_fix,
-                            b_fix,
-                            dr_dx_i,
-                            dg_dx_i,
-                            db_dx_i,
+                            fb_slice, zb_slice, texture, state, step, g_state, g_step,
                         );
                     }
                 } else {
@@ -5535,7 +5436,15 @@ fn test_draw_span_nearest_overflow_vulnerability() {
     // Using `std::panic::catch_unwind` and `AssertUnwindSafe` to ensure intentional panic testing
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         draw_span_nearest(
-            &mut fb, &mut zb, &tex, z, dz_dx, u_fix, v_fix, du_fix, dv_fix,
+            &mut fb,
+            &mut zb,
+            &tex,
+            TexSpanState { z, u_fix, v_fix },
+            TexSpanStep {
+                dz_dx,
+                du_fix,
+                dv_fix,
+            },
         );
     }));
 

@@ -1234,96 +1234,48 @@ fn rasterize_scanline_textured(
                 let v_fix = (v_tex_start * 65536.0) as i32;
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
+                let state = crate::rasterizer::texture::TexSpanState { z, u_fix, v_fix };
+                let step = crate::rasterizer::texture::TexSpanStep {
+                    dz_dx: gradients.dz_dx,
+                    du_fix,
+                    dv_fix,
+                };
 
                 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
                 if pixels_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
-                        draw_span_nearest_simd(
-                            pixels_slice,
-                            depths_slice,
-                            texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
-                        );
+                        draw_span_nearest_simd(pixels_slice, depths_slice, texture, state, step);
                     }
                 } else {
-                    draw_span_nearest(
-                        pixels_slice,
-                        depths_slice,
-                        texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
-                    );
+                    draw_span_nearest(pixels_slice, depths_slice, texture, state, step);
                 }
 
                 #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
-                draw_span_nearest(
-                    pixels_slice,
-                    depths_slice,
-                    texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
-                );
+                draw_span_nearest(pixels_slice, depths_slice, texture, state, step);
             }
             FilterMode::Bilinear => {
                 let u_fix = ((u_tex_start * 65536.0) as i32).wrapping_sub(32768);
                 let v_fix = ((v_tex_start * 65536.0) as i32).wrapping_sub(32768);
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
+                let state = crate::rasterizer::texture::TexSpanState { z, u_fix, v_fix };
+                let step = crate::rasterizer::texture::TexSpanStep {
+                    dz_dx: gradients.dz_dx,
+                    du_fix,
+                    dv_fix,
+                };
 
                 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
                 if pixels_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
-                        draw_span_bilinear_simd(
-                            pixels_slice,
-                            depths_slice,
-                            texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
-                        );
+                        draw_span_bilinear_simd(pixels_slice, depths_slice, texture, state, step);
                     }
                 } else {
-                    draw_span_bilinear(
-                        pixels_slice,
-                        depths_slice,
-                        texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
-                    );
+                    draw_span_bilinear(pixels_slice, depths_slice, texture, state, step);
                 }
 
                 #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
-                draw_span_bilinear(
-                    pixels_slice,
-                    depths_slice,
-                    texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
-                );
+                draw_span_bilinear(pixels_slice, depths_slice, texture, state, step);
             }
             FilterMode::Trilinear => {
                 let w = w_start; // 1/q
@@ -1343,6 +1295,12 @@ fn rasterize_scanline_textured(
                 let v_fix = (v_tex_start * 65536.0) as i32;
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
+                let state = crate::rasterizer::texture::TexSpanState { z, u_fix, v_fix };
+                let step = crate::rasterizer::texture::TexSpanStep {
+                    dz_dx: gradients.dz_dx,
+                    du_fix,
+                    dv_fix,
+                };
 
                 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
                 if pixels_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
@@ -1351,43 +1309,17 @@ fn rasterize_scanline_textured(
                             pixels_slice,
                             depths_slice,
                             texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
+                            state,
+                            step,
                             lod,
                         );
                     }
                 } else {
-                    draw_span_trilinear(
-                        pixels_slice,
-                        depths_slice,
-                        texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
-                        lod,
-                    );
+                    draw_span_trilinear(pixels_slice, depths_slice, texture, state, step, lod);
                 }
 
                 #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
-                draw_span_trilinear(
-                    pixels_slice,
-                    depths_slice,
-                    texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
-                    lod,
-                );
+                draw_span_trilinear(pixels_slice, depths_slice, texture, state, step, lod);
             }
         }
 
