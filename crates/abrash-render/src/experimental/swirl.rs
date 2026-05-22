@@ -56,8 +56,8 @@ pub fn apply_swirl(fb: &mut Framebuffer, config: &SwirlConfig) {
 
     SOURCE_PIXELS.with(|buf| {
         let mut source_pixels_vec = buf.borrow_mut();
-        source_pixels_vec.clear();
-        source_pixels_vec.extend_from_slice(fb.as_slice());
+        source_pixels_vec.resize(fb.as_slice().len(), 0);
+        source_pixels_vec.copy_from_slice(fb.as_slice());
 
         // Extract a primitive slice to prevent capturing the `!Send` `RefMut` in the Rayon closure
         let source_pixels = source_pixels_vec.as_slice();

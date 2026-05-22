@@ -96,8 +96,8 @@ impl LSystem {
             return LSYSTEM_BUFFERS.with(|bufs| {
                 let mut bufs = bufs.borrow_mut();
                 let (current_bytes, next_bytes) = &mut *bufs;
-                current_bytes.clear();
-                current_bytes.extend_from_slice(self.axiom.as_bytes());
+                current_bytes.resize(self.axiom.as_bytes().len(), 0);
+                current_bytes.copy_from_slice(self.axiom.as_bytes());
 
                 for _ in 0..iterations {
                     next_bytes.clear();

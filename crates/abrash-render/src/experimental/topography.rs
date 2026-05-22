@@ -49,8 +49,8 @@ pub fn apply_topography(fb: &mut Framebuffer, config: &TopographyConfig) {
 
     SRC_BUFFER.with(|src_buf| {
         let mut src = src_buf.borrow_mut();
-        src.clear();
-        src.extend_from_slice(fb.as_slice());
+        src.resize(fb.as_slice().len(), 0);
+        src.copy_from_slice(fb.as_slice());
 
         // Clear the target framebuffer to background color first
         fb.clear(config.background_color);

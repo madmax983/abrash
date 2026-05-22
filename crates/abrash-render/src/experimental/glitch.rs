@@ -42,8 +42,8 @@ pub fn apply_glitch(fb: &mut Framebuffer, intensity: f32, time: f32) {
 
     SOURCE_PIXELS.with(|buf| {
         let mut src_pixels = buf.borrow_mut();
-        src_pixels.clear();
-        src_pixels.extend_from_slice(fb.as_slice());
+        src_pixels.resize(fb.as_slice().len(), 0);
+        src_pixels.copy_from_slice(fb.as_slice());
 
         let src_slice = src_pixels.as_slice();
         let dest_pixels = fb.as_mut_slice();

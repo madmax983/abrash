@@ -41,8 +41,8 @@ pub fn apply_frosted_glass(fb: &mut Framebuffer, intensity: f32, seed: u64) {
     // ⚡ Bolt: Eliminate per-frame heap allocation by using a thread-local static buffer.
     SOURCE_PIXELS.with(|buf| {
         let mut src_pixels = buf.borrow_mut();
-        src_pixels.clear();
-        src_pixels.extend_from_slice(fb.as_slice());
+        src_pixels.resize(fb.as_slice().len(), 0);
+        src_pixels.copy_from_slice(fb.as_slice());
         let src_buf = src_pixels.as_slice();
 
         let dest_pixels = fb.as_mut_slice();
