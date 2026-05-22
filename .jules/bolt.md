@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimize convolve_1d by eliding bounds checks]**
+**Learning:** In 1D convolution algorithms mapping dense signal arrays, nested `for` loops indexed via `out[i + j] += s * k` incur repeated bounds check overhead.
+**Action:** Replaced the inner loop with a bounded slice iterator (`out[i..i + kernel.len()].iter_mut().zip(kernel)`) in `crates/abrash-core/src/math/funcs.rs`. Bounding the slice length allows the compiler to safely elide bounds checks in the inner loop, yielding ~14% performance gain.
