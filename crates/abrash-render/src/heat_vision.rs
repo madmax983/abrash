@@ -39,6 +39,29 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     let mut max_z = f32::MIN;
     let mut has_content = false;
 
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::is_x86_feature_detected!("avx2") {
+        unsafe {
+            let (mz, mx, hc) = find_min_max_simd(depths);
+            min_z = mz;
+            max_z = mx;
+            has_content = hc;
+        }
+    } else {
+        for &z in depths {
+            if z != f32::INFINITY {
+                if z < min_z {
+                    min_z = z;
+                }
+                if z > max_z {
+                    max_z = z;
+                }
+                has_content = true;
+            }
+        }
+    }
+
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
     for &z in depths {
         if z != f32::INFINITY {
             if z < min_z {
@@ -94,6 +117,77 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         };
         *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
     }
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+unsafe fn find_min_max_simd(depths: &[f32]) -> (f32, f32, bool) {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::{
+        _CMP_NEQ_OQ, _mm256_blendv_ps, _mm256_cmp_ps, _mm256_loadu_ps, _mm256_max_ps,
+        _mm256_min_ps, _mm256_movemask_ps, _mm256_set1_ps, _mm256_storeu_ps,
+    };
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::{
+        _CMP_NEQ_OQ, _mm256_blendv_ps, _mm256_cmp_ps, _mm256_loadu_ps, _mm256_max_ps,
+        _mm256_min_ps, _mm256_movemask_ps, _mm256_set1_ps, _mm256_storeu_ps,
+    };
+
+    let len = depths.len();
+    let mut i = 0;
+
+    let mut min_vec = _mm256_set1_ps(f32::MAX);
+    let mut max_vec = _mm256_set1_ps(f32::MIN);
+    let inf_vec = _mm256_set1_ps(f32::INFINITY);
+
+    let mut has_content = false;
+
+    while i + 8 <= len {
+        let depth_val = _mm256_loadu_ps(depths.as_ptr().add(i));
+
+        let mask = _mm256_cmp_ps(depth_val, inf_vec, _CMP_NEQ_OQ);
+
+        if _mm256_movemask_ps(mask) != 0 {
+            has_content = true;
+            let blended_for_min = _mm256_blendv_ps(_mm256_set1_ps(f32::MAX), depth_val, mask);
+            min_vec = _mm256_min_ps(min_vec, blended_for_min);
+
+            let blended_for_max = _mm256_blendv_ps(_mm256_set1_ps(f32::MIN), depth_val, mask);
+            max_vec = _mm256_max_ps(max_vec, blended_for_max);
+        }
+
+        i += 8;
+    }
+
+    let mut min_arr = [f32::MAX; 8];
+    let mut max_arr = [f32::MIN; 8];
+    _mm256_storeu_ps(min_arr.as_mut_ptr(), min_vec);
+    _mm256_storeu_ps(max_arr.as_mut_ptr(), max_vec);
+
+    let mut min_z = f32::MAX;
+    let mut max_z = f32::MIN;
+    for j in 0..8 {
+        if min_arr[j] < min_z {
+            min_z = min_arr[j];
+        }
+        if max_arr[j] > max_z {
+            max_z = max_arr[j];
+        }
+    }
+
+    for &z in &depths[i..len] {
+        if z != f32::INFINITY {
+            if z < min_z {
+                min_z = z;
+            }
+            if z > max_z {
+                max_z = z;
+            }
+            has_content = true;
+        }
+    }
+
+    (min_z, max_z, has_content)
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -316,5 +410,39 @@ mod tests {
             p, 0x00FF_000000,
             "Should remain unchanged default Framebuffer color (Solid Black)"
         );
+    }
+
+    #[test]
+    fn test_find_min_max_simd_consistency() {
+        let mut depths = vec![f32::INFINITY; 32];
+        depths[0] = 10.0;
+        depths[5] = 1.0;
+        depths[15] = 20.0;
+        depths[31] = 5.0;
+
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        if std::is_x86_feature_detected!("avx2") {
+            let (min_simd, max_simd, has_content_simd) = unsafe { find_min_max_simd(&depths) };
+
+            let mut min_scalar = f32::MAX;
+            let mut max_scalar = f32::MIN;
+            let mut has_content_scalar = false;
+
+            for &z in &depths {
+                if z != f32::INFINITY {
+                    if z < min_scalar {
+                        min_scalar = z;
+                    }
+                    if z > max_scalar {
+                        max_scalar = z;
+                    }
+                    has_content_scalar = true;
+                }
+            }
+
+            assert_eq!(min_simd, min_scalar);
+            assert_eq!(max_simd, max_scalar);
+            assert_eq!(has_content_simd, has_content_scalar);
+        }
     }
 }
