@@ -53,7 +53,10 @@ pub struct BspSector {
 /// The raycaster calls [`traverse_front_to_back`](BspMapData::traverse_front_to_back)
 /// to visit subsectors in painter's-algorithm order.
 pub struct BspMapData {
+    /// The singular, mocked sector representing the entire environment.
+    /// In a full engine, this would be looked up dynamically based on the active subsector.
     pub sector: BspSector,
+    /// The list of walls (line segments) forming the boundary of this subsector.
     pub segs: Vec<BspSeg>,
 }
 

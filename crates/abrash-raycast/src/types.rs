@@ -5,9 +5,13 @@ use abrash_core::fixed16_16::Fixed16_16;
 /// Which face of a grid cell was hit by a ray.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Side {
+    /// The face pointing North.
     North,
+    /// The face pointing South.
     South,
+    /// The face pointing East.
     East,
+    /// The face pointing West.
     West,
 }
 
@@ -34,7 +38,9 @@ impl Cell {
 /// A 2D vector in 16.16 fixed-point.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Vec2Fixed {
+    /// The X coordinate.
     pub x: Fixed16_16,
+    /// The Y coordinate.
     pub y: Fixed16_16,
 }
 

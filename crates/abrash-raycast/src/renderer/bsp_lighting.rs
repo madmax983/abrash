@@ -20,6 +20,19 @@ pub struct BspTextureCache {
 }
 
 impl BspTextureCache {
+    /// Creates a new default `BspTextureCache` populated with mockup texture and lighting data.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use abrash_raycast::renderer::bsp_lighting::BspTextureCache;
+    ///
+    /// let cache = BspTextureCache::new();
+    ///
+    /// // Retrieve a wall column using a mockup texture ID
+    /// let column = cache.wall_column(0, 0);
+    /// assert_eq!(column.len(), 128);
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         // Wall column: 128 texels, all palette index 1

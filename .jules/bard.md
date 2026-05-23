@@ -23,3 +23,7 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+
+## 2024-05-24 - [abrash-raycast Documentation]
+**Confusion:** Several fields in `bsp.rs`, `bsp_visplane.rs`, `types.rs`, and functions in `bsp_lighting.rs` were missing documentation, resulting in `cargo doc` warnings and ambiguity about their role in the BSP rendering pipeline.
+**Clarification:** Added charismatic and detailed documentation including an executable `## Examples` block for `BspTextureCache::new()` to guide users on their usage without needing to consult the source directly.
