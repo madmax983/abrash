@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**Avoid slow saturating float-to-uint casts in hot loops**
+**Learning:** In hot per-pixel rendering loops, casting `f32` directly to `u32` in safe Rust incurs a severe performance penalty due to LLVM injecting saturating conversion instructions (a fix introduced in Rust 1.45 to prevent undefined behavior).
+**Action:** To safely optimize this on x86 without `unsafe` blocks, cast the `f32` to `i32` first (which maps directly to the fast truncating `cvttss2si` instruction), clamp with `.max(0)`, and then cast to `u32`. This avoids the saturating branch overhead while preserving the safe semantics.
