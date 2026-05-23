@@ -452,12 +452,10 @@ impl CpuRenderer {
         frame: &Frame,
         target: &mut BorrowedRenderTarget<'_>,
     ) -> Result<(), RenderError> {
-        CPU_RENDERER_DRAW_LIST.with(|dl_cell| {
-            let mut dl = dl_cell.borrow_mut();
-            self.extract_draw_list_into(frame, &mut dl)?;
-            self.execute_draw_list_into(&dl, target);
-            Ok(())
-        })
+        let width = target.width();
+        let height = target.height();
+        let (pixels, depths) = target.split_mut();
+        self.render_frame_inner(frame, width, height, pixels, depths)
     }
 
     /// Render a frame into the render target.
@@ -471,10 +469,24 @@ impl CpuRenderer {
         frame: &Frame,
         target: &mut RenderTarget,
     ) -> Result<(), RenderError> {
+        let width = target.width();
+        let height = target.height();
+        let (pixels, depths) = target.split_mut();
+        self.render_frame_inner(frame, width, height, pixels, depths)
+    }
+
+    fn render_frame_inner(
+        &mut self,
+        frame: &Frame,
+        width: u32,
+        height: u32,
+        pixels: &mut [u32],
+        depths: &mut [f32],
+    ) -> Result<(), RenderError> {
         CPU_RENDERER_DRAW_LIST.with(|dl_cell| {
             let mut dl = dl_cell.borrow_mut();
             self.extract_draw_list_into(frame, &mut dl)?;
-            self.execute_draw_list_owned(&dl, target);
+            self.execute_draw_list_inner(&dl, width, height, pixels, depths);
             Ok(())
         })
     }
