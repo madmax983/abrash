@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [SVG Exporter]
+**Concept:** An experimental feature that exports a 3D mesh directly to a 2D Vector Graphics (SVG) string without rasterizing, using the Painter's Algorithm for depth sorting and simple flat shading based on face normals.
+**Fate:** Implemented
+**Lesson:** Manually formatting standard XML string tags is highly efficient and avoids heavy external raster-to-vector or DOM-building dependencies while keeping experimental features perfectly isolated.
