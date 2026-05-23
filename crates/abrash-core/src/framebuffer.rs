@@ -316,14 +316,8 @@ impl Framebuffer {
             // Fast path for full-width clears (avoids chunking overhead)
             self.pixels[start_idx..end_idx].fill(color);
         } else {
-            let len = ex - sx;
-            let mut offset = start_idx + sx;
-            let slice = self.pixels.as_mut_slice();
-            for _ in sy..ey {
-                unsafe {
-                    slice.get_unchecked_mut(offset..offset + len).fill(color);
-                }
-                offset += w;
+            for row in self.pixels[start_idx..end_idx].chunks_exact_mut(w) {
+                row[sx..ex].fill(color);
             }
         }
     }
@@ -332,6 +326,18 @@ impl Framebuffer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_clear_rect() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        fb.clear(0xFF00_0000);
+        fb.clear_rect(2, 2, 6, 6, 0xFFFF_0000);
+
+        assert_eq!(fb.get_pixel(0, 0), Some(0xFF00_0000));
+        assert_eq!(fb.get_pixel(2, 2), Some(0xFFFF_0000));
+        assert_eq!(fb.get_pixel(7, 7), Some(0xFFFF_0000));
+        assert_eq!(fb.get_pixel(8, 8), Some(0xFF00_0000));
+    }
 
     #[test]
     fn test_new_valid() {
