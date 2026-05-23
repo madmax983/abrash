@@ -70,7 +70,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     let mut has_content = false;
 
     for &z in depths {
-        if z != f32::INFINITY {
+        if z.to_bits() != 0x7F80_0000 {
             if z < min_z {
                 min_z = z;
             }
