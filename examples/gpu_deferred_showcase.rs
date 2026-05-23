@@ -271,11 +271,11 @@ impl WindowApp for ShowcaseApp {
         let (mut renderer, surface) = GpuRenderer::new_windowed(ctx.window)?;
 
         // Upload meshes
-        let sphere = renderer.create_mesh(&Mesh::sphere(1.0, 24, 48))?;
-        let cube = renderer.create_mesh(&Mesh::cube(1.0))?;
-        let cylinder = renderer.create_mesh(&Mesh::cylinder(0.5, 1.5, 24, 1))?;
-        let torus = renderer.create_mesh(&Mesh::torus(0.6, 0.2, 24, 12))?;
-        let ground = renderer.create_mesh(&Mesh::plane(20.0, 4))?;
+        let sphere = renderer.create_mesh(Mesh::sphere(1.0, 24, 48))?;
+        let cube = renderer.create_mesh(Mesh::cube(1.0))?;
+        let cylinder = renderer.create_mesh(Mesh::cylinder(0.5, 1.5, 24, 1))?;
+        let torus = renderer.create_mesh(Mesh::torus(0.6, 0.2, 24, 12))?;
+        let ground = renderer.create_mesh(Mesh::plane(20.0, 4))?;
 
         // Create PBR-style materials
         // Chrome: high specular, high shininess

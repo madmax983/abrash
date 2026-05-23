@@ -103,7 +103,7 @@ impl WindowApp for GpuMvpCubeApp {
         println!("{controls}\n");
 
         let (mut renderer, surface) = GpuRenderer::new_windowed(ctx.window)?;
-        let mesh = renderer.create_mesh(&Mesh::cube(1.0))?;
+        let mesh = renderer.create_mesh(Mesh::cube(1.0))?;
         let material = renderer.create_material(Material::flat(0xFFFF_4444));
 
         self.renderer = Some(renderer);

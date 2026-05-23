@@ -319,8 +319,9 @@ impl GpuRenderer {
     /// # Errors
     ///
     /// Returns an error if the mesh data is invalid.
-    pub fn create_mesh(&mut self, mesh: &Mesh) -> Result<MeshHandle, String> {
-        let gpu_mesh = GpuMeshBuffer::from_mesh(self.gpu.device(), mesh)?;
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn create_mesh(&mut self, mesh: Mesh) -> Result<MeshHandle, String> {
+        let gpu_mesh = GpuMeshBuffer::from_mesh(self.gpu.device(), &mesh)?;
 
         // Build BLAS for ray tracing (if RT hardware available)
         #[cfg(feature = "ray-tracing")]
@@ -354,8 +355,9 @@ impl GpuRenderer {
     /// # Errors
     ///
     /// Returns an error if the mesh data is invalid.
-    pub fn create_mesh_textured(&mut self, mesh: &Mesh) -> Result<MeshHandle, String> {
-        let gpu_mesh = GpuMeshBuffer::from_mesh_textured(self.gpu.device(), mesh)?;
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn create_mesh_textured(&mut self, mesh: Mesh) -> Result<MeshHandle, String> {
+        let gpu_mesh = GpuMeshBuffer::from_mesh_textured(self.gpu.device(), &mesh)?;
         let index = u32::try_from(self.meshes.len())
             .map_err(|_| "mesh pool index exceeds u32".to_string())?;
         self.meshes.push(Some(gpu_mesh));

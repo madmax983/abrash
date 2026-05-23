@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[CpuRenderer Memory Allocation Optimization]**
+**Learning:** `CpuRenderer::create_mesh` and `GpuRenderer::create_mesh` were borrowing `&Mesh` and internally performing a `.clone()`, introducing a large heap allocation per mesh when the data could safely be transferred by value.
+**Action:** Updated API signatures to take ownership of `Mesh` instead of `&Mesh`, completely removing the `clone()` overhead without altering API usage significantly.

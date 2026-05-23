@@ -27,7 +27,7 @@
 //! let mut target = RenderTarget::new(800, 600).unwrap();
 //!
 //! // 2. Load Actors (Resources) into the Renderer's memory pool
-//! let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+//! let mesh_h = renderer.create_mesh(Mesh::cube(1.0)).unwrap();
 //! let mat_h = renderer.create_material(Material::flat(0xFFFF_0000)).unwrap();
 //!
 //! // 3. Set the Camera

@@ -46,7 +46,7 @@ fn test_capture_cube_has_visible_pixels() {
         return;
     };
 
-    let mesh = renderer.create_mesh(&Mesh::cube(1.0)).expect("create_mesh");
+    let mesh = renderer.create_mesh(Mesh::cube(1.0)).expect("create_mesh");
     let material = renderer.create_material(Material::flat(0xFFFF_4444));
 
     let camera = FrameCamera::new(
@@ -106,7 +106,7 @@ fn test_capture_two_cubes_preserves_both_material_colors() {
         return;
     };
 
-    let mesh = renderer.create_mesh(&Mesh::cube(1.0)).expect("create_mesh");
+    let mesh = renderer.create_mesh(Mesh::cube(1.0)).expect("create_mesh");
     let red = renderer.create_material(Material::flat(0xFFFF_0000));
     let green = renderer.create_material(Material::flat(0xFF00_FF00));
 

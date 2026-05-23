@@ -54,7 +54,7 @@ fn test_cpu_renderer_matches_direct_tile_renderer() {
     let mut renderer = CpuRenderer::new(WIDTH, HEIGHT);
     let mut target = RenderTarget::new(WIDTH, HEIGHT).unwrap();
 
-    let mesh_h = renderer.create_mesh(&mesh).unwrap();
+    let mesh_h = renderer.create_mesh(mesh).unwrap();
     let mat_h = renderer.create_material(Material::flat(color)).unwrap();
 
     let camera = FrameCamera::new(view, proj);
