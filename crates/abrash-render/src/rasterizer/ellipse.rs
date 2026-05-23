@@ -80,6 +80,53 @@ fn draw_ellipse_points_unchecked(
 ///
 /// ## Examples
 ///
+#[inline(always)]
+fn walk_ellipse(rx: i32, ry: i32, mut plot: impl FnMut(i32, i32)) {
+    let rx_sq = i64::from(rx) * i64::from(rx);
+    let ry_sq = i64::from(ry) * i64::from(ry);
+
+    let mut x = 0;
+    let mut y = ry;
+    let mut px = 0_i64;
+    let mut py = 2_i64 * rx_sq * i64::from(y);
+
+    plot(x, y);
+
+    // Region 1
+    let mut p = ry_sq - (rx_sq * i64::from(ry)) + (rx_sq / 4);
+    while px < py {
+        x += 1;
+        px += 2 * ry_sq;
+        if p < 0 {
+            p += ry_sq + px;
+        } else {
+            y -= 1;
+            py -= 2 * rx_sq;
+            p += ry_sq + px - py;
+        }
+        plot(x, y);
+    }
+
+    // Region 2
+    // ⚡ Bolt: Hoist type conversions and algebraically simplify to reduce operations
+    let x_i64 = i64::from(x);
+    let y_minus_1 = i64::from(y - 1);
+    let mut p2 = ry_sq * x_i64 * (x_i64 + 1) + rx_sq * (y_minus_1 * y_minus_1 - ry_sq);
+
+    while y > 0 {
+        y -= 1;
+        py -= 2 * rx_sq;
+        if p2 > 0 {
+            p2 += rx_sq - py;
+        } else {
+            x += 1;
+            px += 2 * ry_sq;
+            p2 += rx_sq - py + px;
+        }
+        plot(x, y);
+    }
+}
+
 /// ```rust
 /// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_render::rasterizer::ellipse::draw_ellipse;
@@ -96,14 +143,6 @@ pub fn draw_ellipse(fb: &mut Framebuffer, xc: i32, yc: i32, rx: i32, ry: i32, co
         return;
     }
 
-    let rx_sq = i64::from(rx) * i64::from(rx);
-    let ry_sq = i64::from(ry) * i64::from(ry);
-
-    let mut x = 0;
-    let mut y = ry;
-    let mut px = 0_i64;
-    let mut py = 2_i64 * rx_sq * i64::from(y);
-
     let min_x = i64::from(xc) - i64::from(rx);
     let max_x = i64::from(xc) + i64::from(rx);
     let min_y = i64::from(yc) - i64::from(ry);
@@ -115,78 +154,14 @@ pub fn draw_ellipse(fb: &mut Framebuffer, xc: i32, yc: i32, rx: i32, ry: i32, co
 
     if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
         // Fast path: fully on screen
-        draw_ellipse_points_unchecked(fb, xc, yc, x, y, color);
-
-        // Region 1
-        let mut p = ry_sq - (rx_sq * i64::from(ry)) + (rx_sq / 4);
-        while px < py {
-            x += 1;
-            px += 2 * ry_sq;
-            if p < 0 {
-                p += ry_sq + px;
-            } else {
-                y -= 1;
-                py -= 2 * rx_sq;
-                p += ry_sq + px - py;
-            }
+        walk_ellipse(rx, ry, |x, y| {
             draw_ellipse_points_unchecked(fb, xc, yc, x, y, color);
-        }
-
-        // Region 2
-        // ⚡ Bolt: Hoist type conversions and algebraically simplify to reduce operations
-        let x_i64 = i64::from(x);
-        let y_minus_1 = i64::from(y - 1);
-        let mut p2 = ry_sq * x_i64 * (x_i64 + 1) + rx_sq * (y_minus_1 * y_minus_1 - ry_sq);
-
-        while y > 0 {
-            y -= 1;
-            py -= 2 * rx_sq;
-            if p2 > 0 {
-                p2 += rx_sq - py;
-            } else {
-                x += 1;
-                px += 2 * ry_sq;
-                p2 += rx_sq - py + px;
-            }
-            draw_ellipse_points_unchecked(fb, xc, yc, x, y, color);
-        }
+        });
     } else {
         // Safe path: bounds checking
-        draw_ellipse_points(fb, xc, yc, x, y, color);
-
-        // Region 1
-        let mut p = ry_sq - (rx_sq * i64::from(ry)) + (rx_sq / 4);
-        while px < py {
-            x += 1;
-            px += 2 * ry_sq;
-            if p < 0 {
-                p += ry_sq + px;
-            } else {
-                y -= 1;
-                py -= 2 * rx_sq;
-                p += ry_sq + px - py;
-            }
+        walk_ellipse(rx, ry, |x, y| {
             draw_ellipse_points(fb, xc, yc, x, y, color);
-        }
-
-        // Region 2
-        // ⚡ Bolt: Hoist type conversions and algebraically simplify to reduce operations
-        let x_i64 = i64::from(x);
-        let y_minus_1 = i64::from(y - 1);
-        let mut p2 = ry_sq * x_i64 * (x_i64 + 1) + rx_sq * (y_minus_1 * y_minus_1 - ry_sq);
-
-        while y > 0 {
-            y -= 1;
-            py -= 2 * rx_sq;
-            if p2 > 0 {
-                p2 += rx_sq - py;
-            } else {
-                x += 1;
-                px += 2 * ry_sq;
-                p2 += rx_sq - py + px;
-            }
-            draw_ellipse_points(fb, xc, yc, x, y, color);
-        }
+        });
     }
 }
 
@@ -266,14 +241,6 @@ pub fn fill_ellipse(fb: &mut Framebuffer, xc: i32, yc: i32, rx: i32, ry: i32, co
         return;
     }
 
-    let rx_sq = i64::from(rx) * i64::from(rx);
-    let ry_sq = i64::from(ry) * i64::from(ry);
-
-    let mut x = 0;
-    let mut y = ry;
-    let mut px = 0_i64;
-    let mut py = 2_i64 * rx_sq * i64::from(y);
-
     let min_x = i64::from(xc) - i64::from(rx);
     let max_x = i64::from(xc) + i64::from(rx);
     let min_y = i64::from(yc) - i64::from(ry);
@@ -285,96 +252,20 @@ pub fn fill_ellipse(fb: &mut Framebuffer, xc: i32, yc: i32, rx: i32, ry: i32, co
 
     if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
         // Fast path: fully on screen
-        draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
-        if y != 0 {
-            draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
-        }
-
-        // Region 1
-        let mut p = ry_sq - (rx_sq * i64::from(ry)) + (rx_sq / 4);
-        while px < py {
-            x += 1;
-            px += 2 * ry_sq;
-            if p < 0 {
-                p += ry_sq + px;
-            } else {
-                y -= 1;
-                py -= 2 * rx_sq;
-                p += ry_sq + px - py;
-            }
+        walk_ellipse(rx, ry, |x, y| {
             draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
             if y != 0 {
                 draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
             }
-        }
-
-        // Region 2
-        // ⚡ Bolt: Hoist type conversions and algebraically simplify to reduce operations
-        let x_i64 = i64::from(x);
-        let y_minus_1 = i64::from(y - 1);
-        let mut p2 = ry_sq * x_i64 * (x_i64 + 1) + rx_sq * (y_minus_1 * y_minus_1 - ry_sq);
-
-        while y > 0 {
-            y -= 1;
-            py -= 2 * rx_sq;
-            if p2 > 0 {
-                p2 += rx_sq - py;
-            } else {
-                x += 1;
-                px += 2 * ry_sq;
-                p2 += rx_sq - py + px;
-            }
-            draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
-            if y != 0 {
-                draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
-            }
-        }
+        });
     } else {
         // Safe path: bounds checking
-        draw_horizontal_line(fb, xc - x, xc + x, yc + y, color);
-        if y != 0 {
-            draw_horizontal_line(fb, xc - x, xc + x, yc - y, color);
-        }
-
-        // Region 1
-        let mut p = ry_sq - (rx_sq * i64::from(ry)) + (rx_sq / 4);
-        while px < py {
-            x += 1;
-            px += 2 * ry_sq;
-            if p < 0 {
-                p += ry_sq + px;
-            } else {
-                y -= 1;
-                py -= 2 * rx_sq;
-                p += ry_sq + px - py;
-            }
+        walk_ellipse(rx, ry, |x, y| {
             draw_horizontal_line(fb, xc - x, xc + x, yc + y, color);
             if y != 0 {
                 draw_horizontal_line(fb, xc - x, xc + x, yc - y, color);
             }
-        }
-
-        // Region 2
-        // ⚡ Bolt: Hoist type conversions and algebraically simplify to reduce operations
-        let x_i64 = i64::from(x);
-        let y_minus_1 = i64::from(y - 1);
-        let mut p2 = ry_sq * x_i64 * (x_i64 + 1) + rx_sq * (y_minus_1 * y_minus_1 - ry_sq);
-
-        while y > 0 {
-            y -= 1;
-            py -= 2 * rx_sq;
-            if p2 > 0 {
-                p2 += rx_sq - py;
-            } else {
-                x += 1;
-                px += 2 * ry_sq;
-                p2 += rx_sq - py + px;
-            }
-            draw_horizontal_line(fb, xc - x, xc + x, yc + y, color);
-            if y != 0 {
-                draw_horizontal_line(fb, xc - x, xc + x, yc - y, color);
-            }
-        }
+        });
     }
 }
 
