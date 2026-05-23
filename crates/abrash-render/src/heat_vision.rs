@@ -110,8 +110,8 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023); // Clamp strictly to 1023
+        let t = ((depth - min_z) * scale) as i32;
+        let t = t.max(0).min(1023) as u32; // Clamp strictly to 1023
 
         // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
         *pixel = unsafe { *LUT.get_unchecked(t as usize) };
@@ -190,8 +190,8 @@ unsafe fn apply_heat_vision_simd(
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023);
+        let t = ((depth - min_z) * scale) as i32;
+        let t = t.max(0).min(1023) as u32;
 
         *pixel = unsafe { *lut.get_unchecked(t as usize) };
     }
