@@ -336,6 +336,16 @@ mod tests {
         assert_eq!(pool.get(h), Some(&"hello world".to_string()));
     }
 
+
+    #[test]
+    fn test_pool_get_mut_vacant() {
+        let mut pool: ResourcePool<i32> = ResourcePool::new();
+        let h = pool.insert(42);
+        pool.remove(h);
+
+        assert_eq!(pool.get_mut(h), None);
+    }
+
     #[test]
     fn test_pool_get_invalid_generation() {
         let mut pool: ResourcePool<i32> = ResourcePool::new();
