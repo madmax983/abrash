@@ -71,12 +71,8 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
 
     for &z in depths {
         if z != f32::INFINITY {
-            if z < min_z {
-                min_z = z;
-            }
-            if z > max_z {
-                max_z = z;
-            }
+            min_z = if z < min_z { z } else { min_z };
+            max_z = if z > max_z { z } else { max_z };
             has_content = true;
         }
     }
@@ -92,9 +88,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     // Add a small epsilon to avoid division by zero if flat plane
     let range = (max_z - min_z).max(0.0001);
     // Map [0.0, range] to [0, 1023] (4 segments of 256)
-    // Adding a slight bias to prevent floating point inaccuracy at the absolute top end
-    // from truncating 1024 to 1023 when scaling.
-    let scale = 1024.0 / range;
+    let scale = 1023.999 / range;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::is_x86_feature_detected!("avx2") {
@@ -104,6 +98,10 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         return;
     }
 
+    // Performance Optimization (Bolt ⚡):
+    // Pre-scaling the depth multiplier to `1023.999` instead of `1024.0` guarantees that
+    // the maximum value casts to `1023` instead of `1024`. This allows us to completely
+    // elide the `.min(1023)` clamping check inside the hot per-pixel rendering loop.
     for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
         if depth == f32::INFINITY {
             *pixel = 0xFF00_0010; // Very Dark Blue Background
@@ -111,9 +109,8 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         }
 
         let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023); // Clamp strictly to 1023
 
-        // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
+        // SAFETY: t is strictly bounded to 1023 by the scale multiplier, which is within the bounds of the 1024-element LUT.
         *pixel = unsafe { *LUT.get_unchecked(t as usize) };
     }
 }

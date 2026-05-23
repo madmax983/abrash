@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Heat Vision Range Cast Overflow Avoidance]**
+**Learning:** `f32::min` calls inside tight integer-casting pixel loops (`let t = t.min(1023)`) can introduce measurable branch and function call overhead.
+**Action:** By explicitly multiplying the gradient inverse length by `1023.999` instead of `1024.0`, the cast to `u32` of `(depth - min_z) * scale` naturally bounds perfectly at `1023` in the maximum case, eliminating the need for `min(1023)` and avoiding `get_unchecked` LUT bounds panics safely.
