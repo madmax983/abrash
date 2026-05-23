@@ -84,12 +84,10 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
     let mut tex = Texture::new(width, height)?;
     let mut rng = XorShift32::new(seed);
 
-    for y in 0..height {
-        for x in 0..width {
-            let v = (rng.next_u32() & 0xFF) as u8;
-            let color = 0xFF00_0000 | (u32::from(v) << 16) | (u32::from(v) << 8) | u32::from(v);
-            tex.set_pixel(x, y, color);
-        }
+    let slice = tex.pixels.as_mut_slice();
+    for pixel in slice.iter_mut() {
+        let v = (rng.next_u32() & 0xFF) as u8;
+        *pixel = 0xFF00_0000 | (u32::from(v) << 16) | (u32::from(v) << 8) | u32::from(v);
     }
     Ok(tex)
 }

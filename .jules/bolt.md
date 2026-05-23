@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Procedural Generation Flat Iteration Optimization]**
+**Learning:** In procedural texture generation or full-buffer operations that do not depend on exact X/Y spatial coordinates (e.g., random noise), using nested `width` and `height` loops that call `.set_pixel(x, y, color)` introduces unnecessary coordinate calculations and per-pixel bounds checking.
+**Action:** Iterate directly over the underlying flat buffer (e.g., using `tex.pixels.as_mut_slice().iter_mut()`) to elide coordinate math and bounds checking for significant performance gains.
