@@ -1,11 +1,12 @@
-1.  **Refactor Heat Vision to Fixed Point Math**
-    - The current `heat_vision.rs` uses floating-point math (`(normalized - 0.25) * 4.0`, etc.) inside a hot pixel loop to map depths to colors.
-    - We will follow the `[Posterize Float to Integer Math Optimization]` learning from `.jules/bolt.md` to map `0.0..1.0` depth range into integer `0..255`, and calculate RGB entirely using integer math (`t * 255 / scale`, etc.).
-    - We will pre-calculate `min_z` and `max_z` like before, calculate a `z_range` integer mapping multiplier, and use simple `(depth - min_z) * scale` to avoid floats in the main loop.
-2.  **Ensure Correctness**
-    - Ensure all existing tests in `heat_vision.rs` pass.
-3.  **Run Benchmark**
-    - Ensure `cargo bench --bench heat_vision_bench` runs successfully and shows performance improvements.
+1.  **Analyze the Failure in `cull_aabbs_avx2`**
+    - The test `havoc_test_cull_aabbs_avx2` that I wrote crashes/fails when testing the AVX2 path for bounding box frustum culling. The scalar path works perfectly (returning true) while the AVX2 path returns false.
+2.  **Ensure we follow Havoc's Directives**
+    - Havoc's job is to prove the system is fragile and *not* to fix the bug.
+    - Havoc must write tests that fail, leave the code broken, and submit a PR with the wreckage.
+3.  **Prepare the Wreckage**
+    - Create a test file `crates/abrash-core/tests/havoc_culling_test.rs` containing the failing proptest or isolated case.
+    - Run the failing test to get the exact panic stack trace or assertion error.
 4.  **Complete pre commit steps**
-    - Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done.
-5.  **Submit PR**
+    - Complete pre commit steps to ensure proper testing, verification, review, and reflection are done.
+5.  **Submit the Wreckage**
+    - Submit a PR with the title and description formatted exactly as Havoc's guidelines specify.
