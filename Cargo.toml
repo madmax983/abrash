@@ -984,3 +984,6 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+[[bench]]
+name = "clear_rect_zbuffer_safe_vs_unsafe_bench"
+harness = false

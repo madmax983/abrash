@@ -124,16 +124,9 @@ impl ZBuffer {
                 }
             }
 
-            let mut offset = start_idx + sx;
-            let slice = self.depths.as_mut_slice();
-            for _ in sy..ey {
-                unsafe {
-                    slice
-                        .get_unchecked_mut(offset..offset + len)
-                        .fill(f32::INFINITY);
-                }
-                offset += w;
-            }
+            self.depths[start_idx..end_idx]
+                .chunks_exact_mut(w)
+                .for_each(|row| row[sx..ex].fill(f32::INFINITY));
         }
     }
 
@@ -416,5 +409,18 @@ mod tests {
                 assert!(zb.get_depth(x, y).unwrap().is_infinite());
             }
         }
+    }
+
+    #[test]
+    fn test_clear_rect_zero_width_height() {
+        let mut zb = ZBuffer::new(10, 10).unwrap();
+        zb.test_and_set(5, 5, 10.0);
+
+        // Clearing with 0 width or height should be a no-op
+        zb.clear_rect(5, 5, 0, 5);
+        zb.clear_rect(5, 5, 5, 0);
+
+        // Depth should still be 10.0
+        assert_eq!(zb.get_depth(5, 5).unwrap(), 10.0);
     }
 }
