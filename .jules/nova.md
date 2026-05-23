@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [SVG Wireframe Exporter]
+**Concept:** An experimental module to export 3D geometry into a 2D Scalable Vector Graphics (SVG) format by applying an MVP matrix, calculating clipping/NDC, and formatting the results manually into an SVG XML string.
+**Fate:** Implemented
+**Lesson:** When creating vector representations of scenes, formatting XML manually using standard `write!` directives is highly effective and completely avoids heavy third-party parsing/DOM-building dependencies. This effectively uncouples experimental exporter utilities from the core rasterizer loop.
