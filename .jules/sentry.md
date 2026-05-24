@@ -51,3 +51,9 @@
 **[Validating Time/Tick Loop Logic Without Flakiness]**
 **Learning:** Testing frame-time loops using `std::thread::sleep` introduces severe flakiness because CI runners or test threads can delay execution unpredictably. Instead of testing "real" time elapsed, test the internal response to elapsed time by directly simulating it on the structure (e.g. `timer.last_time = Instant::now()`, `timer.accumulator += 50ms`).
 **Action:** Never use `std::thread::sleep` for unit testing timing systems. Always manipulate the simulated time state directly to test logic boundaries.
+## [Math Overflow Defenses]
+**Learning:** High-volume rendering properties (like string capacity from width/height or pixel accumulators iterating  samples) easily overflow  bounds when fuzzed or stress-tested, leading to arithmetic panics in production logic.
+**Action:** When computing capacities or loop sums, cast dynamic inputs to  or  *before* mathematical operations, and strongly prefer  and .
+## [Math Overflow Defenses]
+**Learning:** High-volume rendering properties (like string capacity from width/height or pixel accumulators iterating N samples) easily overflow u32 bounds when fuzzed or stress-tested, leading to arithmetic panics in production logic.
+**Action:** When computing capacities or loop sums, cast dynamic inputs to usize or u64 *before* mathematical operations, and strongly prefer .saturating_mul() and .saturating_add().

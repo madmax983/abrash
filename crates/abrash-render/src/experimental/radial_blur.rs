@@ -84,8 +84,8 @@ pub fn apply_radial_blur(
                         let mut cur_y = (y as i32) << 16;
 
                         if can_swar {
-                            let mut rb_acc = 0;
-                            let mut g_acc = 0;
+                            let mut rb_acc: u64 = 0;
+                            let mut g_acc: u64 = 0;
 
                             for _ in 0..samples {
                                 let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
@@ -94,40 +94,42 @@ pub fn apply_radial_blur(
                                 let color = src_fb[y_idx * width + x_idx];
 
                                 // Accumulate R and B channels simultaneously. The 0x00FF00FF mask isolates R and B.
-                                rb_acc += color & 0x00FF_00FF;
+                                rb_acc += u64::from(color & 0x00FF_00FF);
                                 // Accumulate G channel separately.
-                                g_acc += (color >> 8) & 0x0000_00FF;
+                                g_acc += u64::from((color >> 8) & 0x0000_00FF);
 
-                                cur_x += step_x;
-                                cur_y += step_y;
+                                cur_x = cur_x.saturating_add(step_x);
+                                cur_y = cur_y.saturating_add(step_y);
                             }
 
-                            let r = (rb_acc >> 16) / inv_samples;
-                            let g = g_acc / inv_samples;
-                            let b = (rb_acc & 0xFFFF) / inv_samples;
+                            let inv_samples_u64 = u64::from(inv_samples);
+                            let r = ((rb_acc >> 16) / inv_samples_u64) as u32;
+                            let g = (g_acc / inv_samples_u64) as u32;
+                            let b = ((rb_acc & 0xFFFF) / inv_samples_u64) as u32;
 
                             *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
                         } else {
-                            let mut r_acc = 0;
-                            let mut g_acc = 0;
-                            let mut b_acc = 0;
+                            let mut r_acc: u64 = 0;
+                            let mut g_acc: u64 = 0;
+                            let mut b_acc: u64 = 0;
 
                             for _ in 0..samples {
                                 let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
                                 let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 
                                 let color = src_fb[y_idx * width + x_idx];
-                                r_acc += (color >> 16) & 0xFF;
-                                g_acc += (color >> 8) & 0xFF;
-                                b_acc += color & 0xFF;
+                                r_acc += u64::from((color >> 16) & 0xFF);
+                                g_acc += u64::from((color >> 8) & 0xFF);
+                                b_acc += u64::from(color & 0xFF);
 
-                                cur_x += step_x;
-                                cur_y += step_y;
+                                cur_x = cur_x.saturating_add(step_x);
+                                cur_y = cur_y.saturating_add(step_y);
                             }
 
-                            let r = (r_acc / inv_samples) & 0xFF;
-                            let g = (g_acc / inv_samples) & 0xFF;
-                            let b = (b_acc / inv_samples) & 0xFF;
+                            let inv_samples_u64 = u64::from(inv_samples);
+                            let r = ((r_acc / inv_samples_u64) as u32) & 0xFF;
+                            let g = ((g_acc / inv_samples_u64) as u32) & 0xFF;
+                            let b = ((b_acc / inv_samples_u64) as u32) & 0xFF;
 
                             *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
                         }
@@ -149,8 +151,8 @@ pub fn apply_radial_blur(
                     let mut cur_y = (y as i32) << 16;
 
                     if can_swar {
-                        let mut rb_acc = 0;
-                        let mut g_acc = 0;
+                        let mut rb_acc: u64 = 0;
+                        let mut g_acc: u64 = 0;
 
                         for _ in 0..samples {
                             let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
@@ -159,40 +161,42 @@ pub fn apply_radial_blur(
                             let color = src_fb[y_idx * width + x_idx];
 
                             // Accumulate R and B channels simultaneously. The 0x00FF00FF mask isolates R and B.
-                            rb_acc += color & 0x00FF_00FF;
+                            rb_acc += u64::from(color & 0x00FF_00FF);
                             // Accumulate G channel separately.
-                            g_acc += (color >> 8) & 0x0000_00FF;
+                            g_acc += u64::from((color >> 8) & 0x0000_00FF);
 
-                            cur_x += step_x;
-                            cur_y += step_y;
+                            cur_x = cur_x.saturating_add(step_x);
+                            cur_y = cur_y.saturating_add(step_y);
                         }
 
-                        let r = (rb_acc >> 16) / inv_samples;
-                        let g = g_acc / inv_samples;
-                        let b = (rb_acc & 0xFFFF) / inv_samples;
+                        let inv_samples_u64 = u64::from(inv_samples);
+                        let r = ((rb_acc >> 16) / inv_samples_u64) as u32;
+                        let g = (g_acc / inv_samples_u64) as u32;
+                        let b = ((rb_acc & 0xFFFF) / inv_samples_u64) as u32;
 
                         dest_pixels[row_start + x] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
                     } else {
-                        let mut r_acc = 0;
-                        let mut g_acc = 0;
-                        let mut b_acc = 0;
+                        let mut r_acc: u64 = 0;
+                        let mut g_acc: u64 = 0;
+                        let mut b_acc: u64 = 0;
 
                         for _ in 0..samples {
                             let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
                             let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 
                             let color = src_fb[y_idx * width + x_idx];
-                            r_acc += (color >> 16) & 0xFF;
-                            g_acc += (color >> 8) & 0xFF;
-                            b_acc += color & 0xFF;
+                            r_acc += u64::from((color >> 16) & 0xFF);
+                            g_acc += u64::from((color >> 8) & 0xFF);
+                            b_acc += u64::from(color & 0xFF);
 
-                            cur_x += step_x;
-                            cur_y += step_y;
+                            cur_x = cur_x.saturating_add(step_x);
+                            cur_y = cur_y.saturating_add(step_y);
                         }
 
-                        let r = (r_acc / inv_samples) & 0xFF;
-                        let g = (g_acc / inv_samples) & 0xFF;
-                        let b = (b_acc / inv_samples) & 0xFF;
+                        let inv_samples_u64 = u64::from(inv_samples);
+                        let r = ((r_acc / inv_samples_u64) as u32) & 0xFF;
+                        let g = ((g_acc / inv_samples_u64) as u32) & 0xFF;
+                        let b = ((b_acc / inv_samples_u64) as u32) & 0xFF;
 
                         dest_pixels[row_start + x] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
                     }
