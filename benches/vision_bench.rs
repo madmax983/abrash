@@ -14,7 +14,7 @@ fn vision_benchmark(c: &mut Criterion) {
 
     fb.clear(0xFF80_8080); // mid-gray
 
-    let config = VisionConfig {
+    let config_night = VisionConfig {
         mode: VisionMode::Night,
         time: 0.0,
         intensity: 1.0,
@@ -22,7 +22,19 @@ fn vision_benchmark(c: &mut Criterion) {
 
     group.bench_function("apply_vision_night_mode_720p", |b| {
         b.iter(|| {
-            apply_vision(black_box(&mut fb), black_box(&zb), black_box(&config));
+            apply_vision(black_box(&mut fb), black_box(&zb), black_box(&config_night));
+        });
+    });
+
+    let config_thermal = VisionConfig {
+        mode: VisionMode::Thermal,
+        time: 0.0,
+        intensity: 1.0,
+    };
+
+    group.bench_function("apply_vision_thermal_mode_720p", |b| {
+        b.iter(|| {
+            apply_vision(black_box(&mut fb), black_box(&zb), black_box(&config_thermal));
         });
     });
 

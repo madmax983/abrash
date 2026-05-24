@@ -121,15 +121,63 @@ fn apply_night_vision(fb: &mut Framebuffer, config: &VisionConfig) {
     }
 }
 
+const fn generate_thermal_lut() -> [u32; 1024] {
+    let mut lut = [0u32; 1024];
+    let mut i = 0;
+    while i < 1024 {
+        // i: 0..1023
+        // 0.2 * 1024 = 204.8 -> 205
+        // 0.5 * 1024 = 512
+        // 0.8 * 1024 = 819.2 -> 819
+
+        let (r, g, b) = if i < 205 {
+            // Black -> Blue (0 -> 255)
+            let b = (i * 255) / 204;
+            (0, 0, b)
+        } else if i < 512 {
+            // Blue -> Purple (Blue=255, Red 0->255)
+            // Range: 205..511 (len 307)
+            let r = ((i - 205) * 255) / 306;
+            (r, 0, 255)
+        } else if i < 819 {
+            // Purple -> Red (Red=255, Blue 255->0)
+            // Range: 512..818 (len 307)
+            let b = 255 - (((i - 512) * 255) / 306);
+            (255, 0, b)
+        } else {
+            // Red -> Yellow -> White
+            // Range: 819..1023 (len 205)
+            // Midpoint: 921
+            if i < 921 {
+                // Red -> Yellow (Red=255, Green 0->255)
+                // Range: 819..920 (len 102)
+                let g = ((i - 819) * 255) / 101;
+                (255, g, 0)
+            } else {
+                // Yellow -> White (Red=255, Green=255, Blue 0->255)
+                // Range: 921..1023 (len 103)
+                let b = ((i - 921) * 255) / 102;
+                (255, 255, b)
+            }
+        };
+
+        lut[i as usize] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+        i += 1;
+    }
+    lut
+}
+
 fn apply_thermal_vision(fb: &mut Framebuffer, zb: &ZBuffer, _config: &VisionConfig) {
+    const LUT: [u32; 1024] = generate_thermal_lut();
+
     let _width = fb.width() as usize;
     let _height = fb.height() as usize;
     let pixels = fb.as_mut_slice();
     let depths = zb.as_slice();
 
-    for (i, &depth) in depths.iter().enumerate() {
+    for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
         if depth.is_infinite() {
-            pixels[i] = 0xFF00_0000; // Background is black (Coldest)
+            *pixel = 0xFF00_0000; // Background is black (Coldest)
             continue;
         }
 
@@ -143,46 +191,11 @@ fn apply_thermal_vision(fb: &mut Framebuffer, zb: &ZBuffer, _config: &VisionConf
         let t = ((depth + 1.0) * 0.5).clamp(0.0, 1.0);
         let heat = 1.0 - t;
 
-        pixels[i] = get_thermal_color(heat);
+        let lut_index = (heat * 1023.0) as usize;
+        let lut_index = lut_index.min(1023); // strictly bound
+
+        *pixel = unsafe { *LUT.get_unchecked(lut_index) };
     }
-}
-
-fn get_thermal_color(t: f32) -> u32 {
-    // t: 0.0 (Cold) -> 1.0 (Hot)
-    // 0.0 - 0.2: Black -> Blue
-    // 0.2 - 0.5: Blue -> Purple
-    // 0.5 - 0.8: Purple -> Red
-    // 0.8 - 1.0: Red -> Yellow -> White
-
-    let (r, g, b) = if t < 0.2 {
-        // Black to Blue
-        let local_t = t / 0.2;
-        (0.0, 0.0, local_t)
-    } else if t < 0.5 {
-        // Blue to Purple (Blue + Red)
-        let local_t = (t - 0.2) / 0.3;
-        (local_t, 0.0, 1.0) // B=1, R goes 0->1
-    } else if t < 0.8 {
-        // Purple to Red
-        let local_t = (t - 0.5) / 0.3;
-        (1.0, 0.0, 1.0 - local_t) // R=1, B goes 1->0
-    } else {
-        // Red to Yellow (add Green) to White (add Blue)
-        let local_t = (t - 0.8) / 0.2;
-        if local_t < 0.5 {
-            // Red to Yellow
-            (1.0, local_t * 2.0, 0.0)
-        } else {
-            // Yellow to White
-            (1.0, 1.0, (local_t - 0.5) * 2.0)
-        }
-    };
-
-    let r_byte = (r * 255.0) as u32;
-    let g_byte = (g * 255.0) as u32;
-    let b_byte = (b * 255.0) as u32;
-
-    0xFF00_0000 | (r_byte << 16) | (g_byte << 8) | b_byte
 }
 
 fn apply_sonar_vision(fb: &mut Framebuffer, zb: &ZBuffer, config: &VisionConfig) {
