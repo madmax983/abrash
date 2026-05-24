@@ -984,3 +984,7 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[bench]]
+name = "heat_vision_simd_vs_scalar_bench"
+harness = false

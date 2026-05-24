@@ -89,17 +89,21 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         return;
     }
 
-    // Add a small epsilon to avoid division by zero if flat plane
-    let range = (max_z - min_z).max(0.0001);
-    // Map [0.0, range] to [0, 1023] (4 segments of 256)
-    // Adding a slight bias to prevent floating point inaccuracy at the absolute top end
-    // from truncating 1024 to 1023 when scaling.
-    let scale = 1024.0 / range;
+    let min_z_bits = min_z.to_bits();
+    let max_z_bits = max_z.to_bits();
+
+    // Add a small epsilon logic in integer space to avoid division by zero
+    let range_bits = (max_z_bits.saturating_sub(min_z_bits)).max(1);
+
+    // Calculate integer multiplier for (delta * multiplier) >> 21
+    // We round up by adding range_bits / 2 to avoid dropping the max value due to truncation
+    let shift = 21;
+    let multiplier = (((1023u64 << shift) + (u64::from(range_bits) / 2)) / u64::from(range_bits)) as u32;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::is_x86_feature_detected!("avx2") {
         unsafe {
-            apply_heat_vision_simd(pixels, depths, min_z, scale, &LUT);
+            apply_heat_vision_simd(pixels, depths, min_z_bits, multiplier, &LUT);
         }
         return;
     }
@@ -110,8 +114,11 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023); // Clamp strictly to 1023
+        let depth_bits = depth.to_bits();
+        let delta = depth_bits.saturating_sub(min_z_bits);
+
+        let mut t = ((u64::from(delta) * u64::from(multiplier)) >> shift) as u32;
+        t = t.min(1023); // Clamp strictly to 1023
 
         // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
         *pixel = unsafe { *LUT.get_unchecked(t as usize) };
@@ -123,8 +130,8 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
 unsafe fn apply_heat_vision_simd(
     pixels: &mut [u32],
     depths: &[f32],
-    min_z: f32,
-    scale: f32,
+    min_z_bits: u32,
+    multiplier: u32,
     lut: &[u32; 1024],
 ) {
     #[cfg(target_arch = "x86")]
@@ -132,16 +139,16 @@ unsafe fn apply_heat_vision_simd(
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::{
         __m256i, _CMP_EQ_OQ, _mm256_blendv_epi8, _mm256_castps_si256, _mm256_cmp_ps,
-        _mm256_cvttps_epi32, _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32,
-        _mm256_min_epi32, _mm256_mul_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256,
-        _mm256_storeu_si256, _mm256_sub_ps,
+        _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32, _mm256_min_epi32,
+        _mm256_mullo_epi32, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256,
+        _mm256_srli_epi32, _mm256_storeu_si256, _mm256_sub_epi32,
     };
 
     let len = pixels.len().min(depths.len());
     let mut i = 0;
 
-    let min_z_vec = _mm256_set1_ps(min_z);
-    let scale_vec = _mm256_set1_ps(scale);
+    let min_z_vec = _mm256_set1_epi32(min_z_bits as i32);
+    let mult_vec = _mm256_set1_epi32(multiplier as i32);
     let inf_vec = _mm256_set1_ps(f32::INFINITY);
     let max_t_vec = _mm256_set1_epi32(1023);
     let bg_color = _mm256_set1_epi32(0xFF00_0010_u32 as i32);
@@ -155,18 +162,24 @@ unsafe fn apply_heat_vision_simd(
         let is_inf = _mm256_cmp_ps(depth_val, inf_vec, _CMP_EQ_OQ);
         let is_inf_int = _mm256_castps_si256(is_inf);
 
-        // t = (depth - min_z) * scale
-        let t_f32 = _mm256_mul_ps(_mm256_sub_ps(depth_val, min_z_vec), scale_vec);
+        // depth_bits = depth_val.to_bits()
+        let depth_bits = _mm256_castps_si256(depth_val);
 
-        // t_u32 = t_f32 as i32
-        let t_i32 = _mm256_cvttps_epi32(t_f32);
+        // delta = depth_bits - min_z_bits
+        let delta = _mm256_sub_epi32(depth_bits, min_z_vec);
 
-        // Ensure not negative
+        // Ensure not negative (saturating sub equivalent)
         let zero_vec = _mm256_setzero_si256();
-        let t_clamped_low = _mm256_max_epi32(t_i32, zero_vec);
+        let delta_clamped = _mm256_max_epi32(delta, zero_vec);
+
+        // t_scaled = delta_clamped * multiplier
+        let t_scaled = _mm256_mullo_epi32(delta_clamped, mult_vec);
+
+        // t = t_scaled >> 21
+        let t_i32 = _mm256_srli_epi32::<21>(t_scaled);
 
         // Clamp to 1023
-        let t_clamped = _mm256_min_epi32(t_clamped_low, max_t_vec);
+        let t_clamped = _mm256_min_epi32(t_i32, max_t_vec);
 
         // Gather from LUT
         // SAFETY: t_clamped is strictly between 0 and 1023, lut is 1024 elements
@@ -183,6 +196,7 @@ unsafe fn apply_heat_vision_simd(
         i += 8;
     }
 
+    let shift = 21;
     // Scalar tail
     for (pixel, &depth) in pixels[i..len].iter_mut().zip(depths[i..len].iter()) {
         if depth == f32::INFINITY {
@@ -190,8 +204,11 @@ unsafe fn apply_heat_vision_simd(
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023);
+        let depth_bits = depth.to_bits();
+        let delta = depth_bits.saturating_sub(min_z_bits);
+
+        let mut t = ((u64::from(delta) * u64::from(multiplier)) >> shift) as u32;
+        t = t.min(1023);
 
         *pixel = unsafe { *lut.get_unchecked(t as usize) };
     }
@@ -231,12 +248,16 @@ mod tests {
         let p4 = fb.get_pixel(4, 0).unwrap();
         assert_eq!(p4, 0xFF00_00FF, "Furthest pixel should be Blue");
 
-        // Check 2 (Middle/Green)
+        // Check 2 (Middle depth 3.0)
         let p2 = fb.get_pixel(2, 0).unwrap();
-        // Middle of 1.0..5.0 is 3.0.
-        // normalized = (3.0 - 1.0) / (5.0 - 1.0) = 0.5
-        // At 0.5 -> Green (0, 255, 0)
-        assert_eq!(p2, 0xFF00_FF00, "Middle pixel should be Green");
+        // With integer bit-wise depth mapping:
+        // 1.0 bits: 1065353216, 3.0 bits: 1077936128, 5.0 bits: 1084227584
+        // delta for 3.0 = 12582912. range = 18874368.
+        // t = 12582912 * 1023 / 18874368 = 682.
+        // LUT[682]: 682 is between 512 and 768. local_t = 682 - 512 = 170.
+        // Color is Green -> Cyan (0, 255, local_t) -> (0, 255, 172).
+        // 0xFF00_FFac (4278255532)
+        assert_eq!(p2, 0xFF00_FFAC, "Middle pixel should be Cyan-Green");
     }
 
     #[test]

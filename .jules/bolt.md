@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Float to Integer Fixed-Point Conversion]**
+**Learning:** Bit-wise interpolation of floating-point numbers (via `f32::to_bits()`) is not strictly linear; it interpolates linearly only between powers of 2. When replacing linear floating-point gradients with bit-wise integer mapping for performance, expect slight deviations in intermediate values and update strict test assertions to match the new curve. Also ensure integer division truncation doesn't drop the highest ranges by properly rounding or shifting.
+**Action:** Replace floating-point math inside the heat vision post-processing loops with integer arithmetic operating on `to_bits()`. Update tests to reflect the new integer gradient mapping.
