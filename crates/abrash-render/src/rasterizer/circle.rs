@@ -118,27 +118,74 @@ fn draw_circle_points_unchecked(
 ) {
     let w = fb.width() as usize;
     let slice = fb.as_mut_slice();
-    unsafe {
-        *slice.get_unchecked_mut(((yc + y) as usize) * w + ((xc + x) as usize)) = color;
-        if x != 0 {
-            *slice.get_unchecked_mut(((yc + y) as usize) * w + ((xc - x) as usize)) = color;
+
+    if let Some(pixel) = slice.get_mut(
+        (yc.wrapping_add(y) as usize)
+            .wrapping_mul(w)
+            .wrapping_add(xc.wrapping_add(x) as usize),
+    ) {
+        *pixel = color;
+    }
+    if x != 0 {
+        if let Some(pixel) = slice.get_mut(
+            (yc.wrapping_add(y) as usize)
+                .wrapping_mul(w)
+                .wrapping_add(xc.wrapping_sub(x) as usize),
+        ) {
+            *pixel = color;
+        }
+    }
+    if y != 0 {
+        if let Some(pixel) = slice.get_mut(
+            (yc.wrapping_sub(y) as usize)
+                .wrapping_mul(w)
+                .wrapping_add(xc.wrapping_add(x) as usize),
+        ) {
+            *pixel = color;
+        }
+    }
+    if x != 0 && y != 0 {
+        if let Some(pixel) = slice.get_mut(
+            (yc.wrapping_sub(y) as usize)
+                .wrapping_mul(w)
+                .wrapping_add(xc.wrapping_sub(x) as usize),
+        ) {
+            *pixel = color;
+        }
+    }
+    if x != y {
+        if let Some(pixel) = slice.get_mut(
+            (yc.wrapping_add(x) as usize)
+                .wrapping_mul(w)
+                .wrapping_add(xc.wrapping_add(y) as usize),
+        ) {
+            *pixel = color;
         }
         if y != 0 {
-            *slice.get_unchecked_mut(((yc - y) as usize) * w + ((xc + x) as usize)) = color;
+            if let Some(pixel) = slice.get_mut(
+                (yc.wrapping_add(x) as usize)
+                    .wrapping_mul(w)
+                    .wrapping_add(xc.wrapping_sub(y) as usize),
+            ) {
+                *pixel = color;
+            }
+        }
+        if x != 0 {
+            if let Some(pixel) = slice.get_mut(
+                (yc.wrapping_sub(x) as usize)
+                    .wrapping_mul(w)
+                    .wrapping_add(xc.wrapping_add(y) as usize),
+            ) {
+                *pixel = color;
+            }
         }
         if x != 0 && y != 0 {
-            *slice.get_unchecked_mut(((yc - y) as usize) * w + ((xc - x) as usize)) = color;
-        }
-        if x != y {
-            *slice.get_unchecked_mut(((yc + x) as usize) * w + ((xc + y) as usize)) = color;
-            if y != 0 {
-                *slice.get_unchecked_mut(((yc + x) as usize) * w + ((xc - y) as usize)) = color;
-            }
-            if x != 0 {
-                *slice.get_unchecked_mut(((yc - x) as usize) * w + ((xc + y) as usize)) = color;
-            }
-            if x != 0 && y != 0 {
-                *slice.get_unchecked_mut(((yc - x) as usize) * w + ((xc - y) as usize)) = color;
+            if let Some(pixel) = slice.get_mut(
+                (yc.wrapping_sub(x) as usize)
+                    .wrapping_mul(w)
+                    .wrapping_add(xc.wrapping_sub(y) as usize),
+            ) {
+                *pixel = color;
             }
         }
     }
@@ -286,13 +333,13 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 #[inline(always)]
 fn draw_horizontal_line_unchecked(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32, color: u32) {
     let width = fb.width() as usize;
-    let start_idx = (y as usize) * width + (x1 as usize);
-    let end_idx = (y as usize) * width + (x2 as usize);
-    // ⚡ Bolt: Elide bounds check with get_unchecked_mut in Fill
-    unsafe {
-        fb.as_mut_slice()
-            .get_unchecked_mut(start_idx..=end_idx)
-            .fill(color);
+    let start_idx = (y as usize).wrapping_mul(width).wrapping_add(x1 as usize);
+    let end_idx = (y as usize).wrapping_mul(width).wrapping_add(x2 as usize);
+    // ⚡ Bolt: Elide bounds check with get_unchecked_mut in Fill (Replaced with safe get_mut)
+    if start_idx <= end_idx {
+        if let Some(slice) = fb.as_mut_slice().get_mut(start_idx..=end_idx) {
+            slice.fill(color);
+        }
     }
 }
 
@@ -312,14 +359,12 @@ fn draw_horizontal_line(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32, color: u
         let start_idx = y_offset + (min_x as usize);
         let end_idx = y_offset + (max_x as usize);
 
-        // ⚡ Bolt: Elide bounds check with get_unchecked_mut in Fill
+        // ⚡ Bolt: Elide bounds check with get_unchecked_mut in Fill (Replaced with safe get_mut)
         // This is safe because we clamped min_x, max_x, and y to valid ranges.
         // And we know end_idx >= start_idx.
         // We also know end_idx < fb.width() * fb.height().
-        unsafe {
-            fb.as_mut_slice()
-                .get_unchecked_mut(start_idx..=end_idx)
-                .fill(color);
+        if let Some(slice) = fb.as_mut_slice().get_mut(start_idx..=end_idx) {
+            slice.fill(color);
         }
     }
 }
@@ -387,6 +432,15 @@ mod tests {
         // i32::MAX overflow test. Should not crash or use unsafe unchecked set.
         draw_circle(&mut fb, i32::MAX - 5, 50, 10, 0x00FF_FFFFFF);
         fill_circle(&mut fb, i32::MAX - 5, 50, 10, 0x00FF_FFFFFF);
+    }
+
+    #[test]
+    fn test_circle_out_of_bounds_unsafe() {
+        let mut fb = Framebuffer::new(100, 100).unwrap();
+        // Passing out of bounds coordinates directly to the previously unsafe unchecked functions
+        // Since we replaced them with safe checking bounds, this should not crash or panic.
+        draw_circle_points_unchecked(&mut fb, i32::MAX, i32::MAX, i32::MAX, i32::MAX, 0xFFFFFFFF);
+        draw_horizontal_line_unchecked(&mut fb, i32::MAX, i32::MAX, i32::MAX, 0xFFFFFFFF);
     }
 
     #[test]
