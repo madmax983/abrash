@@ -180,8 +180,8 @@
 **Learning:** The agent sandbox terminal can truncate very long outputs from `cat`, making assumptions about code structures (like the heat vision algorithm) risky without concrete validation.
 **Action:** Use `grep -A 50 "pattern"` or targeted Python extraction scripts to safely confirm the structural content of files instead of relying on truncated terminal `cat` dumps when planning refactors.
 **[clear_rect optimization]**
-**Learning:** In 2D region fills over a 1D pixel buffer (like `clear_rect` in `Framebuffer` or `ZBuffer`), replacing an outer `for` loop combined with explicit index calculations and `unsafe { get_unchecked_mut() }` with the safe iterator-based chunking (`.chunks_exact_mut()`), but applying `unsafe { get_unchecked_mut() }` directly on the row slice yields measurable performance gains across various resolutions, while simplifying the code.
-**Action:** Replaced loop index calculations with `.chunks_exact_mut(w)` and elided inner-loop bounds checks with `row.get_unchecked_mut(sx..ex)` in `Framebuffer::clear_rect` and `ZBuffer::clear_rect`.
+**Learning:** When clearing or filling 2D rectangular regions in a flat buffer, standard safe iterator-based chunking (`buffer.chunks_exact_mut(width).for_each(|row| row[start_x..end_x].fill(value))`) performs better than explicit index calculations using `unsafe { get_unchecked_mut() }`. It provides better aliasing guarantees to LLVM for superior auto-vectorization while eliminating unsafe code.
+**Action:** Replaced explicit index loops with `chunks_exact_mut().for_each()` in `Framebuffer::clear_rect` and `ZBuffer::clear_rect`.
 
 **[Optimal Parallel Iterator Chunking]**
 **Learning:** Returning `Vec<T>` inside `IntoParallelIterator` implementation for fixed-size lists (like `PreparedTrianglesList` variants) incurs severe heap allocation overhead when repeatedly evaluated in hot processing loops. Rayon natively supports `IntoParallelIterator` on arrays.

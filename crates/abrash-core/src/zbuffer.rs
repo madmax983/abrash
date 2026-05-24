@@ -108,8 +108,6 @@ impl ZBuffer {
         if sx == 0 && ex == w {
             self.depths[start_idx..end_idx].fill(f32::INFINITY);
         } else {
-            let len = ex - sx;
-
             // Hot path optimization: process rows concurrently if large enough
             #[cfg(feature = "parallel")]
             {
@@ -124,16 +122,9 @@ impl ZBuffer {
                 }
             }
 
-            let mut offset = start_idx + sx;
-            let slice = self.depths.as_mut_slice();
-            for _ in sy..ey {
-                unsafe {
-                    slice
-                        .get_unchecked_mut(offset..offset + len)
-                        .fill(f32::INFINITY);
-                }
-                offset += w;
-            }
+            self.depths[start_idx..end_idx]
+                .chunks_exact_mut(w)
+                .for_each(|row| row[sx..ex].fill(f32::INFINITY));
         }
     }
 
