@@ -64,20 +64,24 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
         static SOURCE_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
     }
 
-    let mut src_pixels = SOURCE_PIXELS.with(std::cell::RefCell::take);
-    src_pixels.clear();
-    src_pixels.extend_from_slice(fb.as_slice());
-    let source_buffer = src_pixels.as_slice();
+    SOURCE_PIXELS.with(|buf| {
+        let mut src_pixels = buf.borrow_mut();
+        let fb_slice = fb.as_slice();
+        if src_pixels.len() != fb_slice.len() {
+            src_pixels.resize(fb_slice.len(), 0);
+        }
+        src_pixels.copy_from_slice(fb_slice);
+        let source_buffer = src_pixels.as_slice();
 
-    let pixels = fb.as_mut_slice();
+        let pixels = fb.as_mut_slice();
 
-    #[cfg(feature = "parallel")]
-    let iter = pixels.par_chunks_exact_mut(width).enumerate();
-    #[cfg(not(feature = "parallel"))]
-    let iter = pixels.chunks_exact_mut(width).enumerate();
+        #[cfg(feature = "parallel")]
+        let iter = pixels.par_chunks_exact_mut(width).enumerate();
+        #[cfg(not(feature = "parallel"))]
+        let iter = pixels.chunks_exact_mut(width).enumerate();
 
-    iter.for_each(|(y, row)| {
-        for (x, pixel) in row.iter_mut().enumerate() {
+        iter.for_each(|(y, row)| {
+            for (x, pixel) in row.iter_mut().enumerate() {
             // Bounds check for Sobel 3x3
             if x == 0 || y == 0 || x >= width - 1 || y >= height - 1 {
                 *pixel = config.paper_color;
@@ -152,9 +156,6 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
             }
         }
     });
-
-    SOURCE_PIXELS.with(|buf| {
-        buf.replace(src_pixels);
     });
 }
 
