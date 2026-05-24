@@ -131,10 +131,10 @@ unsafe fn apply_heat_vision_simd(
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::{
-        __m256i, _CMP_EQ_OQ, _mm256_blendv_epi8, _mm256_castps_si256, _mm256_cmp_ps,
-        _mm256_cvttps_epi32, _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32,
-        _mm256_min_epi32, _mm256_mul_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256,
-        _mm256_storeu_si256, _mm256_sub_ps,
+        __m256i, _CMP_EQ_OQ, _mm256_andnot_ps, _mm256_blendv_epi8, _mm256_castps_si256,
+        _mm256_cmp_ps, _mm256_cvttps_epi32, _mm256_i32gather_epi32, _mm256_loadu_ps,
+        _mm256_min_epi32, _mm256_mul_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_storeu_si256,
+        _mm256_sub_ps,
     };
 
     let len = pixels.len().min(depths.len());
@@ -158,15 +158,16 @@ unsafe fn apply_heat_vision_simd(
         // t = (depth - min_z) * scale
         let t_f32 = _mm256_mul_ps(_mm256_sub_ps(depth_val, min_z_vec), scale_vec);
 
-        // t_u32 = t_f32 as i32
-        let t_i32 = _mm256_cvttps_epi32(t_f32);
+        // Mask out INF (which becomes all 1s in is_inf) to 0.0 before conversion
+        let t_valid_f32 = _mm256_andnot_ps(is_inf, t_f32);
 
-        // Ensure not negative
-        let zero_vec = _mm256_setzero_si256();
-        let t_clamped_low = _mm256_max_epi32(t_i32, zero_vec);
+        // Convert to int
+        // Because t_f32 is mathematically >= 0.0 (since depth >= min_z),
+        // and we masked out INF, t_i32 is guaranteed >= 0.
+        let t_i32 = _mm256_cvttps_epi32(t_valid_f32);
 
         // Clamp to 1023
-        let t_clamped = _mm256_min_epi32(t_clamped_low, max_t_vec);
+        let t_clamped = _mm256_min_epi32(t_i32, max_t_vec);
 
         // Gather from LUT
         // SAFETY: t_clamped is strictly between 0 and 1023, lut is 1024 elements
