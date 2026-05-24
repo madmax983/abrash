@@ -4269,11 +4269,9 @@ fn draw_span_textured_gouraud_scalar(
 
             let color = if (u as u32) < tex_w && (v as u32) < tex_h {
                 if is_pot {
-                    unsafe { *tex_pixels.get_unchecked(((v as usize) << shift) + (u as usize)) }
+                    *tex_pixels.get(((v as usize) << shift) + (u as usize)).unwrap_or(&0)
                 } else {
-                    unsafe {
-                        *tex_pixels.get_unchecked((v as usize) * (tex_w as usize) + (u as usize))
-                    }
+                    *tex_pixels.get((v as usize) * (tex_w as usize) + (u as usize)).unwrap_or(&0)
                 }
             } else {
                 texture.get_pixel_texel(u, v)
