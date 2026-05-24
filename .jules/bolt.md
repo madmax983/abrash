@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Safe Iterator Chunking in 2D Fills]**
+**Learning:** When filling 2D rectangular regions over a flat buffer, relying on manual `unsafe` code with `get_unchecked_mut` inside a custom `for` loop actually impedes the compiler's auto-vectorization. Replacing manual unsafe loops with safe, idiomatic iterator chunking (e.g., `.chunks_exact_mut(w).for_each(|row| row[sx..ex].fill(color))`) guarantees non-overlapping slices, allowing LLVM to heavily vectorize the assignments and yielding significant performance improvements (e.g., ~22% for a 1080p full clear) while completely removing Undefined Behavior risk.
+**Action:** Always prefer safe `.chunks_exact_mut().for_each(...)` constructs for region fills over custom `unsafe` loops.
