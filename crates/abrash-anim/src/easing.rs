@@ -3,9 +3,37 @@
 /// Standard easing curves.
 #[derive(Debug, Clone, Copy)]
 pub enum Easing {
+    /// Linear interpolation.
+    ///
+    /// ## Examples
+    /// ```
+    /// use abrash_anim::Easing;
+    /// assert_eq!(Easing::Linear.apply(0.5), 0.5);
+    /// ```
     Linear,
+    /// Gentle acceleration curve.
+    ///
+    /// ## Examples
+    /// ```
+    /// use abrash_anim::Easing;
+    /// assert!(Easing::EaseIn.apply(0.5) < 0.5);
+    /// ```
     EaseIn,
+    /// Gentle deceleration curve.
+    ///
+    /// ## Examples
+    /// ```
+    /// use abrash_anim::Easing;
+    /// assert!(Easing::EaseOut.apply(0.5) > 0.5);
+    /// ```
     EaseOut,
+    /// Smooth acceleration followed by deceleration.
+    ///
+    /// ## Examples
+    /// ```
+    /// use abrash_anim::Easing;
+    /// assert_eq!(Easing::EaseInOut.apply(0.5), 0.5);
+    /// ```
     EaseInOut,
     /// Cubic Bezier curve with control points (x1, y1, x2, y2).
     CubicBezier(f32, f32, f32, f32),

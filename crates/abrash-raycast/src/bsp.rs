@@ -53,7 +53,9 @@ pub struct BspSector {
 /// The raycaster calls [`traverse_front_to_back`](BspMapData::traverse_front_to_back)
 /// to visit subsectors in painter's-algorithm order.
 pub struct BspMapData {
+    /// The global sector defining floor/ceiling height and appearance for the mock room.
     pub sector: BspSector,
+    /// The list of solid or portal wall segments making up the BSP tree.
     pub segs: Vec<BspSeg>,
 }
 

@@ -9,13 +9,24 @@ use crate::evaluable::Sample;
 ///
 /// Velocity is derived analytically from the easing function's derivative.
 pub struct Keyframe<T: Animatable> {
+    /// The starting value of the tween.
     pub from: T,
+    /// The ending value of the tween.
     pub to: T,
+    /// The curve applied to the interpolation phase.
     pub easing: Easing,
+    /// The duration of the keyframe in seconds.
     pub duration: f32,
 }
 
 impl<T: Animatable> Keyframe<T> {
+    /// Create a new keyframe segment.
+    ///
+    /// ## Examples
+    /// ```
+    /// use abrash_anim::{Keyframe, Easing};
+    /// let k = Keyframe::new(0.0_f32, 10.0, Easing::Linear, 1.0);
+    /// ```
     #[must_use]
     pub const fn new(from: T, to: T, easing: Easing, duration: f32) -> Self {
         Self {
@@ -28,6 +39,15 @@ impl<T: Animatable> Keyframe<T> {
 }
 
 impl<T: Animatable + Send + Sync> Keyframe<T> {
+    /// Evaluate the keyframe at a given normalized phase (0.0-1.0).
+    ///
+    /// ## Examples
+    /// ```
+    /// use abrash_anim::{Keyframe, Easing};
+    /// let k = Keyframe::new(0.0_f32, 10.0, Easing::Linear, 1.0);
+    /// let s = k.evaluate(0.5);
+    /// assert_eq!(s.value, 5.0);
+    /// ```
     pub fn evaluate(&self, phase: f32) -> Sample<T> {
         let phase = phase.clamp(0.0, 1.0);
         let eased = self.easing.apply(phase);
@@ -44,6 +64,14 @@ impl<T: Animatable + Send + Sync> Keyframe<T> {
         Sample::new(value, velocity)
     }
 
+    /// Returns the natural duration of the keyframe in seconds.
+    ///
+    /// ## Examples
+    /// ```
+    /// use abrash_anim::{Keyframe, Easing};
+    /// let k = Keyframe::new(0.0_f32, 10.0, Easing::Linear, 2.5);
+    /// assert_eq!(k.natural_duration(), 2.5);
+    /// ```
     pub const fn natural_duration(&self) -> f32 {
         self.duration
     }

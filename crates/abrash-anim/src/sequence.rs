@@ -52,6 +52,15 @@ impl<T: Animatable + Send + Sync> Sequence<T> {
 }
 
 impl<T: Animatable + Send + Sync> Sequence<T> {
+    /// Evaluates the sequence by determining which child segment corresponds to the given normalized phase.
+    ///
+    /// ## Examples
+    /// ```
+    /// use abrash_anim::{Sequence, Evaluable, Hold};
+    /// let s = Sequence::new(vec![Evaluable::Hold(Hold::new(10.0_f32, 1.0))]);
+    /// let val = s.evaluate(0.5);
+    /// assert_eq!(val.value, 10.0);
+    /// ```
     #[must_use]
     pub fn evaluate(&self, phase: f32) -> Sample<T> {
         let phase = phase.clamp(0.0, 1.0);
@@ -73,6 +82,14 @@ impl<T: Animatable + Send + Sync> Sequence<T> {
         )
     }
 
+    /// Returns the sum total duration of all contained segments in seconds.
+    ///
+    /// ## Examples
+    /// ```
+    /// use abrash_anim::{Sequence, Evaluable, Hold};
+    /// let s = Sequence::new(vec![Evaluable::Hold(Hold::new(10.0_f32, 1.0))]);
+    /// assert_eq!(s.natural_duration(), 1.0);
+    /// ```
     #[must_use]
     pub const fn natural_duration(&self) -> f32 {
         self.total_duration

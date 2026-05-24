@@ -27,7 +27,13 @@ pub enum ClockEvent {
     /// Normal phase advance within a cycle.
     Normal,
     /// One or more cycles completed this tick.
-    CycleBoundary { completed: u64 },
+    CycleBoundary {
+        /// Tracks exactly how many loops finished in a single tick.
+        ///
+        /// Essential for keeping state machines in sync when frame drops occur,
+        /// ensuring no trigger events are missed during lag spikes.
+        completed: u64,
+    },
 }
 
 /// A drift-free animation clock.
