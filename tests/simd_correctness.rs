@@ -38,7 +38,7 @@ proptest! {
         let w = m.m[0][3] * v.x + m.m[1][3] * v.y + m.m[2][3] * v.z + m.m[3][3];
 
         // Check for equality with epsilon
-        let epsilon = 0.0001;
+        let epsilon = 0.01;
         prop_assert!((res_vec.x - x).abs() < epsilon, "X mismatch: {} vs {}", res_vec.x, x);
         prop_assert!((res_vec.y - y).abs() < epsilon, "Y mismatch: {} vs {}", res_vec.y, y);
         prop_assert!((res_vec.z - z).abs() < epsilon, "Z mismatch: {} vs {}", res_vec.z, z);

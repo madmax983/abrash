@@ -125,3 +125,7 @@
 1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
 2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors.
 3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
+
+## [AVX2 Mathematical Flakiness]
+**Tangle:** The `test_transform_point_simd_vs_scalar` benchmark in `tests/simd_correctness.rs` was intermittently failing with tiny floating point mismatches (e.g. `-5649.63 vs -5649.6304`) due to overly strict epsilon tolerance (`0.0001`) during AVX2 vs scalar comparisons over large value ranges (-1000..1000). The raytracer also suffered precision panics due to `fast_normalize` usage instead of standard `normalize`.
+**Blueprint:** Relaxed the `epsilon` in `simd_correctness.rs` to `0.01` to account for bounded mathematical drift across architectures while ensuring structural equivalence. Replaced `fast_normalize()` with standard `normalize()` in `crates/abrash-render/src/experimental/raytracer.rs` to fix deterministic intersections.
