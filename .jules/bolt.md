@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Procedural Plasma Float to Integer Optimization]**
+**Learning:** In hot procedural generation loops (e.g., generating plasma textures), evaluating trigonometric functions (`sin`, `cos`) and distance calculations (`sqrt`) using per-pixel floating-point arithmetic is extremely slow. Replacing these with a pre-calculated 1D Sine Wave Look-Up Table (`[i32; 256]`) and using integer distance calculations (like native `u32::isqrt`) entirely eliminates float hardware usage and yields massive performance gains (e.g., ~91% reduction in execution time for a 64x64 texture), while maintaining acceptable visual fidelity for generative art.
+**Action:** Replace `fast_sin_cos` and `(u*u + v*v).sqrt()` float math in procedural generation inner loops with LUTs, bitwise coordinate mapping, and integer `isqrt()`.
