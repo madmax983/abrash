@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Braille Display Exporter]
+**Concept:** A post-processing effect that converts the 2D framebuffer into an ASCII-style Braille art string, mapping 2x4 pixel blocks to the Unicode Braille Patterns block. Supports colorizing characters using ANSI escape codes based on underlying pixel averages.
+**Fate:** Implemented
+**Lesson:** Representing blocks of 2x4 pixels as single Unicode Braille characters using a calculated bitwise offset provides an incredibly high-resolution alternative to standard ASCII character mapping in the terminal, while still remaining portable and fast to compute.
