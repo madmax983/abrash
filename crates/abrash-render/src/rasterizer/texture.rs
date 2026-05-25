@@ -244,6 +244,40 @@ pub struct PerspectiveSpanStart {
     pub v: f32,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct TexSpanState {
+    pub z: f32,
+    pub u_fix: i32,
+    pub v_fix: i32,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct TexSpanStep {
+    pub dz_dx: f32,
+    pub du_fix: i32,
+    pub dv_fix: i32,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct GouraudSpanState {
+    pub z: f32,
+    pub u_fix: i32,
+    pub v_fix: i32,
+    pub r: i32,
+    pub g: i32,
+    pub b: i32,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct GouraudSpanStep {
+    pub dz_dx: f32,
+    pub du_fix: i32,
+    pub dv_fix: i32,
+    pub dr_dx: i32,
+    pub dg_dx: i32,
+    pub db_dx: i32,
+}
+
 pub(crate) const RECIPROCAL_TABLE: [f32; 17] = [
     0.0,
     1.0,
@@ -270,13 +304,15 @@ pub(crate) fn draw_span_nearest(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    mut z: f32,
-    dz_dx: f32,
-    mut u_fix: i32,
-    mut v_fix: i32,
-    du_fix: i32,
-    dv_fix: i32,
+    mut state: TexSpanState,
+    step: TexSpanStep,
 ) {
+    let mut z = state.z;
+    let dz_dx = step.dz_dx;
+    let mut u_fix = state.u_fix;
+    let mut v_fix = state.v_fix;
+    let du_fix = step.du_fix;
+    let dv_fix = step.dv_fix;
     let tex_pixels = &texture.pixels;
     let tex_w = texture.width;
     let tex_h = texture.height;
@@ -398,13 +434,15 @@ pub(crate) fn draw_span_bilinear(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    mut z: f32,
-    dz_dx: f32,
-    mut u_fix: i32,
-    mut v_fix: i32,
-    du_fix: i32,
-    dv_fix: i32,
+    mut state: TexSpanState,
+    step: TexSpanStep,
 ) {
+    let mut z = state.z;
+    let dz_dx = step.dz_dx;
+    let mut u_fix = state.u_fix;
+    let mut v_fix = state.v_fix;
+    let du_fix = step.du_fix;
+    let dv_fix = step.dv_fix;
     let tex_pixels = &texture.pixels;
     let tex_w = texture.width;
     let tex_h = texture.height;
@@ -574,13 +612,15 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    z_start: f32,
-    dz_dx: f32,
-    u_fix_start: i32,
-    v_fix_start: i32,
-    du_fix: i32,
-    dv_fix: i32,
+    state: TexSpanState,
+    step: TexSpanStep,
 ) {
+    let z_start = state.z;
+    let dz_dx = step.dz_dx;
+    let u_fix_start = state.u_fix;
+    let v_fix_start = state.v_fix;
+    let du_fix = step.du_fix;
+    let dv_fix = step.dv_fix;
     use std::arch::x86_64::*;
 
     let len = fb_slice.len().min(zb_slice.len());
@@ -875,12 +915,16 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
             &mut fb_slice[i..],
             &mut zb_slice[i..],
             texture,
-            z_tail,
-            dz_dx,
-            u_tail,
-            v_tail,
-            du_fix,
-            dv_fix,
+            TexSpanState {
+                z: z_tail,
+                u_fix: u_tail,
+                v_fix: v_tail,
+            },
+            TexSpanStep {
+                dz_dx,
+                du_fix,
+                dv_fix,
+            },
         );
     }
 }
@@ -915,14 +959,16 @@ pub(crate) fn draw_span_trilinear(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    mut z: f32,
-    dz_dx: f32,
-    mut u_fix: i32,
-    mut v_fix: i32,
-    du_fix: i32,
-    dv_fix: i32,
+    mut state: TexSpanState,
+    step: TexSpanStep,
     lod: f32,
 ) {
+    let mut z = state.z;
+    let dz_dx = step.dz_dx;
+    let mut u_fix = state.u_fix;
+    let mut v_fix = state.v_fix;
+    let du_fix = step.du_fix;
+    let dv_fix = step.dv_fix;
     for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
         if z < *depth_val {
             let color = texture.get_pixel_trilinear_fixed(u_fix, v_fix, lod);
@@ -952,13 +998,15 @@ pub(crate) unsafe fn draw_span_nearest_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    z_start: f32,
-    dz_dx: f32,
-    u_fix_start: i32,
-    v_fix_start: i32,
-    du_fix: i32,
-    dv_fix: i32,
+    state: TexSpanState,
+    step: TexSpanStep,
 ) {
+    let z_start = state.z;
+    let dz_dx = step.dz_dx;
+    let u_fix_start = state.u_fix;
+    let v_fix_start = state.v_fix;
+    let du_fix = step.du_fix;
+    let dv_fix = step.dv_fix;
     use std::arch::x86_64::*;
 
     let len = fb_slice.len().min(zb_slice.len());
@@ -1495,12 +1543,12 @@ pub fn draw_scanline_textured_perspective(
                             fb_slice,
                             zb_slice,
                             texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
+                            TexSpanState { z, u_fix, v_fix },
+                            TexSpanStep {
+                                dz_dx: gradients.dz_dx,
+                                du_fix,
+                                dv_fix,
+                            },
                         );
                     }
                 } else {
@@ -1508,12 +1556,12 @@ pub fn draw_scanline_textured_perspective(
                         fb_slice,
                         zb_slice,
                         texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
+                        TexSpanState { z, u_fix, v_fix },
+                        TexSpanStep {
+                            dz_dx: gradients.dz_dx,
+                            du_fix,
+                            dv_fix,
+                        },
                     );
                 }
 
@@ -1522,12 +1570,12 @@ pub fn draw_scanline_textured_perspective(
                     fb_slice,
                     zb_slice,
                     texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
+                    TexSpanState { z, u_fix, v_fix },
+                    TexSpanStep {
+                        dz_dx: gradients.dz_dx,
+                        du_fix,
+                        dv_fix,
+                    },
                 );
             }
             FilterMode::Bilinear => {
@@ -1543,12 +1591,12 @@ pub fn draw_scanline_textured_perspective(
                             fb_slice,
                             zb_slice,
                             texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
+                            TexSpanState { z, u_fix, v_fix },
+                            TexSpanStep {
+                                dz_dx: gradients.dz_dx,
+                                du_fix,
+                                dv_fix,
+                            },
                         );
                     }
                 } else {
@@ -1556,12 +1604,12 @@ pub fn draw_scanline_textured_perspective(
                         fb_slice,
                         zb_slice,
                         texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
+                        TexSpanState { z, u_fix, v_fix },
+                        TexSpanStep {
+                            dz_dx: gradients.dz_dx,
+                            du_fix,
+                            dv_fix,
+                        },
                     );
                 }
 
@@ -1570,12 +1618,12 @@ pub fn draw_scanline_textured_perspective(
                     fb_slice,
                     zb_slice,
                     texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
+                    TexSpanState { z, u_fix, v_fix },
+                    TexSpanStep {
+                        dz_dx: gradients.dz_dx,
+                        du_fix,
+                        dv_fix,
+                    },
                 );
             }
             FilterMode::Trilinear => {
@@ -1604,12 +1652,12 @@ pub fn draw_scanline_textured_perspective(
                             fb_slice,
                             zb_slice,
                             texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
+                            TexSpanState { z, u_fix, v_fix },
+                            TexSpanStep {
+                                dz_dx: gradients.dz_dx,
+                                du_fix,
+                                dv_fix,
+                            },
                             lod,
                         );
                     }
@@ -1618,12 +1666,12 @@ pub fn draw_scanline_textured_perspective(
                         fb_slice,
                         zb_slice,
                         texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
+                        TexSpanState { z, u_fix, v_fix },
+                        TexSpanStep {
+                            dz_dx: gradients.dz_dx,
+                            du_fix,
+                            dv_fix,
+                        },
                         lod,
                     );
                 }
@@ -1633,12 +1681,12 @@ pub fn draw_scanline_textured_perspective(
                     fb_slice,
                     zb_slice,
                     texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
+                    TexSpanState { z, u_fix, v_fix },
+                    TexSpanStep {
+                        dz_dx: gradients.dz_dx,
+                        du_fix,
+                        dv_fix,
+                    },
                     lod,
                 );
             }
@@ -2800,14 +2848,16 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    z_start: f32,
-    dz_dx: f32,
-    u_fix_start: i32,
-    v_fix_start: i32,
-    du_fix: i32,
-    dv_fix: i32,
+    state: TexSpanState,
+    step: TexSpanStep,
     lod: f32,
 ) {
+    let z_start = state.z;
+    let dz_dx = step.dz_dx;
+    let u_fix_start = state.u_fix;
+    let v_fix_start = state.v_fix;
+    let du_fix = step.du_fix;
+    let dv_fix = step.dv_fix;
     use std::arch::x86_64::*;
 
     if lod <= 0.0 || texture.mips.is_empty() {
@@ -2817,7 +2867,19 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
         let v_fix = v_fix_start.wrapping_sub(32768);
         unsafe {
             draw_span_bilinear_simd(
-                fb_slice, zb_slice, texture, z_start, dz_dx, u_fix, v_fix, du_fix, dv_fix,
+                fb_slice,
+                zb_slice,
+                texture,
+                TexSpanState {
+                    z: z_start,
+                    u_fix,
+                    v_fix,
+                },
+                TexSpanStep {
+                    dz_dx,
+                    du_fix,
+                    dv_fix,
+                },
             );
         }
         return;
@@ -3093,12 +3155,16 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
             &mut fb_slice[i..],
             &mut zb_slice[i..],
             texture,
-            z_tail,
-            dz_dx,
-            u_tail,
-            v_tail,
-            du_fix,
-            dv_fix,
+            TexSpanState {
+                z: z_tail,
+                u_fix: u_tail,
+                v_fix: v_tail,
+            },
+            TexSpanStep {
+                dz_dx,
+                du_fix,
+                dv_fix,
+            },
             lod,
         );
     }
@@ -3742,19 +3808,21 @@ unsafe fn draw_span_textured_gouraud_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    z_start: f32,
-    dz_dx: f32,
-    u_fix_start: i32,
-    v_fix_start: i32,
-    du_fix: i32,
-    dv_fix: i32,
-    r_start: i32,
-    g_start: i32,
-    b_start: i32,
-    dr_dx: i32,
-    dg_dx: i32,
-    db_dx: i32,
+    state: GouraudSpanState,
+    step: GouraudSpanStep,
 ) {
+    let z_start = state.z;
+    let dz_dx = step.dz_dx;
+    let u_fix_start = state.u_fix;
+    let v_fix_start = state.v_fix;
+    let du_fix = step.du_fix;
+    let dv_fix = step.dv_fix;
+    let r_start = state.r;
+    let g_start = state.g;
+    let b_start = state.b;
+    let dr_dx = step.dr_dx;
+    let dg_dx = step.dg_dx;
+    let db_dx = step.db_dx;
     use std::arch::x86_64::*;
 
     let len = fb_slice.len().min(zb_slice.len());
@@ -3912,18 +3980,22 @@ unsafe fn draw_span_textured_gouraud_simd(
         &mut fb_slice[i..],
         &mut zb_slice[i..],
         texture,
-        z_start + (i as f32) * dz_dx,
-        dz_dx,
-        u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32)),
-        v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32)),
-        du_fix,
-        dv_fix,
-        r_start.wrapping_add(dr_dx.wrapping_mul(i as i32)),
-        g_start.wrapping_add(dg_dx.wrapping_mul(i as i32)),
-        b_start.wrapping_add(db_dx.wrapping_mul(i as i32)),
-        dr_dx,
-        dg_dx,
-        db_dx,
+        GouraudSpanState {
+            z: z_start + (i as f32) * dz_dx,
+            u_fix: u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32)),
+            v_fix: v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32)),
+            r: r_start.wrapping_add(dr_dx.wrapping_mul(i as i32)),
+            g: g_start.wrapping_add(dg_dx.wrapping_mul(i as i32)),
+            b: b_start.wrapping_add(db_dx.wrapping_mul(i as i32)),
+        },
+        GouraudSpanStep {
+            dz_dx,
+            du_fix,
+            dv_fix,
+            dr_dx,
+            dg_dx,
+            db_dx,
+        },
     );
 }
 
@@ -3937,19 +4009,21 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    z_start: f32,
-    dz_dx: f32,
-    u_fix_start: i32,
-    v_fix_start: i32,
-    du_fix: i32,
-    dv_fix: i32,
-    r_start: i32,
-    g_start: i32,
-    b_start: i32,
-    dr_dx: i32,
-    dg_dx: i32,
-    db_dx: i32,
+    state: GouraudSpanState,
+    step: GouraudSpanStep,
 ) {
+    let z_start = state.z;
+    let dz_dx = step.dz_dx;
+    let u_fix_start = state.u_fix;
+    let v_fix_start = state.v_fix;
+    let du_fix = step.du_fix;
+    let dv_fix = step.dv_fix;
+    let r_start = state.r;
+    let g_start = state.g;
+    let b_start = state.b;
+    let dr_dx = step.dr_dx;
+    let dg_dx = step.dg_dx;
+    let db_dx = step.db_dx;
     use std::arch::x86_64::*;
 
     let len = fb_slice.len().min(zb_slice.len());
@@ -4243,19 +4317,21 @@ fn draw_span_textured_gouraud_scalar(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
-    mut z: f32,
-    dz_dx: f32,
-    mut u_fix: i32,
-    mut v_fix: i32,
-    du_fix: i32,
-    dv_fix: i32,
-    mut r_fix: i32,
-    mut g_fix: i32,
-    mut b_fix: i32,
-    dr_dx: i32,
-    dg_dx: i32,
-    db_dx: i32,
+    mut state: GouraudSpanState,
+    step: GouraudSpanStep,
 ) {
+    let mut z = state.z;
+    let dz_dx = step.dz_dx;
+    let mut u_fix = state.u_fix;
+    let mut v_fix = state.v_fix;
+    let du_fix = step.du_fix;
+    let dv_fix = step.dv_fix;
+    let mut r_fix = state.r;
+    let mut g_fix = state.g;
+    let mut b_fix = state.b;
+    let dr_dx = step.dr_dx;
+    let dg_dx = step.dg_dx;
+    let db_dx = step.db_dx;
     let tex_pixels = &texture.pixels;
     let tex_w = texture.width;
     let tex_h = texture.height;
@@ -4435,18 +4511,22 @@ pub fn draw_scanline_textured_gouraud(
                             fb_slice,
                             zb_slice,
                             texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
-                            r_fix,
-                            g_fix,
-                            b_fix,
-                            dr_dx_i,
-                            dg_dx_i,
-                            db_dx_i,
+                            GouraudSpanState {
+                                z,
+                                u_fix,
+                                v_fix,
+                                r: r_fix,
+                                g: g_fix,
+                                b: b_fix,
+                            },
+                            GouraudSpanStep {
+                                dz_dx: gradients.dz_dx,
+                                du_fix,
+                                dv_fix,
+                                dr_dx: dr_dx_i,
+                                dg_dx: dg_dx_i,
+                                db_dx: db_dx_i,
+                            },
                         );
                     }
                 } else {
@@ -4454,18 +4534,22 @@ pub fn draw_scanline_textured_gouraud(
                         fb_slice,
                         zb_slice,
                         texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
-                        r_fix,
-                        g_fix,
-                        b_fix,
-                        dr_dx_i,
-                        dg_dx_i,
-                        db_dx_i,
+                        GouraudSpanState {
+                            z,
+                            u_fix,
+                            v_fix,
+                            r: r_fix,
+                            g: g_fix,
+                            b: b_fix,
+                        },
+                        GouraudSpanStep {
+                            dz_dx: gradients.dz_dx,
+                            du_fix,
+                            dv_fix,
+                            dr_dx: dr_dx_i,
+                            dg_dx: dg_dx_i,
+                            db_dx: db_dx_i,
+                        },
                     );
                 }
                 #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
@@ -4473,18 +4557,22 @@ pub fn draw_scanline_textured_gouraud(
                     fb_slice,
                     zb_slice,
                     texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
-                    r_fix,
-                    g_fix,
-                    b_fix,
-                    dr_dx_i,
-                    dg_dx_i,
-                    db_dx_i,
+                    GouraudSpanState {
+                        z,
+                        u_fix,
+                        v_fix,
+                        r: r_fix,
+                        g: g_fix,
+                        b: b_fix,
+                    },
+                    GouraudSpanStep {
+                        dz_dx: gradients.dz_dx,
+                        du_fix,
+                        dv_fix,
+                        dr_dx: dr_dx_i,
+                        dg_dx: dg_dx_i,
+                        db_dx: db_dx_i,
+                    },
                 );
             }
             FilterMode::Bilinear | FilterMode::Trilinear => {
@@ -4500,18 +4588,22 @@ pub fn draw_scanline_textured_gouraud(
                             fb_slice,
                             zb_slice,
                             texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
-                            r_fix,
-                            g_fix,
-                            b_fix,
-                            dr_dx_i,
-                            dg_dx_i,
-                            db_dx_i,
+                            GouraudSpanState {
+                                z,
+                                u_fix,
+                                v_fix,
+                                r: r_fix,
+                                g: g_fix,
+                                b: b_fix,
+                            },
+                            GouraudSpanStep {
+                                dz_dx: gradients.dz_dx,
+                                du_fix,
+                                dv_fix,
+                                dr_dx: dr_dx_i,
+                                dg_dx: dg_dx_i,
+                                db_dx: db_dx_i,
+                            },
                         );
                     }
                 } else {
@@ -5535,7 +5627,15 @@ fn test_draw_span_nearest_overflow_vulnerability() {
     // Using `std::panic::catch_unwind` and `AssertUnwindSafe` to ensure intentional panic testing
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         draw_span_nearest(
-            &mut fb, &mut zb, &tex, z, dz_dx, u_fix, v_fix, du_fix, dv_fix,
+            &mut fb,
+            &mut zb,
+            &tex,
+            TexSpanState { z, u_fix, v_fix },
+            TexSpanStep {
+                dz_dx,
+                du_fix,
+                dv_fix,
+            },
         );
     }));
 

@@ -1,5 +1,5 @@
 //! Edge-case bounds testing for the Texture Rasterizer.
-use crate::rasterizer::texture::draw_span_nearest_simd;
+use crate::rasterizer::texture::{TexSpanState, TexSpanStep, draw_span_nearest_simd};
 use abrash_core::texture::Texture;
 use proptest::prelude::*;
 
@@ -21,7 +21,15 @@ fn havoc_texture_overflow_simd() {
 
     unsafe {
         draw_span_nearest_simd(
-            &mut fb, &mut zb, &tex, z, dz_dx, u_fix, v_fix, du_fix, dv_fix,
+            &mut fb,
+            &mut zb,
+            &tex,
+            TexSpanState { z, u_fix, v_fix },
+            TexSpanStep {
+                dz_dx,
+                du_fix,
+                dv_fix,
+            },
         );
     }
 }
@@ -42,7 +50,15 @@ fn havoc_texture_simd_buffer_mismatch() {
 
     unsafe {
         draw_span_nearest_simd(
-            &mut fb, &mut zb, &tex, z, dz_dx, u_fix, v_fix, du_fix, dv_fix,
+            &mut fb,
+            &mut zb,
+            &tex,
+            TexSpanState { z, u_fix, v_fix },
+            TexSpanStep {
+                dz_dx,
+                du_fix,
+                dv_fix,
+            },
         );
     }
 }
@@ -64,7 +80,15 @@ fn havoc_texture_simd_zero_fb() {
 
     unsafe {
         draw_span_nearest_simd(
-            &mut fb, &mut zb, &tex, z, dz_dx, u_fix, v_fix, du_fix, dv_fix,
+            &mut fb,
+            &mut zb,
+            &tex,
+            TexSpanState { z, u_fix, v_fix },
+            TexSpanStep {
+                dz_dx,
+                du_fix,
+                dv_fix,
+            },
         );
     }
 }

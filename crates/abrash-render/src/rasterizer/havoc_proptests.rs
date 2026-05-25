@@ -1,6 +1,7 @@
 //! Direct fuzzing and bounds testing for the Rasterizer using proptest.
 use crate::rasterizer::texture::draw_span_nearest_simd;
 use crate::rasterizer::texture::draw_span_trilinear_simd;
+use crate::rasterizer::texture::{TexSpanState, TexSpanStep};
 use abrash_core::texture::Texture;
 use proptest::prelude::*;
 
@@ -27,7 +28,7 @@ proptest! {
 
         unsafe {
             draw_span_nearest_simd(
-                &mut fb, &mut zb, &tex, z, dz_dx, u_fix, v_fix, du_fix, dv_fix,
+                &mut fb, &mut zb, &tex, TexSpanState { z, u_fix, v_fix }, TexSpanStep { dz_dx, du_fix, dv_fix },
             );
         }
     }
@@ -55,7 +56,7 @@ proptest! {
 
         unsafe {
             draw_span_trilinear_simd(
-                &mut fb, &mut zb, &tex, z, dz_dx, u_fix, v_fix, du_fix, dv_fix, lod
+                &mut fb, &mut zb, &tex, TexSpanState { z, u_fix, v_fix }, TexSpanStep { dz_dx, du_fix, dv_fix }, lod,
             );
         }
     }
