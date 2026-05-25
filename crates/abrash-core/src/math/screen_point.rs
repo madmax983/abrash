@@ -5,7 +5,7 @@ use std::ops::{Add, Mul, Sub};
 
 /// A 3D point that has been projected into 2D screen coordinates.
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
+
 pub struct ScreenPoint {
     pub x: i32,
     pub y: i32,

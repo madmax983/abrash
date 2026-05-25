@@ -23,3 +23,7 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+
+## 2024-05-25 - [Removed `#[allow(missing_docs)]` annotations from public types]
+**Confusion:** Several public structs, vectors, and transform items had `#[allow(missing_docs)]` applied instead of actually documenting them, causing `missing_docs` checks to bypass undocumented structs, which makes standard cargo checks pass but leaves users confused without clear documentation.
+**Clarification:** I've stripped the `#[allow(missing_docs)]` flags across multiple struct definitions (including `Mat2`, `Mat3`, `Mat4`, `Vec2`, `Vec3`, `Vec4`, `Quat`, `Transform`, `Texture`, `BoundingSphere`, `AABB`, `ScreenPoint`) in the `abrash-core` crate. We also cleaned up some `unreadable_literal` clippy warnings by inserting correct underscores in procedural textures.

@@ -21,7 +21,7 @@ use std::ops::{Add, Mul, Sub};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
-#[allow(missing_docs)]
+
 pub struct Mat2 {
     pub m: [[f32; 2]; 2],
 }
