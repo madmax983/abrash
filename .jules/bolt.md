@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+## [1D Convolution Bounds Check Elision]
+**Learning:** In dense signal convolutions (like `convolve_1d`), manual index-based inner loops (`out[i + j] += s * k`) incur severe bounds-checking overhead on every iteration.
+**Action:** Replace nested indexed loops with bounded slice iterators (`out[i..i + kernel.len()].iter_mut().zip(kernel)`). Explicitly bounding the slice allows LLVM to safely elide bounds checks, yielding substantial (~20%) performance gains without `unsafe`.
