@@ -85,8 +85,8 @@ pub fn apply_droste(fb: &mut Framebuffer, config: &DrosteConfig) {
                     let unscaled_x = sample_x / config.scale;
                     let unscaled_y = sample_y / config.scale;
 
-                    let px = (unscaled_x + cx).round() as i32;
-                    let py = (unscaled_y + cy).round() as i32;
+                    let px = (unscaled_x + cx + 0.5) as i32;
+                    let py = (unscaled_y + cy + 0.5) as i32;
 
                     if px >= 0 && px < width as i32 && py >= 0 && py < height as i32 {
                         // The point falls inside the bounds of the original image when unscaled,
