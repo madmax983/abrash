@@ -461,4 +461,19 @@ mod tests {
             PoolEntry::Vacant { .. } => unreachable!(),
         }
     }
+
+    #[test]
+    #[should_panic(expected = "free list pointed to occupied slot")]
+    fn test_pool_insert_unreachable_guard() {
+        let mut pool: ResourcePool<i32> = ResourcePool::new();
+
+        // Insert a value to create an entry
+        let _ = pool.insert(42);
+
+        // Manually corrupt the free list to point to the occupied slot (index 0)
+        pool.free_list.push(0);
+
+        // The next insert will pop 0 from the free_list, see it's occupied, and panic
+        let _ = pool.insert(99);
+    }
 }

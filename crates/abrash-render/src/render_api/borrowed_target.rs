@@ -149,6 +149,7 @@ mod tests {
         );
     }
 
+
     #[test]
     fn borrowed_target_rejects_short_depth_slice() {
         let mut pixels = vec![0_u32; 4];

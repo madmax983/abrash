@@ -1,0 +1,15 @@
+<<<<<<< SEARCH
+        match old_entry {
+            PoolEntry::Occupied { value, .. } => Some(value),
+            PoolEntry::Vacant { .. } => unreachable!(),
+        }
+    }
+}
+=======
+        match old_entry {
+            PoolEntry::Occupied { value, .. } => Some(value),
+            PoolEntry::Vacant { .. } => unreachable!(),
+        }
+    }
+}
+>>>>>>> REPLACE
