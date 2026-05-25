@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [SVG Vector Exporter]
+**Concept:** A module (`SvgExporter`) that connects the 3D pipeline (`Mesh`, `Mat4`) with 2D vector graphics generation. It projects 3D vertices using the active View-Projection matrix directly into normalized screen space, then manually formats an SVG `<polygon>` string without any heavyweight XML/DOM dependencies, complete with standard backface culling.
+**Fate:** Implemented
+**Lesson:** Manually formatting standard XML string tags to an output file is highly efficient. It avoids the need for heavy external raster-to-vector or DOM-building dependencies while keeping experimental features perfectly isolated. By applying the camera transformations and backface culling natively in rust before formatting, we can leverage the engine's optimized 3D math and generate clean, performant vector line-art exports directly from memory.
