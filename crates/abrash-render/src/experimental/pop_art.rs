@@ -56,6 +56,8 @@ pub fn apply_pop_art(dest: &mut Framebuffer, source: &Framebuffer, config: &PopA
     let src_pixels = source.as_slice();
     let dest_pixels = dest.as_mut_slice();
 
+    let threshold_u32 = (config.threshold * 255.0) as u32;
+
     #[cfg(feature = "parallel")]
     {
         use rayon::prelude::*;
@@ -65,7 +67,15 @@ pub fn apply_pop_art(dest: &mut Framebuffer, source: &Framebuffer, config: &PopA
             .take(height)
             .for_each(|(y, dest_row)| {
                 process_row(
-                    y, dest_row, src_pixels, width, height, half_w, half_h, config,
+                    y,
+                    dest_row,
+                    src_pixels,
+                    width,
+                    height,
+                    half_w,
+                    half_h,
+                    config,
+                    threshold_u32,
                 );
             });
     }
@@ -74,7 +84,15 @@ pub fn apply_pop_art(dest: &mut Framebuffer, source: &Framebuffer, config: &PopA
     {
         for (y, dest_row) in dest_pixels.chunks_exact_mut(width).enumerate().take(height) {
             process_row(
-                y, dest_row, src_pixels, width, height, half_w, half_h, config,
+                y,
+                dest_row,
+                src_pixels,
+                width,
+                height,
+                half_w,
+                half_h,
+                config,
+                threshold_u32,
             );
         }
     }
@@ -90,6 +108,7 @@ fn process_row(
     half_w: usize,
     half_h: usize,
     config: &PopArtConfig,
+    threshold_u32: u32,
 ) {
     // Determine which vertical half we're in
     let is_top = y < half_h;
@@ -117,10 +136,10 @@ fn process_row(
         let src_color = src_pixels[src_row_start + sx];
 
         // Calculate luminance
-        let r = ((src_color >> 16) & 0xFF) as f32 / 255.0;
-        let g = ((src_color >> 8) & 0xFF) as f32 / 255.0;
-        let b = (src_color & 0xFF) as f32 / 255.0;
-        let luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+        let r = (src_color >> 16) & 0xFF;
+        let g = (src_color >> 8) & 0xFF;
+        let b = src_color & 0xFF;
+        let luminance = (r * 299 + g * 587 + b * 114) / 1000;
 
         // Select palette based on quadrant
         let palette = match (is_top, is_left) {
@@ -131,7 +150,7 @@ fn process_row(
         };
 
         // Apply thresholding
-        dest_row[x] = if luminance < config.threshold {
+        dest_row[x] = if luminance < threshold_u32 {
             palette.0 // Dark color
         } else {
             palette.1 // Light color
