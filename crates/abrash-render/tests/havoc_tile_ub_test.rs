@@ -1,7 +1,6 @@
 use abrash_render::rasterizer::tile::{
     CompactScreenPoint, PreparedTriangle, PreparedTrianglesList,
 };
-use rayon::prelude::*;
 
 #[test]
 fn test_tile_uninit_read_ub() {
@@ -20,6 +19,11 @@ fn test_tile_uninit_read_ub() {
         min_depth: 0.0,
         max_depth: 1.0,
     });
-    // This will trigger UB when calling into_par_iter
-    let _items: Vec<_> = list.into_par_iter().collect();
+
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
+        // This will trigger UB when calling into_par_iter
+        let _items: Vec<_> = list.into_par_iter().collect();
+    }
 }

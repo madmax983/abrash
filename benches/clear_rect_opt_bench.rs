@@ -1,7 +1,7 @@
 use abrash_core::framebuffer::Framebuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
-fn clear_rect_original(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, color: u32) {
+fn clear_rect_new2(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, color: u32) {
     if width == 0 || height == 0 {
         return;
     }
@@ -109,9 +109,9 @@ fn bench_clear_rect_opt(c: &mut Criterion) {
     let mut fb = Framebuffer::new(1920, 1080).unwrap();
     let mut group = c.benchmark_group("clear_rect_opt");
 
-    group.bench_function("original_1080p", |b| {
+    group.bench_function("safe_chunks_exact_1080p", |b| {
         b.iter(|| {
-            clear_rect_original(
+            clear_rect_new2(
                 &mut fb,
                 black_box(100),
                 black_box(100),
@@ -122,7 +122,7 @@ fn bench_clear_rect_opt(c: &mut Criterion) {
         });
     });
 
-    group.bench_function("optimized_1080p", |b| {
+    group.bench_function("unsafe_offset_1080p", |b| {
         b.iter(|| {
             clear_rect_optimized(
                 &mut fb,
