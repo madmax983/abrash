@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 4abc30df9673e5421fedd7619117f463c3a057863b8a0882aff281a4716ae3a0 # shrinks to x1 = 5.035196, y1 = 1.5, x2 = 4.998455, y2 = 13.50968
+cc 811790c693b95b19899ef391aed4c478ab2fb6ee99d3e8c67c3a00a3e5149f08 # shrinks to x1 = 13.670974, y1 = 9.399354, x2 = 1.9846064, y2 = 11.998049

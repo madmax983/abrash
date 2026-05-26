@@ -21,3 +21,8 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+
+## [Reduction]
+**Bloat:** Deeply nested 'Pyramid of Doom' (12 levels of indentation) duplicated across serial and parallel code paths in `end_frame_into_slices`, `end_frame_gouraud_into_slices`, and `end_frame_textured_into_slices`.
+**Cut:** Extracted the inner tile rendering loops into three shared helper functions (`process_rendered_tile_serial`, `process_rendered_tile_parallel`, and `process_empty_tile_parallel`), and collapsed the nested loops into flat helper invocations.
+**Saved:** Reduced maximum indentation from 12 levels down to 3 levels, eliminated ~150 lines of exact duplicated nested loop boilerplate, and improved readability significantly.

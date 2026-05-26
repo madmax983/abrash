@@ -1990,6 +1990,136 @@ impl TileRenderer {
     }
 
     /// Finish the frame into caller-owned slices.
+
+    #[cfg(feature = "parallel")]
+    #[inline(always)]
+    unsafe fn process_empty_tile_parallel(
+        tx: u32,
+        ty: u32,
+        width: u32,
+        height: u32,
+        cc: u32,
+        fb_ptr: &SendPtr<u32>,
+        zb_ptr: &SendPtr<f32>,
+    ) {
+        let tile_x0 = tx * TILE_SIZE;
+        let tile_y0 = ty * TILE_SIZE;
+        let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+        let tile_y_end = (tile_y0 + TILE_SIZE).min(height);
+        let tile_cols = (tile_x_end - tile_x0) as usize;
+        for row in tile_y0..tile_y_end {
+            let fb_start = row as usize * width as usize + tile_x0 as usize;
+            for col in 0..tile_cols {
+                fb_ptr.write(fb_start + col, cc);
+                zb_ptr.write(fb_start + col, f32::INFINITY);
+            }
+        }
+    }
+
+    #[cfg(feature = "parallel")]
+    #[inline(always)]
+    #[allow(clippy::too_many_arguments)]
+    unsafe fn process_rendered_tile_parallel(
+        tx: u32,
+        ty: u32,
+        width: u32,
+        height: u32,
+        clear_y_min: i32,
+        clear_y_max: i32,
+        has_integrated_clear: bool,
+        tile_pixels: &[u32],
+        tile_depths: &[f32],
+        fb_ptr: &SendPtr<u32>,
+        zb_ptr: &SendPtr<f32>,
+    ) {
+        let tile_x0 = tx * TILE_SIZE;
+        let tile_y0 = ty * TILE_SIZE;
+        let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+        let tile_cols = (tile_x_end - tile_x0) as usize;
+
+        let row_begin = if has_integrated_clear {
+            tile_y0
+        } else {
+            clear_y_min.max(tile_y0 as i32) as u32
+        };
+        let row_end = if has_integrated_clear {
+            (tile_y0 + TILE_SIZE).min(height)
+        } else {
+            (clear_y_max as u32 + 1)
+                .min(tile_y0 + TILE_SIZE)
+                .min(height)
+        };
+
+        for row in row_begin..row_end {
+            let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
+            let fb_start = row as usize * width as usize + tile_x0 as usize;
+
+            for col in 0..tile_cols {
+                fb_ptr.write(
+                    fb_start + col,
+                    *tile_pixels.get_unchecked(tile_row_offset + col),
+                );
+                zb_ptr.write(
+                    fb_start + col,
+                    *tile_depths.get_unchecked(tile_row_offset + col),
+                );
+            }
+        }
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    #[inline(always)]
+    #[allow(clippy::too_many_arguments)]
+    fn process_rendered_tile_serial(
+        tx: u32,
+        ty: u32,
+        width: u32,
+        height: u32,
+        clear_y_min: i32,
+        clear_y_max: i32,
+        cc_opt: Option<u32>,
+        tile_pixels: &mut [u32],
+        tile_depths: &mut [f32],
+        pixels: &mut [u32],
+        depths: &mut [f32],
+    ) {
+        let (y_min, y_max) = if let Some(cc) = cc_opt {
+            let tile_y0 = ty * TILE_SIZE;
+            let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
+            let tri_row_start = ((clear_y_min - tile_y0 as i32).max(0) as u32 * TILE_SIZE) as usize;
+            if tri_row_start > 0 {
+                tile_pixels[..tri_row_start].fill(cc);
+                tile_depths[..tri_row_start].fill(f32::INFINITY);
+            }
+            let tri_row_end =
+                (((clear_y_max - tile_y0 as i32).max(0) as u32 + 1) * TILE_SIZE) as usize;
+            if tri_row_end < tile_area {
+                tile_pixels[tri_row_end..tile_area].fill(cc);
+                tile_depths[tri_row_end..tile_area].fill(f32::INFINITY);
+            }
+            (tile_y0 as i32, (tile_y0 + TILE_SIZE).min(height) as i32 - 1)
+        } else {
+            (clear_y_min, clear_y_max)
+        };
+        let bounds = TileMergeBounds {
+            tx,
+            ty,
+            width,
+            height,
+            y_min,
+            y_max,
+        };
+        Self::merge_tile_direct_into_slices(
+            tile_pixels,
+            tile_depths,
+            width,
+            height,
+            pixels,
+            depths,
+            &bounds,
+        );
+    }
+
     pub fn end_frame_into_slices(
         &mut self,
         width: u32,
@@ -2027,47 +2157,18 @@ impl TileRenderer {
                             &mut self.tile_depths,
                             cc,
                         ) {
-                            let (y_min, y_max) = if self.clear_color.is_some() {
-                                let tile_y0 = ty * TILE_SIZE;
-                                let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                                let tri_row_start = ((clear_y_min - tile_y0 as i32).max(0) as u32
-                                    * TILE_SIZE)
-                                    as usize;
-                                if tri_row_start > 0 {
-                                    self.tile_pixels[..tri_row_start].fill(cc);
-                                    self.tile_depths[..tri_row_start].fill(f32::INFINITY);
-                                }
-                                let tri_row_end = (((clear_y_max - tile_y0 as i32).max(0) as u32
-                                    + 1)
-                                    * TILE_SIZE)
-                                    as usize;
-                                if tri_row_end < tile_area {
-                                    self.tile_pixels[tri_row_end..tile_area].fill(cc);
-                                    self.tile_depths[tri_row_end..tile_area].fill(f32::INFINITY);
-                                }
-                                (
-                                    tile_y0 as i32,
-                                    (tile_y0 + TILE_SIZE).min(self.height) as i32 - 1,
-                                )
-                            } else {
-                                (clear_y_min, clear_y_max)
-                            };
-                            let bounds = TileMergeBounds {
+                            Self::process_rendered_tile_serial(
                                 tx,
                                 ty,
-                                width: self.width,
-                                height: self.height,
-                                y_min,
-                                y_max,
-                            };
-                            Self::merge_tile_direct_into_slices(
-                                &self.tile_pixels,
-                                &self.tile_depths,
                                 self.width,
                                 self.height,
+                                clear_y_min,
+                                clear_y_max,
+                                self.clear_color,
+                                &mut self.tile_pixels,
+                                &mut self.tile_depths,
                                 pixels,
                                 depths,
-                                &bounds,
                             );
                         } else if self.clear_color.is_some() {
                             Self::merge_empty_tile_into_slices(
@@ -2107,19 +2208,9 @@ impl TileRenderer {
 
                             if tile_bins.heads[bin_idx] == u32::MAX {
                                 if has_integrated_clear {
-                                    let tile_x0 = tx * TILE_SIZE;
-                                    let tile_y0 = ty * TILE_SIZE;
-                                    let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                                    let tile_y_end = (tile_y0 + TILE_SIZE).min(height);
-                                    let tile_cols = (tile_x_end - tile_x0) as usize;
-                                    for row in tile_y0..tile_y_end {
-                                        let fb_start =
-                                            row as usize * width as usize + tile_x0 as usize;
-                                        for col in 0..tile_cols {
-                                            fb_ptr.write(fb_start + col, cc);
-                                            zb_ptr.write(fb_start + col, f32::INFINITY);
-                                        }
-                                    }
+                                    Self::process_empty_tile_parallel(
+                                        tx, ty, width, height, cc, &fb_ptr, &zb_ptr,
+                                    );
                                 }
                                 return;
                             }
@@ -2151,41 +2242,10 @@ impl TileRenderer {
                                     tile_depths,
                                     cc,
                                 ) {
-                                    let tile_x0 = tx * TILE_SIZE;
-                                    let tile_y0 = ty * TILE_SIZE;
-                                    let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                                    let tile_cols = (tile_x_end - tile_x0) as usize;
-
-                                    let row_begin = if has_integrated_clear {
-                                        tile_y0
-                                    } else {
-                                        clear_y_min.max(tile_y0 as i32) as u32
-                                    };
-                                    let row_end = if has_integrated_clear {
-                                        (tile_y0 + TILE_SIZE).min(height)
-                                    } else {
-                                        (clear_y_max as u32 + 1)
-                                            .min(tile_y0 + TILE_SIZE)
-                                            .min(height)
-                                    };
-
-                                    for row in row_begin..row_end {
-                                        let tile_row_offset =
-                                            ((row - tile_y0) * TILE_SIZE) as usize;
-                                        let fb_start =
-                                            row as usize * width as usize + tile_x0 as usize;
-
-                                        for col in 0..tile_cols {
-                                            fb_ptr.write(
-                                                fb_start + col,
-                                                tile_pixels[tile_row_offset + col],
-                                            );
-                                            zb_ptr.write(
-                                                fb_start + col,
-                                                tile_depths[tile_row_offset + col],
-                                            );
-                                        }
-                                    }
+                                    Self::process_rendered_tile_parallel(
+                                        tx, ty, width, height, clear_y_min, clear_y_max,
+                                        has_integrated_clear, tile_pixels, tile_depths, &fb_ptr, &zb_ptr,
+                                    );
                                 }
                             });
                         });
@@ -2407,44 +2467,18 @@ impl TileRenderer {
                         &mut self.tile_depths,
                         cc,
                     ) {
-                        let (y_min, y_max) = if self.clear_color.is_some() {
-                            let tile_y0 = ty * TILE_SIZE;
-                            let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                            let tri_row_start =
-                                ((clear_y_min - tile_y0 as i32).max(0) as u32 * TILE_SIZE) as usize;
-                            if tri_row_start > 0 {
-                                self.tile_pixels[..tri_row_start].fill(cc);
-                                self.tile_depths[..tri_row_start].fill(f32::INFINITY);
-                            }
-                            let tri_row_end = (((clear_y_max - tile_y0 as i32).max(0) as u32 + 1)
-                                * TILE_SIZE) as usize;
-                            if tri_row_end < tile_area {
-                                self.tile_pixels[tri_row_end..tile_area].fill(cc);
-                                self.tile_depths[tri_row_end..tile_area].fill(f32::INFINITY);
-                            }
-                            (
-                                tile_y0 as i32,
-                                (tile_y0 + TILE_SIZE).min(self.height) as i32 - 1,
-                            )
-                        } else {
-                            (clear_y_min, clear_y_max)
-                        };
-                        let bounds = TileMergeBounds {
+                        Self::process_rendered_tile_serial(
                             tx,
                             ty,
-                            width: self.width,
-                            height: self.height,
-                            y_min,
-                            y_max,
-                        };
-                        Self::merge_tile_direct_into_slices(
-                            &self.tile_pixels,
-                            &self.tile_depths,
                             self.width,
                             self.height,
+                            clear_y_min,
+                            clear_y_max,
+                            self.clear_color,
+                            &mut self.tile_pixels,
+                            &mut self.tile_depths,
                             pixels,
                             depths,
-                            &bounds,
                         );
                     } else if self.clear_color.is_some() {
                         Self::merge_empty_tile_into_slices(
@@ -2483,18 +2517,9 @@ impl TileRenderer {
                         let bin_idx = (ty * tiles_x + tx) as usize;
                         if tile_bins.heads[bin_idx] == u32::MAX {
                             if has_integrated_clear {
-                                let tile_x0 = tx * TILE_SIZE;
-                                let tile_y0 = ty * TILE_SIZE;
-                                let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                                let tile_y_end = (tile_y0 + TILE_SIZE).min(height);
-                                let tile_cols = (tile_x_end - tile_x0) as usize;
-                                for row in tile_y0..tile_y_end {
-                                    let fb_start = row as usize * width as usize + tile_x0 as usize;
-                                    for col in 0..tile_cols {
-                                        fb_ptr.write(fb_start + col, cc);
-                                        zb_ptr.write(fb_start + col, f32::INFINITY);
-                                    }
-                                }
+                                Self::process_empty_tile_parallel(
+                                        tx, ty, width, height, cc, &fb_ptr, &zb_ptr,
+                                    );
                             }
                             return;
                         }
@@ -2732,18 +2757,9 @@ impl TileRenderer {
                         let bin_idx = (ty * tiles_x + tx) as usize;
                         if tile_bins.heads[bin_idx] == u32::MAX {
                             if has_integrated_clear {
-                                let tile_x0 = tx * TILE_SIZE;
-                                let tile_y0 = ty * TILE_SIZE;
-                                let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                                let tile_y_end = (tile_y0 + TILE_SIZE).min(height);
-                                let tile_cols = (tile_x_end - tile_x0) as usize;
-                                for row in tile_y0..tile_y_end {
-                                    let fb_start = row as usize * width as usize + tile_x0 as usize;
-                                    for col in 0..tile_cols {
-                                        fb_ptr.write(fb_start + col, cc);
-                                        zb_ptr.write(fb_start + col, f32::INFINITY);
-                                    }
-                                }
+                                Self::process_empty_tile_parallel(
+                                        tx, ty, width, height, cc, &fb_ptr, &zb_ptr,
+                                    );
                             }
                             return;
                         }
