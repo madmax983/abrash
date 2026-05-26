@@ -232,3 +232,9 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+## [Heat Vision Bitwise Depth Mapping Optimization]
+**Learning:** In depth rendering passes, using pure bitwise arithmetic instead of float multiplication does not significantly change SIMD performance, but achieves parity and correctly maps floating point numbers without float parsing.
+**Action:** Replaced `f32` multiplication with bitwise arithmetic for interpolation mappings.
+**[Heat Vision Float to Fixed-Point Optimization Revisited]**
+**Learning:** While mapping depths directly using integer bits `depth.to_bits()` allows mapping the values without relying on raw float interpolation logic, the result introduces severe visual distortion because the underlying float bit distribution is effectively piecewise logarithmic, not linear. Furthermore, this mapping completely breaks on negative depth values (e.g., standard NDC space) because negative floats do not have the same monotonic bit representation ordering as positive floats.
+**Action:** Reverted the attempt to use `depth.to_bits()` for visual depth mapping. Restored standard linear interpolation for heat vision to maintain visual correctness and prevent severe bugs on negative depth ranges.

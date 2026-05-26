@@ -982,5 +982,8 @@ required-features = ["nova", "backend-winit"]
 name = "heat_vision_bench"
 harness = false
 [[bench]]
+name = "heat_vision_bitwise_bench"
+harness = false
+[[bench]]
 name = "plasma_procedural_bench"
 harness = false
