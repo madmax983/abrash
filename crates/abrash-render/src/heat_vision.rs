@@ -89,17 +89,17 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         return;
     }
 
-    // Add a small epsilon to avoid division by zero if flat plane
-    let range = (max_z - min_z).max(0.0001);
-    // Map [0.0, range] to [0, 1023] (4 segments of 256)
-    // Adding a slight bias to prevent floating point inaccuracy at the absolute top end
-    // from truncating 1024 to 1023 when scaling.
-    let scale = 1024.0 / range;
+    let min_bits = min_z.to_bits();
+    let max_bits = max_z.to_bits();
+
+    // Map the bit representations to integers to create a logarithmic mapping.
+    // The bitwise difference correlates closely with log2(depth) mapping.
+    let range_bits = max_bits.saturating_sub(min_bits).max(1);
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::is_x86_feature_detected!("avx2") {
         unsafe {
-            apply_heat_vision_simd(pixels, depths, min_z, scale, &LUT);
+            apply_heat_vision_simd(pixels, depths, min_bits, range_bits, &LUT);
         }
         return;
     }
@@ -110,11 +110,11 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023); // Clamp strictly to 1023
+        let t = ((u64::from(depth.to_bits().saturating_sub(min_bits)) * 1023)
+            / u64::from(range_bits)) as usize;
 
-        // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
-        *pixel = unsafe { *LUT.get_unchecked(t as usize) };
+        // SAFETY: t is strictly mapped between 0 and 1023 by the logic above.
+        *pixel = unsafe { *LUT.get_unchecked(t) };
     }
 }
 
@@ -123,8 +123,8 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
 unsafe fn apply_heat_vision_simd(
     pixels: &mut [u32],
     depths: &[f32],
-    min_z: f32,
-    scale: f32,
+    min_bits: u32,
+    range_bits: u32,
     lut: &[u32; 1024],
 ) {
     #[cfg(target_arch = "x86")]
@@ -132,16 +132,19 @@ unsafe fn apply_heat_vision_simd(
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::{
         __m256i, _CMP_EQ_OQ, _mm256_blendv_epi8, _mm256_castps_si256, _mm256_cmp_ps,
-        _mm256_cvttps_epi32, _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32,
-        _mm256_min_epi32, _mm256_mul_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256,
-        _mm256_storeu_si256, _mm256_sub_ps,
+        _mm256_cvtepi32_ps, _mm256_cvttps_epi32, _mm256_i32gather_epi32, _mm256_loadu_ps,
+        _mm256_max_epi32, _mm256_min_epi32, _mm256_mul_ps, _mm256_set1_epi32, _mm256_set1_ps,
+        _mm256_setzero_si256, _mm256_storeu_si256, _mm256_sub_epi32,
     };
 
     let len = pixels.len().min(depths.len());
     let mut i = 0;
 
-    let min_z_vec = _mm256_set1_ps(min_z);
-    let scale_vec = _mm256_set1_ps(scale);
+    let min_bits_vec = _mm256_set1_epi32(min_bits as i32);
+    // There is no 32-bit division in AVX2, so we precalculate the float scale multiplier
+    let scale_f32 = 1023.0 / range_bits as f32;
+    let scale_vec = _mm256_set1_ps(scale_f32);
+
     let inf_vec = _mm256_set1_ps(f32::INFINITY);
     let max_t_vec = _mm256_set1_epi32(1023);
     let bg_color = _mm256_set1_epi32(0xFF00_0010_u32 as i32);
@@ -155,8 +158,15 @@ unsafe fn apply_heat_vision_simd(
         let is_inf = _mm256_cmp_ps(depth_val, inf_vec, _CMP_EQ_OQ);
         let is_inf_int = _mm256_castps_si256(is_inf);
 
-        // t = (depth - min_z) * scale
-        let t_f32 = _mm256_mul_ps(_mm256_sub_ps(depth_val, min_z_vec), scale_vec);
+        // depth_bits = depth_val as integer bits
+        let depth_bits = _mm256_castps_si256(depth_val);
+
+        // bit_diff = depth_bits - min_bits
+        let bit_diff = _mm256_sub_epi32(depth_bits, min_bits_vec);
+
+        // t_f32 = (bit_diff as float) * scale_f32
+        let bit_diff_f32 = _mm256_cvtepi32_ps(bit_diff);
+        let t_f32 = _mm256_mul_ps(bit_diff_f32, scale_vec);
 
         // t_u32 = t_f32 as i32
         let t_i32 = _mm256_cvttps_epi32(t_f32);
@@ -190,10 +200,10 @@ unsafe fn apply_heat_vision_simd(
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023);
+        let t = ((u64::from(depth.to_bits().saturating_sub(min_bits)) * 1023)
+            / u64::from(range_bits)) as usize;
 
-        *pixel = unsafe { *lut.get_unchecked(t as usize) };
+        *pixel = unsafe { *lut.get_unchecked(t) };
     }
 }
 
@@ -234,9 +244,9 @@ mod tests {
         // Check 2 (Middle/Green)
         let p2 = fb.get_pixel(2, 0).unwrap();
         // Middle of 1.0..5.0 is 3.0.
-        // normalized = (3.0 - 1.0) / (5.0 - 1.0) = 0.5
-        // At 0.5 -> Green (0, 255, 0)
-        assert_eq!(p2, 0xFF00_FF00, "Middle pixel should be Green");
+        // normalized bit-wise integer shift = (3.0_bits - 1.0_bits) / (5.0_bits - 1.0_bits)
+        // This maps slightly off exact pure linear 0.5 Green.
+        assert_eq!(p2, 0xFF00_FFAA, "Middle pixel should be Greenish-Cyan");
     }
 
     #[test]
