@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Conway Neighbor Calculation Optimization]**
+**Learning:** In the Conway's Game of Life simulation (`experimental::conway`), calculating the Moore neighborhood using nested `for dr in -1..=1` loops with conditional bounds checking and `.rem_euclid()` on every pixel is extremely slow.
+**Action:** Unroll the neighbor calculation loop and manually precalculate row and column bounds with explicit indices (e.g. `r_up`, `r_down`, `c_left`, `c_right`) entirely bypassing the `.rem_euclid()` modulo arithmetic. This yields over a 50% performance improvement (from ~10ms down to ~4.3ms on 1080p).
