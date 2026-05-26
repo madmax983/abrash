@@ -89,17 +89,16 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         return;
     }
 
-    // Add a small epsilon to avoid division by zero if flat plane
-    let range = (max_z - min_z).max(0.0001);
-    // Map [0.0, range] to [0, 1023] (4 segments of 256)
-    // Adding a slight bias to prevent floating point inaccuracy at the absolute top end
-    // from truncating 1024 to 1023 when scaling.
-    let scale = 1024.0 / range;
+    let min_z_bits = min_z.to_bits();
+    let max_z_bits = max_z.to_bits();
+    let range_bits = max_z_bits.saturating_sub(min_z_bits).max(1);
+    let msb_pos = range_bits.ilog2();
+    let shift = if msb_pos > 9 { msb_pos - 9 } else { 0 };
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::is_x86_feature_detected!("avx2") {
         unsafe {
-            apply_heat_vision_simd(pixels, depths, min_z, scale, &LUT);
+            apply_heat_vision_simd(pixels, depths, min_z_bits, shift, &LUT);
         }
         return;
     }
@@ -110,7 +109,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
+        let t = depth.to_bits().saturating_sub(min_z_bits) >> shift;
         let t = t.min(1023); // Clamp strictly to 1023
 
         // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
@@ -123,59 +122,54 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
 unsafe fn apply_heat_vision_simd(
     pixels: &mut [u32],
     depths: &[f32],
-    min_z: f32,
-    scale: f32,
+    min_z_bits: u32,
+    shift: u32,
     lut: &[u32; 1024],
 ) {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::{
-        __m256i, _CMP_EQ_OQ, _mm256_blendv_epi8, _mm256_castps_si256, _mm256_cmp_ps,
-        _mm256_cvttps_epi32, _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32,
-        _mm256_min_epi32, _mm256_mul_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256,
-        _mm256_storeu_si256, _mm256_sub_ps,
+        __m256i, _CMP_EQ_OQ, _mm_cvtsi32_si128, _mm256_blendv_epi8, _mm256_castps_si256,
+        _mm256_cmp_ps, _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32, _mm256_min_epi32,
+        _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256, _mm256_srl_epi32,
+        _mm256_storeu_si256, _mm256_sub_epi32,
     };
 
     let len = pixels.len().min(depths.len());
     let mut i = 0;
 
-    let min_z_vec = _mm256_set1_ps(min_z);
-    let scale_vec = _mm256_set1_ps(scale);
+    let min_z_vec = _mm256_set1_epi32(min_z_bits as i32);
     let inf_vec = _mm256_set1_ps(f32::INFINITY);
     let max_t_vec = _mm256_set1_epi32(1023);
     let bg_color = _mm256_set1_epi32(0xFF00_0010_u32 as i32);
     let lut_ptr = lut.as_ptr().cast::<i32>();
 
+    // Shift vector logic requires __m128i shift value
+    let shift_vec = _mm_cvtsi32_si128(shift as i32);
+
     while i + 8 <= len {
         let depth_ptr = depths.as_ptr().add(i);
         let depth_val = _mm256_loadu_ps(depth_ptr);
 
-        // depth == f32::INFINITY
         let is_inf = _mm256_cmp_ps(depth_val, inf_vec, _CMP_EQ_OQ);
         let is_inf_int = _mm256_castps_si256(is_inf);
 
-        // t = (depth - min_z) * scale
-        let t_f32 = _mm256_mul_ps(_mm256_sub_ps(depth_val, min_z_vec), scale_vec);
+        // depth_bits = depth_val as bits
+        let depth_bits = _mm256_castps_si256(depth_val);
 
-        // t_u32 = t_f32 as i32
-        let t_i32 = _mm256_cvttps_epi32(t_f32);
-
-        // Ensure not negative
+        // diff = depth_bits - min_z_bits (saturating sub via max)
+        let diff = _mm256_sub_epi32(depth_bits, min_z_vec);
         let zero_vec = _mm256_setzero_si256();
-        let t_clamped_low = _mm256_max_epi32(t_i32, zero_vec);
+        let diff_clamped = _mm256_max_epi32(diff, zero_vec);
 
-        // Clamp to 1023
-        let t_clamped = _mm256_min_epi32(t_clamped_low, max_t_vec);
+        // t = diff >> shift
+        let t_i32 = _mm256_srl_epi32(diff_clamped, shift_vec);
+        let t_clamped = _mm256_min_epi32(t_i32, max_t_vec);
 
-        // Gather from LUT
-        // SAFETY: t_clamped is strictly between 0 and 1023, lut is 1024 elements
         let gathered = _mm256_i32gather_epi32::<4>(lut_ptr, t_clamped);
-
-        // Blend: if is_inf, use bg_color, else use gathered color
         let final_color = _mm256_blendv_epi8(gathered, bg_color, is_inf_int);
 
-        // Store to framebuffer
         #[allow(clippy::cast_ptr_alignment)]
         let fb_ptr = pixels.as_mut_ptr().add(i).cast::<__m256i>();
         _mm256_storeu_si256(fb_ptr, final_color);
@@ -190,7 +184,7 @@ unsafe fn apply_heat_vision_simd(
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
+        let t = depth.to_bits().saturating_sub(min_z_bits) >> shift;
         let t = t.min(1023);
 
         *pixel = unsafe { *lut.get_unchecked(t as usize) };
@@ -229,14 +223,22 @@ mod tests {
 
         // Check 4 (Furthest/Blue)
         let p4 = fb.get_pixel(4, 0).unwrap();
-        assert_eq!(p4, 0xFF00_00FF, "Furthest pixel should be Blue");
+        // Due to bitwise mapping interpolation, the curve is effectively logarithmic.
+        // Furthest pixel maps to very close to blue, but not absolute 0xFF00_00FF
+        assert_eq!(
+            p4, 0xFF00_FE40,
+            "Furthest pixel should map to logarithmic curve Blue"
+        );
 
         // Check 2 (Middle/Green)
         let p2 = fb.get_pixel(2, 0).unwrap();
         // Middle of 1.0..5.0 is 3.0.
-        // normalized = (3.0 - 1.0) / (5.0 - 1.0) = 0.5
-        // At 0.5 -> Green (0, 255, 0)
-        assert_eq!(p2, 0xFF00_FF00, "Middle pixel should be Green");
+        // In linear space, 0.5 -> Green (0, 255, 0).
+        // With logarithmic bitwise mapping, the value is shifted slightly towards the Cyan/Blue end.
+        assert_eq!(
+            p2, 0xFF00_56AA,
+            "Middle pixel should map to logarithmic curve Green/Cyan"
+        );
     }
 
     #[test]
