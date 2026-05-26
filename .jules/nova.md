@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [Retro Sun Generator]
+**Concept:** A procedural post-processing effect that renders a synthwave/outrun style sun with horizontal cutouts that increase in thickness toward the bottom, layered with a linear top-to-bottom color gradient.
+**Fate:** Implemented
+**Lesson:** Using simple sine/mod operations against the normalized Y-axis provides an extremely fast and stylistic way to create horizontal cutouts without complex boolean geometry or polygon rendering. This is ideal for 2D aesthetic backdrops.

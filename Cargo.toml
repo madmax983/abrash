@@ -723,6 +723,11 @@ name = "mode7_bench"
 harness = false
 required-features = ["nova"]
 
+[[bench]]
+name = "retro_sun_bench"
+harness = false
+required-features = ["nova"]
+
 [[example]]
 name = "brickify_demo"
 path = "examples/brickify_demo.rs"
@@ -737,6 +742,11 @@ required-features = ["nova"]
 name = "mode7_demo"
 path = "examples/mode7_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "retro_sun_demo"
+path = "examples/retro_sun_demo.rs"
+required-features = ["nova", "backend-winit"]
 
 [[example]]
 name = "night_vision_demo"
