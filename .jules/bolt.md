@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Thread Local Allocation Reuse Strategy]**
+**Learning:** Re-allocating dynamic struct arrays (like `Vec<PreparedDraw>`) or large buffers (like `Vec<u8>`) on every rendering frame inside closures or function bodies imposes significant `O(N)` heap scaling overhead.
+**Action:** Lift repetitive frame-scope allocations into module-level `thread_local!` buffers and use `RefCell::borrow_mut()` inside hot loops to retain and reuse memory capacity implicitly while conforming to safe, parallelizable limits.

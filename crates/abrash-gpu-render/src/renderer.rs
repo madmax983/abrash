@@ -76,6 +76,11 @@ const fn argb_to_rgba_bytes(argb: u32) -> [u8; 4] {
     ]
 }
 
+thread_local! {
+    static PREPARED_DRAWS: std::cell::RefCell<Vec<PreparedDraw>> = const { std::cell::RefCell::new(Vec::new()) };
+    static DRAW_BYTES: std::cell::RefCell<Vec<u8>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
 /// GPU deferred rendering backend.
 ///
 /// Pipeline: Shadow depth → G-Buffer geometry → Deferred lighting → Tone mapping.
