@@ -1,0 +1,348 @@
+    Finished `bench` profile [optimized] target(s) in 0.41s
+     Running benches/tile_rendering_textured.rs (target/release/deps/tile_rendering_textured-96bedb0584a1c84d)
+Gnuplot not found, using plotters backend
+Benchmarking fill_cube_tiled_textured
+Benchmarking fill_cube_tiled_textured: Warming up for 3.0000 s
+Benchmarking fill_cube_tiled_textured: Collecting 100 samples in estimated 6.2022 s (20k iterations)
+Benchmarking fill_cube_tiled_textured: Analyzing
+fill_cube_tiled_textured
+                        time:   [304.38 µs 307.74 µs 312.02 µs]
+                        change: [-28.017% -24.345% -20.333%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 10 outliers among 100 measurements (10.00%)
+  5 (5.00%) high mild
+  5 (5.00%) high severe
+
+Benchmarking fill_cube_scanline_textured
+Benchmarking fill_cube_scanline_textured: Warming up for 3.0000 s
+Benchmarking fill_cube_scanline_textured: Collecting 100 samples in estimated 5.8672 s (25k iterations)
+Benchmarking fill_cube_scanline_textured: Analyzing
+fill_cube_scanline_textured
+                        time:   [229.44 µs 230.45 µs 231.56 µs]
+                        change: [+2.8186% +3.3666% +3.8727%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+
+Benchmarking tiled_textured_800x600/10
+Benchmarking tiled_textured_800x600/10: Warming up for 3.0000 s
+Benchmarking tiled_textured_800x600/10: Collecting 100 samples in estimated 5.2729 s (15k iterations)
+Benchmarking tiled_textured_800x600/10: Analyzing
+tiled_textured_800x600/10
+                        time:   [349.25 µs 350.39 µs 351.59 µs]
+                        change: [-1.1241% -0.3183% +0.4026%] (p = 0.43 > 0.05)
+                        No change in performance detected.
+Benchmarking tiled_textured_800x600/50
+Benchmarking tiled_textured_800x600/50: Warming up for 3.0000 s
+Benchmarking tiled_textured_800x600/50: Collecting 100 samples in estimated 9.2364 s (10k iterations)
+Benchmarking tiled_textured_800x600/50: Analyzing
+tiled_textured_800x600/50
+                        time:   [913.75 µs 925.53 µs 938.09 µs]
+                        change: [+2.3542% +2.9934% +3.7074%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 11 outliers among 100 measurements (11.00%)
+  2 (2.00%) high mild
+  9 (9.00%) high severe
+Benchmarking tiled_textured_800x600/100
+Benchmarking tiled_textured_800x600/100: Warming up for 3.0000 s
+Benchmarking tiled_textured_800x600/100: Collecting 100 samples in estimated 5.5722 s (900 iterations)
+Benchmarking tiled_textured_800x600/100: Analyzing
+tiled_textured_800x600/100
+                        time:   [6.1361 ms 6.1547 ms 6.1745 ms]
+                        change: [+2.7608% +3.1792% +3.5815%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+Benchmarking tiled_textured_800x600/200
+Benchmarking tiled_textured_800x600/200: Warming up for 3.0000 s
+Benchmarking tiled_textured_800x600/200: Collecting 100 samples in estimated 5.0172 s (500 iterations)
+Benchmarking tiled_textured_800x600/200: Analyzing
+tiled_textured_800x600/200
+                        time:   [10.738 ms 11.227 ms 11.787 ms]
+                        change: [+7.9159% +12.329% +18.273%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 9 outliers among 100 measurements (9.00%)
+  1 (1.00%) high mild
+  8 (8.00%) high severe
+Benchmarking tiled_textured_800x600/500
+Benchmarking tiled_textured_800x600/500: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 5.3s, or reduce sample count to 90.
+Benchmarking tiled_textured_800x600/500: Collecting 100 samples in estimated 5.3370 s (100 iterations)
+Benchmarking tiled_textured_800x600/500: Analyzing
+tiled_textured_800x600/500
+                        time:   [35.894 ms 37.988 ms 40.235 ms]
+                        change: [+13.394% +20.028% +26.728%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 18 outliers among 100 measurements (18.00%)
+  6 (6.00%) high mild
+  12 (12.00%) high severe
+
+Benchmarking tiled_textured_1920x1080/10
+Benchmarking tiled_textured_1920x1080/10: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 9.9s, enable flat sampling, or reduce sample count to 40.
+Benchmarking tiled_textured_1920x1080/10: Collecting 100 samples in estimated 9.9302 s (5050 iterations)
+Benchmarking tiled_textured_1920x1080/10: Analyzing
+tiled_textured_1920x1080/10
+                        time:   [1.9455 ms 2.0833 ms 2.2330 ms]
+                        change: [+17.793% +23.286% +29.814%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 7 outliers among 100 measurements (7.00%)
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+Benchmarking tiled_textured_1920x1080/50
+Benchmarking tiled_textured_1920x1080/50: Warming up for 3.0000 s
+Benchmarking tiled_textured_1920x1080/50: Collecting 100 samples in estimated 5.2247 s (1200 iterations)
+Benchmarking tiled_textured_1920x1080/50: Analyzing
+tiled_textured_1920x1080/50
+                        time:   [4.1352 ms 4.3127 ms 4.5125 ms]
+                        change: [+11.259% +15.717% +21.224%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 15 outliers among 100 measurements (15.00%)
+  8 (8.00%) high mild
+  7 (7.00%) high severe
+Benchmarking tiled_textured_1920x1080/100
+Benchmarking tiled_textured_1920x1080/100: Warming up for 3.0000 s
+Benchmarking tiled_textured_1920x1080/100: Collecting 100 samples in estimated 6.2156 s (200 iterations)
+Benchmarking tiled_textured_1920x1080/100: Analyzing
+tiled_textured_1920x1080/100
+                        time:   [28.620 ms 29.752 ms 30.999 ms]
+                        change: [+8.2143% +13.183% +18.135%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 9 outliers among 100 measurements (9.00%)
+  8 (8.00%) high mild
+  1 (1.00%) high severe
+Benchmarking tiled_textured_1920x1080/200
+Benchmarking tiled_textured_1920x1080/200: Warming up for 3.0000 s
+Benchmarking tiled_textured_1920x1080/200: Collecting 100 samples in estimated 9.2171 s (200 iterations)
+Benchmarking tiled_textured_1920x1080/200: Analyzing
+tiled_textured_1920x1080/200
+                        time:   [45.237 ms 47.024 ms 48.925 ms]
+                        change: [-6.8967% -1.3163% +4.4391%] (p = 0.65 > 0.05)
+                        No change in performance detected.
+Found 9 outliers among 100 measurements (9.00%)
+  9 (9.00%) high mild
+Benchmarking tiled_textured_1920x1080/500
+Benchmarking tiled_textured_1920x1080/500: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 14.4s, or reduce sample count to 30.
+Benchmarking tiled_textured_1920x1080/500: Collecting 100 samples in estimated 14.444 s (100 iterations)
+Benchmarking tiled_textured_1920x1080/500: Analyzing
+tiled_textured_1920x1080/500
+                        time:   [142.25 ms 146.39 ms 150.96 ms]
+                        change: [+11.894% +15.199% +18.904%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 7 outliers among 100 measurements (7.00%)
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+
+Benchmarking tiled_textured_3840x2160/10
+Benchmarking tiled_textured_3840x2160/10: Warming up for 3.0000 s
+Benchmarking tiled_textured_3840x2160/10: Collecting 100 samples in estimated 5.1390 s (500 iterations)
+Benchmarking tiled_textured_3840x2160/10: Analyzing
+tiled_textured_3840x2160/10
+                        time:   [9.9148 ms 10.422 ms 10.967 ms]
+                        change: [+18.761% +24.379% +31.003%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 8 outliers among 100 measurements (8.00%)
+  8 (8.00%) high mild
+Benchmarking tiled_textured_3840x2160/50
+Benchmarking tiled_textured_3840x2160/50: Warming up for 3.0000 s
+Benchmarking tiled_textured_3840x2160/50: Collecting 100 samples in estimated 6.2967 s (300 iterations)
+Benchmarking tiled_textured_3840x2160/50: Analyzing
+tiled_textured_3840x2160/50
+                        time:   [18.846 ms 20.014 ms 21.299 ms]
+                        change: [+18.484% +24.976% +31.636%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 7 outliers among 100 measurements (7.00%)
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+Benchmarking tiled_textured_3840x2160/100
+Benchmarking tiled_textured_3840x2160/100: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 12.3s, or reduce sample count to 40.
+Benchmarking tiled_textured_3840x2160/100: Collecting 100 samples in estimated 12.251 s (100 iterations)
+Benchmarking tiled_textured_3840x2160/100: Analyzing
+tiled_textured_3840x2160/100
+                        time:   [120.09 ms 124.52 ms 129.23 ms]
+                        change: [+14.593% +18.972% +24.205%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+Benchmarking tiled_textured_3840x2160/200
+Benchmarking tiled_textured_3840x2160/200: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 20.5s, or reduce sample count to 20.
+Benchmarking tiled_textured_3840x2160/200: Collecting 100 samples in estimated 20.512 s (100 iterations)
+Benchmarking tiled_textured_3840x2160/200: Analyzing
+tiled_textured_3840x2160/200
+                        time:   [170.63 ms 173.23 ms 176.37 ms]
+                        change: [+7.3744% +9.1557% +11.036%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 8 outliers among 100 measurements (8.00%)
+  2 (2.00%) high mild
+  6 (6.00%) high severe
+Benchmarking tiled_textured_3840x2160/500
+Benchmarking tiled_textured_3840x2160/500: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 50.5s, or reduce sample count to 10.
+Benchmarking tiled_textured_3840x2160/500: Collecting 100 samples in estimated 50.456 s (100 iterations)
+Benchmarking tiled_textured_3840x2160/500: Analyzing
+tiled_textured_3840x2160/500
+                        time:   [508.48 ms 519.04 ms 531.89 ms]
+                        change: [-0.1312% +2.8032% +6.0312%] (p = 0.07 > 0.05)
+                        No change in performance detected.
+Found 15 outliers among 100 measurements (15.00%)
+  8 (8.00%) high mild
+  7 (7.00%) high severe
+
+Benchmarking scanline_textured_800x600/10
+Benchmarking scanline_textured_800x600/10: Warming up for 3.0000 s
+Benchmarking scanline_textured_800x600/10: Collecting 100 samples in estimated 5.4358 s (20k iterations)
+Benchmarking scanline_textured_800x600/10: Analyzing
+scanline_textured_800x600/10
+                        time:   [326.88 µs 350.47 µs 375.19 µs]
+                        change: [+10.462% +16.320% +21.481%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 12 outliers among 100 measurements (12.00%)
+  11 (11.00%) high mild
+  1 (1.00%) high severe
+Benchmarking scanline_textured_800x600/50
+Benchmarking scanline_textured_800x600/50: Warming up for 3.0000 s
+Benchmarking scanline_textured_800x600/50: Collecting 100 samples in estimated 7.1222 s (10k iterations)
+Benchmarking scanline_textured_800x600/50: Analyzing
+scanline_textured_800x600/50
+                        time:   [675.25 µs 680.26 µs 686.28 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking scanline_textured_800x600/100
+Benchmarking scanline_textured_800x600/100: Warming up for 3.0000 s
+Benchmarking scanline_textured_800x600/100: Collecting 100 samples in estimated 5.0644 s (1000 iterations)
+Benchmarking scanline_textured_800x600/100: Analyzing
+scanline_textured_800x600/100
+                        time:   [4.7916 ms 4.8745 ms 4.9657 ms]
+Found 16 outliers among 100 measurements (16.00%)
+  7 (7.00%) high mild
+  9 (9.00%) high severe
+Benchmarking scanline_textured_800x600/200
+Benchmarking scanline_textured_800x600/200: Warming up for 3.0000 s
+Benchmarking scanline_textured_800x600/200: Collecting 100 samples in estimated 5.6942 s (700 iterations)
+Benchmarking scanline_textured_800x600/200: Analyzing
+scanline_textured_800x600/200
+                        time:   [7.4849 ms 7.5432 ms 7.6081 ms]
+Found 15 outliers among 100 measurements (15.00%)
+  9 (9.00%) high mild
+  6 (6.00%) high severe
+Benchmarking scanline_textured_800x600/500
+Benchmarking scanline_textured_800x600/500: Warming up for 3.0000 s
+Benchmarking scanline_textured_800x600/500: Collecting 100 samples in estimated 7.3082 s (300 iterations)
+Benchmarking scanline_textured_800x600/500: Analyzing
+scanline_textured_800x600/500
+                        time:   [24.173 ms 24.712 ms 25.402 ms]
+Found 15 outliers among 100 measurements (15.00%)
+  5 (5.00%) high mild
+  10 (10.00%) high severe
+
+Benchmarking scanline_textured_1920x1080/10
+Benchmarking scanline_textured_1920x1080/10: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 7.0s, enable flat sampling, or reduce sample count to 50.
+Benchmarking scanline_textured_1920x1080/10: Collecting 100 samples in estimated 7.0215 s (5050 iterations)
+Benchmarking scanline_textured_1920x1080/10: Analyzing
+scanline_textured_1920x1080/10
+                        time:   [1.4540 ms 1.4671 ms 1.4812 ms]
+Found 14 outliers among 100 measurements (14.00%)
+  8 (8.00%) high mild
+  6 (6.00%) high severe
+Benchmarking scanline_textured_1920x1080/50
+Benchmarking scanline_textured_1920x1080/50: Warming up for 3.0000 s
+Benchmarking scanline_textured_1920x1080/50: Collecting 100 samples in estimated 5.3208 s (1600 iterations)
+Benchmarking scanline_textured_1920x1080/50: Analyzing
+scanline_textured_1920x1080/50
+                        time:   [3.0825 ms 3.1087 ms 3.1387 ms]
+Found 8 outliers among 100 measurements (8.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+Benchmarking scanline_textured_1920x1080/100
+Benchmarking scanline_textured_1920x1080/100: Warming up for 3.0000 s
+Benchmarking scanline_textured_1920x1080/100: Collecting 100 samples in estimated 6.3473 s (300 iterations)
+Benchmarking scanline_textured_1920x1080/100: Analyzing
+scanline_textured_1920x1080/100
+                        time:   [20.046 ms 20.106 ms 20.181 ms]
+Found 8 outliers among 100 measurements (8.00%)
+  7 (7.00%) high mild
+  1 (1.00%) high severe
+Benchmarking scanline_textured_1920x1080/200
+Benchmarking scanline_textured_1920x1080/200: Warming up for 3.0000 s
+Benchmarking scanline_textured_1920x1080/200: Collecting 100 samples in estimated 6.5831 s (200 iterations)
+Benchmarking scanline_textured_1920x1080/200: Analyzing
+scanline_textured_1920x1080/200
+                        time:   [31.287 ms 31.492 ms 31.718 ms]
+Found 8 outliers among 100 measurements (8.00%)
+  5 (5.00%) high mild
+  3 (3.00%) high severe
+Benchmarking scanline_textured_1920x1080/500
+Benchmarking scanline_textured_1920x1080/500: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 10.4s, or reduce sample count to 40.
+Benchmarking scanline_textured_1920x1080/500: Collecting 100 samples in estimated 10.392 s (100 iterations)
+Benchmarking scanline_textured_1920x1080/500: Analyzing
+scanline_textured_1920x1080/500
+                        time:   [99.801 ms 102.84 ms 106.42 ms]
+Found 11 outliers among 100 measurements (11.00%)
+  11 (11.00%) high severe
+
+Benchmarking scanline_textured_3840x2160/10
+Benchmarking scanline_textured_3840x2160/10: Warming up for 3.0000 s
+Benchmarking scanline_textured_3840x2160/10: Collecting 100 samples in estimated 5.3794 s (800 iterations)
+Benchmarking scanline_textured_3840x2160/10: Analyzing
+scanline_textured_3840x2160/10
+                        time:   [6.6239 ms 6.6467 ms 6.6709 ms]
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking scanline_textured_3840x2160/50
+Benchmarking scanline_textured_3840x2160/50: Warming up for 3.0000 s
+Benchmarking scanline_textured_3840x2160/50: Collecting 100 samples in estimated 6.2256 s (500 iterations)
+Benchmarking scanline_textured_3840x2160/50: Analyzing
+scanline_textured_3840x2160/50
+                        time:   [12.002 ms 12.036 ms 12.071 ms]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking scanline_textured_3840x2160/100
+Benchmarking scanline_textured_3840x2160/100: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 8.0s, or reduce sample count to 60.
+Benchmarking scanline_textured_3840x2160/100: Collecting 100 samples in estimated 7.9727 s (100 iterations)
+Benchmarking scanline_textured_3840x2160/100: Analyzing
+scanline_textured_3840x2160/100
+                        time:   [82.495 ms 84.493 ms 86.953 ms]
+Found 9 outliers among 100 measurements (9.00%)
+  5 (5.00%) high mild
+  4 (4.00%) high severe
+Benchmarking scanline_textured_3840x2160/200
+Benchmarking scanline_textured_3840x2160/200: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 12.6s, or reduce sample count to 30.
+Benchmarking scanline_textured_3840x2160/200: Collecting 100 samples in estimated 12.585 s (100 iterations)
+Benchmarking scanline_textured_3840x2160/200: Analyzing
+scanline_textured_3840x2160/200
+                        time:   [124.29 ms 126.19 ms 128.44 ms]
+Found 12 outliers among 100 measurements (12.00%)
+  6 (6.00%) high mild
+  6 (6.00%) high severe
+Benchmarking scanline_textured_3840x2160/500
+Benchmarking scanline_textured_3840x2160/500: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 40.8s, or reduce sample count to 10.
+Benchmarking scanline_textured_3840x2160/500: Collecting 100 samples in estimated 40.785 s (100 iterations)
+Benchmarking scanline_textured_3840x2160/500: Analyzing
+scanline_textured_3840x2160/500
+                        time:   [395.00 ms 399.13 ms 403.86 ms]
+Found 9 outliers among 100 measurements (9.00%)
+  5 (5.00%) high mild
+  4 (4.00%) high severe

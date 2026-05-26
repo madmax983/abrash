@@ -1,0 +1,15 @@
+--- crates/abrash-render/src/rasterizer/tile.rs
++++ crates/abrash-render/src/rasterizer/tile.rs
+@@ -550,7 +550,11 @@
+         // ⚡ Bolt: Elides dynamic heap allocation by mapping directly over a stack array
+         let mut arr: [Option<PreparedTriangle>; 8] = [None; 8];
+         for i in 0..self.count {
+-            arr[i] = Some(unsafe { self.tris[i].assume_init() });
++            // Safe because we only read initialized elements (0..self.count)
++            // However, assume_init() requires the entire array element to be initialized
++            // including padding. Since PreparedTriangle has padding, copying it can cause UB.
++            // We should use ptr::read or similar, or better, derive/implement Clone carefully.
++            arr[i] = Some(unsafe { self.tris[i].assume_init_read() });
+         }
+         arr.into_par_iter().flatten()
+     }
