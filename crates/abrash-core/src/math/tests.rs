@@ -519,6 +519,23 @@ mod tests {
     }
 
     #[test]
+    fn test_mat2_transform_batch_into() {
+        use std::f32::consts::PI;
+        let m = Mat2::rotation(PI);
+        let vertices = vec![Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)];
+
+        // Start with a pre-populated buffer to ensure it is cleared properly.
+        let mut result = vec![Vec2::new(99.0, 99.0), Vec2::new(99.0, 99.0), Vec2::new(99.0, 99.0)];
+        m.transform_batch_into(&vertices, &mut result);
+
+        assert_eq!(result.len(), 2, "Buffer should be cleared and match input length");
+        assert!((result[0].x - (-1.0)).abs() < 1e-6);
+        assert!(result[0].y.abs() < 1e-6);
+        assert!(result[1].x.abs() < 1e-6);
+        assert!((result[1].y - (-1.0)).abs() < 1e-6);
+    }
+
+    #[test]
     fn test_mat2_transform_in_place() {
         use std::f32::consts::PI;
         let m = Mat2::rotation(PI);

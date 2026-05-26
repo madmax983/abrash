@@ -57,18 +57,28 @@ impl Mat2 {
     /// Transform multiple vectors at once.
     #[must_use]
     pub fn transform_batch(&self, vertices: &[Vec2]) -> Vec<Vec2> {
+        // ⚡ Bolt: Removed intermediate `.collect::<Vec<_>>()` and use `transform_batch_into`
+        // to strictly control vector allocation and capacity.
+        let mut out = Vec::with_capacity(vertices.len());
+        self.transform_batch_into(vertices, &mut out);
+        out
+    }
+
+    /// Transform a batch of vectors and write into `out`.
+    ///
+    /// ⚡ Bolt: Allows reusing an existing allocation, completely avoiding
+    /// dynamic heap allocations per batch.
+    pub fn transform_batch_into(&self, vertices: &[Vec2], out: &mut Vec<Vec2>) {
         let m00 = self.m[0][0];
         let m01 = self.m[0][1];
         let m10 = self.m[1][0];
         let m11 = self.m[1][1];
 
-        vertices
-            .iter()
-            .map(|&v| Vec2 {
-                x: m00 * v.x + m01 * v.y,
-                y: m10 * v.x + m11 * v.y,
-            })
-            .collect()
+        out.clear();
+        out.extend(vertices.iter().map(|&v| Vec2 {
+            x: m00 * v.x + m01 * v.y,
+            y: m10 * v.x + m11 * v.y,
+        }));
     }
 
     /// Transform vertices in place.
