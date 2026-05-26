@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[FMA Optimization in Scalar Fallbacks]**
+**Learning:** Distributing scalar floating-point math to enable Fused Multiply-Add/Sub (FMA) instructions (e.g., rewriting `((depth - min_z) * scale) as u32` to `(depth * scale - offset) as u32`, where `offset = min_z * scale`) provides significant performance improvements (e.g., ~17% faster) inside hot per-pixel rendering loops when processing scalar tails or fallbacks, by reducing the number of sequential dependent float instructions.
+**Action:** Replace `(val - min) * scale` with `val * scale - offset` in hot scalar rendering loops to enable FMA instructions and reduce execution latency.
