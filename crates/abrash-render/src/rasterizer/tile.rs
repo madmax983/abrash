@@ -116,6 +116,7 @@ use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_triangle_to_screen};
+use crate::rasterizer::core::TriangleBounds;
 use crate::texture::{FilterMode, Texture};
 use crate::zbuffer::ZBuffer;
 use std::ops::{Deref, DerefMut};
@@ -824,12 +825,11 @@ fn render_triangle_in_tile(ctx: &mut TileContext, tri: &PreparedTriangle) {
     let p1_y = tri.p1.y;
     let p2_y = tri.p2.y;
 
-    let y_start = p0_y.max(ctx.y0);
-    let y_end = p2_y.min(ctx.y1 - 1);
-
-    if y_start > y_end {
+    let Some(bounds) = TriangleBounds::new(p0_y, p2_y, ctx.y0, ctx.y1 - 1) else {
         return;
-    }
+    };
+    let y_start = bounds.y_start;
+    let y_end = bounds.y_end;
 
     // Reconstruct ScreenPoint for EdgeWalker (inv_w unused for flat shading)
     let p0 = ScreenPoint {
@@ -955,12 +955,11 @@ fn render_triangle_in_tile_textured(
     tri: &PreparedTexturedTriangle,
     texture: &Texture,
 ) {
-    let y_start = tri.p0.y.max(ctx.y0);
-    let y_end = tri.p2.y.min(ctx.y1 - 1);
-
-    if y_start > y_end {
+    let Some(bounds) = TriangleBounds::new(tri.p0.y, tri.p2.y, ctx.y0, ctx.y1 - 1) else {
         return;
-    }
+    };
+    let y_start = bounds.y_start;
+    let y_end = bounds.y_end;
 
     let mut edge_a = PerspectiveTextureEdgeWalker::new(
         tri.p0,
@@ -3880,12 +3879,11 @@ fn render_triangle_in_tile_gouraud(ctx: &mut TileContext, tri: &PreparedGouraudT
     let p0_y = tri.p0.y;
     let p2_y = tri.p2.y;
 
-    let y_start = p0_y.max(ctx.y0);
-    let y_end = p2_y.min(ctx.y1 - 1);
-
-    if y_start > y_end {
+    let Some(bounds) = TriangleBounds::new(p0_y, p2_y, ctx.y0, ctx.y1 - 1) else {
         return;
-    }
+    };
+    let y_start = bounds.y_start;
+    let y_end = bounds.y_end;
 
     // Edge Walking
     let p0 = tri.p0.to_screen_point(1.0);
@@ -5058,6 +5056,7 @@ mod tests {
 #[cfg(all(test, feature = "parallel"))]
 mod warden_tests {
     use super::{PreparedTrianglesList, SendPtr};
+    use crate::rasterizer::core::TriangleBounds;
 
     #[test]
     #[should_panic(expected = "Index out of bounds")]

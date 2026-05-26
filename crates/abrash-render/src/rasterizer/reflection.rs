@@ -8,7 +8,7 @@ use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};
 use crate::skybox::Cubemap;
 use crate::zbuffer::ZBuffer;
 
-use super::core::{FIXED_SCALE, assert_same_dimensions, is_backface, sort_by_y};
+use super::core::{FIXED_SCALE, TriangleBounds, assert_same_dimensions, is_backface, sort_by_y};
 
 #[derive(Clone, Copy)]
 struct ReflectionSpanStart {
@@ -466,19 +466,13 @@ pub fn fill_triangle_reflection(
         let q1 = p1.inv_w;
         let q2 = p2.inv_w;
 
-        let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        if total_height == 0.0 {
-            continue;
-        }
-
         let y_min = 0;
         let y_max = height as i32 - 1;
-        let y_start = p0.y.max(y_min);
-        let y_end = p2.y.min(y_max);
-
-        if y_start > y_end {
+        let Some(bounds) = TriangleBounds::new(p0.y, p2.y, y_min, y_max) else {
             continue;
-        }
+        };
+        let y_start = bounds.y_start;
+        let y_end = bounds.y_end;
 
         // Gradients and Edge Walking
         let (gradients, long_edge_is_left) =

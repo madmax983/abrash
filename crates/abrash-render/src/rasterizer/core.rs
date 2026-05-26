@@ -426,3 +426,31 @@ mod tests {
         assert!(!result_ccw, "Huge CCW triangle should be kept (nz < 0)");
     }
 }
+
+/// Encapsulates the safe calculation and clamping of a triangle's vertical bounds.
+///
+/// Prevents division-by-zero on degenerate triangles and ensures the rasterization
+/// loop stays within the clipping region (e.g., screen or tile bounds).
+pub(crate) struct TriangleBounds {
+    pub(crate) y_start: i32,
+    pub(crate) y_end: i32,
+}
+
+impl TriangleBounds {
+    #[inline(always)]
+    pub(crate) fn new(p0_y: i32, p2_y: i32, y_min: i32, y_max: i32) -> Option<Self> {
+        let total_height = (i64::from(p2_y) - i64::from(p0_y)) as f32;
+        if total_height == 0.0 {
+            return None;
+        }
+
+        let y_start = p0_y.max(y_min);
+        let y_end = p2_y.min(y_max);
+
+        if y_start > y_end {
+            None
+        } else {
+            Some(Self { y_start, y_end })
+        }
+    }
+}

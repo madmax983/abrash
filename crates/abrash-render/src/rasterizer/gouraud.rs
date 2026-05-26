@@ -8,7 +8,8 @@ use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};
 use crate::zbuffer::ZBuffer;
 
 use super::core::{
-    FIXED_SCALE, assert_same_dimensions, is_backface, pack_color_fixed_i32, sort_by_y,
+    FIXED_SCALE, TriangleBounds, assert_same_dimensions, is_backface, pack_color_fixed_i32,
+    sort_by_y,
 };
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -749,19 +750,13 @@ pub fn fill_triangle_gouraud(
         sort_by_y(&mut verts, |(p, _)| p.y);
         let [(p0, c0), (p1, c1), (p2, c2)] = verts;
 
-        let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        if total_height == 0.0 {
-            continue;
-        }
-
         let y_min = 0;
         let y_max = height as i32 - 1;
-        let y_start = p0.y.max(y_min);
-        let y_end = p2.y.min(y_max);
-
-        if y_start > y_end {
+        let Some(bounds) = TriangleBounds::new(p0.y, p2.y, y_min, y_max) else {
             continue;
-        }
+        };
+        let y_start = bounds.y_start;
+        let y_end = bounds.y_end;
 
         // Gradients and Edge Walking
         let (gradients, long_edge_is_left) = GouraudGradients::new(p0, p1, p2, c0, c1, c2);

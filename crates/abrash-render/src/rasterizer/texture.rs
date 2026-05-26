@@ -37,7 +37,9 @@ use crate::math::{
 use crate::texture::{FilterMode, Texture, blend_four_way, blend_swar, laplacian_blend_textures};
 use crate::zbuffer::ZBuffer;
 
-use super::core::{FIXED_SCALE, assert_same_dimensions, color_to_u32, is_backface, sort_by_y};
+use super::core::{
+    FIXED_SCALE, TriangleBounds, assert_same_dimensions, color_to_u32, is_backface, sort_by_y,
+};
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use super::core::blend_swar_simd;
@@ -1996,19 +1998,13 @@ fn fill_projected_triangle_textured_with_gradients(
     let q1 = p1.inv_w;
     let q2 = p2.inv_w;
 
-    let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-    if total_height == 0.0 {
-        return;
-    }
-
     let y_min = 0;
     let y_max = height as i32 - 1;
-    let y_start = p0.y.max(y_min);
-    let y_end = p2.y.min(y_max);
-
-    if y_start > y_end {
+    let Some(bounds) = TriangleBounds::new(p0.y, p2.y, y_min, y_max) else {
         return;
-    }
+    };
+    let y_start = bounds.y_start;
+    let y_end = bounds.y_end;
 
     // Determine winding for Edge Walking setup
     // We already have gradients, but we need to know which edge is "long" (left or right).
@@ -3388,19 +3384,13 @@ pub fn fill_triangle_normal_mapped(
         let q1 = p1.inv_w;
         let q2 = p2.inv_w;
 
-        let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        if total_height == 0.0 {
-            continue;
-        }
-
         let y_min = 0;
         let y_max = height as i32 - 1;
-        let y_start = p0.y.max(y_min);
-        let y_end = p2.y.min(y_max);
-
-        if y_start > y_end {
+        let Some(bounds) = TriangleBounds::new(p0.y, p2.y, y_min, y_max) else {
             continue;
-        }
+        };
+        let y_start = bounds.y_start;
+        let y_end = bounds.y_end;
 
         // Gradients and Edge Walking
         let (gradients, long_edge_is_left) =
@@ -4757,19 +4747,13 @@ fn fill_projected_triangle_textured_gouraud_with_gradients(
     let q1 = p1.inv_w;
     let q2 = p2.inv_w;
 
-    let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-    if total_height == 0.0 {
-        return;
-    }
-
     let y_min = 0;
     let y_max = height as i32 - 1;
-    let y_start = p0.y.max(y_min);
-    let y_end = p2.y.min(y_max);
-
-    if y_start > y_end {
+    let Some(bounds) = TriangleBounds::new(p0.y, p2.y, y_min, y_max) else {
         return;
-    }
+    };
+    let y_start = bounds.y_start;
+    let y_end = bounds.y_end;
 
     let nz = calculate_signed_area_doubled(p0, p1, p2);
     let long_edge_is_left = nz > 0.0;

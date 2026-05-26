@@ -8,7 +8,9 @@ use crate::math::{Vec3, project_triangle_to_screen};
 use crate::texture::blend_swar;
 use crate::zbuffer::ZBuffer;
 
-use super::core::{EdgeWalker, assert_same_dimensions, is_backface, prepare_scanline, sort_by_y};
+use super::core::{
+    EdgeWalker, TriangleBounds, assert_same_dimensions, is_backface, prepare_scanline, sort_by_y,
+};
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
@@ -394,20 +396,13 @@ pub fn fill_triangle_3d(
         let [p0, p1, p2] = verts;
 
         // Prevent overflow when p2.y is i32::MAX and p0.y is i32::MIN
-        let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        if total_height == 0.0 {
-            continue;
-        }
-
-        // Optimization: Clamp Y range to screen bounds
         let y_min = 0;
         let y_max = height as i32 - 1;
-        let y_start = p0.y.max(y_min);
-        let y_end = p2.y.min(y_max);
-
-        if y_start > y_end {
+        let Some(bounds) = TriangleBounds::new(p0.y, p2.y, y_min, y_max) else {
             continue;
-        }
+        };
+        let y_start = bounds.y_start;
+        let y_end = bounds.y_end;
 
         // Optimization: Pre-calculate dz/dx constant for the whole triangle
         // Plane equation: Ax + By + Cz + D = 0
