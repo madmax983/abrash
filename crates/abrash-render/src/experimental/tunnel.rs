@@ -45,7 +45,7 @@ pub fn apply_tunnel(framebuffer: &mut Framebuffer, time: f32, texture: &Texture)
                 let distance = (dx * dx + dy * dy).sqrt().max(1.0);
 
                 // Angle
-                let angle = f32::atan2(dy, dx);
+                let angle = abrash_core::math::fast_atan2(dy, dx);
 
                 // Map to U, V
                 // U maps around the cylinder (angle)

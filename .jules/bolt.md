@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[fast_atan2 in hot loops]**
+**Learning:** In hot rendering loops that compute polar coordinates from Cartesian (like the tunnel effect), the standard `f32::atan2` function is computationally expensive. Replacing it with `abrash_core::math::fast_atan2` provides significant speedups.
+**Action:** Replace `f32::atan2(y, x)` with `fast_atan2(y, x)` in hot per-pixel paths. This resulted in a ~45% performance improvement in the tunnel post-processing benchmark.
