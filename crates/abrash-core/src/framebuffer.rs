@@ -316,15 +316,11 @@ impl Framebuffer {
             // Fast path for full-width clears (avoids chunking overhead)
             self.pixels[start_idx..end_idx].fill(color);
         } else {
-            let len = ex - sx;
-            let mut offset = start_idx + sx;
-            let slice = self.pixels.as_mut_slice();
-            for _ in sy..ey {
-                unsafe {
-                    slice.get_unchecked_mut(offset..offset + len).fill(color);
-                }
-                offset += w;
-            }
+            // ⚡ Bolt: Removed get_unchecked_mut loop. Standard iterator chunking with fill
+            // performs just as well due to memset/vectorization and provides safe LLVM aliasing guarantees.
+            self.pixels[start_idx..end_idx]
+                .chunks_exact_mut(w)
+                .for_each(|row| row[sx..ex].fill(color));
         }
     }
 }
@@ -400,6 +396,18 @@ mod tests {
                 assert_eq!(fb.get_pixel(x, y), Some(0x12345678));
             }
         }
+    }
+
+    #[test]
+    fn test_clear_rect_chunking() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        fb.clear(0xFF000000);
+
+        // This will trigger the chunking logic since sx != 0 and ex != w
+        fb.clear_rect(2, 2, 6, 6, 0xFFFFFFFF);
+
+        // Let's assert the correct color for the TDD green phase
+        assert_eq!(fb.get_pixel(3, 3), Some(0xFFFFFFFF));
     }
 
     #[test]

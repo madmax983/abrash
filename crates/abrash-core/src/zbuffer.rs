@@ -124,16 +124,11 @@ impl ZBuffer {
                 }
             }
 
-            let mut offset = start_idx + sx;
-            let slice = self.depths.as_mut_slice();
-            for _ in sy..ey {
-                unsafe {
-                    slice
-                        .get_unchecked_mut(offset..offset + len)
-                        .fill(f32::INFINITY);
-                }
-                offset += w;
-            }
+            // ⚡ Bolt: Removed get_unchecked_mut loop. Standard iterator chunking with fill
+            // performs just as well due to memset/vectorization and provides safe LLVM aliasing guarantees.
+            self.depths[start_idx..end_idx]
+                .chunks_exact_mut(w)
+                .for_each(|row| row[sx..ex].fill(f32::INFINITY));
         }
     }
 
