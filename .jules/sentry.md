@@ -51,3 +51,6 @@
 **[Validating Time/Tick Loop Logic Without Flakiness]**
 **Learning:** Testing frame-time loops using `std::thread::sleep` introduces severe flakiness because CI runners or test threads can delay execution unpredictably. Instead of testing "real" time elapsed, test the internal response to elapsed time by directly simulating it on the structure (e.g. `timer.last_time = Instant::now()`, `timer.accumulator += 50ms`).
 **Action:** Never use `std::thread::sleep` for unit testing timing systems. Always manipulate the simulated time state directly to test logic boundaries.
+**[Missing Test Attribute Injection]
+**Learning:** When injecting code (like new tests) into Rust files using scripts, be extremely careful not to insert lines between an existing attribute (e.g., `#[test]`) and its target function. Injecting exactly at the function definition line often displaces the attribute, breaking the existing code and causing compilation warnings or errors.
+**Action:** Use specific, multi-line pattern matching (e.g. matching both `#[test]` and the function signature) or proper AST parsing/manipulation tools to safely inject new items into Rust source files. Always verify the output explicitly.

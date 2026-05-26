@@ -237,6 +237,14 @@ mod tests {
     }
 
     #[test]
+    fn test_new_dimensions_too_large() {
+        let result = ZBuffer::new(u32::MAX, u32::MAX);
+        assert_eq!(
+            result.err(),
+            Some("Buffer dimensions too large (max i32::MAX)")
+        );
+    }
+    #[test]
     fn test_new_overflow() {
         // Test dimensions exceeding i32::MAX
         assert!(ZBuffer::new(i32::MAX as u32 + 1, 10).is_err());
