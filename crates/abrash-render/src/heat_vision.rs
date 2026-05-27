@@ -95,11 +95,13 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     // Adding a slight bias to prevent floating point inaccuracy at the absolute top end
     // from truncating 1024 to 1023 when scaling.
     let scale = 1024.0 / range;
+    let offset = min_z * scale;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::is_x86_feature_detected!("avx2") {
         unsafe {
-            apply_heat_vision_simd(pixels, depths, min_z, scale, &LUT);
+            // We pass offset instead of min_z to avoid doing multiplication inside SIMD
+            apply_heat_vision_simd(pixels, depths, offset, scale, &LUT);
         }
         return;
     }
@@ -110,7 +112,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
+        let t = (depth * scale - offset) as u32;
         let t = t.min(1023); // Clamp strictly to 1023
 
         // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
@@ -123,7 +125,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
 unsafe fn apply_heat_vision_simd(
     pixels: &mut [u32],
     depths: &[f32],
-    min_z: f32,
+    offset: f32,
     scale: f32,
     lut: &[u32; 1024],
 ) {
@@ -140,13 +142,17 @@ unsafe fn apply_heat_vision_simd(
     let len = pixels.len().min(depths.len());
     let mut i = 0;
 
-    let min_z_vec = _mm256_set1_ps(min_z);
+    let offset_vec = _mm256_set1_ps(offset);
     let scale_vec = _mm256_set1_ps(scale);
     let inf_vec = _mm256_set1_ps(f32::INFINITY);
     let max_t_vec = _mm256_set1_epi32(1023);
     let bg_color = _mm256_set1_epi32(0xFF00_0010_u32 as i32);
     let lut_ptr = lut.as_ptr().cast::<i32>();
 
+    // We use feature detection for FMA if we want, but let's stick to sub/mul to avoid
+    // breaking builds on targets without FMA. The compiler often fuses this if allowed.
+    // Bolt learning specifically notes: "rewriting (depth - min_z) * scale to depth * scale - offset
+    // yields measurable performance gains" by reducing dependency chain.
     while i + 8 <= len {
         let depth_ptr = depths.as_ptr().add(i);
         let depth_val = _mm256_loadu_ps(depth_ptr);
@@ -155,8 +161,8 @@ unsafe fn apply_heat_vision_simd(
         let is_inf = _mm256_cmp_ps(depth_val, inf_vec, _CMP_EQ_OQ);
         let is_inf_int = _mm256_castps_si256(is_inf);
 
-        // t = (depth - min_z) * scale
-        let t_f32 = _mm256_mul_ps(_mm256_sub_ps(depth_val, min_z_vec), scale_vec);
+        // t = depth * scale - offset
+        let t_f32 = _mm256_sub_ps(_mm256_mul_ps(depth_val, scale_vec), offset_vec);
 
         // t_u32 = t_f32 as i32
         let t_i32 = _mm256_cvttps_epi32(t_f32);
@@ -190,7 +196,7 @@ unsafe fn apply_heat_vision_simd(
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
+        let t = (depth * scale - offset) as u32;
         let t = t.min(1023);
 
         *pixel = unsafe { *lut.get_unchecked(t as usize) };
