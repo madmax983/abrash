@@ -232,3 +232,11 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Steganography Decoder Zero-Allocation Override]**
+**Learning:** In hot decoding loops, replacing dynamic `Vec::with_capacity()` and `.push()` with a zero-allocated `vec![0u8; len]` and iterating via a mutable slice (`for byte in &mut buffer`) allows LLVM to safely elide bounds checks, yielding significant performance gains.
+**Action:** Replace `.push()` with slice iteration in heavily bounds-checked parsing algorithms.
+
+**[Hologram Fixed-Point Hoisting]**
+**Learning:** When replacing floating-point per-pixel math with fixed-point integer approximations, ensure that invariant calculations (such as casting target colors to `u32` or scaling intensities) are hoisted outside the hot loop to avoid defeating the optimization.
+**Action:** Always pre-calculate and scale fixed-point invariants outside the loop.
