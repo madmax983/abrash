@@ -128,7 +128,7 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
 
                         // Convert back to Cartesian
                         // Using fast float-to-int cast saves overhead when exact rounding isn't required
-                        let (sin_t, cos_t) = theta.sin_cos();
+                        let (sin_t, cos_t) = abrash_core::math::fast_sin_cos(theta);
                         let sample_x = (cx + r * cos_t) as i32;
                         let sample_y = (cy + r * sin_t) as i32;
 
@@ -167,7 +167,7 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
                     }
 
                     // Convert back to Cartesian
-                    let (sin_t, cos_t) = theta.sin_cos();
+                    let (sin_t, cos_t) = abrash_core::math::fast_sin_cos(theta);
                     let sample_x = (cx + r * cos_t) as i32;
                     let sample_y = (cy + r * sin_t) as i32;
 

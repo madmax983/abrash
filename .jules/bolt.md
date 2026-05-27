@@ -232,3 +232,15 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+## [Performance] Replace f32::atan2 with fast_atan2 in tunnel rendering
+**What:** Replaced `f32::atan2` with `abrash_core::math::fast_atan2` in `crates/abrash-render/src/experimental/tunnel.rs`. Fixed a test compiling issue on `havoc_tile_ub_test.rs` needing `rayon` feature gate.
+**Why:** The `atan2` function is expensive and using the minimax polynomial approximation is faster with acceptable precision loss for post-processing effects.
+**Impact:** ~45% speedup on `tunnel_800x600` bench.
+**Measurement:** `cargo bench --bench tunnel_bench --features nova`
+
+## [Performance] Replace f32::sin_cos with fast_sin_cos in kaleidoscope
+**What:** Replaced `theta.sin_cos()` with `abrash_core::math::fast_sin_cos` in `crates/abrash-render/src/experimental/kaleidoscope.rs`. Added parallel flag to `havoc_tile_ub_test.rs` to fix build warnings.
+**Why:** The standard `sin_cos` is slow in hot per-pixel rendering loops. Using a fast polynomial approximation yields measurable speedups for visual post-processing effects where absolute floating-point precision isn't required.
+**Impact:** ~6.8% speedup on `kaleidoscope_bench`.
+**Measurement:** `cargo bench --bench kaleidoscope_bench --features nova`
