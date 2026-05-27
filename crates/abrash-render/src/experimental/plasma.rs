@@ -28,6 +28,14 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
 
     let pixels = fb.as_mut_slice();
 
+    let mut x_sins = Vec::with_capacity(width);
+    for x in 0..width {
+        let x_f32 = x as f32;
+        let x_scaled_time = (x_f32 * scale + time) % std::f32::consts::TAU;
+        let (x_sin, _) = fast_sin_cos(x_scaled_time);
+        x_sins.push(x_sin);
+    }
+
     #[cfg(feature = "parallel")]
     let row_iter = pixels.par_chunks_exact_mut(width).enumerate();
     #[cfg(not(feature = "parallel"))]
@@ -39,9 +47,7 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
         let (y_sin, y_cos) = fast_sin_cos(y_scaled_time);
 
         for (x, pixel) in row.iter_mut().enumerate().take(width) {
-            let x_f32 = x as f32;
-            let x_scaled_time = (x_f32 * scale + time) % std::f32::consts::TAU;
-            let (x_sin, _) = fast_sin_cos(x_scaled_time);
+            let x_sin = x_sins[x];
 
             // Calculate plasma value using multiple sine waves
             let mut v = 0.0;
@@ -57,9 +63,9 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
 
             // Map the normalized value to RGB colors
             // Simple color palette generation based on the phase
-            let r = ((c * 255.0) as u32).min(255);
-            let g = (((c + 0.33) % 1.0 * 255.0) as u32).min(255);
-            let b = (((c + 0.66) % 1.0 * 255.0) as u32).min(255);
+            let r = (c * 255.0) as u32;
+            let g = ((c + 0.33).fract() * 255.0) as u32;
+            let b = ((c + 0.66).fract() * 255.0) as u32;
 
             *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
         }
