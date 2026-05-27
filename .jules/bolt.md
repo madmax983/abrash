@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Thread-local Slice extend_from_slice]**
+**Learning:** In thread-local pixel buffers like `SOURCE_PIXELS` (e.g. used in `cel_shade.rs`), calling `.resize()` and `.copy_from_slice()` instead of `.clear()` and `.extend_from_slice()` resulted in worse or equivalent performance due to `resize` running a memset-style zero-initialization logic before the buffer copy. The idiomatic `.clear()` followed by `.extend_from_slice()` is heavily optimized by `Vec` for matching/sufficient capacities, yielding ~4-8% faster execution in our tested 800x600 benchmarks.
+**Action:** When copying a slice into a reusable `Vec` container across frames, always prefer `.clear(); .extend_from_slice()` over manual sizing and explicit slices to leverage internal optimizations and bypass zero-filling.
