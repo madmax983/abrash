@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+## GLTF loader optimization
+**Learning:** `Iterator::collect::<Vec<_>>()` optimization failures on chained iterators (`map().collect()`) cause unnecessary intermediate allocations in GLTF loaders.
+**Action:** Replaced `.collect::<Vec<_>>()` with `.extend()` using a pre-allocated vector `Vec::with_capacity(iter.size_hint().0)`.
