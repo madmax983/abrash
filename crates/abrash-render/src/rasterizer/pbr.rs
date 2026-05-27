@@ -129,9 +129,16 @@ impl PbrGradients {
         w1: Vec3,
         w2: Vec3,
     ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-        let uz = p1.z - p0.z;
+        let base = crate::rasterizer::core::BaseTriangleDelta::compute(p0, p1, p2);
+        let ux = base.ux;
+        let uy = base.uy;
+        let uz = base.uz;
+        let vx = base.vx;
+        let vy = base.vy;
+        let vz = base.vz;
+        let nz = base.nz;
+        let inv_nz = base.inv_nz;
+
         let unx = n1.x - n0.x;
         let uny = n1.y - n0.y;
         let unz = n1.z - n0.z;
@@ -139,18 +146,12 @@ impl PbrGradients {
         let uwy = w1.y - w0.y;
         let uwz = w1.z - w0.z;
 
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        let vz = p2.z - p0.z;
         let vnx = n2.x - n0.x;
         let vny = n2.y - n0.y;
         let vnz = n2.z - n0.z;
         let vwx = w2.x - w0.x;
         let vwy = w2.y - w0.y;
         let vwz = w2.z - w0.z;
-
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
 
         let nx_z = uy * vz - uz * vy;
         let dz_dx = nx_z * inv_nz;

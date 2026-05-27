@@ -115,22 +115,23 @@ impl PerspectiveTextureGradients {
         v1: f32,
         v2: f32,
     ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-        let uz = p1.z - p0.z;
+        let base = crate::rasterizer::core::BaseTriangleDelta::compute(p0, p1, p2);
+        let ux = base.ux;
+        let uy = base.uy;
+        let uz = base.uz;
+        let vx = base.vx;
+        let vy = base.vy;
+        let vz = base.vz;
+        let nz = base.nz;
+        let inv_nz = base.inv_nz;
+
         let uq = q1 - q0;
         let uu = u1 - u0;
         let uv = v1 - v0;
 
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        let vz = p2.z - p0.z;
         let vq = q2 - q0;
         let vu = u2 - u0;
         let vv = v2 - v0;
-
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.000_1 { -1.0 / nz } else { 0.0 };
 
         let nx_z = uy * vz - uz * vy;
         let dz_dx = nx_z * inv_nz;
@@ -2323,9 +2324,16 @@ impl NormalMapGradients {
         l1: Vec3,
         l2: Vec3,
     ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-        let uz = p1.z - p0.z;
+        let base = crate::rasterizer::core::BaseTriangleDelta::compute(p0, p1, p2);
+        let ux = base.ux;
+        let uy = base.uy;
+        let uz = base.uz;
+        let vx = base.vx;
+        let vy = base.vy;
+        let vz = base.vz;
+        let nz = base.nz;
+        let inv_nz = base.inv_nz;
+
         let uq = q1 - q0;
         let uu = u1 - u0;
         let uv = v1 - v0;
@@ -2333,18 +2341,12 @@ impl NormalMapGradients {
         let uly = l1.y - l0.y;
         let ulz = l1.z - l0.z;
 
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        let vz = p2.z - p0.z;
         let vq = q2 - q0;
         let vu = u2 - u0;
         let vv = v2 - v0;
         let vlx = l2.x - l0.x;
         let vly = l2.y - l0.y;
         let vlz = l2.z - l0.z;
-
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
 
         let nx_z = uy * vz - uz * vy;
         let dz_dx = nx_z * inv_nz;
@@ -3545,9 +3547,16 @@ impl TexturedGouraudGradients {
         c1: Vec3,
         c2: Vec3,
     ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-        let uz = p1.z - p0.z;
+        let base = crate::rasterizer::core::BaseTriangleDelta::compute(p0, p1, p2);
+        let ux = base.ux;
+        let uy = base.uy;
+        let uz = base.uz;
+        let vx = base.vx;
+        let vy = base.vy;
+        let vz = base.vz;
+        let nz = base.nz;
+        let inv_nz = base.inv_nz;
+
         let uq = q1 - q0;
         let uu = u1 - u0;
         let uv = v1 - v0;
@@ -3555,18 +3564,12 @@ impl TexturedGouraudGradients {
         let ug = c1.y - c0.y;
         let ub = c1.z - c0.z;
 
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        let vz = p2.z - p0.z;
         let vq = q2 - q0;
         let vu = u2 - u0;
         let vv = v2 - v0;
         let vr = c2.x - c0.x;
         let vg = c2.y - c0.y;
         let vb = c2.z - c0.z;
-
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
 
         let nx_z = uy * vz - uz * vy;
         let dz_dx = nx_z * inv_nz;

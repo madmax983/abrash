@@ -30,7 +30,7 @@ use std::time::{Duration, Instant};
 /// ## Examples
 ///
 /// ```rust,no_run
-/// use abrash_render::platform::tui::TuiWindow;
+/// use crate::platform::tui::TuiWindow;
 ///
 /// // Create a new terminal window 80 characters wide by 40 high
 /// let mut window = TuiWindow::new("Retro Render", 80, 40)
