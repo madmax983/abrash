@@ -446,6 +446,9 @@ impl HiZBuffer {
         let max_y = aabb.max_y.max(0).min(self.height as i32 - 1);
 
         // Find starting level where AABB fits in ≤4 cells (2×2)
+        if max_x < min_x || max_y < min_y {
+            return true; // Degenerate AABB, assume visible to be conservative
+        }
         let aabb_width = (max_x - min_x + 1) as u32;
         let aabb_height = (max_y - min_y + 1) as u32;
         let start_level = self.find_covering_level(aabb_width, aabb_height);
@@ -1205,5 +1208,21 @@ mod tests {
 
         // Should be visible (conservative: equal depth treated as visible)
         assert!(hiz.is_coarse_bin_visible(bin_aabb));
+    }
+
+    #[test]
+    fn test_hiz_buffer_is_potentially_visible_degenerate_aabb() {
+        let mut hiz = HiZBuffer::new(800, 600);
+        hiz.valid = true;
+        let aabb = AABB3D {
+            min_x: 100,
+            max_x: 50, // Degenerate: max < min
+            min_y: 100,
+            max_y: 200,
+            min_depth: 10.0,
+            max_depth: 20.0,
+        };
+        // This used to panic with subtract with overflow, now it safely handles the inverted bounds
+        assert!(hiz.is_potentially_visible(aabb));
     }
 }

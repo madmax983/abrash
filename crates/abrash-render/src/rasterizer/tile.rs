@@ -3384,7 +3384,7 @@ impl TileRenderer {
                 };
 
                 // SAFETY: has_hiz is true, so hiz_buffer_ref is Some
-                if !unsafe { hiz_buffer_ref.unwrap_unchecked() }.is_potentially_visible(aabb) {
+                if !hiz_buffer_ref.expect("internal error: has_hiz is true but hiz_buffer_ref is None").is_potentially_visible(aabb) {
                     continue;
                 }
             }
@@ -3475,7 +3475,7 @@ impl TileRenderer {
                     };
 
                     // SAFETY: has_hiz is true, so hiz_buffer_ref is Some
-                    if !unsafe { ctx.hiz_buffer_ref.unwrap_unchecked() }
+                    if !ctx.hiz_buffer_ref.expect("internal error: has_hiz is true but hiz_buffer_ref is None")
                         .is_potentially_visible(bin_aabb)
                     {
                         visible = false;

@@ -933,7 +933,10 @@ impl GpuRenderer {
         encoder: &mut wgpu::CommandEncoder,
         prepared_draws: &[PreparedDraw],
     ) -> Result<(), String> {
-        let surface = self.refraction_surface.as_ref().unwrap();
+        let surface = self
+            .refraction_surface
+            .as_ref()
+            .expect("internal error: refraction_surface is None. Did you call prepare_frame?");
 
         let frame_bg = self
             .gpu
@@ -1032,9 +1035,17 @@ impl GpuRenderer {
         width: u32,
         height: u32,
     ) -> wgpu::TextureView {
-        let surface = self.refraction_surface.as_ref().unwrap();
-        let output = self.refraction_output.as_ref().unwrap();
-        let gbuffer = self.gbuffer.as_ref().unwrap();
+        let surface = self
+            .refraction_surface
+            .as_ref()
+            .expect("internal error: refraction_surface is None. Did you call prepare_frame?");
+        let output = self
+            .refraction_output
+            .as_ref()
+            .expect("internal error: refraction_output is None. Did you call prepare_frame?");
+        let gbuffer = self.gbuffer.as_ref().expect(
+            "internal error: gbuffer is None during execution. Did you call prepare_frame?",
+        );
 
         let vp = frame.camera.view * frame.camera.projection;
         let vp_flat: [f32; 16] = bytemuck::cast(vp.m);
@@ -1273,7 +1284,9 @@ impl GpuRenderer {
         encoder: &mut wgpu::CommandEncoder,
         prepared_draws: &[PreparedDraw],
     ) -> Result<(), String> {
-        let gbuffer = self.gbuffer.as_ref().unwrap();
+        let gbuffer = self.gbuffer.as_ref().expect(
+            "internal error: gbuffer is None during execution. Did you call prepare_frame?",
+        );
 
         // Create bind groups for G-Buffer pass
         let frame_bg = self
@@ -1429,7 +1442,9 @@ impl GpuRenderer {
         );
 
         // Ensure RT shadow output texture
-        let gbuffer = self.gbuffer.as_ref().unwrap();
+        let gbuffer = self.gbuffer.as_ref().expect(
+            "internal error: gbuffer is None during execution. Did you call prepare_frame?",
+        );
         if let Some(pass) = &mut self.rt_shadow_pass {
             pass.ensure_output(self.gpu.device(), gbuffer.width, gbuffer.height);
 
@@ -1450,8 +1465,12 @@ impl GpuRenderer {
     }
 
     fn encode_deferred_lighting(&self, encoder: &mut wgpu::CommandEncoder) {
-        let gbuffer = self.gbuffer.as_ref().unwrap();
-        let hdr = self.hdr_target.as_ref().unwrap();
+        let gbuffer = self.gbuffer.as_ref().expect(
+            "internal error: gbuffer is None during execution. Did you call prepare_frame?",
+        );
+        let hdr = self.hdr_target.as_ref().expect(
+            "internal error: hdr_target is None during execution. Did you call prepare_frame?",
+        );
 
         let gbuffer_bg = self.deferred_pass.create_gbuffer_bind_group(
             self.gpu.device(),
@@ -1465,7 +1484,10 @@ impl GpuRenderer {
         );
 
         // IBL bind group (uses precomputed IBL if environment is set)
-        let ibl_bg = self.ibl_bind_group.as_ref().unwrap();
+        let ibl_bg = self
+            .ibl_bind_group
+            .as_ref()
+            .expect("internal error: ibl_bind_group is None");
 
         self.deferred_pass.encode(
             encoder,
@@ -1481,7 +1503,9 @@ impl GpuRenderer {
         let Some(ref bind_group) = self.skybox_bind_group else {
             return; // No environment map set
         };
-        let hdr = self.hdr_target.as_ref().unwrap();
+        let hdr = self.hdr_target.as_ref().expect(
+            "internal error: hdr_target is None during execution. Did you call prepare_frame?",
+        );
 
         // Upload inverse view-projection for direction reconstruction
         let view_proj = frame.camera.view * frame.camera.projection;
@@ -1514,7 +1538,9 @@ impl GpuRenderer {
     ) -> wgpu::TextureView {
         if !self.taa_enabled {
             // No TAA — return a view of the HDR target
-            let hdr = self.hdr_target.as_ref().unwrap();
+            let hdr = self.hdr_target.as_ref().expect(
+                "internal error: hdr_target is None during execution. Did you call prepare_frame?",
+            );
             #[allow(clippy::used_underscore_binding)]
             let tex = &hdr._texture;
             return tex.create_view(&wgpu::TextureViewDescriptor::default());
@@ -1534,8 +1560,12 @@ impl GpuRenderer {
             .queue()
             .write_buffer(&self.taa_pass.params_buffer, 0, bytemuck::bytes_of(&params));
 
-        let hdr = self.hdr_target.as_ref().unwrap();
-        let gbuffer = self.gbuffer.as_ref().unwrap();
+        let hdr = self.hdr_target.as_ref().expect(
+            "internal error: hdr_target is None during execution. Did you call prepare_frame?",
+        );
+        let gbuffer = self.gbuffer.as_ref().expect(
+            "internal error: gbuffer is None during execution. Did you call prepare_frame?",
+        );
 
         let bg = self
             .gpu
@@ -1551,7 +1581,10 @@ impl GpuRenderer {
                     wgpu::BindGroupEntry {
                         binding: 1,
                         resource: wgpu::BindingResource::TextureView(
-                            self.taa_pass.history_view.as_ref().unwrap(),
+                            self.taa_pass
+                                .history_view
+                                .as_ref()
+                                .expect("internal error: taa history_view is None"),
                         ),
                     },
                     wgpu::BindGroupEntry {
@@ -1565,7 +1598,10 @@ impl GpuRenderer {
                     wgpu::BindGroupEntry {
                         binding: 4,
                         resource: wgpu::BindingResource::TextureView(
-                            self.taa_pass.output_view.as_ref().unwrap(),
+                            self.taa_pass
+                                .output_view
+                                .as_ref()
+                                .expect("internal error: taa output_view is None"),
                         ),
                     },
                 ],
@@ -1585,7 +1621,7 @@ impl GpuRenderer {
         self.taa_pass
             .output_texture
             .as_ref()
-            .unwrap()
+            .expect("internal error: output_texture is None")
             .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
@@ -1607,8 +1643,12 @@ impl GpuRenderer {
             return; // No-op: normal rendering
         }
 
-        let hdr = self.hdr_target.as_ref().unwrap();
-        let gbuffer = self.gbuffer.as_ref().unwrap();
+        let hdr = self.hdr_target.as_ref().expect(
+            "internal error: hdr_target is None during execution. Did you call prepare_frame?",
+        );
+        let gbuffer = self.gbuffer.as_ref().expect(
+            "internal error: gbuffer is None during execution. Did you call prepare_frame?",
+        );
 
         // Upload debug mode
         let params = crate::composition::CompositionParams {
@@ -1628,7 +1668,7 @@ impl GpuRenderer {
             .taa_pass
             .output_texture
             .as_ref()
-            .unwrap()
+            .expect("internal error: output_texture is None")
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         let bg = self
@@ -1687,7 +1727,9 @@ impl GpuRenderer {
         refraction_override: Option<&wgpu::TextureView>,
         output_view: &wgpu::TextureView,
     ) {
-        let hdr = self.hdr_target.as_ref().unwrap();
+        let hdr = self.hdr_target.as_ref().expect(
+            "internal error: hdr_target is None during execution. Did you call prepare_frame?",
+        );
 
         // Priority: refraction composite > debug/TAA output > raw HDR.
         let mut owned_taa_view = None;

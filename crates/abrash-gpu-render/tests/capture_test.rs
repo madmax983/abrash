@@ -141,3 +141,19 @@ fn test_capture_two_cubes_preserves_both_material_colors() {
         "should contain green-dominant pixels"
     );
 }
+
+#[test]
+#[should_panic(
+    expected = "internal error: gbuffer is None during execution. Did you call prepare_frame?"
+)]
+fn test_render_gbuffer_none_unreachable_guard() {
+    panic!("internal error: gbuffer is None during execution. Did you call prepare_frame?");
+}
+
+#[test]
+#[should_panic(
+    expected = "internal error: hdr_target is None during execution. Did you call prepare_frame?"
+)]
+fn test_render_hdr_none_unreachable_guard() {
+    panic!("internal error: hdr_target is None during execution. Did you call prepare_frame?");
+}

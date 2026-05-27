@@ -207,11 +207,11 @@ impl CpuRenderer {
                 .batches
                 .par_extend(frame.commands.par_iter().zip(ranges.as_slice()).map(
                     |(cmd, &(start, end))| {
-                        let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
+                        let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).expect("internal error: mesh should have been validated during sequential check");
                         let material = self
                             .materials
                             .get(from_material_handle(cmd.material))
-                            .unwrap();
+                            .expect("internal error: material should have been validated during sequential check");
 
                         let mvp = cmd.transform * view_proj;
                         let mesh = &cpu_mesh.mesh;
