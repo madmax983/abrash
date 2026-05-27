@@ -125,3 +125,14 @@
 1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
 2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors.
 3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
+
+## [Decoupling Scene from TileRenderer]
+**Tangle:** `Scene::render` was directly coupled to `TileRenderer` and relied heavily on the hidden, internal static implementation detail `CPU_RENDERER_DRAW_LIST` defined in `cpu_renderer.rs`. This broke encapsulation, violated unidirectional dependencies between modules, and tightly coupled the generic scene graph structure to the scanline/tile rasterization backend.
+
+**Blueprint:**
+1.  **Removed Coupling:** Deleted `pub fn render` from `crates/abrash-render/src/scene.rs` entirely.
+2.  **Explicit Abstraction:** Forced callers (tests, examples, benchmarks) to adopt a backend-agnostic flow using the existing `DrawList` abstraction. They now call `scene.extract_into(&mut draw_list)` to decouple the Scene geometry extraction from the actual submission logic (`renderer.submit_mesh`).
+3.  **Result:** Cleanly severed the cyclical dependency. The `Scene` is now purely a container and extraction mechanism for geometry, oblivious to how (or what) renderer ultimately processes the `DrawList`.
+
+**Stability:** Enforces proper rendering abstraction via `DrawList`. Restores `scene.rs` to its correct role in the structural graph without leaking `TileRenderer` or thread-local storage details.
+**Verification:** Build workspace and test suites to verify `Scene` decoupling functions effectively via manual extraction.
