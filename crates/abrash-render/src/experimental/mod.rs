@@ -71,6 +71,7 @@ pub mod lsystem;
 pub mod magnifying_glass;
 pub mod mandelbrot;
 pub mod melt;
+pub mod mesh_steg;
 pub mod metaballs;
 pub mod mode7;
 pub mod modifiers;
