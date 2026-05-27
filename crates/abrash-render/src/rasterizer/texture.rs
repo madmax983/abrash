@@ -703,8 +703,8 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
         let dv_step = _mm256_slli_epi32(dv_fix_vec, 3);
 
         let w_vec = _mm256_set1_epi32(texture.width as i32);
-        let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
-        let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
+        let max_x = _mm256_set1_epi32((texture.width.saturating_sub(2).max(0)) as i32);
+        let max_y = _mm256_set1_epi32((texture.height.saturating_sub(2).max(0)) as i32);
         let zero_i = _mm256_setzero_si256();
         let one_i = _mm256_set1_epi32(1);
 
@@ -1039,8 +1039,8 @@ pub(crate) unsafe fn draw_span_nearest_simd(
         let ff_mask_shifted = _mm256_set1_epi32(0xFF00_0000u32 as i32);
 
         let w_vec = _mm256_set1_epi32(texture.width as i32);
-        let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
-        let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
+        let max_x = _mm256_set1_epi32((texture.width.saturating_sub(2).max(0)) as i32);
+        let max_y = _mm256_set1_epi32((texture.height.saturating_sub(2).max(0)) as i32);
         let zero_i = _mm256_setzero_si256();
         let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift));
 
@@ -1224,8 +1224,8 @@ unsafe fn draw_scanline_textured_perspective_simd(
         let offset_neg_0_5 = _mm256_set1_ps(-128.0); // -0.5 * 256
 
         let w_vec = _mm256_set1_epi32(texture.width as i32);
-        let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
-        let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
+        let max_x = _mm256_set1_epi32((texture.width.saturating_sub(2).max(0)) as i32);
+        let max_y = _mm256_set1_epi32((texture.height.saturating_sub(2).max(0)) as i32);
         let zero_i = _mm256_setzero_si256();
         let one_i = _mm256_set1_epi32(1);
         let const_256_i = _mm256_set1_epi32(256);
@@ -2608,8 +2608,8 @@ unsafe fn draw_scanline_normal_mapped_simd(
                 } else {
                     // Generic path with clamping
                     let w_vec = _mm256_set1_epi32(texture.width as i32);
-                    let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
-                    let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
+                    let max_x = _mm256_set1_epi32((texture.width.saturating_sub(2).max(0)) as i32);
+                    let max_y = _mm256_set1_epi32((texture.height.saturating_sub(2).max(0)) as i32);
                     let zero_i = _mm256_setzero_si256();
 
                     // clamp(val, 0, max)
@@ -2639,8 +2639,8 @@ unsafe fn draw_scanline_normal_mapped_simd(
                             _mm256_or_si256(_mm256_sllv_epi32(v_masked, shift_vec), u_masked)
                         } else {
                             let w_vec = _mm256_set1_epi32(normal_map.width as i32);
-                            let max_x = _mm256_set1_epi32((normal_map.width - 1) as i32);
-                            let max_y = _mm256_set1_epi32((normal_map.height - 1) as i32);
+                            let max_x = _mm256_set1_epi32((normal_map.width.saturating_sub(2).max(0)) as i32);
+                            let max_y = _mm256_set1_epi32((normal_map.height.saturating_sub(2).max(0)) as i32);
                             let zero_i = _mm256_setzero_si256();
                             let u_clamped = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
                             let v_clamped = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
@@ -3793,8 +3793,8 @@ unsafe fn draw_span_textured_gouraud_simd(
         let dv_step = _mm256_slli_epi32(dv_fix_vec, 3);
 
         let w_vec = _mm256_set1_epi32(texture.width as i32);
-        let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
-        let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
+        let max_x = _mm256_set1_epi32((texture.width.saturating_sub(2).max(0)) as i32);
+        let max_y = _mm256_set1_epi32((texture.height.saturating_sub(2).max(0)) as i32);
         let zero_i = _mm256_setzero_si256();
         let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift));
         let is_pot = texture.width_shift < 32;
@@ -3988,8 +3988,8 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
         let dv_step = _mm256_slli_epi32(dv_fix_vec, 3);
 
         let w_vec = _mm256_set1_epi32(texture.width as i32);
-        let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
-        let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
+        let max_x = _mm256_set1_epi32((texture.width.saturating_sub(2).max(0)) as i32);
+        let max_y = _mm256_set1_epi32((texture.height.saturating_sub(2).max(0)) as i32);
         let zero_i = _mm256_setzero_si256();
         let one_i = _mm256_set1_epi32(1);
 
