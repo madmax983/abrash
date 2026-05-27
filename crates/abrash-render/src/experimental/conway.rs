@@ -117,35 +117,57 @@ pub fn apply_conway(fb: &mut Framebuffer, config: &ConwayConfig) {
             }
 
             // 2. Simulation Step: Apply Conway's rules
+            // ⚡ Bolt: Unrolled Moore neighborhood loops and replaced modulo arithmetic (`.rem_euclid()`)
+            // with explicit conditional boundary wrapping to eliminate expensive math and loop overhead.
             for r in 0..rows {
+                let prev_r = if r == 0 { rows - 1 } else { r - 1 };
+                let next_r = if r == rows - 1 { 0 } else { r + 1 };
+
+                let prev_row_offset = prev_r * cols;
+                let curr_row_offset = r * cols;
+                let next_row_offset = next_r * cols;
+
                 for c in 0..cols {
+                    let prev_c = if c == 0 { cols - 1 } else { c - 1 };
+                    let next_c = if c == cols - 1 { 0 } else { c + 1 };
+
                     let mut live_neighbors = 0;
 
-                    // Check the 8 neighbors (Moore neighborhood) with wrap-around (toroidal)
-                    for dr in -1..=1 {
-                        for dc in -1..=1 {
-                            if dr == 0 && dc == 0 {
-                                continue;
-                            }
-
-                            // Wrap around boundaries
-                            let nr = (r as isize + dr).rem_euclid(rows as isize) as usize;
-                            let nc = (c as isize + dc).rem_euclid(cols as isize) as usize;
-
-                            if curr_grid[nr * cols + nc] {
-                                live_neighbors += 1;
-                            }
-                        }
+                    if curr_grid[prev_row_offset + prev_c] {
+                        live_neighbors += 1;
+                    }
+                    if curr_grid[prev_row_offset + c] {
+                        live_neighbors += 1;
+                    }
+                    if curr_grid[prev_row_offset + next_c] {
+                        live_neighbors += 1;
                     }
 
-                    let is_alive = curr_grid[r * cols + c];
+                    if curr_grid[curr_row_offset + prev_c] {
+                        live_neighbors += 1;
+                    }
+                    if curr_grid[curr_row_offset + next_c] {
+                        live_neighbors += 1;
+                    }
+
+                    if curr_grid[next_row_offset + prev_c] {
+                        live_neighbors += 1;
+                    }
+                    if curr_grid[next_row_offset + c] {
+                        live_neighbors += 1;
+                    }
+                    if curr_grid[next_row_offset + next_c] {
+                        live_neighbors += 1;
+                    }
+
+                    let is_alive = curr_grid[curr_row_offset + c];
                     let next_alive = if is_alive {
                         live_neighbors == 2 || live_neighbors == 3
                     } else {
                         live_neighbors == 3
                     };
 
-                    next_grid[r * cols + c] = next_alive;
+                    next_grid[curr_row_offset + c] = next_alive;
                 }
             }
 
