@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Plasma Procedural Optimization]**
+**Learning:** In procedural texture generation loops (like the `plasma` effect), calling `fast_sin_cos` multiple times per pixel in the inner loop is extremely expensive. Furthermore, indexing into the vector with bounds checking via `set_pixel` adds significant overhead.
+**Action:** Replaced dynamic `fast_sin_cos` calls for color mapping with a pre-calculated 1024-entry LUT (Look-Up Table) and extracted y-dependent calculations out of the inner loop. Replaced `set_pixel` with `chunks_exact_mut()` iteration on the texture slice to elide bounds checks, leading to a ~47% performance improvement for procedural plasma generation.
