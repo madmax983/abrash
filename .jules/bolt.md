@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Iterator Capacity Hint Refactoring]**
+**Learning:** `Iterator::collect::<Vec<_>>()` optimization failures on chained iterators (`map().collect()`) can cause unnecessary intermediate dynamic allocations. Additionally, types implementing `impl IntoIterator` do not provide a `.len()` method.
+**Action:** Replace `.collect::<Vec<_>>()` with explicitly pre-allocated `Vec::with_capacity(iter.size_hint().0)` followed by `.extend()`. When dealing with `impl IntoIterator`, call `.into_iter()` first to access `.size_hint().0`.
