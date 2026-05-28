@@ -71,7 +71,16 @@ fn bench_scene_render(c: &mut Criterion) {
         b.iter(|| {
             fb.clear(0xFF00_0000);
             zb.clear();
-            scene.render(&mut renderer, &mut fb, &mut zb);
+            let draw_list = scene.extract();
+            renderer.begin_frame();
+            for batch in &draw_list.batches {
+                renderer.submit_mesh(
+                    &batch.indices,
+                    &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
+                    batch.color,
+                );
+            }
+            renderer.end_frame(&mut fb, &mut zb);
         });
     });
 }
@@ -100,7 +109,8 @@ fn build_scene(width: u32, height: u32) -> Scene {
 fn bench_extract_only(c: &mut Criterion) {
     let scene = build_scene(640, 480);
     c.bench_function("scene_extract_only_100_objects", |b| {
-        b.iter(|| scene.extract());
+        let mut draw_list = abrash::render_api::draw_list::DrawList::with_capacity(abrash::render_api::frame::FrameCamera::new(scene.camera.view, scene.camera.proj), scene.objects.len(), scene.objects.len() * 3, 0);
+        b.iter(|| scene.extract_into(&mut draw_list));
     });
 }
 
@@ -171,9 +181,19 @@ fn bench_scene_render_integrated_clear(c: &mut Criterion) {
     renderer.set_clear_color(Some(0xFF00_0000));
     let mut fb = Framebuffer::new(width, height).unwrap();
     let mut zb = ZBuffer::new(width, height).unwrap();
+    let mut draw_list = abrash::render_api::draw_list::DrawList::with_capacity(abrash::render_api::frame::FrameCamera::new(scene.camera.view, scene.camera.proj), scene.objects.len(), scene.objects.len() * 3, 0);
     c.bench_function("scene_render_integrated_clear_100_objects", |b| {
         b.iter(|| {
-            scene.render(&mut renderer, &mut fb, &mut zb);
+            scene.extract_into(&mut draw_list);
+            renderer.begin_frame();
+            for batch in &draw_list.batches {
+                renderer.submit_mesh(
+                    &batch.indices,
+                    &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
+                    batch.color,
+                );
+            }
+            renderer.end_frame(&mut fb, &mut zb);
         });
     });
 }
@@ -237,8 +257,20 @@ fn bench_1080p_20k(c: &mut Criterion) {
     renderer.set_clear_color(Some(0xFF00_0000));
     let mut fb = Framebuffer::new(w, h).unwrap();
     let mut zb = ZBuffer::new(w, h).unwrap();
+    let mut draw_list = abrash::render_api::draw_list::DrawList::with_capacity(abrash::render_api::frame::FrameCamera::new(scene.camera.view, scene.camera.proj), scene.objects.len(), scene.objects.len() * 3, 0);
     c.bench_function("1080p_20k_tris_100obj", |b| {
-        b.iter(|| scene.render(&mut renderer, &mut fb, &mut zb));
+        b.iter(|| {
+            scene.extract_into(&mut draw_list);
+            renderer.begin_frame();
+            for batch in &draw_list.batches {
+                renderer.submit_mesh(
+                    &batch.indices,
+                    &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
+                    batch.color,
+                );
+            }
+            renderer.end_frame(&mut fb, &mut zb);
+        });
     });
 }
 
@@ -250,8 +282,20 @@ fn bench_1080p_80k(c: &mut Criterion) {
     renderer.set_clear_color(Some(0xFF00_0000));
     let mut fb = Framebuffer::new(w, h).unwrap();
     let mut zb = ZBuffer::new(w, h).unwrap();
+    let mut draw_list = abrash::render_api::draw_list::DrawList::with_capacity(abrash::render_api::frame::FrameCamera::new(scene.camera.view, scene.camera.proj), scene.objects.len(), scene.objects.len() * 3, 0);
     c.bench_function("1080p_80k_tris_400obj", |b| {
-        b.iter(|| scene.render(&mut renderer, &mut fb, &mut zb));
+        b.iter(|| {
+            scene.extract_into(&mut draw_list);
+            renderer.begin_frame();
+            for batch in &draw_list.batches {
+                renderer.submit_mesh(
+                    &batch.indices,
+                    &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
+                    batch.color,
+                );
+            }
+            renderer.end_frame(&mut fb, &mut zb);
+        });
     });
 }
 
@@ -263,8 +307,20 @@ fn bench_4k_20k(c: &mut Criterion) {
     renderer.set_clear_color(Some(0xFF00_0000));
     let mut fb = Framebuffer::new(w, h).unwrap();
     let mut zb = ZBuffer::new(w, h).unwrap();
+    let mut draw_list = abrash::render_api::draw_list::DrawList::with_capacity(abrash::render_api::frame::FrameCamera::new(scene.camera.view, scene.camera.proj), scene.objects.len(), scene.objects.len() * 3, 0);
     c.bench_function("4k_20k_tris_100obj", |b| {
-        b.iter(|| scene.render(&mut renderer, &mut fb, &mut zb));
+        b.iter(|| {
+            scene.extract_into(&mut draw_list);
+            renderer.begin_frame();
+            for batch in &draw_list.batches {
+                renderer.submit_mesh(
+                    &batch.indices,
+                    &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
+                    batch.color,
+                );
+            }
+            renderer.end_frame(&mut fb, &mut zb);
+        });
     });
 }
 
@@ -276,8 +332,20 @@ fn bench_1080p_80k_dense(c: &mut Criterion) {
     renderer.set_clear_color(Some(0xFF00_0000));
     let mut fb = Framebuffer::new(w, h).unwrap();
     let mut zb = ZBuffer::new(w, h).unwrap();
+    let mut draw_list = abrash::render_api::draw_list::DrawList::with_capacity(abrash::render_api::frame::FrameCamera::new(scene.camera.view, scene.camera.proj), scene.objects.len(), scene.objects.len() * 3, 0);
     c.bench_function("1080p_80k_tris_dense_100obj", |b| {
-        b.iter(|| scene.render(&mut renderer, &mut fb, &mut zb));
+        b.iter(|| {
+            scene.extract_into(&mut draw_list);
+            renderer.begin_frame();
+            for batch in &draw_list.batches {
+                renderer.submit_mesh(
+                    &batch.indices,
+                    &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
+                    batch.color,
+                );
+            }
+            renderer.end_frame(&mut fb, &mut zb);
+        });
     });
 }
 

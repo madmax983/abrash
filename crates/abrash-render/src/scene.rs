@@ -59,7 +59,12 @@
 //! scene.add_object(object);
 //!
 //! // 5. Render
-//! scene.render(&mut renderer, &mut fb, &mut zb);
+//! let draw_list = scene.extract();
+//! renderer.begin_frame();
+//! for batch in &draw_list.batches {
+//!     renderer.submit_mesh(&batch.indices, &draw_list.vertices[batch.vertex_range.clone()], batch.color);
+//! }
+//! renderer.end_frame(&mut fb, &mut zb);
 //! ```
 
 use crate::culling::Frustum;
@@ -313,32 +318,6 @@ impl Scene {
         });
     }
 
-    /// Render the scene using the provided renderer.
-    ///
-    /// Internally calls [`extract`](Self::extract) to build a [`DrawList`], then executes
-    /// it through the tile renderer. Use `extract` directly when you need to inspect
-    /// or manipulate the draw list before rasterization.
-    ///
-    /// # Performance
-    ///
-    /// *   **Culling**: Objects completely outside the frustum are skipped entirely.
-    /// *   **Batching**: Vertex transformations use thread-local scratch buffers.
-    pub fn render(&self, renderer: &mut TileRenderer, fb: &mut Framebuffer, zb: &mut ZBuffer) {
-        crate::render_api::cpu_renderer::CPU_RENDERER_DRAW_LIST.with(|dl_cell| {
-            let mut draw_list = dl_cell.borrow_mut();
-            self.extract_into(&mut draw_list);
-
-            renderer.begin_frame();
-            for batch in &draw_list.batches {
-                renderer.submit_mesh(
-                    &batch.indices,
-                    &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
-                    batch.color,
-                );
-            }
-            renderer.end_frame(fb, zb);
-        });
-    }
 }
 
 #[cfg(test)]

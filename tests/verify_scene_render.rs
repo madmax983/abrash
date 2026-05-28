@@ -41,7 +41,16 @@ fn test_scene_render() {
     scene.add_object(object);
 
     // 5. Render
-    scene.render(&mut renderer, &mut fb, &mut zb);
+    let draw_list = scene.extract();
+    renderer.begin_frame();
+    for batch in &draw_list.batches {
+        renderer.submit_mesh(
+            &batch.indices,
+            &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
+            batch.color,
+        );
+    }
+    renderer.end_frame(&mut fb, &mut zb);
 
     // 6. Verify
     // Check center pixel

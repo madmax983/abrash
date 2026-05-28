@@ -125,3 +125,9 @@
 1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
 2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors.
 3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
+## [Decoupling Scene from TileRenderer]
+**Tangle:** The `Scene` struct inside `crates/abrash-render/src/scene.rs` was tightly coupled to the low-level `TileRenderer` through a direct `scene.render(&mut renderer)` method. This coupled the high-level scene graph logic to a specific rendering pipeline, making it harder to abstract over different renderers or inspect the generated draw lists. It also used a thread-local variable, causing re-entrancy and multithreading bottlenecks.
+**Blueprint:**
+1. **Removed Tight Coupling:** Deleted `Scene::render` entirely, along with its associated thread-local `CPU_RENDERER_DRAW_LIST`.
+2. **Data-Driven Handoff:** Mandated that callers use the existing `Scene::extract()` or `Scene::extract_into()` to generate an intermediate, backend-agnostic `DrawList`.
+3. **Refactored Callers:** Updated all benchmarks, tests, and examples to manually extract the `DrawList` and submit it explicitly to the `TileRenderer`'s `begin_frame/submit_mesh/end_frame` API.
