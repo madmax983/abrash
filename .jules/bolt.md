@@ -232,3 +232,16 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+## Optimization Attempt: Eliminating Iterator Capacity Reallocations
+
+**What**: Optimize `.collect::<Vec<_>>()` calls in hot or repeated execution paths to strictly pre-allocated capacities.
+
+**Why**: Relying on iterator optimization hints failing can lead to multiple internal dynamic array reallocations (via `realloc` syscalls) for statically sized lists like DCT arrays, Jitter Grids, or Matrix Transforms.
+
+**Impact**:
+Replaced chained mapping with `.collect()` with `Vec::with_capacity(size)` followed by `.extend()`.
+Tests confirm execution parity while saving allocator overhead.
+
+**Measurement**:
+- Before: Implicit allocations across math utility functions (`transform_batch`, `dct_ii`, `idct_ii`, `stratified_jitter_2d`).
+- After: Explicit pre-allocation capacity matching exact requirements, zero internal reallocation.
