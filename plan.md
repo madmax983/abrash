@@ -1,11 +1,5 @@
-1.  **Refactor Heat Vision to Fixed Point Math**
-    - The current `heat_vision.rs` uses floating-point math (`(normalized - 0.25) * 4.0`, etc.) inside a hot pixel loop to map depths to colors.
-    - We will follow the `[Posterize Float to Integer Math Optimization]` learning from `.jules/bolt.md` to map `0.0..1.0` depth range into integer `0..255`, and calculate RGB entirely using integer math (`t * 255 / scale`, etc.).
-    - We will pre-calculate `min_z` and `max_z` like before, calculate a `z_range` integer mapping multiplier, and use simple `(depth - min_z) * scale` to avoid floats in the main loop.
-2.  **Ensure Correctness**
-    - Ensure all existing tests in `heat_vision.rs` pass.
-3.  **Run Benchmark**
-    - Ensure `cargo bench --bench heat_vision_bench` runs successfully and shows performance improvements.
-4.  **Complete pre commit steps**
-    - Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done.
-5.  **Submit PR**
+1. **Target**: `crates/abrash-render/src/rasterizer/tile.rs` and `crates/abrash-core/src/hiz_buffer.rs`.
+2. **Risk**: The "frustum culling fallback logic" and negative bounds issue mentioned in the Sentry log needs explicit testing. The `HiZBuffer` has logic `if bin_aabb.max_x < 0 || bin_aabb.min_x >= self.width as i32` inside `is_coarse_bin_visible` and `is_potentially_visible`.
+3. I will inject explicit `#[test]` modules containing edge case testing into `crates/abrash-core/src/hiz_buffer.rs` using `replace_with_git_merge_diff` to add the exact tests for entirely offscreen AABBs, matching Sentry's journal insight: "Always proactively write tests with explicitly constructed out-of-bounds geometries to force execution into these fallback blocks." Wait, I already checked `is_potentially_visible` has some of this logic, but wait, looking closely at `crates/abrash-core/src/hiz_buffer.rs`: there are tests `test_coarse_bin_offscreen_returns_false`, but they only test positive offscreen (e.g. `min_x: 2000`). I should test *negative* offscreen (e.g., `max_x: -10`).
+4. Additionally, I need to complete the pre-commit steps.
+5. And then I will submit the PR.

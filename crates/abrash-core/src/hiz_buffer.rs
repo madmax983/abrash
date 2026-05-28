@@ -781,7 +781,7 @@ mod tests {
         let zb = ZBuffer::new(800, 600).unwrap();
         hiz.build_pyramid(&zb);
 
-        // AABB completely offscreen (negative coords)
+        // AABB completely offscreen (negative coords both axes)
         let aabb = AABB3D {
             min_x: -100,
             max_x: -10,
@@ -791,9 +791,42 @@ mod tests {
             max_depth: 10.0,
         };
 
-        assert!(!hiz.is_potentially_visible(aabb));
+        assert!(
+            !hiz.is_potentially_visible(aabb),
+            "Negative XY offscreen should be culled"
+        );
 
-        // AABB beyond screen bounds
+        // AABB offscreen left (only X negative)
+        let aabb = AABB3D {
+            min_x: -100,
+            max_x: -10,
+            min_y: 10,
+            max_y: 50,
+            min_depth: 1.0,
+            max_depth: 10.0,
+        };
+
+        assert!(
+            !hiz.is_potentially_visible(aabb),
+            "Negative X offscreen should be culled"
+        );
+
+        // AABB offscreen top (only Y negative)
+        let aabb = AABB3D {
+            min_x: 10,
+            max_x: 50,
+            min_y: -100,
+            max_y: -10,
+            min_depth: 1.0,
+            max_depth: 10.0,
+        };
+
+        assert!(
+            !hiz.is_potentially_visible(aabb),
+            "Negative Y offscreen should be culled"
+        );
+
+        // AABB beyond screen bounds (both positive)
         let aabb = AABB3D {
             min_x: 900,
             max_x: 1000,
@@ -803,7 +836,40 @@ mod tests {
             max_depth: 10.0,
         };
 
-        assert!(!hiz.is_potentially_visible(aabb));
+        assert!(
+            !hiz.is_potentially_visible(aabb),
+            "Positive XY offscreen should be culled"
+        );
+
+        // AABB beyond screen bounds right (only X positive)
+        let aabb = AABB3D {
+            min_x: 900,
+            max_x: 1000,
+            min_y: 10,
+            max_y: 50,
+            min_depth: 1.0,
+            max_depth: 10.0,
+        };
+
+        assert!(
+            !hiz.is_potentially_visible(aabb),
+            "Positive X offscreen should be culled"
+        );
+
+        // AABB beyond screen bounds bottom (only Y positive)
+        let aabb = AABB3D {
+            min_x: 10,
+            max_x: 50,
+            min_y: 700,
+            max_y: 800,
+            min_depth: 1.0,
+            max_depth: 10.0,
+        };
+
+        assert!(
+            !hiz.is_potentially_visible(aabb),
+            "Positive Y offscreen should be culled"
+        );
     }
 
     #[test]
@@ -1007,7 +1073,7 @@ mod tests {
         let mut hiz = HiZBuffer::new(1920, 1080);
         hiz.build_pyramid(&zb);
 
-        // Bin completely offscreen (negative coords)
+        // Bin completely offscreen (negative coords both axes)
         let bin_aabb = AABB3D {
             min_x: -200,
             max_x: -72,
@@ -1017,9 +1083,42 @@ mod tests {
             max_depth: 15.0,
         };
 
-        assert!(!hiz.is_coarse_bin_visible(bin_aabb));
+        assert!(
+            !hiz.is_coarse_bin_visible(bin_aabb),
+            "Negative XY offscreen should be culled"
+        );
 
-        // Bin beyond screen bounds
+        // Bin offscreen left (only X negative)
+        let bin_aabb = AABB3D {
+            min_x: -200,
+            max_x: -72,
+            min_y: 100,
+            max_y: 227,
+            min_depth: 5.0,
+            max_depth: 15.0,
+        };
+
+        assert!(
+            !hiz.is_coarse_bin_visible(bin_aabb),
+            "Negative X offscreen should be culled"
+        );
+
+        // Bin offscreen top (only Y negative)
+        let bin_aabb = AABB3D {
+            min_x: 100,
+            max_x: 227,
+            min_y: -200,
+            max_y: -72,
+            min_depth: 5.0,
+            max_depth: 15.0,
+        };
+
+        assert!(
+            !hiz.is_coarse_bin_visible(bin_aabb),
+            "Negative Y offscreen should be culled"
+        );
+
+        // Bin beyond screen bounds (both positive)
         let bin_aabb = AABB3D {
             min_x: 2000,
             max_x: 2127,
@@ -1029,7 +1128,40 @@ mod tests {
             max_depth: 15.0,
         };
 
-        assert!(!hiz.is_coarse_bin_visible(bin_aabb));
+        assert!(
+            !hiz.is_coarse_bin_visible(bin_aabb),
+            "Positive XY offscreen should be culled"
+        );
+
+        // Bin beyond screen bounds right (only X positive)
+        let bin_aabb = AABB3D {
+            min_x: 2000,
+            max_x: 2127,
+            min_y: 100,
+            max_y: 227,
+            min_depth: 5.0,
+            max_depth: 15.0,
+        };
+
+        assert!(
+            !hiz.is_coarse_bin_visible(bin_aabb),
+            "Positive X offscreen should be culled"
+        );
+
+        // Bin beyond screen bounds bottom (only Y positive)
+        let bin_aabb = AABB3D {
+            min_x: 100,
+            max_x: 227,
+            min_y: 1200,
+            max_y: 1327,
+            min_depth: 5.0,
+            max_depth: 15.0,
+        };
+
+        assert!(
+            !hiz.is_coarse_bin_visible(bin_aabb),
+            "Positive Y offscreen should be culled"
+        );
     }
 
     #[test]

@@ -51,3 +51,6 @@
 **[Validating Time/Tick Loop Logic Without Flakiness]**
 **Learning:** Testing frame-time loops using `std::thread::sleep` introduces severe flakiness because CI runners or test threads can delay execution unpredictably. Instead of testing "real" time elapsed, test the internal response to elapsed time by directly simulating it on the structure (e.g. `timer.last_time = Instant::now()`, `timer.accumulator += 50ms`).
 **Action:** Never use `std::thread::sleep` for unit testing timing systems. Always manipulate the simulated time state directly to test logic boundaries.
+## [HiZBuffer Offscreen Culling]
+**Learning:** The HiZBuffer bounding box logic for `is_potentially_visible` and `is_coarse_bin_visible` uses an early-exit check (`if bin_aabb.max_x < 0 || ...`) for off-screen AABBs, but previously only positive out-of-bounds variants were tested. Negative out-of-bounds bounding boxes must be explicitly verified to guarantee that fallback culling logic functions safely across all axes, avoiding unpredictable HiZ iterations.
+**Action:** When validating spatial bounding or binning logic, ensure test suites cover all orthogonal combinations of negative and positive offscreen bounds for robustness.
