@@ -5,17 +5,6 @@ use abrash_core::quat::Quat;
 
 use crate::skeleton::JointId;
 
-/// Which property of a joint is being animated.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ChannelTarget {
-    /// The 3D position (translation) of the joint.
-    Translation,
-    /// The 3D rotation of the joint, stored as a Quaternion.
-    Rotation,
-    /// The 3D scale of the joint.
-    Scale,
-}
-
 /// Typed keyframe values matching the target property.
 #[derive(Debug, Clone)]
 pub enum ChannelValues {
@@ -49,8 +38,6 @@ impl ChannelValues {
 pub struct AnimationChannel {
     /// The ID of the joint this channel animates.
     pub joint: JointId,
-    /// The property of the joint being animated (e.g., Translation, Rotation, or Scale).
-    pub target: ChannelTarget,
     /// Timestamps in seconds, sorted ascending.
     pub timestamps: Vec<f32>,
     /// Values at each timestamp (same length as timestamps).
@@ -105,7 +92,7 @@ impl AnimationChannel {
 /// # Examples
 ///
 /// ```
-/// use abrash_skeletal::clip::{AnimationClip, AnimationChannel, ChannelTarget, ChannelValues};
+/// use abrash_skeletal::clip::{AnimationClip, AnimationChannel, ChannelValues};
 /// use abrash_skeletal::skeleton::JointId;
 /// use abrash_core::math::Vec3;
 ///
@@ -115,7 +102,7 @@ impl AnimationChannel {
 ///     channels: vec![
 ///         AnimationChannel {
 ///             joint: JointId(0),
-///             target: ChannelTarget::Translation,
+///
 ///             timestamps: vec![0.0, 0.5, 1.0],
 ///             values: ChannelValues::Translation(vec![
 ///                 Vec3::new(0.0, 0.0, 0.0),
@@ -146,7 +133,6 @@ mod tests {
     fn make_valid_translation_channel() -> AnimationChannel {
         AnimationChannel {
             joint: JointId(0),
-            target: ChannelTarget::Translation,
             timestamps: vec![0.0, 1.0, 2.0],
             values: ChannelValues::Translation(vec![
                 Vec3::ZERO,
@@ -159,7 +145,6 @@ mod tests {
     fn make_valid_rotation_channel() -> AnimationChannel {
         AnimationChannel {
             joint: JointId(1),
-            target: ChannelTarget::Rotation,
             timestamps: vec![0.0, 1.0],
             values: ChannelValues::Rotation(vec![
                 Quat::identity(),
@@ -184,7 +169,6 @@ mod tests {
     fn valid_scale_channel_passes() {
         let channel = AnimationChannel {
             joint: JointId(0),
-            target: ChannelTarget::Scale,
             timestamps: vec![0.0, 0.5],
             values: ChannelValues::Scale(vec![Vec3::ONE, Vec3::new(2.0, 2.0, 2.0)]),
         };
@@ -195,7 +179,6 @@ mod tests {
     fn unsorted_timestamps_fail() {
         let channel = AnimationChannel {
             joint: JointId(0),
-            target: ChannelTarget::Translation,
             timestamps: vec![0.0, 2.0, 1.0], // out of order
             values: ChannelValues::Translation(vec![Vec3::ZERO, Vec3::ONE, Vec3::ONE]),
         };
@@ -207,7 +190,6 @@ mod tests {
     fn length_mismatch_fails() {
         let channel = AnimationChannel {
             joint: JointId(0),
-            target: ChannelTarget::Translation,
             timestamps: vec![0.0, 1.0, 2.0],
             values: ChannelValues::Translation(vec![Vec3::ZERO, Vec3::ONE]), // only 2 values
         };
@@ -219,7 +201,6 @@ mod tests {
     fn fewer_than_two_keyframes_fails() {
         let channel = AnimationChannel {
             joint: JointId(0),
-            target: ChannelTarget::Translation,
             timestamps: vec![0.0],
             values: ChannelValues::Translation(vec![Vec3::ZERO]),
         };
@@ -231,7 +212,6 @@ mod tests {
     fn empty_channel_fails() {
         let channel = AnimationChannel {
             joint: JointId(0),
-            target: ChannelTarget::Translation,
             timestamps: vec![],
             values: ChannelValues::Translation(vec![]),
         };
