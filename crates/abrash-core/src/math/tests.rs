@@ -519,6 +519,20 @@ mod tests {
     }
 
     #[test]
+    fn test_mat2_transform_batch_into() {
+        use std::f32::consts::PI;
+        let m = Mat2::rotation(PI);
+        let vertices = vec![Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)];
+        let mut out = Vec::new();
+        m.transform_batch_into(&vertices, &mut out);
+        // Rotate 180 degrees -> (-x, -y)
+        assert!((out[0].x - (-1.0)).abs() < 1e-6);
+        assert!(out[0].y.abs() < 1e-6);
+        assert!(out[1].x.abs() < 1e-6);
+        assert!((out[1].y - (-1.0)).abs() < 1e-6);
+    }
+
+    #[test]
     fn test_mat2_transform_in_place() {
         use std::f32::consts::PI;
         let m = Mat2::rotation(PI);
