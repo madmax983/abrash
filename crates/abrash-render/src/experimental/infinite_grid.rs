@@ -69,6 +69,9 @@ pub fn apply_infinite_grid(fb: &mut Framebuffer, config: &InfiniteGridConfig) {
     #[cfg(not(feature = "parallel"))]
     let row_iter = pixels.chunks_exact_mut(width).enumerate();
 
+    let inv_half_width = 1.0 / half_width;
+    let inv_grid_spacing = 1.0 / config.grid_spacing;
+
     row_iter.for_each(|(y, row)| {
         let y_f32 = y as f32;
         // Map y to range [1.0, -1.0]
@@ -77,9 +80,7 @@ pub fn apply_infinite_grid(fb: &mut Framebuffer, config: &InfiniteGridConfig) {
         // The grid is on the XZ plane at y = -camera_height.
         // We only draw the bottom half of the screen (ndc_y < 0.0)
         if ndc_y >= 0.0 {
-            for pixel in row.iter_mut() {
-                *pixel = config.background_color;
-            }
+            row.fill(config.background_color);
             return;
         }
 
@@ -91,9 +92,7 @@ pub fn apply_infinite_grid(fb: &mut Framebuffer, config: &InfiniteGridConfig) {
         let z = t * fov_factor;
 
         if z > config.horizon_distance || z <= 0.0 {
-            for pixel in row.iter_mut() {
-                *pixel = config.background_color;
-            }
+            row.fill(config.background_color);
             return;
         }
 
@@ -111,14 +110,11 @@ pub fn apply_infinite_grid(fb: &mut Framebuffer, config: &InfiniteGridConfig) {
         // Z-line distance
         let dist_z = z_grid.min(1.0 - z_grid) * config.grid_spacing;
 
-        for (x, pixel) in row.iter_mut().enumerate() {
-            let x_f32 = x as f32;
-            let ndc_x = (x_f32 - half_width) / half_width;
+        let world_x_step = t * inv_half_width;
+        let mut world_x = -half_width * world_x_step;
 
-            // World X calculation
-            let world_x = ndc_x * t;
-
-            let x_grid = (world_x / config.grid_spacing).fract().abs();
+        for pixel in row.iter_mut() {
+            let x_grid = (world_x * inv_grid_spacing).fract().abs();
             let dist_x = x_grid.min(1.0 - x_grid) * config.grid_spacing;
 
             // Minimum distance to any grid line
@@ -133,6 +129,8 @@ pub fn apply_infinite_grid(fb: &mut Framebuffer, config: &InfiniteGridConfig) {
             } else {
                 *pixel = config.background_color;
             }
+
+            world_x += world_x_step;
         }
     });
 }
