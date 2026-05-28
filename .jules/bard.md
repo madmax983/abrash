@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2024-05-28 - [GPU Capture Documentation]
+**Confusion:** The `abrash-gpu-render` crate was missing some executable doctests in `capture.rs` for `CaptureConfig::new`, `GpuCaptureTarget`, and `GpuDebugCapture::coverage_percent`, leading to `cargo doc` warnings and potential developer confusion.
+**Clarification:** Added executable `/// # Examples` to the missing structs and functions to show clear usage of the headless GPU capture tools.

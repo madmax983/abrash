@@ -29,6 +29,16 @@ pub struct CaptureConfig {
 impl CaptureConfig {
     /// Create a new capture configuration.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_gpu_render::capture::CaptureConfig;
+    ///
+    /// let config = CaptureConfig::new(320, 240);
+    /// assert_eq!(config.width, 320);
+    /// assert_eq!(config.height, 240);
+    /// ```
+    ///
     /// # Panics
     ///
     /// Panics if `width * 4` overflows `u32`.
@@ -46,6 +56,21 @@ impl CaptureConfig {
 }
 
 /// Offscreen GPU render target with readback capability.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_gpu_render::capture::GpuCaptureTarget;
+/// use abrash_gpu_render::device::{GpuDevice, GpuDeviceConfig};
+///
+/// # fn main() {
+/// #     if let Ok(device) = GpuDevice::new_headless(&GpuDeviceConfig::headless()) {
+/// let target = GpuCaptureTarget::new(device.device(), 320, 240);
+/// assert_eq!(target.width(), 320);
+/// assert_eq!(target.height(), 240);
+/// #     }
+/// # }
+/// ```
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct GpuCaptureTarget {
@@ -173,6 +198,28 @@ impl GpuDebugCapture {
     }
 
     /// Coverage percentage, in the range `0.0..=100.0`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_gpu_render::capture::{GpuDebugCapture, FrameStats};
+    /// use std::time::Duration;
+    ///
+    /// let capture = GpuDebugCapture {
+    ///     stats: FrameStats {
+    ///         width: 100,
+    ///         height: 100,
+    ///         batch_count: 0,
+    ///         total_triangles: 0,
+    ///         render_time: Duration::ZERO,
+    ///         batches: vec![],
+    ///     },
+    ///     pixels_rgba: vec![],
+    ///     visible_pixel_count: 5000,
+    /// };
+    ///
+    /// assert_eq!(capture.coverage_percent(), 50.0);
+    /// ```
     #[must_use]
     pub fn coverage_percent(&self) -> f32 {
         let total_pixels = self.total_pixels();
