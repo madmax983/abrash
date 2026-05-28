@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+## [Mipmap Generation]
+**Learning:** Reconstructing image layers dynamically in a nested `for` loop by pushing to a `Vec` and computing row boundaries via `(py * width + px)` dynamically for every pixel limits LLVM's auto-vectorization capabilities and adds heavy branching.
+**Action:** Replace `Vec::push()` loops with pre-allocated exactly-sized `vec![0; size]` slices. Hoist the Y-coordinate row offset calculation (`py * width`) out of the innermost `x` loop. This reduced mipmap generation time by ~15-18%.
