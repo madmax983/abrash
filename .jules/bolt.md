@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Eliminating Dynamic Heap Allocations with Statically-Sized Arrays]**
+**Learning:** In hot rendering loops, replacing per-frame dynamic allocations like `Vec::with_capacity()` with statically-sized stack arrays (e.g., `[0.0; 64]`) combined with a bounds check (`len.min(64)`) entirely eliminates heap allocation overhead, providing a significant zero-cost abstraction speedup.
+**Action:** When a collection's maximum size is relatively small and bounded (e.g., `< 100` elements like metaballs), prefer stack-allocated arrays over `Vec` to avoid heap fragmentation and allocator overhead.

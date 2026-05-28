@@ -129,15 +129,18 @@ impl Metaballs {
         let threshold = self.config.threshold;
         let num_balls = self.balls.len();
 
-        // Cache ball positions and square sizes to avoid repeated property access in hot loop
-        let mut b_xs = Vec::with_capacity(num_balls);
-        let mut b_ys = Vec::with_capacity(num_balls);
-        let mut b_r_sqs = Vec::with_capacity(num_balls);
+        // ⚡ Bolt: Use statically-sized stack arrays instead of dynamic `Vec::with_capacity`
+        // to avoid allocating on the heap during the hot rendering loop. 64 is more than
+        // enough for standard metaball counts.
+        let mut b_xs = [0.0; 64];
+        let mut b_ys = [0.0; 64];
+        let mut b_r_sqs = [0.0; 64];
+        let max_balls = num_balls.min(64);
 
-        for ball in &self.balls {
-            b_xs.push(ball.position.x);
-            b_ys.push(ball.position.y);
-            b_r_sqs.push(ball.size * ball.size);
+        for i in 0..max_balls {
+            b_xs[i] = self.balls[i].position.x;
+            b_ys[i] = self.balls[i].position.y;
+            b_r_sqs[i] = self.balls[i].size * self.balls[i].size;
         }
 
         #[cfg(feature = "parallel")]
@@ -151,7 +154,7 @@ impl Metaballs {
                 let fx = x as f32;
 
                 let mut sum = 0.0;
-                for i in 0..num_balls {
+                for i in 0..max_balls {
                     let dx = fx - b_xs[i];
                     let dy = fy - b_ys[i];
                     let dist_sq = dx * dx + dy * dy;
