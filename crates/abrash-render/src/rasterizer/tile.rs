@@ -542,51 +542,54 @@ impl IntoIterator for PreparedTrianglesList {
 #[cfg(feature = "parallel")]
 impl rayon::iter::IntoParallelIterator for PreparedTrianglesList {
     type Item = PreparedTriangle;
-    type Iter = rayon::iter::Flatten<rayon::array::IntoIter<Option<PreparedTriangle>, 8>>;
+    type Iter = rayon::iter::Map<
+        rayon::iter::Take<rayon::array::IntoIter<MaybeUninit<PreparedTriangle>, 8>>,
+        fn(MaybeUninit<PreparedTriangle>) -> PreparedTriangle,
+    >;
 
     fn into_par_iter(self) -> Self::Iter {
         use rayon::iter::IntoParallelIterator;
         use rayon::iter::ParallelIterator;
-        // ⚡ Bolt: Elides dynamic heap allocation by mapping directly over a stack array
-        let mut arr: [Option<PreparedTriangle>; 8] = [None; 8];
-        for i in 0..self.count {
-            arr[i] = Some(unsafe { self.tris[i].assume_init() });
-        }
-        arr.into_par_iter().flatten()
+        let count = self.count;
+        self.tris.into_par_iter().take(count).map(
+            (|uninit: MaybeUninit<_>| unsafe { uninit.assume_init() }) as fn(MaybeUninit<_>) -> _,
+        )
     }
 }
 
 #[cfg(feature = "parallel")]
 impl rayon::iter::IntoParallelIterator for PreparedTexturedTrianglesList {
     type Item = PreparedTexturedTriangle;
-    type Iter = rayon::iter::Flatten<rayon::array::IntoIter<Option<PreparedTexturedTriangle>, 8>>;
+    type Iter = rayon::iter::Map<
+        rayon::iter::Take<rayon::array::IntoIter<MaybeUninit<PreparedTexturedTriangle>, 8>>,
+        fn(MaybeUninit<PreparedTexturedTriangle>) -> PreparedTexturedTriangle,
+    >;
 
     fn into_par_iter(self) -> Self::Iter {
         use rayon::iter::IntoParallelIterator;
         use rayon::iter::ParallelIterator;
-        // ⚡ Bolt: Elides dynamic heap allocation by mapping directly over a stack array
-        let mut arr: [Option<PreparedTexturedTriangle>; 8] = [None; 8];
-        for i in 0..self.count {
-            arr[i] = Some(unsafe { self.tris[i].assume_init() });
-        }
-        arr.into_par_iter().flatten()
+        let count = self.count;
+        self.tris.into_par_iter().take(count).map(
+            (|uninit: MaybeUninit<_>| unsafe { uninit.assume_init() }) as fn(MaybeUninit<_>) -> _,
+        )
     }
 }
 
 #[cfg(feature = "parallel")]
 impl rayon::iter::IntoParallelIterator for PreparedGouraudTrianglesList {
     type Item = PreparedGouraudTriangle;
-    type Iter = rayon::iter::Flatten<rayon::array::IntoIter<Option<PreparedGouraudTriangle>, 8>>;
+    type Iter = rayon::iter::Map<
+        rayon::iter::Take<rayon::array::IntoIter<MaybeUninit<PreparedGouraudTriangle>, 8>>,
+        fn(MaybeUninit<PreparedGouraudTriangle>) -> PreparedGouraudTriangle,
+    >;
 
     fn into_par_iter(self) -> Self::Iter {
         use rayon::iter::IntoParallelIterator;
         use rayon::iter::ParallelIterator;
-        // ⚡ Bolt: Elides dynamic heap allocation by mapping directly over a stack array
-        let mut arr: [Option<PreparedGouraudTriangle>; 8] = [None; 8];
-        for i in 0..self.count {
-            arr[i] = Some(unsafe { self.tris[i].assume_init() });
-        }
-        arr.into_par_iter().flatten()
+        let count = self.count;
+        self.tris.into_par_iter().take(count).map(
+            (|uninit: MaybeUninit<_>| unsafe { uninit.assume_init() }) as fn(MaybeUninit<_>) -> _,
+        )
     }
 }
 

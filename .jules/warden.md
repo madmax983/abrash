@@ -24,3 +24,11 @@
 ## 2026-04-18 - [Heap Buffer Overflow in Pixel Sort via Unchecked SendPtr]
 **Threat:** The `SendPtr` wrapper inside `crates/abrash-render/src/experimental/pixel_sort.rs` lacked a length parameter and blindly added indices to the raw pointer via `*ptr.0.add(...)`. If a framebuffer lied about its dimensions or if sorting logic failed, it would lead to a catastrophic out-of-bounds heap read/write.
 **Defense:** Rewrote `SendPtr` to capture and store the length of the slice at instantiation. Replaced direct raw pointer dereferencing with safe `read()` and `write()` methods containing an `assert!(index < self.1, "Index out of bounds")` guard before evaluating the `unsafe` block.
+
+## 2026-05-28 - [Vulnerable Dependencies]
+**Threat:** `cargo audit` reported vulnerable and unmaintained dependencies. Primarily `rand` had unsound custom logger usage (RUSTSEC-2026-0097) in multiple versions (0.8.5, 0.9.2). Additionally, unmaintained crates were found like `instant`, `paste`, `fxhash`, and `bincode`, generally introduced by `fyrox` internals.
+**Defense:** Updated the workspace's `rand` dependencies to secure versions (`0.8.6`, `0.9.4`). The issues within `fyrox` internals were noted, but could not be safely updated directly since they rely on unmaintained versions. Safe bounds checks are assumed locally around the application usage until `fyrox` updates.
+
+## 2026-05-28 - [Uninitialized Memory Read]
+**Threat:** The `IntoParallelIterator` implementations on `PreparedTrianglesList`, `PreparedTexturedTrianglesList`, and `PreparedGouraudTrianglesList` initialized a temporary stack array of `Option<T>` out to 8 elements (`[None; 8]`) but aggressively mapped elements up to `self.count` via `unsafe { self.tris[i].assume_init() }`. Since `tris` backing arrays only contain valid initialized data up to `self.count`, accessing anything beyond `self.count` during iteration via iterators would cause UB (Undefined Behavior).
+**Defense:** Rewrote `into_par_iter` to bypass the `Option` stack allocations entirely and directly convert `tris` via `into_par_iter()`, safely bound it using `.take(self.count)`, and extracted the initialized memory mapped using a strict functional type cast (`(|uninit: MaybeUninit<_>| unsafe { uninit.assume_init() }) as fn(MaybeUninit<_>) -> _`) to safely prevent UB iteration overflow.
