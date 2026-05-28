@@ -795,9 +795,9 @@ impl GpuBlitter {
     ///
     /// Returns an empty `Vec` if there were no queued sprites.
     #[allow(dead_code)]
-    pub(crate) fn flush_and_readback(&mut self) -> Vec<u8> {
+    pub(crate) fn flush_and_readback(&mut self, out_buffer: &mut [u8]) -> usize {
         if self.commands.is_empty() {
-            return Vec::new();
+            return 0;
         }
 
         // Create a fresh view from render_texture to avoid borrow conflict.
@@ -853,10 +853,11 @@ impl GpuBlitter {
         receiver.recv().unwrap().unwrap();
 
         let data = buffer_slice.get_mapped_range();
-        let bytes = data.to_vec();
+        let len = out_buffer.len().min(data.len());
+        out_buffer[..len].copy_from_slice(&data[..len]);
         drop(data);
         self.readback_buffer.unmap();
-        bytes
+        len
     }
 
     /// Upload current framebuffer content to the render texture so that
@@ -1201,8 +1202,9 @@ mod gpu_tests {
 
         blitter.queue(atlas, src, 0, 0, BlitMode::Opaque);
 
-        let rgba = blitter.flush_and_readback();
-        assert!(!rgba.is_empty());
+        let mut rgba = vec![0; (64 * 64 * 4) as usize];
+        let len = blitter.flush_and_readback(&mut rgba);
+        assert!(len > 0);
 
         // Check the first pixel in the top-left region is reddish
         // (GPU rounding may not be exact).
@@ -1350,7 +1352,8 @@ mod gpu_tests {
         blitter.queue(atlas, src, 0, 0, BlitMode::Opaque);
         blitter.queue(atlas, src, 10, 10, BlitMode::Alpha);
 
-        let _ = blitter.flush_and_readback();
+        let mut rgba = vec![0; (64 * 64 * 4) as usize];
+        let _ = blitter.flush_and_readback(&mut rgba);
 
         // Internal capacity should be retained, not re-allocated to 0
         assert!(blitter.instances.capacity() >= 2);
