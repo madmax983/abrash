@@ -232,3 +232,11 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Integer Division Bit-Shift Flaw]**
+**Learning:** Approximating integer division by bit-shifting using `.ilog2()` (e.g., `val >> divisor.ilog2()`) causes severe precision loss because `ilog2` floors to the nearest power of two. In bounded algorithms like color mapping, this effectively divides by a much smaller number, causing premature clamping and broken gradient outputs.
+**Action:** Avoid `.ilog2()` for division approximations if linearity is required.
+
+**[SIMD FMA Intrinsics Missing Target Features]**
+**Learning:** When using specialized intrinsics like FMA (`_mm256_fmsub_ps`), both the `#[target_feature(enable = "fma")]` attribute and the dynamic runtime check (e.g., `is_x86_feature_detected!("fma")`) must explicitly include the feature, even if AVX2 is enabled, to prevent compilation errors or SIGILL crashes.
+**Action:** Always add `"fma"` to the enable list when using FMA instructions.

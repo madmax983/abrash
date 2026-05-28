@@ -92,14 +92,21 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     // Add a small epsilon to avoid division by zero if flat plane
     let range = (max_z - min_z).max(0.0001);
     // Map [0.0, range] to [0, 1023] (4 segments of 256)
-    // Adding a slight bias to prevent floating point inaccuracy at the absolute top end
-    // from truncating 1024 to 1023 when scaling.
     let scale = 1024.0 / range;
 
+    // Distribute scalar calculations to enable Fused Multiply-Sub (FMA) instructions.
+    // Rewriting `(depth - min_z) * scale` to `depth * scale - offset`
+    let offset = min_z * scale;
+
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if std::is_x86_feature_detected!("avx2") {
+    if std::is_x86_feature_detected!("avx2") && std::is_x86_feature_detected!("fma") {
         unsafe {
-            apply_heat_vision_simd(pixels, depths, min_z, scale, &LUT);
+            apply_heat_vision_simd(pixels, depths, offset, scale, &LUT);
+        }
+        return;
+    } else if std::is_x86_feature_detected!("avx2") {
+        unsafe {
+            apply_heat_vision_simd_nofma(pixels, depths, min_z, scale, &LUT);
         }
         return;
     }
@@ -110,7 +117,8 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
+        // FMA operation: depth * scale - offset
+        let t = (depth * scale - offset) as u32;
         let t = t.min(1023); // Clamp strictly to 1023
 
         // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
@@ -120,7 +128,88 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2", enable = "fma")]
 unsafe fn apply_heat_vision_simd(
+    pixels: &mut [u32],
+    depths: &[f32],
+    offset: f32,
+    scale: f32,
+    lut: &[u32; 1024],
+) {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::*;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::{
+        __m256i, _CMP_EQ_OQ, _mm256_blendv_epi8, _mm256_castps_si256, _mm256_cmp_ps,
+        _mm256_cvttps_epi32, _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32,
+        _mm256_min_epi32, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256,
+        _mm256_storeu_si256, _mm256_fmsub_ps,
+    };
+
+    let len = pixels.len().min(depths.len());
+    let mut i = 0;
+
+    let offset_vec = _mm256_set1_ps(offset);
+    let scale_vec = _mm256_set1_ps(scale);
+    let inf_vec = _mm256_set1_ps(f32::INFINITY);
+    let max_t_vec = _mm256_set1_epi32(1023);
+    let bg_color = _mm256_set1_epi32(0xFF00_0010_u32 as i32);
+    let lut_ptr = lut.as_ptr().cast::<i32>();
+
+    while i + 8 <= len {
+        let depth_ptr = depths.as_ptr().add(i);
+        let depth_val = _mm256_loadu_ps(depth_ptr);
+
+        // depth == f32::INFINITY
+        let is_inf = _mm256_cmp_ps(depth_val, inf_vec, _CMP_EQ_OQ);
+        let is_inf_int = _mm256_castps_si256(is_inf);
+
+        // FMA: t = depth * scale - offset
+        let t_f32 = _mm256_fmsub_ps(depth_val, scale_vec, offset_vec);
+
+        // t_u32 = t_f32 as i32
+        let t_i32 = _mm256_cvttps_epi32(t_f32);
+
+        // Ensure not negative
+        let zero_vec = _mm256_setzero_si256();
+        let t_clamped_low = _mm256_max_epi32(t_i32, zero_vec);
+
+        // Clamp to 1023
+        let t_clamped = _mm256_min_epi32(t_clamped_low, max_t_vec);
+
+        // Gather from LUT
+        // SAFETY: t_clamped is strictly between 0 and 1023, lut is 1024 elements
+        let gathered = _mm256_i32gather_epi32::<4>(lut_ptr, t_clamped);
+
+        // Blend: if is_inf, use bg_color, else use gathered color
+        let final_color = _mm256_blendv_epi8(gathered, bg_color, is_inf_int);
+
+        // Store to framebuffer
+        #[allow(clippy::cast_ptr_alignment)]
+        let fb_ptr = pixels.as_mut_ptr().add(i).cast::<__m256i>();
+        _mm256_storeu_si256(fb_ptr, final_color);
+
+        i += 8;
+    }
+
+    // Scalar tail
+    for (pixel, &depth) in pixels[i..len].iter_mut().zip(depths[i..len].iter()) {
+        if depth == f32::INFINITY {
+            *pixel = 0xFF00_0010;
+            continue;
+        }
+
+        let t = (depth * scale - offset) as u32;
+        let t = t.min(1023);
+
+        *pixel = unsafe { *lut.get_unchecked(t as usize) };
+    }
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+unsafe fn apply_heat_vision_simd_nofma(
     pixels: &mut [u32],
     depths: &[f32],
     min_z: f32,
@@ -151,31 +240,19 @@ unsafe fn apply_heat_vision_simd(
         let depth_ptr = depths.as_ptr().add(i);
         let depth_val = _mm256_loadu_ps(depth_ptr);
 
-        // depth == f32::INFINITY
         let is_inf = _mm256_cmp_ps(depth_val, inf_vec, _CMP_EQ_OQ);
         let is_inf_int = _mm256_castps_si256(is_inf);
 
-        // t = (depth - min_z) * scale
         let t_f32 = _mm256_mul_ps(_mm256_sub_ps(depth_val, min_z_vec), scale_vec);
-
-        // t_u32 = t_f32 as i32
         let t_i32 = _mm256_cvttps_epi32(t_f32);
 
-        // Ensure not negative
         let zero_vec = _mm256_setzero_si256();
         let t_clamped_low = _mm256_max_epi32(t_i32, zero_vec);
-
-        // Clamp to 1023
         let t_clamped = _mm256_min_epi32(t_clamped_low, max_t_vec);
 
-        // Gather from LUT
-        // SAFETY: t_clamped is strictly between 0 and 1023, lut is 1024 elements
         let gathered = _mm256_i32gather_epi32::<4>(lut_ptr, t_clamped);
-
-        // Blend: if is_inf, use bg_color, else use gathered color
         let final_color = _mm256_blendv_epi8(gathered, bg_color, is_inf_int);
 
-        // Store to framebuffer
         #[allow(clippy::cast_ptr_alignment)]
         let fb_ptr = pixels.as_mut_ptr().add(i).cast::<__m256i>();
         _mm256_storeu_si256(fb_ptr, final_color);
@@ -183,7 +260,6 @@ unsafe fn apply_heat_vision_simd(
         i += 8;
     }
 
-    // Scalar tail
     for (pixel, &depth) in pixels[i..len].iter_mut().zip(depths[i..len].iter()) {
         if depth == f32::INFINITY {
             *pixel = 0xFF00_0010;
