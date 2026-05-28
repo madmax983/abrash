@@ -109,22 +109,26 @@ pub fn draw_line_3d(
             0.0
         };
 
+        let width_i32 = width as i32;
+        let height_i32 = height as i32;
+
+        let mut idx = (y0 as isize) * (width as isize) + (x0 as isize);
+        let idx_step_x = sx as isize;
+        let idx_step_y = (sy as isize) * (width as isize);
+
         loop {
             // Check bounds (clipping should handle most cases, but guard against precision issues)
-            if x0 >= 0 && x0 < width as i32 && y0 >= 0 && y0 < height as i32 {
+            if x0 >= 0 && x0 < width_i32 && y0 >= 0 && y0 < height_i32 {
                 // Z-test
-                // SAFETY: Bounds checked.
+                // SAFETY: Bounds checked by the if statement above.
+                // idx tracks exactly with y0 * width + x0, so it's guaranteed to be within [0, width * height).
                 unsafe {
-                    let idx = (y0 as usize) * (width as usize) + (x0 as usize);
-                    let z_buffer_val = zb.as_mut_slice().get_unchecked_mut(idx);
-                    // Use standard depth test (less is closer for negative Z, wait.
-                    // Project to screen produces z = v.z / w.
-                    // If using standard OpenGL conventions, z is in [-1, 1].
-                    // But rasterizer uses z < *depth_val.
-                    // Let's assume standard behavior.
+                    let idx_usize = idx as usize;
+                    let z_buffer_val = zb.as_mut_slice().get_unchecked_mut(idx_usize);
+
                     if z < *z_buffer_val {
                         *z_buffer_val = z;
-                        fb.set_pixel_unchecked(x0 as usize, y0 as usize, color);
+                        *fb.as_mut_slice().get_unchecked_mut(idx_usize) = color;
                     }
                 }
             }
@@ -136,10 +140,12 @@ pub fn draw_line_3d(
             if e2 >= i64::from(dy) {
                 err += i64::from(dy);
                 x0 += sx;
+                idx += idx_step_x;
             }
             if e2 <= i64::from(dx) {
                 err += i64::from(dx);
                 y0 += sy;
+                idx += idx_step_y;
             }
             z += dz;
         }
@@ -182,6 +188,35 @@ pub fn fill_triangle_wireframe(
 }
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn test_draw_line_3d_matches_expected() {
+        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut zb = ZBuffer::new(100, 100).unwrap();
+
+        for z in zb.as_mut_slice().iter_mut() {
+            *z = f32::INFINITY;
+        }
+
+        let v0 = (Vec3::new(-0.5, 0.0, 0.5), 1.0);
+        let v1 = (Vec3::new(0.5, 0.0, 0.5), 1.0);
+
+        draw_line_3d(&mut fb, &mut zb, v0, v1, 0xFF00_FF00);
+
+        let mut drawn_pixels = 0;
+        for &pixel in fb.as_slice() {
+            if pixel == 0xFF00_FF00 {
+                drawn_pixels += 1;
+            }
+        }
+
+        assert!(
+            drawn_pixels > 40,
+            "Line should draw at least ~50 pixels, found {}",
+            drawn_pixels
+        );
+    }
+
     use crate::framebuffer::Framebuffer;
     use crate::rasterizer::line::draw_line_3d;
     use crate::zbuffer::ZBuffer;
