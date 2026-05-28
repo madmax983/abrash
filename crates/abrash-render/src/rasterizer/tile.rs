@@ -491,7 +491,14 @@ impl Iterator for PreparedGouraudTrianglesIter {
             None
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.list.count - self.index;
+        (remaining, Some(remaining))
+    }
 }
+
+impl ExactSizeIterator for PreparedGouraudTrianglesIter {}
 
 /// A fixed-capacity list of prepared flat-shaded triangles.
 pub struct PreparedTrianglesList {
@@ -608,7 +615,14 @@ impl Iterator for PreparedTrianglesIter {
             None
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.list.count - self.index;
+        (remaining, Some(remaining))
+    }
 }
+
+impl ExactSizeIterator for PreparedTrianglesIter {}
 
 /// A fixed-capacity list of prepared textured triangles.
 pub struct PreparedTexturedTrianglesList {
@@ -674,7 +688,14 @@ impl Iterator for PreparedTexturedTrianglesIter {
             None
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.list.count - self.index;
+        (remaining, Some(remaining))
+    }
 }
+
+impl ExactSizeIterator for PreparedTexturedTrianglesIter {}
 
 /// Flattened linked-list structure for tile binning.
 ///
