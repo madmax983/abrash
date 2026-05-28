@@ -225,14 +225,19 @@ impl Transform {
         let m20 = basis[2][0];
         let m21 = basis[2][1];
         let m22 = basis[2][2];
+        let px = self.position.x;
+        let py = self.position.y;
+        let pz = self.position.z;
 
         out.clear();
-        // We iterate by value (using `&p`) to avoid dereferencing inside the closure.
-        out.extend(points.iter().map(|&p| {
+        out.extend(points.iter().map(|p| {
+            let x = p.x;
+            let y = p.y;
+            let z = p.z;
             Vec3::new(
-                p.x * m00 + p.y * m10 + p.z * m20 + self.position.x,
-                p.x * m01 + p.y * m11 + p.z * m21 + self.position.y,
-                p.x * m02 + p.y * m12 + p.z * m22 + self.position.z,
+                x * m00 + y * m10 + z * m20 + px,
+                x * m01 + y * m11 + z * m21 + py,
+                x * m02 + y * m12 + z * m22 + pz,
             )
         }));
     }
@@ -249,15 +254,18 @@ impl Transform {
         let m20 = basis[2][0];
         let m21 = basis[2][1];
         let m22 = basis[2][2];
+        let px = self.position.x;
+        let py = self.position.y;
+        let pz = self.position.z;
 
         for p in points {
             let x = p.x;
             let y = p.y;
             let z = p.z;
             *p = Vec3::new(
-                x * m00 + y * m10 + z * m20 + self.position.x,
-                x * m01 + y * m11 + z * m21 + self.position.y,
-                x * m02 + y * m12 + z * m22 + self.position.z,
+                x * m00 + y * m10 + z * m20 + px,
+                x * m01 + y * m11 + z * m21 + py,
+                x * m02 + y * m12 + z * m22 + pz,
             );
         }
     }
@@ -284,12 +292,14 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
-        // We iterate by value (using `&v`) to avoid dereferencing inside the closure.
-        out.extend(vectors.iter().map(|&v| {
+        out.extend(vectors.iter().map(|v| {
+            let x = v.x;
+            let y = v.y;
+            let z = v.z;
             Vec3::new(
-                v.x * m00 + v.y * m10 + v.z * m20,
-                v.x * m01 + v.y * m11 + v.z * m21,
-                v.x * m02 + v.y * m12 + v.z * m22,
+                x * m00 + y * m10 + z * m20,
+                x * m01 + y * m11 + z * m21,
+                x * m02 + y * m12 + z * m22,
             )
         }));
     }
@@ -340,14 +350,19 @@ impl Transform {
         let m20 = basis[2][0];
         let m21 = basis[2][1];
         let m22 = basis[2][2];
+        let px = self.position.x;
+        let py = self.position.y;
+        let pz = self.position.z;
 
         out.clear();
         out.extend(points.iter().map(|p| {
-            let local = *p - self.position;
+            let local_x = p.x - px;
+            let local_y = p.y - py;
+            let local_z = p.z - pz;
             Vec3::new(
-                (local.x * m00 + local.y * m10 + local.z * m20) * inv_scale.x,
-                (local.x * m01 + local.y * m11 + local.z * m21) * inv_scale.y,
-                (local.x * m02 + local.y * m12 + local.z * m22) * inv_scale.z,
+                (local_x * m00 + local_y * m10 + local_z * m20) * inv_scale.x,
+                (local_x * m01 + local_y * m11 + local_z * m21) * inv_scale.y,
+                (local_x * m02 + local_y * m12 + local_z * m22) * inv_scale.z,
             )
         }));
     }
@@ -365,13 +380,18 @@ impl Transform {
         let m20 = basis[2][0];
         let m21 = basis[2][1];
         let m22 = basis[2][2];
+        let px = self.position.x;
+        let py = self.position.y;
+        let pz = self.position.z;
 
         for p in points {
-            let local = *p - self.position;
+            let local_x = p.x - px;
+            let local_y = p.y - py;
+            let local_z = p.z - pz;
             *p = Vec3::new(
-                (local.x * m00 + local.y * m10 + local.z * m20) * inv_scale.x,
-                (local.x * m01 + local.y * m11 + local.z * m21) * inv_scale.y,
-                (local.x * m02 + local.y * m12 + local.z * m22) * inv_scale.z,
+                (local_x * m00 + local_y * m10 + local_z * m20) * inv_scale.x,
+                (local_x * m01 + local_y * m11 + local_z * m21) * inv_scale.y,
+                (local_x * m02 + local_y * m12 + local_z * m22) * inv_scale.z,
             );
         }
     }
