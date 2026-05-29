@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2025-05-19 - [TuiWindow Methods Documentation]
+**Confusion:** The core methods of `TuiWindow` (like `is_open()`, `width()`, `height()`, `poll_events()`, and `blit_framebuffer()`) were completely undocumented. This made it difficult to understand how to correctly poll for events or update the terminal display, leading to potential misusage or skipped screen updates.
+**Clarification:** Added comprehensive method-level documentation and executable examples to `poll_events()` and `blit_framebuffer()` demonstrating a typical rendering and event-polling loop.

@@ -131,21 +131,50 @@ impl TuiWindow {
         })
     }
 
+    /// Checks if the window is currently open.
+    ///
+    /// This returns `false` if the user has requested the window to close (e.g., by pressing 'q' or 'ESC').
     #[must_use]
     pub const fn is_open(&self) -> bool {
         self.is_open
     }
 
+    /// Returns the logical width of the window surface.
     #[must_use]
     pub const fn width(&self) -> u32 {
         self.width
     }
 
+    /// Returns the logical height of the window surface.
     #[must_use]
     pub const fn height(&self) -> u32 {
         self.height
     }
 
+    /// Polls for user input and window events.
+    ///
+    /// This function handles keyboard events (like pressing 'q' or 'ESC' to close) and terminal
+    /// resize events. It updates the internal state (e.g., marking the window as closed) and
+    /// returns a list of parsed [`Event`]s for the application to handle.
+    ///
+    /// This is a non-blocking poll. If no events are pending, it returns immediately with an empty vector.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use abrash_render::platform::tui::TuiWindow;
+    /// use abrash_render::platform::Event;
+    ///
+    /// let mut window = TuiWindow::new("My App", 80, 40).unwrap();
+    ///
+    /// for event in window.poll_events() {
+    ///     match event {
+    ///         Event::Close => println!("Window is closing!"),
+    ///         Event::Resize(w, h) => println!("Resized to {}x{}", w, h),
+    ///         _ => {}
+    ///     }
+    /// }
+    /// ```
     pub fn poll_events(&mut self) -> Vec<Event> {
         self.frame_start = Instant::now();
         let mut events = Vec::new();
@@ -169,6 +198,30 @@ impl TuiWindow {
         events
     }
 
+    /// Blits (copies) the provided `framebuffer` to the terminal window.
+    ///
+    /// This function renders the pixel data from the framebuffer to the terminal using half-block characters.
+    /// It also draws a window border and a status bar indicating the current framerate (FPS),
+    /// resolution, and total frames rendered.
+    ///
+    /// It enforces the target frame time (vsync approximation) by sleeping the current thread
+    /// if rendering finishes faster than the target frame budget.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use abrash_render::platform::tui::TuiWindow;
+    /// use abrash_core::framebuffer::Framebuffer;
+    ///
+    /// let mut window = TuiWindow::new("Renderer", 80, 40).unwrap();
+    /// let mut fb = Framebuffer::new(80, 40).unwrap();
+    ///
+    /// // Fill framebuffer with red
+    /// fb.clear(0xFF0000);
+    ///
+    /// // Blit the framebuffer to the terminal
+    /// window.blit_framebuffer(&fb);
+    /// ```
     pub fn blit_framebuffer(&mut self, framebuffer: &Framebuffer) {
         self.frame_count += 1;
         self.frames_since_update += 1;
