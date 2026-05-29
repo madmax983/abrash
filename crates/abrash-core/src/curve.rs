@@ -40,7 +40,7 @@ use crate::math::{
     Vec3, bezier_cubic, bezier_cubic_tangent, bezier_quadratic, catmull_rom, hermite,
 };
 
-// ── Lerpable trait ────────────────────────────────────────────────────────────
+// ── Lerpable (Removed) ────────────────────────────────────────────────────────────
 // ── CubicBezier struct ────────────────────────────────────────────────────────
 
 /// A cubic Bezier curve defined by 4 control points.

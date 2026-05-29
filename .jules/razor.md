@@ -21,3 +21,8 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+
+## [Reduction]
+**Bloat:** Unused abstract `Provider`, `Manager`, `Builder`, `Factory` and bloated single-implementation traits.
+**Cut:** Validated the engine architecture is completely flat after previous iterations. Left the `Animatable` and `WindowApp` traits as they are actively used by numerous structures and 40+ examples. Replaced misleading/outdated references to the deleted `Evaluable` and `Lerpable` traits in documentation comments to ensure the code accurately reflects the flattened state.
+**Saved:** Mental overhead of tracking "ghost" abstractions that were already excised.
