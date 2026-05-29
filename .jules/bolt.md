@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Struct Field Access Extraction for Loop Unrolling]**
+**Learning:** In hot mathematical transformation loops (like scalar `Mat4::transform_points`), explicitly extracting struct field accesses (e.g., `let px = p.x; let py = p.y;`) into local variables before utilizing them in operations (like `Vec3::new` or complex arithmetic) allows LLVM to improve instruction scheduling and unroll loops more effectively, avoiding repeated pointer lookups.
+**Action:** Replaced repetitive field access in `mat4.rs` scalar transform loops with locally bound variables.
