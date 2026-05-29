@@ -83,3 +83,61 @@ mod tests {
         assert!(Framebuffer::new(dim, dim).is_err());
     }
 }
+
+#[test]
+#[should_panic(expected = "capacity overflow")]
+fn test_draw_list_capacity_overflow() {
+    use abrash::math::Mat4;
+    use abrash::render_api::DrawList;
+    use abrash::render_api::frame::FrameCamera;
+    let camera = FrameCamera::new(Mat4::identity(), Mat4::identity());
+    let _ = DrawList::with_capacity(camera, usize::MAX, 1, 1);
+}
+
+#[test]
+#[should_panic(expected = "TileRenderer dimensions overflow")]
+fn test_tile_renderer_dimensions_overflow() {
+    use abrash::rasterizer::TileRenderer;
+    let _ = TileRenderer::new(u32::MAX, u32::MAX);
+}
+
+#[test]
+fn test_borrowed_target_capacity_overflow() {
+    use abrash::render_api::BorrowedRenderTarget;
+    let mut pixels = vec![];
+    let mut depths = vec![];
+    let result = BorrowedRenderTarget::new(u32::MAX, u32::MAX, &mut pixels, &mut depths);
+    assert_eq!(result.err(), Some("buffer dimensions overflow"));
+}
+
+#[test]
+fn test_stale_material_handle_error_message() {
+    use abrash::math::Mat4;
+    use abrash::mesh::Mesh;
+    use abrash::render_api::{
+        RenderTarget,
+        cpu_renderer::CpuRenderer,
+        frame::{Frame, FrameCamera},
+        material::Material,
+    };
+
+    let mut renderer = CpuRenderer::new(100, 100);
+    let mut target = RenderTarget::new(100, 100).unwrap();
+
+    let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+    let mat_h = renderer
+        .create_material(Material::flat(0xFFFF_0000))
+        .unwrap();
+
+    renderer.destroy_material(mat_h);
+
+    let mut frame = Frame::new(FrameCamera::new(Mat4::identity(), Mat4::identity()));
+    frame.draw(mesh_h, mat_h, Mat4::identity());
+
+    let result = renderer.render_frame(&frame, &mut target);
+    assert!(result.is_err());
+    match result.unwrap_err() {
+        abrash::render_api::RenderError::StaleHandle(kind) => assert_eq!(kind, "material"),
+        other => panic!("Expected StaleHandle(material), got {other}"),
+    }
+}

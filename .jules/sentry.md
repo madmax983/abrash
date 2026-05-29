@@ -51,3 +51,10 @@
 **[Validating Time/Tick Loop Logic Without Flakiness]**
 **Learning:** Testing frame-time loops using `std::thread::sleep` introduces severe flakiness because CI runners or test threads can delay execution unpredictably. Instead of testing "real" time elapsed, test the internal response to elapsed time by directly simulating it on the structure (e.g. `timer.last_time = Instant::now()`, `timer.accumulator += 50ms`).
 **Action:** Never use `std::thread::sleep` for unit testing timing systems. Always manipulate the simulated time state directly to test logic boundaries.
+**[Validating Expect Guards on Allocation Dimensions]**
+**Learning:** Calculations that multiply dimensions (like `width * height`) to determine allocation size can easily overflow `usize`, leading to panics via `.expect("... overflow")` or implicitly during allocation. These guards are critical for security and stability but are often untested because they require absurdly large inputs (like `u32::MAX`).
+**Action:** Always write a corresponding `#[should_panic]` test for bounds checking logic covering allocation counts by testing the explicit limits (e.g., `u32::MAX`).
+
+**[Missing Tests for Handle Error Propagation]**
+**Learning:** Even when errors like `StaleHandle` are correctly propagated from internal handle lookup failure via `ok_or()`, there might not be explicit tests verifying the exact enum variant of the returned `Result`. The existing test suite was heavily verifying stale `Mesh` handles, but silently lacked mirror tests for `Material` handles, leaving a logic path untested.
+**Action:** Audit functions that interact with multiple types of resource handles (e.g. `Mesh` and `Material`) to ensure that *every* handle type has a corresponding failure test, rather than relying on a single representative test case.
