@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+## [SIMD Min/Max Reduction for Heat Vision]
+**Learning:** When implementing SIMD (e.g., AVX2) algorithms, use vertical loop reductions with conditional blending (`_mm256_blendv_ps`) paired with comparison masks (`_mm256_cmp_ps`) to filter out unwanted values (like `f32::INFINITY`) without introducing branches in the hot loop.
+**Action:** Extracted scalar depth-buffer min/max search into an AVX2-optimized `find_min_max_depth` function using conditional blending, achieving up to 59% speedup for the heat vision filter.
