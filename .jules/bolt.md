@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Avoid returning () when refactoring away Vec allocations]**
+**Learning:** When refactoring a function to write into a pre-allocated mutable slice (`&mut [T]`) instead of returning a newly allocated `Vec` (to avoid heap allocations), always return a `usize` indicating the number of elements written rather than `()`. Returning `()` breaks the caller's ability to verify if a write actually occurred (e.g., replacing `!vec.is_empty()` with `bytes_written > 0`), causing bugs on early returns.
+**Action:** When replacing `.to_vec()` with `.copy_from_slice(out)`, change the return type to `usize` and return the number of elements copied.

@@ -791,13 +791,12 @@ impl GpuBlitter {
     }
 
     /// Render all queued sprites to the internal render texture, then copy the
-    /// result into the readback buffer and return the raw RGBA bytes.
-    ///
-    /// Returns an empty `Vec` if there were no queued sprites.
+    /// result into the readback buffer and write the raw RGBA bytes into `out`.
+    /// Returns the number of bytes written (0 if no commands were queued).
     #[allow(dead_code)]
-    pub(crate) fn flush_and_readback(&mut self) -> Vec<u8> {
+    pub(crate) fn flush_and_readback_into(&mut self, out: &mut [u8]) -> usize {
         if self.commands.is_empty() {
-            return Vec::new();
+            return 0;
         }
 
         // Create a fresh view from render_texture to avoid borrow conflict.
@@ -853,10 +852,13 @@ impl GpuBlitter {
         receiver.recv().unwrap().unwrap();
 
         let data = buffer_slice.get_mapped_range();
-        let bytes = data.to_vec();
+        // ⚡ Bolt: Use `copy_from_slice()` instead of `.to_vec()` to reuse the destination buffer,
+        // eliminating the dynamic heap allocation of the entire framebuffer capacity every frame.
+        let len = out.len().min(data.len());
+        out[..len].copy_from_slice(&data[..len]);
         drop(data);
         self.readback_buffer.unmap();
-        bytes
+        len
     }
 
     /// Upload current framebuffer content to the render texture so that
@@ -1201,8 +1203,9 @@ mod gpu_tests {
 
         blitter.queue(atlas, src, 0, 0, BlitMode::Opaque);
 
-        let rgba = blitter.flush_and_readback();
-        assert!(!rgba.is_empty());
+        let mut rgba = vec![0u8; 1024 * 4];
+        let bytes_written = blitter.flush_and_readback_into(&mut rgba);
+        assert!(bytes_written > 0);
 
         // Check the first pixel in the top-left region is reddish
         // (GPU rounding may not be exact).
@@ -1350,7 +1353,9 @@ mod gpu_tests {
         blitter.queue(atlas, src, 0, 0, BlitMode::Opaque);
         blitter.queue(atlas, src, 10, 10, BlitMode::Alpha);
 
-        let _ = blitter.flush_and_readback();
+        let mut rgba = vec![0u8; 1024 * 4];
+        let bytes_written = blitter.flush_and_readback_into(&mut rgba);
+        assert!(bytes_written > 0);
 
         // Internal capacity should be retained, not re-allocated to 0
         assert!(blitter.instances.capacity() >= 2);
