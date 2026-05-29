@@ -95,6 +95,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     // Adding a slight bias to prevent floating point inaccuracy at the absolute top end
     // from truncating 1024 to 1023 when scaling.
     let scale = 1024.0 / range;
+    let min_z_scaled = min_z * scale;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::is_x86_feature_detected!("avx2") {
@@ -110,7 +111,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
+        let t = (depth * scale - min_z_scaled) as u32;
         let t = t.min(1023); // Clamp strictly to 1023
 
         // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
@@ -184,13 +185,14 @@ unsafe fn apply_heat_vision_simd(
     }
 
     // Scalar tail
+    let min_z_scaled = min_z * scale;
     for (pixel, &depth) in pixels[i..len].iter_mut().zip(depths[i..len].iter()) {
         if depth == f32::INFINITY {
             *pixel = 0xFF00_0010;
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
+        let t = (depth * scale - min_z_scaled) as u32;
         let t = t.min(1023);
 
         *pixel = unsafe { *lut.get_unchecked(t as usize) };
