@@ -984,3 +984,8 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[example]]
+name = "synthwave_demo"
+path = "crates/abrash-render/examples/synthwave_demo.rs"
+required-features = ["nova"]
