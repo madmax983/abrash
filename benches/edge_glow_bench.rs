@@ -42,6 +42,7 @@ fn edge_glow_benchmark(c: &mut Criterion) {
 criterion_group!(benches, edge_glow_benchmark);
 
 #[cfg(not(feature = "nova"))]
+#[allow(clippy::needless_pass_by_ref_mut, clippy::missing_const_for_fn)]
 fn edge_glow_benchmark(c: &mut Criterion) {}
 
 #[cfg(not(feature = "nova"))]

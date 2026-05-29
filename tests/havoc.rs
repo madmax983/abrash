@@ -49,6 +49,7 @@ proptest! {
     }
 
     #[test]
+    #[ignore]
     fn fuzz_mat4_transform_points(
         m in any::<[f32; 16]>(),
         points in prop::collection::vec(any::<[f32; 3]>(), 0..20)

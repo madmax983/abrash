@@ -1,3 +1,8 @@
+#![cfg(any(
+    feature = "backend-winit",
+    feature = "backend-tui",
+    feature = "backend-wasm"
+))]
 //! Integration tests for the platform layer.
 //!
 //! These tests verify that the platform abstractions are correctly wired up.

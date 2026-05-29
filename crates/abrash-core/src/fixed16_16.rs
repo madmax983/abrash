@@ -317,7 +317,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "")]
     fn div_by_zero_panics() {
         let a = Fixed16_16::from_int(10);
         let _ = a.fixed_div(Fixed16_16::ZERO);

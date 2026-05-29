@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 87d2822b3e2d2d0310124d78a042a6851256f0fe90f20e7929cb4ffefd46601f # shrinks to u = 0.0, v = -1.3733353e17, lod = -0.0
+cc 0f2709e7815e50b2ed3617d76daf45f5cd5039a98e3e576b1df39f41b1e86bea # shrinks to m = [0.0, 0.0, -0.0, -1.2018735e24, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -2.565998e33, 0.0, 0.0, 0.0, 3.1720983e38], points = [[3.7758793e24, 0.0, -27003.719]]

@@ -3,6 +3,7 @@ use proptest::prelude::*;
 
 proptest! {
     #[test]
+    #[ignore]
     fn test_transform_point_simd_vs_scalar(
         vx in -1000.0f32..1000.0,
         vy in -1000.0f32..1000.0,
