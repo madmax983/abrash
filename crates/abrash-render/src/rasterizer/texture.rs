@@ -3738,7 +3738,7 @@ pub struct TexturedGouraudSpanStart {
 #[target_feature(enable = "avx2")]
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::wildcard_imports)]
-unsafe fn draw_span_textured_gouraud_simd(
+pub(crate) unsafe fn draw_span_textured_gouraud_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
