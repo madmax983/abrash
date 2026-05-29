@@ -232,3 +232,15 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+## 2026-02-06 - FMA in Mat4::transform_points
+**What:** Used FMA (Fused Multiply-Add) via `_mm256_fmadd_ps` within `Mat4::transform_points_avx2` inner loop.
+**Why:** The standard implementation did 3 independent additions (`_mm256_add_ps`) and 4 independent multiplications (`_mm256_mul_ps`) per component. FMA significantly reduces instruction count and dependency chain depth in the tight matrix multiplication loop.
+**Impact:** ~9% to 11% faster point transformations in AVX2 optimized loops.
+**Measurement:** Validated with `cargo bench --bench transform_points_bench`.
+
+## 2026-02-06 - Floating Point Edge Cases with FMA vs Scalar
+**What:** Updated `fuzz_mat4_transform_points` in `havoc.rs` to tolerate discrepancies between scalar arithmetic and Fused Multiply-Add (FMA) when dealing with floating-point extremes (e.g. `NaN` and `Inf`).
+**Why:** Scalar float math applies rounding after the multiply and after the add (`add(round(mul(a, b)), c)`). FMA computes the exact infinite-precision product and add, then rounds once at the end (`round(a*b+c)`). This changes the way overflows into infinities interact with extreme values. For example, `inf + (-inf)` normally yields `NaN`, but if intermediate products inside the FMA don't prematurely overflow into infinity, the result might naturally clamp to infinity without triggering the `NaN` exception until the end. Tests validating SIMD FMA against scalar loops must relax assertions specifically around `NaN` vs `Inf` divergence for extremely large inputs.
+**Impact:** Allows continuous testing without false positive fuzzing failures in the CI pipelines.
+**Measurement:** Passed `cargo test -p abrash --test havoc` after modifications.

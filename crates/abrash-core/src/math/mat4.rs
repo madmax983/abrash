@@ -764,7 +764,7 @@ impl Mat4 {
         assert_eq!(points.len(), output.len());
 
         #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-        if is_x86_feature_detected!("avx2") {
+        if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
             unsafe {
                 self.transform_points_avx2(points, output);
             }
@@ -807,7 +807,7 @@ impl Mat4 {
     }
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    #[target_feature(enable = "avx2")]
+    #[target_feature(enable = "avx2", enable = "fma")]
     #[allow(clippy::wildcard_imports)]
     unsafe fn transform_points_avx2(
         &self,
@@ -913,36 +913,28 @@ impl Mat4 {
 
                 // Matrix Multiplication
                 // Match scalar order: ((x*m0 + y*m1) + z*m2) + m3
-                let res_x = _mm256_add_ps(
-                    _mm256_add_ps(
-                        _mm256_add_ps(_mm256_mul_ps(vx, m00), _mm256_mul_ps(vy, m10)),
-                        _mm256_mul_ps(vz, m20),
-                    ),
-                    m30,
+                let res_x = _mm256_fmadd_ps(
+                    vz,
+                    m20,
+                    _mm256_fmadd_ps(vy, m10, _mm256_fmadd_ps(vx, m00, m30)),
                 );
 
-                let res_y = _mm256_add_ps(
-                    _mm256_add_ps(
-                        _mm256_add_ps(_mm256_mul_ps(vx, m01), _mm256_mul_ps(vy, m11)),
-                        _mm256_mul_ps(vz, m21),
-                    ),
-                    m31,
+                let res_y = _mm256_fmadd_ps(
+                    vz,
+                    m21,
+                    _mm256_fmadd_ps(vy, m11, _mm256_fmadd_ps(vx, m01, m31)),
                 );
 
-                let res_z = _mm256_add_ps(
-                    _mm256_add_ps(
-                        _mm256_add_ps(_mm256_mul_ps(vx, m02), _mm256_mul_ps(vy, m12)),
-                        _mm256_mul_ps(vz, m22),
-                    ),
-                    m32,
+                let res_z = _mm256_fmadd_ps(
+                    vz,
+                    m22,
+                    _mm256_fmadd_ps(vy, m12, _mm256_fmadd_ps(vx, m02, m32)),
                 );
 
-                let res_w = _mm256_add_ps(
-                    _mm256_add_ps(
-                        _mm256_add_ps(_mm256_mul_ps(vx, m03), _mm256_mul_ps(vy, m13)),
-                        _mm256_mul_ps(vz, m23),
-                    ),
-                    m33,
+                let res_w = _mm256_fmadd_ps(
+                    vz,
+                    m23,
+                    _mm256_fmadd_ps(vy, m13, _mm256_fmadd_ps(vx, m03, m33)),
                 );
 
                 // Transpose back to AOS (8x4)

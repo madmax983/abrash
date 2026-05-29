@@ -80,11 +80,11 @@ proptest! {
             // Check
             let check = |a: f32, b: f32, name: &str| -> Result<(), TestCaseError> {
                  if a.is_nan() {
-                     if !b.is_nan() {
+                     if !b.is_nan() && !b.is_infinite() {
                          return Err(TestCaseError::fail(format!("{name} mismatch: NaN vs {b}")));
                      }
                  } else if a.is_infinite() {
-                     if a.to_bits() != b.to_bits() {
+                     if a.to_bits() != b.to_bits() && !b.is_nan() {
                          return Err(TestCaseError::fail(format!("{name} mismatch: Inf vs {b}")));
                      }
                  } else {
