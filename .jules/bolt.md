@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+## Optimize Array Expansion
+**Learning:** When expanding packed data (like u32 pixels to RGBA bytes) in a hot loop, avoid `Vec::with_capacity` and `extend_from_slice()`. Repeatedly calling `extend` introduces capacity checking overheads on every iteration that LLVM cannot easily elide.
+**Action:** Allocate a zero-initialized vector (`vec![0u8; total_len]`) and write directly into it using `.chunks_exact_mut(4).zip(pixels.iter())`. This avoids repeated capacity checking overheads and enables optimal LLVM vectorization and bounds-check elision.
