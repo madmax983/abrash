@@ -100,6 +100,10 @@ pub fn draw_line_3d(
         let sy = if y0 < y1 { 1 } else { -1 };
         let mut err = i64::from(dx) + i64::from(dy);
 
+        let idx_step_x = sx as isize;
+        let idx_step_y = (sy as isize) * (width as isize);
+        let mut idx = (y0 as isize) * (width as isize) + (x0 as isize);
+
         // Calculate step size for Z interpolation
         // Total steps = max(|dx|, |dy|)
         let steps = dx.max(-dy) as f32;
@@ -115,8 +119,7 @@ pub fn draw_line_3d(
                 // Z-test
                 // SAFETY: Bounds checked.
                 unsafe {
-                    let idx = (y0 as usize) * (width as usize) + (x0 as usize);
-                    let z_buffer_val = zb.as_mut_slice().get_unchecked_mut(idx);
+                    let z_buffer_val = zb.as_mut_slice().get_unchecked_mut(idx as usize);
                     // Use standard depth test (less is closer for negative Z, wait.
                     // Project to screen produces z = v.z / w.
                     // If using standard OpenGL conventions, z is in [-1, 1].
@@ -136,10 +139,12 @@ pub fn draw_line_3d(
             if e2 >= i64::from(dy) {
                 err += i64::from(dy);
                 x0 += sx;
+                idx += idx_step_x;
             }
             if e2 <= i64::from(dx) {
                 err += i64::from(dx);
                 y0 += sy;
+                idx += idx_step_y;
             }
             z += dz;
         }

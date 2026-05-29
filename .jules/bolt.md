@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Eliminate Arithmetic Overhead in Bresenham Inner Loops]**
+**Learning:** In the inner loop of Bresenham's line algorithm (like `draw_line_3d`), computing the linear framebuffer/z-buffer index `y * width + x` from scratch on every single pixel step incurs measurable arithmetic overhead.
+**Action:** Extract `idx` computation from the inner loop and apply pre-calculated steps (`idx_step_x`, `idx_step_y`) using addition completely eliminates integer multiplication from the hot loop, yielding significant performance improvements.

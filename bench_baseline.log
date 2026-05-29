@@ -1,0 +1,13 @@
+    Finished `bench` profile [optimized] target(s) in 1.06s
+     Running benches/line_3d_bench.rs (target/release/deps/line_3d_bench-ba4fc6b43ac5e343)
+Gnuplot not found, using plotters backend
+Benchmarking draw_line_3d
+Benchmarking draw_line_3d: Warming up for 3.0000 s
+Benchmarking draw_line_3d: Collecting 100 samples in estimated 5.0089 s (2.2M iterations)
+Benchmarking draw_line_3d: Analyzing
+draw_line_3d            time:   [2.4029 µs 2.4978 µs 2.5998 µs]
+                        change: [+6.8818% +10.371% +14.374%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 11 outliers among 100 measurements (11.00%)
+  9 (9.00%) high mild
+  2 (2.00%) high severe
