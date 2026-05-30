@@ -688,6 +688,8 @@ pub struct TileBins {
     pub nexts: Vec<u32>,
     /// The triangle indices for each node.
     pub tris: Vec<u32>,
+    /// Reusable scratch buffer for sorting linked lists without heap allocation.
+    pub sort_buf: Vec<u32>,
 }
 
 impl TileBins {
@@ -703,6 +705,7 @@ impl TileBins {
             tails: vec![u32::MAX; num_tiles],
             nexts: Vec::with_capacity(capacity),
             tris: Vec::with_capacity(capacity),
+            sort_buf: Vec::with_capacity(64),
         }
     }
 
@@ -3000,22 +3003,24 @@ impl TileRenderer {
             return;
         }
 
+        // Bolt Performance Optimization:
+        // Replaced `SmallVec` with a hoisted, reusable `Vec` extracted from `TileBins`
+        // to prevent dynamic heap allocations on the hot sorting path when tiles contain >64 triangles.
+        let mut indices = std::mem::take(&mut self.tile_bins.sort_buf);
+
         let heads = &mut self.tile_bins.heads;
         let nexts = &mut self.tile_bins.nexts;
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
-        for (tile_idx, head) in heads.iter_mut().enumerate() {
-            if *head == u32::MAX {
+        for tile_idx in 0..heads.len() {
+            let head = heads[tile_idx];
+            if head == u32::MAX {
                 continue;
             }
 
             indices.clear();
-            let mut curr = *head;
+            let mut curr = head;
             while curr != u32::MAX {
                 indices.push(curr);
                 curr = nexts[curr as usize];
@@ -3032,7 +3037,7 @@ impl TileRenderer {
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
 
-                *head = indices[0];
+                heads[tile_idx] = indices[0];
                 let len = indices.len();
                 for i in 0..len - 1 {
                     nexts[indices[i] as usize] = indices[i + 1];
@@ -3041,6 +3046,8 @@ impl TileRenderer {
                 tails[tile_idx] = indices[len - 1];
             }
         }
+
+        self.tile_bins.sort_buf = indices;
     }
 
     #[cfg_attr(feature = "parallel", allow(dead_code))]
@@ -3523,22 +3530,24 @@ impl TileRenderer {
             return;
         }
 
+        // Bolt Performance Optimization:
+        // Replaced `SmallVec` with a hoisted, reusable `Vec` extracted from `TileBins`
+        // to prevent dynamic heap allocations on the hot sorting path when tiles contain >64 triangles.
+        let mut indices = std::mem::take(&mut self.tile_bins.sort_buf);
+
         let heads = &mut self.tile_bins.heads;
         let nexts = &mut self.tile_bins.nexts;
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
-        for (tile_idx, head) in heads.iter_mut().enumerate() {
-            if *head == u32::MAX {
+        for tile_idx in 0..heads.len() {
+            let head = heads[tile_idx];
+            if head == u32::MAX {
                 continue;
             }
 
             indices.clear();
-            let mut curr = *head;
+            let mut curr = head;
             while curr != u32::MAX {
                 indices.push(curr);
                 curr = nexts[curr as usize];
@@ -3555,7 +3564,7 @@ impl TileRenderer {
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
 
-                *head = indices[0];
+                heads[tile_idx] = indices[0];
                 let len = indices.len();
                 for i in 0..len - 1 {
                     nexts[indices[i] as usize] = indices[i + 1];
@@ -3564,6 +3573,8 @@ impl TileRenderer {
                 tails[tile_idx] = indices[len - 1];
             }
         }
+
+        self.tile_bins.sort_buf = indices;
     }
 
     /// Sorts textured triangles in each bin by depth.
@@ -3573,22 +3584,24 @@ impl TileRenderer {
             return;
         }
 
+        // Bolt Performance Optimization:
+        // Replaced `SmallVec` with a hoisted, reusable `Vec` extracted from `TileBins`
+        // to prevent dynamic heap allocations on the hot sorting path when tiles contain >64 triangles.
+        let mut indices = std::mem::take(&mut self.tile_bins.sort_buf);
+
         let heads = &mut self.tile_bins.heads;
         let nexts = &mut self.tile_bins.nexts;
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
-        for (tile_idx, head) in heads.iter_mut().enumerate() {
-            if *head == u32::MAX {
+        for tile_idx in 0..heads.len() {
+            let head = heads[tile_idx];
+            if head == u32::MAX {
                 continue;
             }
 
             indices.clear();
-            let mut curr = *head;
+            let mut curr = head;
             while curr != u32::MAX {
                 indices.push(curr);
                 curr = nexts[curr as usize];
@@ -3605,7 +3618,7 @@ impl TileRenderer {
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
 
-                *head = indices[0];
+                heads[tile_idx] = indices[0];
                 let len = indices.len();
                 for i in 0..len - 1 {
                     nexts[indices[i] as usize] = indices[i + 1];
@@ -3614,6 +3627,8 @@ impl TileRenderer {
                 tails[tile_idx] = indices[len - 1];
             }
         }
+
+        self.tile_bins.sort_buf = indices;
     }
 
     /// Merge tile buffers into framebuffer using direct copy (no depth test).
