@@ -122,14 +122,14 @@ pub fn apply_tilt_shift(fb: &mut Framebuffer, config: &TiltShiftConfig) {
         // 3. Blend original and blurred pixels based on Y-coordinate distance from focus plane
         #[cfg(feature = "parallel")]
         let iter = fb_pixels
-            .par_chunks_exact_mut(width)
-            .zip(blurred_slice.par_chunks_exact(width))
+            .par_chunks_exact_mut(width.max(1))
+            .zip(blurred_slice.par_chunks_exact(width.max(1)))
             .enumerate();
 
         #[cfg(not(feature = "parallel"))]
         let iter = fb_pixels
-            .chunks_exact_mut(width)
-            .zip(blurred_slice.chunks_exact(width))
+            .chunks_exact_mut(width.max(1))
+            .zip(blurred_slice.chunks_exact(width.max(1)))
             .enumerate();
 
         iter.for_each(|(y, (dst_row, blurred_row))| {

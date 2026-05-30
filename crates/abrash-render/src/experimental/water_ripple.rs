@@ -65,9 +65,13 @@ pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
         let dest_buffer = fb.as_mut_slice();
 
         #[cfg(feature = "parallel")]
-        let iter = dest_buffer.par_chunks_exact_mut(width as usize).enumerate();
+        let iter = dest_buffer
+            .par_chunks_exact_mut((width as usize).max(1))
+            .enumerate();
         #[cfg(not(feature = "parallel"))]
-        let iter = dest_buffer.chunks_exact_mut(width as usize).enumerate();
+        let iter = dest_buffer
+            .chunks_exact_mut((width as usize).max(1))
+            .enumerate();
 
         iter.for_each(|(y, row)| {
             let y_f32 = y as f32;

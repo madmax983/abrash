@@ -89,9 +89,9 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
     let metric = config.metric;
 
     #[cfg(feature = "parallel")]
-    let chunk_iter = dest.par_chunks_exact_mut(width);
+    let chunk_iter = dest.par_chunks_exact_mut(width.max(1));
     #[cfg(not(feature = "parallel"))]
-    let chunk_iter = dest.chunks_exact_mut(width);
+    let chunk_iter = dest.chunks_exact_mut(width.max(1));
 
     let is_euclidean = (metric - 2.0).abs() < f32::EPSILON;
     let is_manhattan = (metric - 1.0).abs() < f32::EPSILON;

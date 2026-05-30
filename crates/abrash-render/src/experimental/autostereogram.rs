@@ -31,7 +31,7 @@ impl Default for AutostereogramConfig {
 /// Applies the Autostereogram effect to the given framebuffer based on the `ZBuffer`.
 ///
 /// Bolt Performance Optimization:
-/// Uses `.par_chunks_exact_mut(width)` and Thread-Local Storage for `links` and `colors`
+/// Uses `.par_chunks_exact_mut(width.max(1))` and Thread-Local Storage for `links` and `colors`
 /// arrays to allow parallel processing of rows while avoiding allocations.
 pub fn apply_autostereogram(fb: &mut Framebuffer, zb: &ZBuffer, config: AutostereogramConfig) {
     let width = fb.width() as usize;
@@ -47,7 +47,7 @@ pub fn apply_autostereogram(fb: &mut Framebuffer, zb: &ZBuffer, config: Autoster
         }
 
         pixels
-            .par_chunks_exact_mut(width)
+            .par_chunks_exact_mut(width.max(1))
             .enumerate()
             .for_each(|(y, row_pixels)| {
                 ROW_BUFFERS.with(|buffers| {
@@ -75,7 +75,7 @@ pub fn apply_autostereogram(fb: &mut Framebuffer, zb: &ZBuffer, config: Autoster
         let mut links = vec![0; width];
         let mut colors = vec![0; width];
         pixels
-            .chunks_exact_mut(width)
+            .chunks_exact_mut(width.max(1))
             .enumerate()
             .for_each(|(y, row_pixels)| {
                 let row_start = y * width;

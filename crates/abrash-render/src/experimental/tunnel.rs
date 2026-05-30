@@ -32,7 +32,7 @@ pub fn apply_tunnel(framebuffer: &mut Framebuffer, time: f32, texture: &Texture)
 
     framebuffer
         .as_mut_slice()
-        .chunks_exact_mut(width)
+        .chunks_exact_mut(width.max(1))
         .enumerate()
         .for_each(|(y, row)| {
             let dy = y as f32 - center_y;

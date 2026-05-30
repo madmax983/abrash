@@ -73,9 +73,9 @@ pub fn apply_swirl(fb: &mut Framebuffer, config: &SwirlConfig) {
         let inv_radius = 1.0 / config.radius;
 
         #[cfg(feature = "parallel")]
-        let row_iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
+        let row_iter = dest_pixels.par_chunks_exact_mut(width.max(1)).enumerate();
         #[cfg(not(feature = "parallel"))]
-        let row_iter = dest_pixels.chunks_exact_mut(width).enumerate();
+        let row_iter = dest_pixels.chunks_exact_mut(width.max(1)).enumerate();
 
         row_iter.for_each(|(y, row)| {
             let dy = y as f32 - cy;

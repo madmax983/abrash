@@ -11,3 +11,9 @@
 **Flaw:** The clock calculated `phase_advance` as `delta_secs / duration`. With near-zero subnormal floats, this resulted in a massively large float value. When added to the clock's current `phase` and then casting the integer portion (`whole_cycles`) to `u64` to accumulate into `self.cycle`, it caused a `u64` addition overflow (`attempt to add with overflow`) when the number of cycles exceeded `u64::MAX`.
 **Outcome:** Engine crashed via unhandled panic during animation evaluation.
 **Resolution:** Replaced the unchecked `self.cycle += whole_cycles` with `self.cycle = self.cycle.saturating_add(whole_cycles)`. The clock gracefully tops out at `u64::MAX` instead of crashing.
+## [Chunk Size Panic in Rayon/Iterator Iteration on Empty Dimensions]
+**Target:** `crates/abrash-render/src/` (Multiple pixel filter modules: `ascii.rs`, `chroma_key.rs`, `pixel_sort.rs`, `tilt_shift.rs`, `radial_blur.rs`, etc)
+**Trigger:** `width = 0` passed into Framebuffer initialization and then into filter/renderer passes.
+**Flaw:** Throughout the codebase, pixel modification and iterators operate on per-row chunks, instantiated using `.chunks_exact_mut(width)` or Rayon's `.par_chunks_exact_mut(width)`. If the user passes a `Framebuffer` with a width of `0`, these functions panicked with `"chunk size must be non-zero"`.
+**Outcome:** The engine crashed via an unhandled panic inside standard library and Rayon iterators whenever drawing a 0-width (invisible) image filter effect.
+**Resolution:** Replaced all instances of `width` inside `.chunks_exact_mut(width)` and `.par_chunks_exact_mut(width)` with `width.max(1)`. The iterators can handle empty slices correctly, as long as the chunk parameter itself is positive.

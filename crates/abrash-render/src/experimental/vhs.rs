@@ -94,9 +94,9 @@ pub fn apply_vhs(fb: &mut Framebuffer, config: &VhsConfig) {
         let global_seed = (config.time * 1000.0) as u32 ^ 0x1337_C455;
 
         #[cfg(feature = "parallel")]
-        let row_iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
+        let row_iter = dest_pixels.par_chunks_exact_mut(width.max(1)).enumerate();
         #[cfg(not(feature = "parallel"))]
-        let row_iter = dest_pixels.chunks_exact_mut(width).enumerate();
+        let row_iter = dest_pixels.chunks_exact_mut(width.max(1)).enumerate();
 
         row_iter.for_each(|(y, row)| {
             let mut prng_state = global_seed.wrapping_add((y as u32).wrapping_mul(7919));

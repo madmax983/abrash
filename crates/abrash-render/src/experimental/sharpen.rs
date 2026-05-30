@@ -13,8 +13,8 @@ use crate::framebuffer::Framebuffer;
 ///
 /// * `fb` - The framebuffer to modify in-place.
 /// * `amount` - The intensity of the sharpen effect (0.0 to 1.0).
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
 pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
     if amount <= 0.0 {
         return;
@@ -107,7 +107,7 @@ pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
             let dst_body = &mut dst[width..width * (height - 1)];
 
             dst_body
-                .par_chunks_exact_mut(width)
+                .par_chunks_exact_mut(width.max(1))
                 .enumerate()
                 .for_each(process_row);
         }
@@ -116,7 +116,7 @@ pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
         {
             let dst_body = &mut dst[width..width * (height - 1)];
             dst_body
-                .chunks_exact_mut(width)
+                .chunks_exact_mut(width.max(1))
                 .enumerate()
                 .for_each(process_row);
         }

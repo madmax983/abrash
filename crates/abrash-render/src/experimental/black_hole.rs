@@ -44,9 +44,9 @@ pub fn apply_black_hole(fb: &mut Framebuffer, center_x: f32, center_y: f32, mass
         let dst_pixels = fb.as_mut_slice();
 
         #[cfg(feature = "parallel")]
-        let row_iter = dst_pixels.par_chunks_exact_mut(width).enumerate();
+        let row_iter = dst_pixels.par_chunks_exact_mut(width.max(1)).enumerate();
         #[cfg(not(feature = "parallel"))]
-        let row_iter = dst_pixels.chunks_exact_mut(width).enumerate();
+        let row_iter = dst_pixels.chunks_exact_mut(width.max(1)).enumerate();
 
         row_iter.for_each(|(y, row)| {
             let dy = (y as f32) - center_y;

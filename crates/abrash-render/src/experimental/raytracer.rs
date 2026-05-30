@@ -245,10 +245,10 @@ impl RayTracer {
     ///
     /// If the `parallel` feature is enabled, this method uses `rayon` to trace rays
     /// in parallel across multiple threads.
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
+    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
+    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
+    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
     pub fn render(&self, scene: &Scene, fb: &mut Framebuffer) {
         let width = fb.width();
         let height = fb.height();
@@ -300,9 +300,11 @@ impl RayTracer {
         let buffer = fb.as_mut_slice();
 
         #[cfg(feature = "parallel")]
-        let iter = buffer.par_chunks_exact_mut(width as usize).enumerate();
+        let iter = buffer
+            .par_chunks_exact_mut((width as usize).max(1))
+            .enumerate();
         #[cfg(not(feature = "parallel"))]
-        let iter = buffer.chunks_exact_mut(width as usize).enumerate();
+        let iter = buffer.chunks_exact_mut((width as usize).max(1)).enumerate();
 
         AABB_BUFFER.with(|buffer| {
             let mut world_aabbs = buffer.borrow_mut();

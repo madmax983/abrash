@@ -55,8 +55,8 @@ pub fn apply_chroma_key(fg: &mut Framebuffer, bg: &Framebuffer, key_color: u32) 
     {
         use rayon::prelude::*;
         fg_pixels
-            .par_chunks_exact_mut(fg_stride)
-            .zip(bg_pixels.par_chunks_exact(bg_stride))
+            .par_chunks_exact_mut(fg_stride.max(1))
+            .zip(bg_pixels.par_chunks_exact(bg_stride.max(1)))
             .take(height)
             .for_each(|(fg_row, bg_row)| {
                 for x in 0..width {
@@ -148,8 +148,8 @@ pub fn smooth_chroma_key(
     {
         use rayon::prelude::*;
         fg_pixels
-            .par_chunks_exact_mut(fg_stride)
-            .zip(bg_pixels.par_chunks_exact(bg_stride))
+            .par_chunks_exact_mut(fg_stride.max(1))
+            .zip(bg_pixels.par_chunks_exact(bg_stride.max(1)))
             .take(height)
             .for_each(|(fg_row, bg_row)| {
                 process_smooth_row(

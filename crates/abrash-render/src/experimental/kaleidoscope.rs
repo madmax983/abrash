@@ -20,8 +20,8 @@ thread_local! {
 ///
 /// * `fb` - The framebuffer to modify in-place.
 /// * `segments` - The number of mirror segments (e.g. 6). Must be > 1 to have an effect.
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
 #[inline(always)]
 #[must_use]
 pub fn fast_atan2(y: f32, x: f32) -> f32 {
@@ -101,7 +101,7 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
             use rayon::prelude::*;
 
             dest_pixels
-                .par_chunks_exact_mut(width)
+                .par_chunks_exact_mut(width.max(1))
                 .enumerate()
                 .for_each(|(y, row)| {
                     let dy = y as f32 - cy;
@@ -143,7 +143,11 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
 
         #[cfg(not(feature = "parallel"))]
         {
-            for (y, row) in dest_pixels.chunks_exact_mut(width).enumerate().take(height) {
+            for (y, row) in dest_pixels
+                .chunks_exact_mut(width.max(1))
+                .enumerate()
+                .take(height)
+            {
                 let dy = y as f32 - cy;
 
                 for (x, pixel) in row.iter_mut().enumerate() {

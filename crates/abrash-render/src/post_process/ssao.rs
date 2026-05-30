@@ -220,9 +220,11 @@ fn apply_ssao_scalar(
     let half_height = height as f32 * 0.5;
 
     #[cfg(feature = "parallel")]
-    let iter = occlusion_buffer.par_chunks_exact_mut(width).enumerate();
+    let iter = occlusion_buffer
+        .par_chunks_exact_mut(width.max(1))
+        .enumerate();
     #[cfg(not(feature = "parallel"))]
-    let iter = occlusion_buffer.chunks_exact_mut(width).enumerate();
+    let iter = occlusion_buffer.chunks_exact_mut(width.max(1)).enumerate();
 
     iter.for_each(|(y, row)| {
         let noise_y = y % NOISE_SIZE;
@@ -342,9 +344,11 @@ unsafe fn apply_ssao_avx2(
         let zb_data = zb.as_slice();
 
         #[cfg(feature = "parallel")]
-        let iter = occlusion_buffer.par_chunks_exact_mut(width).enumerate();
+        let iter = occlusion_buffer
+            .par_chunks_exact_mut(width.max(1))
+            .enumerate();
         #[cfg(not(feature = "parallel"))]
-        let iter = occlusion_buffer.chunks_exact_mut(width).enumerate();
+        let iter = occlusion_buffer.chunks_exact_mut(width.max(1)).enumerate();
 
         iter.for_each(|(y, row)| {
             let y_idx = y * width;

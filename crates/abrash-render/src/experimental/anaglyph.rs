@@ -29,7 +29,7 @@ impl Default for AnaglyphConfig {
 /// Modifies the framebuffer in place by shifting the red channel horizontally
 /// based on the corresponding pixel depth in the `ZBuffer`.
 ///
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
 pub fn apply_anaglyph(fb: &mut Framebuffer, zb: &ZBuffer, config: AnaglyphConfig) {
     if config.max_offset == 0 {
         return;
@@ -61,7 +61,7 @@ pub fn apply_anaglyph(fb: &mut Framebuffer, zb: &ZBuffer, config: AnaglyphConfig
         }
 
         pixels
-            .par_chunks_exact_mut(width)
+            .par_chunks_exact_mut(width.max(1))
             .enumerate()
             .for_each(|(y, row_pixels)| {
                 ROW_BUFFERS.with(|buffers| {
@@ -88,7 +88,7 @@ pub fn apply_anaglyph(fb: &mut Framebuffer, zb: &ZBuffer, config: AnaglyphConfig
     #[cfg(not(feature = "parallel"))]
     {
         pixels
-            .chunks_exact_mut(width)
+            .chunks_exact_mut(width.max(1))
             .enumerate()
             .for_each(|(y, row_pixels)| {
                 // Copy row data

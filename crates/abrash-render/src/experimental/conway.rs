@@ -160,9 +160,9 @@ pub fn apply_conway(fb: &mut Framebuffer, config: &ConwayConfig) {
             let curr_grid_slice = &curr_grid[..];
 
             #[cfg(feature = "parallel")]
-            let row_iter = fb_mut.par_chunks_exact_mut(width).enumerate();
+            let row_iter = fb_mut.par_chunks_exact_mut(width.max(1)).enumerate();
             #[cfg(not(feature = "parallel"))]
-            let row_iter = fb_mut.chunks_exact_mut(width).enumerate();
+            let row_iter = fb_mut.chunks_exact_mut(width.max(1)).enumerate();
 
             row_iter.for_each(|(y, row_pixels)| {
                 let r = y / config.cell_size;

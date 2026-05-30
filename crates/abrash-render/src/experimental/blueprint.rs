@@ -73,9 +73,9 @@ pub fn apply_blueprint(fb: &mut Framebuffer, config: &BlueprintConfig) {
 
     // Map the edge-detected result to the blueprint colors and add the grid
     #[cfg(feature = "parallel")]
-    let iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
+    let iter = dest_pixels.par_chunks_exact_mut(width.max(1)).enumerate();
     #[cfg(not(feature = "parallel"))]
-    let iter = dest_pixels.chunks_exact_mut(width).enumerate();
+    let iter = dest_pixels.chunks_exact_mut(width.max(1)).enumerate();
 
     let bg_color = config.background_color;
     let line_color = config.line_color;

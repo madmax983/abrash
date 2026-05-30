@@ -44,7 +44,7 @@ impl Default for DitherConfig {
 ///
 /// * `fb` - The framebuffer to modify.
 /// * `config` - Dithering configuration.
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
 pub fn apply_dither(fb: &mut Framebuffer, config: DitherConfig) {
     match config.mode {
         DitherMode::Ordered2x2 => apply_ordered_dither(fb, config.color_depth, &BAYER_2X2, 2),
@@ -110,7 +110,11 @@ fn apply_ordered_dither(fb: &mut Framebuffer, depth: u8, matrix: &[u8], size: us
         offset_table[i] = ((offset + 16384.5) as i32 as f32 - 16384.0) as i32;
     }
 
-    for (y, row) in pixels.chunks_exact_mut(width).take(height).enumerate() {
+    for (y, row) in pixels
+        .chunks_exact_mut(width.max(1))
+        .take(height)
+        .enumerate()
+    {
         let y_mod = y % size;
         let row_offset_base = y_mod * size;
 

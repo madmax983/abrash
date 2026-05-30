@@ -70,9 +70,9 @@ pub fn apply_neon_outline(fb: &mut Framebuffer, config: &NeonOutlineConfig) {
         let dest_pixels = fb.as_mut_slice();
 
         #[cfg(feature = "parallel")]
-        let row_iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
+        let row_iter = dest_pixels.par_chunks_exact_mut(width.max(1)).enumerate();
         #[cfg(not(feature = "parallel"))]
-        let row_iter = dest_pixels.chunks_exact_mut(width).enumerate();
+        let row_iter = dest_pixels.chunks_exact_mut(width.max(1)).enumerate();
 
         row_iter.for_each(|(y, row)| {
             for (x, pixel_out) in row.iter_mut().enumerate() {

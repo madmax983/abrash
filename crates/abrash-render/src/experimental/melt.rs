@@ -120,7 +120,7 @@ pub fn apply_melt(fb: &mut Framebuffer, config: &mut MeltConfig) {
             // We iterate over the destination pixels row by row, but the shift logic
             // means we look "up" in the source buffer.
             dest_pixels
-                .par_chunks_exact_mut(width)
+                .par_chunks_exact_mut(width.max(1))
                 .enumerate()
                 .for_each(|(y, row)| {
                     for (x, pixel) in row.iter_mut().enumerate() {

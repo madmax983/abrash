@@ -57,7 +57,7 @@ pub fn apply_duotone(fb: &mut Framebuffer, color1: u32, color2: u32) {
     let g2 = (color2 >> 8) & 0xFF;
     let b2 = color2 & 0xFF;
 
-    for row in pixels.chunks_exact_mut(width).take(height) {
+    for row in pixels.chunks_exact_mut(width.max(1)).take(height) {
         for pixel in row.iter_mut() {
             let color = *pixel;
 

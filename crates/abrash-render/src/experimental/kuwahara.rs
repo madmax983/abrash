@@ -24,8 +24,8 @@ thread_local! {
 ///
 /// * `fb` - The framebuffer to modify in-place.
 /// * `radius` - The radius of the Kuwahara kernel (e.g., 2 means 5x5 total window size).
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
 #[allow(clippy::too_many_arguments)]
 fn process_kuwahara_region(
     src_fb: &[u32],
@@ -159,7 +159,7 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
         #[cfg(feature = "parallel")]
         {
             dest_pixels
-                .par_chunks_exact_mut(width as usize)
+                .par_chunks_exact_mut((width as usize).max(1))
                 .enumerate()
                 .for_each(|(y_usize, row)| {
                     let y = y_usize as i32;
@@ -209,7 +209,7 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
         #[cfg(not(feature = "parallel"))]
         {
             dest_pixels
-                .chunks_exact_mut(width as usize)
+                .chunks_exact_mut((width as usize).max(1))
                 .enumerate()
                 .for_each(|(y_usize, row)| {
                     let y = y_usize as i32;

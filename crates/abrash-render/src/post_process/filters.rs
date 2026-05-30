@@ -126,7 +126,7 @@ pub fn apply_scanline_jitter(fb: &mut Framebuffer, config: &ScanlineJitterConfig
     }
 
     let pixels = fb.as_mut_slice();
-    let mut chunks = pixels.chunks_exact_mut(width * 2);
+    let mut chunks = pixels.chunks_exact_mut((width * 2).max(1));
     for double_row in &mut chunks {
         double_row[..width].rotate_right(shift);
     }
@@ -198,8 +198,8 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
     }
 
     // Process pairs of rows: even row (kept), odd row (darkened)
-    // chunks_exact_mut(width * 2) gives us 2 rows at a time.
-    for rows in pixels.chunks_exact_mut(width * 2) {
+    // chunks_exact_mut((width * 2).max(1)) gives us 2 rows at a time.
+    for rows in pixels.chunks_exact_mut((width * 2).max(1)) {
         // Second half is the odd row
         let odd_row = &mut rows[width..];
         for pixel in odd_row {
@@ -419,7 +419,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberra
 
         // Process each row
         // chunks_exact_mut gives us rows directly
-        for row_pixels in pixels.chunks_exact_mut(width) {
+        for row_pixels in pixels.chunks_exact_mut(width.max(1)) {
             // Copy current row to scratch buffer
             row_scratch.copy_from_slice(row_pixels);
 
@@ -737,7 +737,7 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
 
         let seed = config.seed;
         pixels
-            .par_chunks_exact_mut(width)
+            .par_chunks_exact_mut(width.max(1))
             .enumerate()
             .for_each(|(y, row)| {
                 let row_offset = y * width;
@@ -872,7 +872,11 @@ fn apply_vignette_scalar(
 
     // ⚡ Bolt: Eliminate Manual Slice Bounds Checks in 2D Block Iteration
     // Iterate over chunks instead of doing index calculations inside the hot loop.
-    for (y, row) in pixels.chunks_exact_mut(width).take(height).enumerate() {
+    for (y, row) in pixels
+        .chunks_exact_mut(width.max(1))
+        .take(height)
+        .enumerate()
+    {
         let dy = y as f32 - center_y;
         let dy_sq_scaled = dy * dy * scale;
         let row_base_factor = 1.0 - dy_sq_scaled;

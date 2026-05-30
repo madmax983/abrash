@@ -41,11 +41,11 @@ pub fn apply_fire(fb: &mut Framebuffer, cooling_map: &[u8]) {
 
         #[cfg(feature = "parallel")]
         let chunk_iter = dest_pixels[..width * (height - 1)]
-            .par_chunks_exact_mut(width)
+            .par_chunks_exact_mut(width.max(1))
             .enumerate();
         #[cfg(not(feature = "parallel"))]
         let chunk_iter = dest_pixels[..width * (height - 1)]
-            .chunks_exact_mut(width)
+            .chunks_exact_mut(width.max(1))
             .enumerate();
 
         chunk_iter.for_each(|(y, row)| {

@@ -57,9 +57,9 @@ pub fn apply_glitch(fb: &mut Framebuffer, intensity: f32, time: f32) {
         let global_seed = (time * 1000.0) as u32 ^ 0x1337_BEEF;
 
         #[cfg(feature = "parallel")]
-        let row_iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
+        let row_iter = dest_pixels.par_chunks_exact_mut(width.max(1)).enumerate();
         #[cfg(not(feature = "parallel"))]
-        let row_iter = dest_pixels.chunks_exact_mut(width).enumerate();
+        let row_iter = dest_pixels.chunks_exact_mut(width.max(1)).enumerate();
 
         row_iter.for_each(|(y, row)| {
             // Initialize a row-specific PRNG using the global seed and row index.

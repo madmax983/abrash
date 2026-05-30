@@ -72,9 +72,9 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
     let pixels = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
-    let iter = pixels.par_chunks_exact_mut(width).enumerate();
+    let iter = pixels.par_chunks_exact_mut(width.max(1)).enumerate();
     #[cfg(not(feature = "parallel"))]
-    let iter = pixels.chunks_exact_mut(width).enumerate();
+    let iter = pixels.chunks_exact_mut(width.max(1)).enumerate();
 
     iter.for_each(|(y, row)| {
         for (x, pixel) in row.iter_mut().enumerate() {

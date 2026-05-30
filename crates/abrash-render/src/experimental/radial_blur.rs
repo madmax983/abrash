@@ -70,7 +70,7 @@ pub fn apply_radial_blur(
             use rayon::prelude::*;
 
             dest_pixels
-                .par_chunks_exact_mut(width)
+                .par_chunks_exact_mut(width.max(1))
                 .enumerate()
                 .for_each(|(y, row)| {
                     let dy = y as f32 - cy_f32;

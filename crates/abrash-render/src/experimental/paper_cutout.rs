@@ -141,9 +141,9 @@ pub fn apply_paper_cutout(fb: &mut Framebuffer, zb: &ZBuffer, config: &PaperCuto
     let shadow_mult_fixed = (shadow_mult * 256.0) as u32;
 
     #[cfg(feature = "parallel")]
-    let iter = pixels.par_chunks_exact_mut(width).enumerate();
+    let iter = pixels.par_chunks_exact_mut(width.max(1)).enumerate();
     #[cfg(not(feature = "parallel"))]
-    let iter = pixels.chunks_exact_mut(width).enumerate();
+    let iter = pixels.chunks_exact_mut(width.max(1)).enumerate();
 
     // We need immutable slices for the parallel iteration
     let src_slice = &src[..len];

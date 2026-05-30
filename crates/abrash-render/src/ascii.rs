@@ -146,7 +146,11 @@ impl<'a> AsciiConverter<'a> {
         // ANSI sequence is roughly "\x1b[38;2;RRR;GGG;BBBmC" -> ~20 chars
         let mut result = String::with_capacity(((width * 20) * height) as usize);
 
-        for row in self.framebuffer.as_slice().chunks_exact(width as usize) {
+        for row in self
+            .framebuffer
+            .as_slice()
+            .chunks_exact((width as usize).max(1))
+        {
             for &pixel in row {
                 let ch = self.charset.map(pixel_luminance(pixel));
                 let r = ((pixel >> 16) & 0xFF) as u8;
@@ -179,7 +183,11 @@ impl<'a> AsciiConverter<'a> {
         let mut writer = BufWriter::new(file);
 
         let width = self.framebuffer.width();
-        for row in self.framebuffer.as_slice().chunks_exact(width as usize) {
+        for row in self
+            .framebuffer
+            .as_slice()
+            .chunks_exact((width as usize).max(1))
+        {
             for &pixel in row {
                 write!(writer, "{}", self.charset.map(pixel_luminance(pixel)))?;
             }
@@ -217,7 +225,11 @@ impl<'a> AsciiConverter<'a> {
         let mut writer = BufWriter::new(file);
 
         let width = self.framebuffer.width();
-        for row in self.framebuffer.as_slice().chunks_exact(width as usize) {
+        for row in self
+            .framebuffer
+            .as_slice()
+            .chunks_exact((width as usize).max(1))
+        {
             for &pixel in row {
                 let ch = self.charset.map(pixel_luminance(pixel));
                 let r = ((pixel >> 16) & 0xFF) as u8;
@@ -244,7 +256,11 @@ impl fmt::Display for AsciiConverter<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let width = self.framebuffer.width();
 
-        for row in self.framebuffer.as_slice().chunks_exact(width as usize) {
+        for row in self
+            .framebuffer
+            .as_slice()
+            .chunks_exact((width as usize).max(1))
+        {
             for &pixel in row {
                 f.write_char(self.charset.map(pixel_luminance(pixel)))?;
             }

@@ -242,7 +242,7 @@ impl SoftBody {
     }
 
     /// Applies an external force to a specific vertex.
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
     pub fn apply_force(&mut self, index: usize, force: Vec3) {
         if index < self.forces.len() {
             self.forces[index] = self.forces[index] + force;

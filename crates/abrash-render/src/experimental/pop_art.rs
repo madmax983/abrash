@@ -60,7 +60,7 @@ pub fn apply_pop_art(dest: &mut Framebuffer, source: &Framebuffer, config: &PopA
     {
         use rayon::prelude::*;
         dest_pixels
-            .par_chunks_exact_mut(width)
+            .par_chunks_exact_mut(width.max(1))
             .enumerate()
             .take(height)
             .for_each(|(y, dest_row)| {
@@ -72,7 +72,11 @@ pub fn apply_pop_art(dest: &mut Framebuffer, source: &Framebuffer, config: &PopA
 
     #[cfg(not(feature = "parallel"))]
     {
-        for (y, dest_row) in dest_pixels.chunks_exact_mut(width).enumerate().take(height) {
+        for (y, dest_row) in dest_pixels
+            .chunks_exact_mut(width.max(1))
+            .enumerate()
+            .take(height)
+        {
             process_row(
                 y, dest_row, src_pixels, width, height, half_w, half_h, config,
             );

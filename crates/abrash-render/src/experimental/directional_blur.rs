@@ -38,9 +38,9 @@ thread_local! {
     static SOURCE_PIXELS: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
 
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
 pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &DirectionalBlurConfig) {
     if config.num_samples <= 1 {
         return;
@@ -121,7 +121,7 @@ pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &Directiona
         {
             framebuffer
                 .as_mut_slice()
-                .par_chunks_exact_mut(width)
+                .par_chunks_exact_mut(width.max(1))
                 .enumerate()
                 .for_each(process_row);
         }
@@ -130,7 +130,7 @@ pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &Directiona
         {
             framebuffer
                 .as_mut_slice()
-                .chunks_exact_mut(width)
+                .chunks_exact_mut(width.max(1))
                 .enumerate()
                 .for_each(process_row);
         }

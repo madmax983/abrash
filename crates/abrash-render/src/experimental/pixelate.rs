@@ -14,7 +14,7 @@ use crate::framebuffer::Framebuffer;
 ///
 /// * `fb` - The framebuffer to modify in-place.
 /// * `block_size` - The size of the pixelation blocks. A size of 0 or 1 has no effect.
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
 pub fn apply_pixelate(fb: &mut Framebuffer, block_size: u32) {
     if block_size <= 1 {
         return;

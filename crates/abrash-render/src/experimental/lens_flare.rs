@@ -81,9 +81,9 @@ struct RenderableGhost {
     max_x: i32,
 }
 
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
 
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
 pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlareConfig) {
     let width = fb.width() as i32;
     let height = fb.height() as i32;
@@ -187,14 +187,14 @@ pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlar
 
     #[cfg(feature = "parallel")]
     {
-        pixels.par_chunks_exact_mut(width as usize).enumerate().for_each(|(y, row_slice)| {
+        pixels.par_chunks_exact_mut((width as usize).max(1)).enumerate().for_each(|(y, row_slice)| {
             process_row(y as i32, row_slice);
         });
     }
 
     #[cfg(not(feature = "parallel"))]
     {
-        pixels.chunks_exact_mut(width as usize).enumerate().for_each(|(y, row_slice)| {
+        pixels.chunks_exact_mut((width as usize).max(1)).enumerate().for_each(|(y, row_slice)| {
             process_row(y as i32, row_slice);
         });
     }

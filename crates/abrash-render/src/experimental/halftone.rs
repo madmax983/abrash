@@ -28,9 +28,9 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
     let pixels = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
-    let row_iter = pixels.par_chunks_exact_mut(width).enumerate();
+    let row_iter = pixels.par_chunks_exact_mut(width.max(1)).enumerate();
     #[cfg(not(feature = "parallel"))]
-    let row_iter = pixels.chunks_exact_mut(width).enumerate();
+    let row_iter = pixels.chunks_exact_mut(width.max(1)).enumerate();
 
     row_iter.for_each(|(y, row)| {
         let y_f32 = y as f32;

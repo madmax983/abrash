@@ -71,9 +71,9 @@ pub fn apply_led_matrix(fb: &mut Framebuffer, config: &LedMatrixConfig) {
     let dest_pixels = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
-    let iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
+    let iter = dest_pixels.par_chunks_exact_mut(width.max(1)).enumerate();
     #[cfg(not(feature = "parallel"))]
-    let iter = dest_pixels.chunks_exact_mut(width).enumerate();
+    let iter = dest_pixels.chunks_exact_mut(width.max(1)).enumerate();
 
     let bg_mult = (config.background_darken * 256.0).clamp(0.0, 256.0) as u32;
 

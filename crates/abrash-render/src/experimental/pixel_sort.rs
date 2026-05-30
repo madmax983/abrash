@@ -39,9 +39,9 @@ impl Default for PixelSortConfig {
     }
 }
 
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
 
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
 pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
@@ -122,7 +122,7 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
         } else {
             // Horizontal sorting
             // We can operate directly on contiguous chunks (rows)
-            pixels.par_chunks_exact_mut(width).for_each(|row| {
+            pixels.par_chunks_exact_mut(width.max(1)).for_each(|row| {
                 sort_segments(row, lum_threshold, config.reverse);
             });
         }
@@ -154,7 +154,7 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
         } else {
             // Horizontal sorting
             // We can operate directly on contiguous chunks (rows)
-            pixels.chunks_exact_mut(width).for_each(|row| {
+            pixels.chunks_exact_mut(width.max(1)).for_each(|row| {
                 sort_segments(row, lum_threshold, config.reverse);
             });
         }

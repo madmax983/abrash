@@ -27,8 +27,8 @@ use rayon::prelude::*;
 /// # Arguments
 ///
 /// * `fb` - The framebuffer to modify in-place.
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
 pub fn apply_emboss(fb: &mut Framebuffer) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
@@ -60,13 +60,13 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
 
     #[cfg(feature = "parallel")]
     let row_iter = dest
-        .par_chunks_exact_mut(width)
+        .par_chunks_exact_mut(width.max(1))
         .enumerate()
         .skip(1)
         .take(height - 2);
     #[cfg(not(feature = "parallel"))]
     let row_iter = dest
-        .chunks_exact_mut(width)
+        .chunks_exact_mut(width.max(1))
         .enumerate()
         .skip(1)
         .take(height - 2);

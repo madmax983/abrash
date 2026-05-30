@@ -168,7 +168,7 @@ pub fn apply_cel_shade(fb: &mut Framebuffer, zb: &ZBuffer, config: &CelShadeConf
         #[cfg(feature = "parallel")]
         {
             dest_pixels
-                .par_chunks_exact_mut(width)
+                .par_chunks_exact_mut(width.max(1))
                 .enumerate()
                 .for_each(|(y, row)| {
                     process_row(y, row);
@@ -178,7 +178,7 @@ pub fn apply_cel_shade(fb: &mut Framebuffer, zb: &ZBuffer, config: &CelShadeConf
         #[cfg(not(feature = "parallel"))]
         {
             dest_pixels
-                .chunks_exact_mut(width)
+                .chunks_exact_mut(width.max(1))
                 .enumerate()
                 .for_each(|(y, row)| {
                     process_row(y, row);

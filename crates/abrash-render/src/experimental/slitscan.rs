@@ -91,7 +91,7 @@ impl SlitScanFilter {
         #[cfg(feature = "parallel")]
         {
             fb.as_mut_slice()
-                .par_chunks_exact_mut(width)
+                .par_chunks_exact_mut(width.max(1))
                 .enumerate()
                 .for_each(|(y, row_out)| {
                     let t = (y * history_len) / height;
@@ -109,7 +109,7 @@ impl SlitScanFilter {
         #[cfg(not(feature = "parallel"))]
         {
             fb.as_mut_slice()
-                .chunks_exact_mut(width)
+                .chunks_exact_mut(width.max(1))
                 .enumerate()
                 .for_each(|(y, row_out)| {
                     let t = (y * history_len) / height;

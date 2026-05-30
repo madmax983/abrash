@@ -63,9 +63,9 @@ pub fn apply_night_vision(fb: &mut Framebuffer, config: &NightVisionConfig) {
     let dest_pixels = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
-    let row_iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
+    let row_iter = dest_pixels.par_chunks_exact_mut(width.max(1)).enumerate();
     #[cfg(not(feature = "parallel"))]
-    let row_iter = dest_pixels.chunks_exact_mut(width).enumerate();
+    let row_iter = dest_pixels.chunks_exact_mut(width.max(1)).enumerate();
 
     row_iter.for_each(|(y, row)| {
         let y_f = y as f32;

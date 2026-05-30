@@ -65,16 +65,16 @@ fn box_blur_f32_horizontal_scalar(
 
     // If width is too small, fallback to checked loop
     if width <= 2 * radius + 1 {
-        // Bolt Optimization: Replaced `.par_chunks_mut(width)` with `.par_chunks_exact_mut(width)` to eliminate
+        // Bolt Optimization: Replaced `.par_chunks_mut(width)` with `.par_chunks_exact_mut(width.max(1))` to eliminate
         // remainder chunk handling and bounds checking, eliminating bounds check overhead
         // when iterating row-by-row over a 1D slice representing a 2D grid.
         #[cfg(feature = "parallel")]
-        let iter = dest.par_chunks_exact_mut(width).enumerate();
-        // Bolt Optimization: Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+        let iter = dest.par_chunks_exact_mut(width.max(1)).enumerate();
+        // Bolt Optimization: Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
         // remainder chunk handling and bounds checking, eliminating bounds check overhead
         // when iterating row-by-row over a 1D slice representing a 2D grid.
         #[cfg(not(feature = "parallel"))]
-        let iter = dest.chunks_exact_mut(width).enumerate();
+        let iter = dest.chunks_exact_mut(width.max(1)).enumerate();
 
         iter.for_each(|(y, dest_row)| {
             let row_start = y * width;
@@ -100,16 +100,16 @@ fn box_blur_f32_horizontal_scalar(
         return;
     }
 
-    // Bolt Optimization: Replaced `.par_chunks_mut(width)` with `.par_chunks_exact_mut(width)` to eliminate
+    // Bolt Optimization: Replaced `.par_chunks_mut(width)` with `.par_chunks_exact_mut(width.max(1))` to eliminate
     // remainder chunk handling and bounds checking, eliminating bounds check overhead
     // when iterating row-by-row over a 1D slice representing a 2D grid.
     #[cfg(feature = "parallel")]
-    let iter = dest.par_chunks_exact_mut(width).enumerate();
-    // Bolt Optimization: Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+    let iter = dest.par_chunks_exact_mut(width.max(1)).enumerate();
+    // Bolt Optimization: Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
     // remainder chunk handling and bounds checking, eliminating bounds check overhead
     // when iterating row-by-row over a 1D slice representing a 2D grid.
     #[cfg(not(feature = "parallel"))]
-    let iter = dest.chunks_exact_mut(width).enumerate();
+    let iter = dest.chunks_exact_mut(width.max(1)).enumerate();
 
     iter.for_each(|(y, dest_row)| {
         let row_start = y * width;
@@ -330,10 +330,10 @@ pub fn box_blur_horizontal(
     {
         // Suppress unused variable warning for height if parallel is active
         let _ = height;
-        // Bolt Optimization: Replaced `.par_chunks_mut(width)` with `.par_chunks_exact_mut(width)` to eliminate
+        // Bolt Optimization: Replaced `.par_chunks_mut(width)` with `.par_chunks_exact_mut(width.max(1))` to eliminate
         // remainder chunk handling and bounds checking, eliminating bounds check overhead
         // when iterating row-by-row over a 1D slice representing a 2D grid.
-        dest.par_chunks_exact_mut(width)
+        dest.par_chunks_exact_mut(width.max(1))
             .enumerate()
             .for_each(|(y, dst_row)| {
                 let row_offset = y * width;

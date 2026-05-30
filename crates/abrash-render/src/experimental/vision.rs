@@ -86,7 +86,7 @@ fn apply_night_vision(fb: &mut Framebuffer, config: &VisionConfig) {
     let max_radius_sq = center_x.mul_add(center_x, center_y * center_y);
     let inv_max_radius_sq = 1.0 / max_radius_sq;
 
-    for (y, row) in pixels.chunks_exact_mut(width).enumerate() {
+    for (y, row) in pixels.chunks_exact_mut(width.max(1)).enumerate() {
         let dy = y as f32 - center_y;
         let dy_sq = dy * dy;
         for (x, pixel) in row.iter_mut().enumerate() {

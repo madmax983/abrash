@@ -48,7 +48,7 @@ pub struct GodRaysConfig {
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width.max(1))` to eliminate
 pub fn apply_god_rays(fb: &mut Framebuffer, config: &GodRaysConfig) {
     if config.num_samples == 0 || config.weight <= 0.0 || config.exposure <= 0.0 {
         return;
@@ -81,9 +81,9 @@ pub fn apply_god_rays(fb: &mut Framebuffer, config: &GodRaysConfig) {
         let weights_slice = weights_fixed.as_slice();
 
         #[cfg(feature = "parallel")]
-        let row_iter = pixels.par_chunks_exact_mut(width).enumerate();
+        let row_iter = pixels.par_chunks_exact_mut(width.max(1)).enumerate();
         #[cfg(not(feature = "parallel"))]
-        let row_iter = pixels.chunks_exact_mut(width).enumerate();
+        let row_iter = pixels.chunks_exact_mut(width.max(1)).enumerate();
 
         let width_i32 = width as i32;
         let height_i32 = height as i32;

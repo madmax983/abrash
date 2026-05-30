@@ -75,9 +75,11 @@ pub fn render_mandelbrot(fb: &mut Framebuffer, config: &MandelbrotConfig) {
     let offset_y = config.center_y - (height / 2.0) * scale_y;
 
     #[cfg(feature = "parallel")]
-    let row_iter = fb.as_mut_slice().par_chunks_exact_mut(width as usize);
+    let row_iter = fb
+        .as_mut_slice()
+        .par_chunks_exact_mut((width as usize).max(1));
     #[cfg(not(feature = "parallel"))]
-    let row_iter = fb.as_mut_slice().chunks_exact_mut(width as usize);
+    let row_iter = fb.as_mut_slice().chunks_exact_mut((width as usize).max(1));
 
     row_iter.enumerate().for_each(|(y, row)| {
         let c_im = offset_y + (y as f64) * scale_y;
