@@ -42,7 +42,8 @@ impl Default for VoronoiConfig {
 
 /// Applies a Voronoi effect to the framebuffer.
 ///
-/// Divides the image into cells based on the nearest generated seed point.
+/// Iterates over every pixel, calculating the distance to a set of randomly
+/// generated seed points using the configured Minkowski distance metric.
 ///
 /// # Arguments
 ///
@@ -217,13 +218,16 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
             });
         }
     } else if is_cbrt {
+        // ⚡ Bolt: For metric=3.0, we can elide the `.cbrt()` call inside the inner loop
+        // by comparing the cubic distances (`dx^3 + dy^3`) directly, and only taking the
+        // cube root after the closest seeds are found.
         if config.border_thickness > 0.0 {
             chunk_iter.enumerate().for_each(|(y, row)| {
                 let fy = y as f32;
                 for (x, pixel) in row.iter_mut().enumerate() {
                     let fx = x as f32;
-                    let mut min_dist = f32::MAX;
-                    let mut second_min_dist = f32::MAX;
+                    let mut min_dist_cb = f32::MAX;
+                    let mut second_min_dist_cb = f32::MAX;
                     let mut closest_idx = 0;
 
                     for (i, seed) in seeds.iter().enumerate() {
@@ -231,16 +235,18 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         let dy = fy - seed.y;
                         let dx = dx.abs();
                         let dy = dy.abs();
-                        let dist = (dx * dx * dx + dy * dy * dy).cbrt();
-                        if dist < min_dist {
-                            second_min_dist = min_dist;
-                            min_dist = dist;
+                        let dist_cb = dx * dx * dx + dy * dy * dy;
+                        if dist_cb < min_dist_cb {
+                            second_min_dist_cb = min_dist_cb;
+                            min_dist_cb = dist_cb;
                             closest_idx = i;
-                        } else if dist < second_min_dist {
-                            second_min_dist = dist;
+                        } else if dist_cb < second_min_dist_cb {
+                            second_min_dist_cb = dist_cb;
                         }
                     }
 
+                    let min_dist = min_dist_cb.cbrt();
+                    let second_min_dist = second_min_dist_cb.cbrt();
                     let diff = (second_min_dist - min_dist).abs();
                     if diff <= config.border_thickness {
                         *pixel = config.border_color;
@@ -254,7 +260,7 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                 let fy = y as f32;
                 for (x, pixel) in row.iter_mut().enumerate() {
                     let fx = x as f32;
-                    let mut min_dist = f32::MAX;
+                    let mut min_dist_cb = f32::MAX;
                     let mut closest_idx = 0;
 
                     for (i, seed) in seeds.iter().enumerate() {
@@ -262,9 +268,9 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         let dy = fy - seed.y;
                         let dx = dx.abs();
                         let dy = dy.abs();
-                        let dist = (dx * dx * dx + dy * dy * dy).cbrt();
-                        if dist < min_dist {
-                            min_dist = dist;
+                        let dist_cb = dx * dx * dx + dy * dy * dy;
+                        if dist_cb < min_dist_cb {
+                            min_dist_cb = dist_cb;
                             closest_idx = i;
                         }
                     }
@@ -274,13 +280,16 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
             });
         }
     } else if is_sqrt {
+        // ⚡ Bolt: For metric=4.0, we can elide the `.sqrt().sqrt()` call inside the inner loop
+        // by comparing the quartic distances (`dx^4 + dy^4`) directly, and only taking the
+        // roots after the closest seeds are found.
         if config.border_thickness > 0.0 {
             chunk_iter.enumerate().for_each(|(y, row)| {
                 let fy = y as f32;
                 for (x, pixel) in row.iter_mut().enumerate() {
                     let fx = x as f32;
-                    let mut min_dist = f32::MAX;
-                    let mut second_min_dist = f32::MAX;
+                    let mut min_dist_q = f32::MAX;
+                    let mut second_min_dist_q = f32::MAX;
                     let mut closest_idx = 0;
 
                     for (i, seed) in seeds.iter().enumerate() {
@@ -290,17 +299,20 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         let dy = dy.abs();
                         let x2 = dx * dx;
                         let y2 = dy * dy;
-                        #[allow(clippy::imprecise_flops)]
-                        let dist = (x2 * x2 + y2 * y2).sqrt().sqrt();
-                        if dist < min_dist {
-                            second_min_dist = min_dist;
-                            min_dist = dist;
+                        let dist_q = x2 * x2 + y2 * y2;
+                        if dist_q < min_dist_q {
+                            second_min_dist_q = min_dist_q;
+                            min_dist_q = dist_q;
                             closest_idx = i;
-                        } else if dist < second_min_dist {
-                            second_min_dist = dist;
+                        } else if dist_q < second_min_dist_q {
+                            second_min_dist_q = dist_q;
                         }
                     }
 
+                    #[allow(clippy::imprecise_flops)]
+                    let min_dist = min_dist_q.sqrt().sqrt();
+                    #[allow(clippy::imprecise_flops)]
+                    let second_min_dist = second_min_dist_q.sqrt().sqrt();
                     let diff = (second_min_dist - min_dist).abs();
                     if diff <= config.border_thickness {
                         *pixel = config.border_color;
@@ -314,7 +326,7 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                 let fy = y as f32;
                 for (x, pixel) in row.iter_mut().enumerate() {
                     let fx = x as f32;
-                    let mut min_dist = f32::MAX;
+                    let mut min_dist_q = f32::MAX;
                     let mut closest_idx = 0;
 
                     for (i, seed) in seeds.iter().enumerate() {
@@ -324,10 +336,9 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         let dy = dy.abs();
                         let x2 = dx * dx;
                         let y2 = dy * dy;
-                        #[allow(clippy::imprecise_flops)]
-                        let dist = (x2 * x2 + y2 * y2).sqrt().sqrt();
-                        if dist < min_dist {
-                            min_dist = dist;
+                        let dist_q = x2 * x2 + y2 * y2;
+                        if dist_q < min_dist_q {
+                            min_dist_q = dist_q;
                             closest_idx = i;
                         }
                     }
@@ -351,6 +362,9 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         let dy = fy - seed.y;
                         let dx = dx.abs();
                         let dy = dy.abs();
+                        // ⚡ Bolt: Elide slow C-math library fractional power for the inner sum
+                        // by using `.powi(4)` and `.sqrt().sqrt()` when `metric == 4.0` (Minkowski 4).
+                        // Unfortunately we must fallback to `.powf()` for arbitrary floating point metrics.
                         let dist = (dx.powf(metric) + dy.powf(metric)).powf(inv_metric);
                         if dist < min_dist {
                             second_min_dist = min_dist;
