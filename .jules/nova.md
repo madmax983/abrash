@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## String Art Feature
+**Concept:** Implement a new visual effect module simulating string art (e.g., modular multiplication circles) using Bresenham's line algorithm.
+**Fate:** Successfully merged.
+**Lesson:** Writing failing tests correctly requires understanding the system's defaults (e.g., Framebuffer defaults to 0xFF00_0000, not 0). Using `i64` for modular multiplication indices is necessary to avoid overflows when scaling multipliers, and `unsafe` slice writes can be safely used to elide bounds checks only when the entire geometry is proven to be strictly on-screen beforehand.
