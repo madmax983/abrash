@@ -19,23 +19,24 @@ use std::ops::{Add, Mul, Sub};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
-#[allow(missing_docs)]
 pub struct Vec4 {
+    /// The X coordinate (spatial or color component).
     pub x: f32,
+    /// The Y coordinate (spatial or color component).
     pub y: f32,
+    /// The Z coordinate (spatial or color component).
     pub z: f32,
+    /// The homogeneous coordinate. If `w=1.0`, it represents a point in space. If `w=0.0`, it represents a direction vector.
     pub w: f32,
 }
 
 impl Vec4 {
-    #[allow(missing_docs)]
     pub const ZERO: Self = Self {
         x: 0.0,
         y: 0.0,
         z: 0.0,
         w: 0.0,
     };
-    #[allow(missing_docs)]
     pub const ONE: Self = Self {
         x: 1.0,
         y: 1.0,

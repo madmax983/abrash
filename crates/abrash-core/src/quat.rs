@@ -33,11 +33,14 @@ use crate::math::{Mat4, Vec3, fast_inv_sqrt};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
 pub struct Quat {
+    /// The X component of the vector part (imaginary axis i).
     pub x: f32,
+    /// The Y component of the vector part (imaginary axis j).
     pub y: f32,
+    /// The Z component of the vector part (imaginary axis k).
     pub z: f32,
+    /// The scalar (real) component defining the amount of rotation.
     pub w: f32,
 }
 

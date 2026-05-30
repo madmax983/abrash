@@ -15,10 +15,12 @@ use std::ops::{Add, Mul, Sub};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
-#[allow(missing_docs)]
 pub struct Vec3 {
+    /// Horizontal axis coordinate. In Abrash's right-handed system, +X is right.
     pub x: f32,
+    /// Vertical axis coordinate. In Abrash's right-handed system, +Y is up.
     pub y: f32,
+    /// Depth axis coordinate. In Abrash's right-handed system, -Z is forward.
     pub z: f32,
 }
 
@@ -63,13 +65,11 @@ impl Vec3 {
         (a * w0) + (b * w1)
     }
 
-    #[allow(missing_docs)]
     pub const ZERO: Self = Self {
         x: 0.0,
         y: 0.0,
         z: 0.0,
     };
-    #[allow(missing_docs)]
     pub const ONE: Self = Self {
         x: 1.0,
         y: 1.0,
