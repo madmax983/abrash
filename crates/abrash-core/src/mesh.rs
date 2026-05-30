@@ -208,7 +208,7 @@ impl Mesh {
             indices,
             uvs,
             normals,
-            tangents: Vec::new(),
+            tangents: Vec::with_capacity(num_vertices),
         }
     }
 
@@ -266,7 +266,7 @@ impl Mesh {
             indices,
             uvs,
             normals,
-            tangents: Vec::new(),
+            tangents: Vec::with_capacity(num_vertices),
         }
     }
 
@@ -378,7 +378,7 @@ impl Mesh {
             indices,
             uvs,
             normals,
-            tangents: Vec::new(),
+            tangents: Vec::with_capacity(num_vertices),
         }
     }
 
@@ -456,7 +456,7 @@ impl Mesh {
             indices,
             uvs,
             normals,
-            tangents: Vec::new(),
+            tangents: Vec::with_capacity(num_vertices),
         }
     }
 

@@ -1821,7 +1821,7 @@ impl TileRenderer {
                     .filter(|&&[i0, i1, i2]| {
                         i0 < vertices.len() && i1 < vertices.len() && i2 < vertices.len()
                     })
-                    .flat_map(|&[i0, i1, i2]| {
+                    .map(|&[i0, i1, i2]| {
                         let v0 = vertices[i0];
                         let v1 = vertices[i1];
                         let v2 = vertices[i2];
@@ -1833,7 +1833,8 @@ impl TileRenderer {
                             half_height,
                         };
                         Self::prepare_triangle_static(v0, v1, v2, color, &ctx)
-                    }),
+                    })
+                    .flatten(),
             );
         }
 
@@ -2280,16 +2281,20 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            self.prepared
-                .par_extend(triangles.par_iter().flat_map(|&(v0, v1, v2, color)| {
-                    let ctx = ScreenSpaceContext {
-                        width,
-                        height,
-                        half_width,
-                        half_height,
-                    };
-                    Self::prepare_triangle_static(v0, v1, v2, color, &ctx)
-                }));
+            self.prepared.par_extend(
+                triangles
+                    .par_iter()
+                    .map(|&(v0, v1, v2, color)| {
+                        let ctx = ScreenSpaceContext {
+                            width,
+                            height,
+                            half_width,
+                            half_height,
+                        };
+                        Self::prepare_triangle_static(v0, v1, v2, color, &ctx)
+                    })
+                    .flatten(),
+            );
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -2350,27 +2355,27 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            self.prepared_textured
-                .par_extend(
-                    triangles
-                        .par_iter()
-                        .flat_map(|&(v0, uv0, v1, uv1, v2, uv2)| {
-                            let ctx = ScreenSpaceContext {
-                                width,
-                                height,
-                                half_width,
-                                half_height,
-                            };
-                            Self::prepare_triangle_textured_static(
-                                (v0, uv0),
-                                (v1, uv1),
-                                (v2, uv2),
-                                tex_w,
-                                tex_h,
-                                &ctx,
-                            )
-                        }),
-                );
+            self.prepared_textured.par_extend(
+                triangles
+                    .par_iter()
+                    .map(|&(v0, uv0, v1, uv1, v2, uv2)| {
+                        let ctx = ScreenSpaceContext {
+                            width,
+                            height,
+                            half_width,
+                            half_height,
+                        };
+                        Self::prepare_triangle_textured_static(
+                            (v0, uv0),
+                            (v1, uv1),
+                            (v2, uv2),
+                            tex_w,
+                            tex_h,
+                            &ctx,
+                        )
+                    })
+                    .flatten(),
+            );
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -2614,16 +2619,20 @@ impl TileRenderer {
             let half_height = self.half_height;
 
             // Bolt: Use `par_extend` to eliminate intermediate Vec heap allocations.
-            self.prepared_gouraud
-                .par_extend(triangles.par_iter().flat_map(|&(v0, v1, v2)| {
-                    let ctx = ScreenSpaceContext {
-                        width,
-                        height,
-                        half_width,
-                        half_height,
-                    };
-                    Self::prepare_triangle_gouraud_static(v0, v1, v2, &ctx)
-                }));
+            self.prepared_gouraud.par_extend(
+                triangles
+                    .par_iter()
+                    .map(|&(v0, v1, v2)| {
+                        let ctx = ScreenSpaceContext {
+                            width,
+                            height,
+                            half_width,
+                            half_height,
+                        };
+                        Self::prepare_triangle_gouraud_static(v0, v1, v2, &ctx)
+                    })
+                    .flatten(),
+            );
         }
 
         #[cfg(not(feature = "parallel"))]
