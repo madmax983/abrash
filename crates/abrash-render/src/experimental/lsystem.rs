@@ -22,6 +22,7 @@
 
 use crate::math::Vec3;
 use crate::mesh::Mesh;
+use abrash_core::math::fast_sin_cos;
 use foldhash::HashMap;
 
 /// Configuration for an L-System generator.
@@ -302,7 +303,7 @@ impl Turtle {
     }
 
     fn yaw(&mut self, angle: f32) {
-        let (sin_a, cos_a) = angle.sin_cos();
+        let (sin_a, cos_a) = fast_sin_cos(angle);
         let new_dir = self.direction * cos_a + self.right * sin_a;
         let new_right = self.right * cos_a - self.direction * sin_a;
         self.direction = new_dir.fast_normalize();
@@ -310,7 +311,7 @@ impl Turtle {
     }
 
     fn pitch(&mut self, angle: f32) {
-        let (sin_a, cos_a) = angle.sin_cos();
+        let (sin_a, cos_a) = fast_sin_cos(angle);
         let new_dir = self.direction * cos_a + self.up * sin_a;
         let new_up = self.up * cos_a - self.direction * sin_a;
         self.direction = new_dir.fast_normalize();
@@ -318,7 +319,7 @@ impl Turtle {
     }
 
     fn roll(&mut self, angle: f32) {
-        let (sin_a, cos_a) = angle.sin_cos();
+        let (sin_a, cos_a) = fast_sin_cos(angle);
         let new_right = self.right * cos_a + self.up * sin_a;
         let new_up = self.up * cos_a - self.right * sin_a;
         self.right = new_right.fast_normalize();

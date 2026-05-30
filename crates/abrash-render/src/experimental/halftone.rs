@@ -3,6 +3,7 @@
 //! Simulates CMYK or grayscale halftone printing processes.
 
 use crate::framebuffer::Framebuffer;
+use abrash_core::math::fast_sin_cos;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -22,7 +23,7 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
     // We'll process each pixel independently.
     // To do this properly, we need to map screen coordinates to a rotated grid.
 
-    let (sin_a, cos_a) = angle_radians.sin_cos();
+    let (sin_a, cos_a) = fast_sin_cos(angle_radians);
     let max_dist_sq = (dot_size * dot_size) / 2.0;
 
     let pixels = fb.as_mut_slice();
