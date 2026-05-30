@@ -127,7 +127,7 @@ impl WindowApp for CrossStitchApp {
         Ok(())
     }
 
-    fn update(&mut self, context: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, context: &WindowContext<'_>) -> Result<(), Self::Error> {
         let delta_time = context.dt_seconds;
         self.time += delta_time;
 
@@ -147,7 +147,7 @@ impl WindowApp for CrossStitchApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         if let Some(presenter) = &mut self.presenter {
             presenter.present(&self.framebuffer)?;
         }

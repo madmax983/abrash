@@ -96,12 +96,12 @@ impl WindowApp for TunnelDemoApp {
         Ok(())
     }
 
-    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         self.time += ctx.dt_seconds;
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         self.framebuffer.clear(0xFF_00_00_00);
         apply_tunnel(&mut self.framebuffer, self.time, &self.texture);
         self.present()

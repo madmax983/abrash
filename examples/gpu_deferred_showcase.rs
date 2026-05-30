@@ -428,7 +428,7 @@ impl WindowApp for ShowcaseApp {
         Ok(())
     }
 
-    fn input(&mut self, _ctx: WindowContext<'_>, event: &WindowEvent) -> Result<(), Self::Error> {
+    fn input(&mut self, _ctx: &WindowContext<'_>, event: &WindowEvent) -> Result<(), Self::Error> {
         if let WindowEvent::KeyboardInput {
             event:
                 KeyEvent {
@@ -471,11 +471,11 @@ impl WindowApp for ShowcaseApp {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         let now = Instant::now();
         let dt = (now - self.last_frame).as_secs_f32();
         self.last_frame = now;

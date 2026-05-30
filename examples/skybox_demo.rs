@@ -124,11 +124,11 @@ impl WindowApp for SkyboxDemoApp {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         let t = self.start_time.elapsed().as_secs_f32();
         let proj = Mat4::perspective(
             1.57,

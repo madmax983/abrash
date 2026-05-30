@@ -162,11 +162,11 @@ impl WindowApp for MockApp {
         WindowHostConfig::default()
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         Ok(())
     }
 }

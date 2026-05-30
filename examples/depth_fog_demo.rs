@@ -130,7 +130,7 @@ mod app {
             Ok(())
         }
 
-        fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
             let steps = self.timestep.update();
             for _ in 0..steps {
                 self.rotation_y.tick(self.timestep.dt());
@@ -139,7 +139,7 @@ mod app {
             Ok(())
         }
 
-        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
             let projection = Mat4::perspective(
                 PI / 3.0,
                 self.framebuffer.width() as f32 / self.framebuffer.height() as f32,

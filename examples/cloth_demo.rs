@@ -273,7 +273,7 @@ mod winit_demo {
             self.rebuild_buffers(width, height)
         }
 
-        fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn update(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
             let dt = ctx.dt_seconds.min(0.032);
             self.time_seconds += dt;
             self.wind.x = (self.time_seconds * 2.0).sin() * 2.0;
@@ -288,7 +288,7 @@ mod winit_demo {
             Ok(())
         }
 
-        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
             self.render_cloth();
             let presenter = self
                 .presenter

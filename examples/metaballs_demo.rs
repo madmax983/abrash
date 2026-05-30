@@ -1,5 +1,7 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::platform::{HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed};
+use abrash::platform::{
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+};
 use abrash_render::experimental::metaballs::{Metaballs, MetaballsConfig};
 
 const WIDTH: u32 = 800;
@@ -16,7 +18,8 @@ impl DemoApp {
     fn new() -> Result<Self, HostError> {
         Ok(Self {
             presenter: None,
-            fb: Framebuffer::new(WIDTH, HEIGHT).map_err(|error| HostError::App(error.to_string()))?,
+            fb: Framebuffer::new(WIDTH, HEIGHT)
+                .map_err(|error| HostError::App(error.to_string()))?,
             metaballs: Metaballs::new(MetaballsConfig {
                 num_balls: 10,
                 threshold: 1.0,
@@ -52,16 +55,17 @@ impl WindowApp for DemoApp {
         width: u32,
         height: u32,
     ) -> Result<(), Self::Error> {
-        self.fb = Framebuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
+        self.fb =
+            Framebuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         // State updates are handled inside update_and_render for this demo
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         self.metaballs.update_and_render(&mut self.fb);
 
         let fb = &self.fb;

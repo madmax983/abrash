@@ -110,7 +110,7 @@ impl WindowApp for App {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         let steps = self.timestep.update();
         let dt = self.timestep.dt();
         for _ in 0..steps {
@@ -119,7 +119,7 @@ impl WindowApp for App {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         self.fb.clear(0xFF00_0000);
 
         self.starfield.render(&mut self.fb);

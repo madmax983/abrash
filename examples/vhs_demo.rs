@@ -156,12 +156,12 @@ impl WindowApp for VhsDemoApp {
         Ok(())
     }
 
-    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         self.time += ctx.dt_seconds.max(0.0);
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         // Copy original image
         self.framebuffer
             .as_mut_slice()

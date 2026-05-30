@@ -110,12 +110,12 @@ impl WindowApp for VignetteApp {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         self.angle += 0.05;
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         // Reset framebuffer manually using slice copy
         self.framebuffer
             .as_mut_slice()

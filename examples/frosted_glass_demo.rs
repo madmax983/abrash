@@ -119,12 +119,12 @@ impl WindowApp for FrostedGlassApp {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         self.frame_count = self.frame_count.wrapping_add(1);
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         // Reset framebuffer manually using slice copy
         self.framebuffer
             .as_mut_slice()

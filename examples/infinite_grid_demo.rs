@@ -82,12 +82,12 @@ impl WindowApp for InfiniteGridDemoApp {
         Ok(())
     }
 
-    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         self.config.time += ctx.dt_seconds.max(0.0);
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         self.framebuffer.clear(self.config.background_color);
         apply_infinite_grid(&mut self.framebuffer, &self.config);
         self.present()

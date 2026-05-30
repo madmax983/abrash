@@ -303,7 +303,7 @@ mod winit_demo {
             self.rebuild_buffers(width, height)
         }
 
-        fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn update(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
             let dt = ctx.dt_seconds.min(0.05);
             for _ in 0..4 {
                 self.jelly.update(dt / 4.0);
@@ -312,7 +312,7 @@ mod winit_demo {
             Ok(())
         }
 
-        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
             self.render_scene();
             let presenter = self
                 .presenter

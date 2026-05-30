@@ -256,7 +256,7 @@ impl WindowApp for LaplacianBlendDemoApp {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         let steps = self.timestep.update();
         for _ in 0..steps {
             self.angle += 0.008;
@@ -264,7 +264,7 @@ impl WindowApp for LaplacianBlendDemoApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         self.framebuffer.clear(0xFF_10_10_18);
         self.zbuffer.clear();
 

@@ -154,11 +154,11 @@ mod winit_demo {
             self.rebuild_framebuffer(width, height)
         }
 
-        fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
             Ok(())
         }
 
-        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
             let presenter = self
                 .presenter
                 .as_mut()

@@ -127,7 +127,7 @@ impl WindowApp for Mode7Demo {
         Ok(())
     }
 
-    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         let dt = ctx.dt_seconds;
 
         // Auto-pilot
@@ -137,7 +137,7 @@ impl WindowApp for Mode7Demo {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         let sky_color = 0xFF88_CCFF;
         self.framebuffer.clear(sky_color);
 

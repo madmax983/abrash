@@ -153,7 +153,7 @@ mod winit_demo {
             self.rebuild_buffers(width, height)
         }
 
-        fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn update(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
             self.angle_y += ctx.dt_seconds * 0.6;
             let rotation = Mat4::rotation_y(self.angle_y);
             let translation = Mat4::translation(0.0, 0.5 + (self.angle_y * 2.0).sin() * 0.5, 0.0);
@@ -161,7 +161,7 @@ mod winit_demo {
             Ok(())
         }
 
-        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
             self.renderer.render(&self.scene, &mut self.framebuffer);
             let presenter = self
                 .presenter

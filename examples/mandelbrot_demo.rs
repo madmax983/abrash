@@ -67,7 +67,7 @@ impl WindowApp for MandelbrotDemo {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         // Here we would handle input for zooming/panning
         // To keep it simple for now, we'll auto-zoom
         #[cfg(feature = "nova")]
@@ -78,7 +78,7 @@ impl WindowApp for MandelbrotDemo {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         #[cfg(feature = "nova")]
         render_mandelbrot(&mut self.framebuffer, &self.config);
 

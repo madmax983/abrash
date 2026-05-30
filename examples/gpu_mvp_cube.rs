@@ -126,11 +126,11 @@ impl WindowApp for GpuMvpCubeApp {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         let renderer = self
             .renderer
             .as_mut()

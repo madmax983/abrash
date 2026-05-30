@@ -60,11 +60,11 @@ impl WindowApp for ReactionDiffusionDemo {
         }
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         if self.presenter.is_none() {
             self.presenter = Some(SoftwarePresenter::new(ctx.window.clone())?);
         }

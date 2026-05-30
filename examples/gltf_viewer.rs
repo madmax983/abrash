@@ -209,7 +209,7 @@ impl WindowApp for GltfViewerApp {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         let steps = self.timestep.update();
         let dt = self.timestep.dt();
 
@@ -241,7 +241,7 @@ impl WindowApp for GltfViewerApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         let (w, h) = (self.target.width() as f32, self.target.height() as f32);
         let aspect = w / h;
 

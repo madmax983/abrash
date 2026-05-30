@@ -58,13 +58,13 @@ impl WindowApp for PhysarumDemoApp {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         // We only clear a small amount of the framebuffer to let the trail decay naturally
         // or let the simulation handle the decay entirely
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         self.framebuffer.clear(0xFF_000000); // the simulation keeps its own trail map
         apply_physarum(&mut self.framebuffer, &self.config);
         self.present()

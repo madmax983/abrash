@@ -116,12 +116,12 @@ impl WindowApp for FisheyeDemoApp {
         Ok(())
     }
 
-    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         self.time += ctx.dt_seconds.max(0.0);
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         // Copy the static grid background into the active framebuffer
         self.framebuffer
             .as_mut_slice()

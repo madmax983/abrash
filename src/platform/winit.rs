@@ -145,7 +145,7 @@ pub trait WindowApp {
     /// # Errors
     ///
     /// Returns an application-defined error if input handling fails.
-    fn input(&mut self, _ctx: WindowContext<'_>, _event: &WindowEvent) -> Result<(), Self::Error> {
+    fn input(&mut self, _ctx: &WindowContext<'_>, _event: &WindowEvent) -> Result<(), Self::Error> {
         Ok(())
     }
 
@@ -154,14 +154,14 @@ pub trait WindowApp {
     /// # Errors
     ///
     /// Returns an application-defined error if the update step fails.
-    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error>;
+    fn update(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error>;
 
     /// Render the current frame.
     ///
     /// # Errors
     ///
     /// Returns an application-defined error if rendering fails.
-    fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error>;
+    fn render(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error>;
 }
 
 use comfy_table::{Cell, Color, Table, presets};
@@ -249,10 +249,10 @@ where
                             window: window_for_loop.clone(),
                             dt_seconds,
                         };
-                        if let Err(error) = app.update(redraw_context.clone()) {
+                        if let Err(error) = app.update(&redraw_context) {
                             *error_slot.borrow_mut() = Some(HostError::App(error.to_string()));
                             event_loop_target.exit();
-                        } else if let Err(error) = app.render(redraw_context) {
+                        } else if let Err(error) = app.render(&redraw_context) {
                             *error_slot.borrow_mut() = Some(HostError::App(error.to_string()));
                             event_loop_target.exit();
                         }
@@ -263,7 +263,7 @@ where
                             window: window_for_loop.clone(),
                             dt_seconds: 0.0,
                         };
-                        if let Err(error) = app.input(context, &other) {
+                        if let Err(error) = app.input(&context, &other) {
                             *error_slot.borrow_mut() = Some(HostError::App(error.to_string()));
                             event_loop_target.exit();
                         }
