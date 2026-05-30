@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Sobel Edge Detection Filter]
+**Concept:** A post-processing effect that applies the Sobel operator to detect edges in the framebuffer based on pixel luminance, producing a grayscale edge map.
+**Fate:** Implemented
+**Lesson:** Using `(gx.abs() + gy.abs()).min(255)` as a magnitude approximation avoids slow square-root float math, keeping the kernel incredibly fast while maintaining accurate edge visualization. Extracting the luminance helper inline with fixed-point math also significantly boosts loop efficiency.
