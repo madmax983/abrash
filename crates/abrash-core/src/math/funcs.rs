@@ -6958,11 +6958,17 @@ pub fn convolve_1d(signal: &[f32], kernel: &[f32]) -> Vec<f32> {
         return Vec::new();
     }
     let out_len = signal.len() + kernel.len() - 1;
-    let mut out = vec![0.0_f32; out_len];
-    for (i, &s) in signal.iter().enumerate() {
-        for (j, &k) in kernel.iter().enumerate() {
-            out[i + j] += s * k;
+    // ⚡ Bolt: Eliminate `vec![0.0_f32; out_len]` to avoid dynamic heap zero-initialization
+    // overhead by computing values directly into a pre-allocated vector.
+    let mut out = Vec::with_capacity(out_len);
+    for k in 0..out_len {
+        let mut sum = 0.0;
+        let i_min = k.saturating_sub(kernel.len() - 1);
+        let i_max = k.min(signal.len() - 1);
+        for i in i_min..=i_max {
+            sum += signal[i] * kernel[k - i];
         }
+        out.push(sum);
     }
     out
 }
