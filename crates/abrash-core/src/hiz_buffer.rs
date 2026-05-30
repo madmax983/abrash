@@ -606,6 +606,53 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "Hi-Z dimensions overflow")]
+    fn test_pyramid_level_dimensions_overflow() {
+        // Direct test for PyramidLevel's expect guard
+        let _ = PyramidLevel::new(u32::MAX, u32::MAX);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_build_pyramid_dimension_mismatch_width() {
+        let mut hiz = HiZBuffer::new(800, 600);
+        let zb = ZBuffer::new(400, 600).unwrap();
+        hiz.build_pyramid(&zb);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_build_pyramid_dimension_mismatch_height() {
+        let mut hiz = HiZBuffer::new(800, 600);
+        let zb = ZBuffer::new(800, 300).unwrap();
+        hiz.build_pyramid(&zb);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_build_pyramid_from_depths_dimension_mismatch_width() {
+        let mut hiz = HiZBuffer::new(800, 600);
+        let depths = vec![0.0; 400 * 600];
+        hiz.build_pyramid_from_depths(400, 600, &depths);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_build_pyramid_from_depths_dimension_mismatch_height() {
+        let mut hiz = HiZBuffer::new(800, 600);
+        let depths = vec![0.0; 800 * 300];
+        hiz.build_pyramid_from_depths(800, 300, &depths);
+    }
+
+    #[test]
+    #[should_panic(expected = "Depth slice too small for Hi-Z pyramid build")]
+    fn test_build_pyramid_from_depths_too_small() {
+        let mut hiz = HiZBuffer::new(800, 600);
+        let depths = vec![0.0; (800 * 600) - 1]; // One element short
+        hiz.build_pyramid_from_depths(800, 600, &depths);
+    }
+
+    #[test]
     fn test_level_count_computation() {
         // 1024×1024 → ceil(log2(1024)) + 1 = 10 + 1 = 11 levels
         let hiz = HiZBuffer::new(1024, 1024);
