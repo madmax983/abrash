@@ -1375,6 +1375,204 @@ unsafe fn draw_scanline_textured_perspective_simd(
     }
 }
 
+
+struct PerspectiveFilterContext<'a> {
+    texture: &'a Texture,
+    fb_slice: &'a mut [u32],
+    zb_slice: &'a mut [f32],
+    z: f32,
+    q: f32,
+    u: f32,
+    v: f32,
+    u_tex_start: f32,
+    v_tex_start: f32,
+    du_tex_step: f32,
+    dv_tex_step: f32,
+    w_start: f32,
+    gradients: &'a PerspectiveTextureGradients,
+}
+
+#[inline(always)]
+fn dispatch_filter_perspective(ctx: &mut PerspectiveFilterContext) {
+    let texture = ctx.texture;
+    let fb_slice = &mut *ctx.fb_slice;
+    let zb_slice = &mut *ctx.zb_slice;
+    let z = ctx.z;
+    let q = ctx.q;
+    let u = ctx.u;
+    let v = ctx.v;
+    let u_tex_start = ctx.u_tex_start;
+    let v_tex_start = ctx.v_tex_start;
+    let du_tex_step = ctx.du_tex_step;
+    let dv_tex_step = ctx.dv_tex_step;
+    let w_start = ctx.w_start;
+    let gradients = ctx.gradients;
+
+    match texture.filter_mode {
+        FilterMode::Nearest => {
+            // Fixed point optimization for Nearest Neighbor
+            let u_fix = (u_tex_start * 65536.0) as i32;
+            let v_fix = (v_tex_start * 65536.0) as i32;
+            let du_fix = (du_tex_step * 65536.0) as i32;
+            let dv_fix = (dv_tex_step * 65536.0) as i32;
+
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
+                unsafe {
+                    draw_span_nearest_simd(
+                        fb_slice,
+                        zb_slice,
+                        texture,
+                        z,
+                        gradients.dz_dx,
+                        u_fix,
+                        v_fix,
+                        du_fix,
+                        dv_fix,
+                    );
+                }
+            } else {
+                draw_span_nearest(
+                    fb_slice,
+                    zb_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_fix,
+                    v_fix,
+                    du_fix,
+                    dv_fix,
+                );
+            }
+
+            #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+            draw_span_nearest(
+                fb_slice,
+                zb_slice,
+                texture,
+                z,
+                gradients.dz_dx,
+                u_fix,
+                v_fix,
+                du_fix,
+                dv_fix,
+            );
+        }
+        FilterMode::Bilinear => {
+            let u_fix = ((u_tex_start * 65536.0) as i32).wrapping_sub(32768);
+            let v_fix = ((v_tex_start * 65536.0) as i32).wrapping_sub(32768);
+            let du_fix = (du_tex_step * 65536.0) as i32;
+            let dv_fix = (dv_tex_step * 65536.0) as i32;
+
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
+                unsafe {
+                    draw_span_bilinear_simd(
+                        fb_slice,
+                        zb_slice,
+                        texture,
+                        z,
+                        gradients.dz_dx,
+                        u_fix,
+                        v_fix,
+                        du_fix,
+                        dv_fix,
+                    );
+                }
+            } else {
+                draw_span_bilinear(
+                    fb_slice,
+                    zb_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_fix,
+                    v_fix,
+                    du_fix,
+                    dv_fix,
+                );
+            }
+
+            #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+            draw_span_bilinear(
+                fb_slice,
+                zb_slice,
+                texture,
+                z,
+                gradients.dz_dx,
+                u_fix,
+                v_fix,
+                du_fix,
+                dv_fix,
+            );
+        }
+        FilterMode::Trilinear => {
+            // For Trilinear, we need LOD.
+            let w = w_start; // 1/q
+            let w_sq = w * w;
+
+            let du_tex_dx = (gradients.du_dx * q - u * gradients.dq_dx) * w_sq;
+            let dv_tex_dx = (gradients.dv_dx * q - v * gradients.dq_dx) * w_sq;
+            let du_tex_dy = (gradients.du_dy * q - u * gradients.dq_dy) * w_sq;
+            let dv_tex_dy = (gradients.dv_dy * q - v * gradients.dq_dy) * w_sq;
+
+            let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
+                .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
+            let lod = 0.5 * max_rho_sq.log2();
+
+            let u_fix = (u_tex_start * 65536.0) as i32;
+            let v_fix = (v_tex_start * 65536.0) as i32;
+            let du_fix = (du_tex_step * 65536.0) as i32;
+            let dv_fix = (dv_tex_step * 65536.0) as i32;
+
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
+                unsafe {
+                    draw_span_trilinear_simd(
+                        fb_slice,
+                        zb_slice,
+                        texture,
+                        z,
+                        gradients.dz_dx,
+                        u_fix,
+                        v_fix,
+                        du_fix,
+                        dv_fix,
+                        lod,
+                    );
+                }
+            } else {
+                draw_span_trilinear(
+                    fb_slice,
+                    zb_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_fix,
+                    v_fix,
+                    du_fix,
+                    dv_fix,
+                    lod,
+                );
+            }
+
+            #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+            draw_span_trilinear(
+                fb_slice,
+                zb_slice,
+                texture,
+                z,
+                gradients.dz_dx,
+                u_fix,
+                v_fix,
+                du_fix,
+                dv_fix,
+                lod,
+            );
+        }
+    }
+}
+
 /// Draw a single scanline with perspective-correct texture mapping
 /// Optimized using span-based interpolation (every 16 pixels)
 #[inline(always)]
@@ -1480,169 +1678,22 @@ pub fn draw_scanline_textured_perspective(
         let fb_slice = &mut fb.as_mut_slice()[start_idx..=end_idx];
         let zb_slice = &mut zb.as_mut_slice()[start_idx..=end_idx];
 
-        match texture.filter_mode {
-            FilterMode::Nearest => {
-                // Fixed point optimization for Nearest Neighbor
-                let u_fix = (u_tex_start * 65536.0) as i32;
-                let v_fix = (v_tex_start * 65536.0) as i32;
-                let du_fix = (du_tex_step * 65536.0) as i32;
-                let dv_fix = (dv_tex_step * 65536.0) as i32;
-
-                #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-                if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
-                    unsafe {
-                        draw_span_nearest_simd(
-                            fb_slice,
-                            zb_slice,
-                            texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
-                        );
-                    }
-                } else {
-                    draw_span_nearest(
-                        fb_slice,
-                        zb_slice,
-                        texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
-                    );
-                }
-
-                #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
-                draw_span_nearest(
-                    fb_slice,
-                    zb_slice,
-                    texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
-                );
-            }
-            FilterMode::Bilinear => {
-                let u_fix = ((u_tex_start * 65536.0) as i32).wrapping_sub(32768);
-                let v_fix = ((v_tex_start * 65536.0) as i32).wrapping_sub(32768);
-                let du_fix = (du_tex_step * 65536.0) as i32;
-                let dv_fix = (dv_tex_step * 65536.0) as i32;
-
-                #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-                if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
-                    unsafe {
-                        draw_span_bilinear_simd(
-                            fb_slice,
-                            zb_slice,
-                            texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
-                        );
-                    }
-                } else {
-                    draw_span_bilinear(
-                        fb_slice,
-                        zb_slice,
-                        texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
-                    );
-                }
-
-                #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
-                draw_span_bilinear(
-                    fb_slice,
-                    zb_slice,
-                    texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
-                );
-            }
-            FilterMode::Trilinear => {
-                // For Trilinear, we need LOD.
-                let w = w_start; // 1/q
-                let w_sq = w * w;
-
-                let du_tex_dx = (gradients.du_dx * q - u * gradients.dq_dx) * w_sq;
-                let dv_tex_dx = (gradients.dv_dx * q - v * gradients.dq_dx) * w_sq;
-                let du_tex_dy = (gradients.du_dy * q - u * gradients.dq_dy) * w_sq;
-                let dv_tex_dy = (gradients.dv_dy * q - v * gradients.dq_dy) * w_sq;
-
-                let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
-                    .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
-                let lod = 0.5 * max_rho_sq.log2();
-
-                let u_fix = (u_tex_start * 65536.0) as i32;
-                let v_fix = (v_tex_start * 65536.0) as i32;
-                let du_fix = (du_tex_step * 65536.0) as i32;
-                let dv_fix = (dv_tex_step * 65536.0) as i32;
-
-                #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-                if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
-                    unsafe {
-                        draw_span_trilinear_simd(
-                            fb_slice,
-                            zb_slice,
-                            texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
-                            lod,
-                        );
-                    }
-                } else {
-                    draw_span_trilinear(
-                        fb_slice,
-                        zb_slice,
-                        texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
-                        lod,
-                    );
-                }
-
-                #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
-                draw_span_trilinear(
-                    fb_slice,
-                    zb_slice,
-                    texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
-                    lod,
-                );
-            }
-        }
+        let mut ctx = PerspectiveFilterContext {
+            texture,
+            fb_slice,
+            zb_slice,
+            z,
+            q,
+            u,
+            v,
+            u_tex_start,
+            v_tex_start,
+            du_tex_step,
+            dv_tex_step,
+            w_start,
+            gradients,
+        };
+        dispatch_filter_perspective(&mut ctx);
 
         // Advance state
         z += gradients.dz_dx * count as f32;
@@ -4320,6 +4371,209 @@ fn draw_span_textured_gouraud_scalar(
     }
 }
 
+
+struct GouraudFilterContext<'a> {
+    texture: &'a Texture,
+    fb_slice: &'a mut [u32],
+    zb_slice: &'a mut [f32],
+    z: f32,
+    q: f32,
+    u: f32,
+    v: f32,
+    u_tex_start: f32,
+    v_tex_start: f32,
+    du_tex_step: f32,
+    dv_tex_step: f32,
+    r_fix: i32,
+    g_fix: i32,
+    b_fix: i32,
+    dr_dx_i: i32,
+    dg_dx_i: i32,
+    db_dx_i: i32,
+    count: i32,
+    gradients: &'a TexturedGouraudGradients,
+}
+
+#[inline(always)]
+fn dispatch_filter_gouraud(ctx: &mut GouraudFilterContext) {
+    let texture = ctx.texture;
+    let fb_slice = &mut *ctx.fb_slice;
+    let zb_slice = &mut *ctx.zb_slice;
+    let z = ctx.z;
+    let q = ctx.q;
+    let u = ctx.u;
+    let v = ctx.v;
+    let u_tex_start = ctx.u_tex_start;
+    let v_tex_start = ctx.v_tex_start;
+    let du_tex_step = ctx.du_tex_step;
+    let dv_tex_step = ctx.dv_tex_step;
+    let r_fix = ctx.r_fix;
+    let g_fix = ctx.g_fix;
+    let b_fix = ctx.b_fix;
+    let dr_dx_i = ctx.dr_dx_i;
+    let dg_dx_i = ctx.dg_dx_i;
+    let db_dx_i = ctx.db_dx_i;
+    let count = ctx.count;
+    let gradients = ctx.gradients;
+
+    match texture.filter_mode {
+        FilterMode::Nearest => {
+            let u_fix = (u_tex_start * 65536.0) as i32;
+            let v_fix = (v_tex_start * 65536.0) as i32;
+            let du_fix = (du_tex_step * 65536.0) as i32;
+            let dv_fix = (dv_tex_step * 65536.0) as i32;
+
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
+                unsafe {
+                    draw_span_textured_gouraud_simd(
+                        fb_slice,
+                        zb_slice,
+                        texture,
+                        z,
+                        gradients.dz_dx,
+                        u_fix,
+                        v_fix,
+                        du_fix,
+                        dv_fix,
+                        r_fix,
+                        g_fix,
+                        b_fix,
+                        dr_dx_i,
+                        dg_dx_i,
+                        db_dx_i,
+                    );
+                }
+            } else {
+                draw_span_textured_gouraud_scalar(
+                    fb_slice,
+                    zb_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_fix,
+                    v_fix,
+                    du_fix,
+                    dv_fix,
+                    r_fix,
+                    g_fix,
+                    b_fix,
+                    dr_dx_i,
+                    dg_dx_i,
+                    db_dx_i,
+                );
+            }
+            #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+            draw_span_textured_gouraud_scalar(
+                fb_slice,
+                zb_slice,
+                texture,
+                z,
+                gradients.dz_dx,
+                u_fix,
+                v_fix,
+                du_fix,
+                dv_fix,
+                r_fix,
+                g_fix,
+                b_fix,
+                dr_dx_i,
+                dg_dx_i,
+                db_dx_i,
+            );
+        }
+        FilterMode::Bilinear | FilterMode::Trilinear => {
+            let u_fix = ((u_tex_start * 65536.0) as i32).wrapping_sub(32768);
+            let v_fix = ((v_tex_start * 65536.0) as i32).wrapping_sub(32768);
+            let du_fix = (du_tex_step * 65536.0) as i32;
+            let dv_fix = (dv_tex_step * 65536.0) as i32;
+
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
+                unsafe {
+                    draw_span_textured_gouraud_bilinear_simd(
+                        fb_slice,
+                        zb_slice,
+                        texture,
+                        z,
+                        gradients.dz_dx,
+                        u_fix,
+                        v_fix,
+                        du_fix,
+                        dv_fix,
+                        r_fix,
+                        g_fix,
+                        b_fix,
+                        dr_dx_i,
+                        dg_dx_i,
+                        db_dx_i,
+                    );
+                }
+            } else {
+                let mut z_curr = z;
+                let mut r_curr = r_fix;
+                let mut g_curr = g_fix;
+                let mut b_curr = b_fix;
+
+                for i in 0..count {
+                    let pixel = unsafe { fb_slice.get_unchecked_mut(i as usize) };
+                    let depth_val = unsafe { zb_slice.get_unchecked_mut(i as usize) };
+
+                    if z_curr < *depth_val {
+                        let q_curr = q + (i as f32) * gradients.dq_dx;
+                        let u_curr_p = u + (i as f32) * gradients.du_dx;
+                        let v_curr_p = v + (i as f32) * gradients.dv_dx;
+
+                        let w_recip = if q_curr.abs() > 0.000_001 {
+                            1.0 / q_curr
+                        } else {
+                            1.0
+                        };
+                        let u_tex = u_curr_p * w_recip;
+                        let v_tex = v_curr_p * w_recip;
+
+                        let color = texture.get_pixel_bilinear_texel(u_tex, v_tex);
+
+                        let tex_r = ((color >> 16) & 0xFF) as i32;
+                        let tex_g = ((color >> 8) & 0xFF) as i32;
+                        let tex_b = (color & 0xFF) as i32;
+                        let tex_a = (color >> 24) & 0xFF;
+
+                        // 16.16 fixed modulation
+                        let r_val = r_curr.max(0);
+                        let g_val = g_curr.max(0);
+                        let b_val = b_curr.max(0);
+
+                        let final_r = ((tex_r * r_val) >> 16).max(0).min(255) as u32;
+                        let final_g = ((tex_g * g_val) >> 16).max(0).min(255) as u32;
+                        let final_b = ((tex_b * b_val) >> 16).max(0).min(255) as u32;
+
+                        let final_color =
+                            ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
+
+                        if tex_a == 255 {
+                            *depth_val = z_curr;
+                            *pixel = final_color;
+                        } else if tex_a > 0 {
+                            let dest = *pixel;
+                            *pixel = blend_swar(
+                                final_color,
+                                dest,
+                                (255 - (tex_a as u8)).into(),
+                                (tex_a as u8).into(),
+                            );
+                        }
+                    }
+                    z_curr += gradients.dz_dx;
+                    r_curr += dr_dx_i;
+                    g_curr += dg_dx_i;
+                    b_curr += db_dx_i;
+                }
+            }
+        }
+    }
+}
+
 /// Renders a single horizontal scanline with combined texture mapping and gouraud shading.
 ///
 /// Modulates the sampled texture color against the interpolated vertex lighting color.
@@ -4421,162 +4675,28 @@ pub fn draw_scanline_textured_gouraud(
         let fb_slice = &mut fb.as_mut_slice()[start_idx..=end_idx];
         let zb_slice = &mut zb.as_mut_slice()[start_idx..=end_idx];
 
-        match texture.filter_mode {
-            FilterMode::Nearest => {
-                let u_fix = (u_tex_start * 65536.0) as i32;
-                let v_fix = (v_tex_start * 65536.0) as i32;
-                let du_fix = (du_tex_step * 65536.0) as i32;
-                let dv_fix = (dv_tex_step * 65536.0) as i32;
-
-                #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-                if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
-                    unsafe {
-                        draw_span_textured_gouraud_simd(
-                            fb_slice,
-                            zb_slice,
-                            texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
-                            r_fix,
-                            g_fix,
-                            b_fix,
-                            dr_dx_i,
-                            dg_dx_i,
-                            db_dx_i,
-                        );
-                    }
-                } else {
-                    draw_span_textured_gouraud_scalar(
-                        fb_slice,
-                        zb_slice,
-                        texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
-                        r_fix,
-                        g_fix,
-                        b_fix,
-                        dr_dx_i,
-                        dg_dx_i,
-                        db_dx_i,
-                    );
-                }
-                #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
-                draw_span_textured_gouraud_scalar(
-                    fb_slice,
-                    zb_slice,
-                    texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
-                    r_fix,
-                    g_fix,
-                    b_fix,
-                    dr_dx_i,
-                    dg_dx_i,
-                    db_dx_i,
-                );
-            }
-            FilterMode::Bilinear | FilterMode::Trilinear => {
-                let u_fix = ((u_tex_start * 65536.0) as i32).wrapping_sub(32768);
-                let v_fix = ((v_tex_start * 65536.0) as i32).wrapping_sub(32768);
-                let du_fix = (du_tex_step * 65536.0) as i32;
-                let dv_fix = (dv_tex_step * 65536.0) as i32;
-
-                #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-                if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
-                    unsafe {
-                        draw_span_textured_gouraud_bilinear_simd(
-                            fb_slice,
-                            zb_slice,
-                            texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
-                            r_fix,
-                            g_fix,
-                            b_fix,
-                            dr_dx_i,
-                            dg_dx_i,
-                            db_dx_i,
-                        );
-                    }
-                } else {
-                    let mut z_curr = z;
-                    let mut r_curr = r_fix;
-                    let mut g_curr = g_fix;
-                    let mut b_curr = b_fix;
-
-                    for i in 0..count {
-                        let pixel = unsafe { fb_slice.get_unchecked_mut(i as usize) };
-                        let depth_val = unsafe { zb_slice.get_unchecked_mut(i as usize) };
-
-                        if z_curr < *depth_val {
-                            let q_curr = q + (i as f32) * gradients.dq_dx;
-                            let u_curr_p = u + (i as f32) * gradients.du_dx;
-                            let v_curr_p = v + (i as f32) * gradients.dv_dx;
-
-                            let w_recip = if q_curr.abs() > 0.000_001 {
-                                1.0 / q_curr
-                            } else {
-                                1.0
-                            };
-                            let u_tex = u_curr_p * w_recip;
-                            let v_tex = v_curr_p * w_recip;
-
-                            let color = texture.get_pixel_bilinear_texel(u_tex, v_tex);
-
-                            let tex_r = ((color >> 16) & 0xFF) as i32;
-                            let tex_g = ((color >> 8) & 0xFF) as i32;
-                            let tex_b = (color & 0xFF) as i32;
-                            let tex_a = (color >> 24) & 0xFF;
-
-                            // 16.16 fixed modulation
-                            let r_val = r_curr.max(0);
-                            let g_val = g_curr.max(0);
-                            let b_val = b_curr.max(0);
-
-                            let final_r = ((tex_r * r_val) >> 16).max(0).min(255) as u32;
-                            let final_g = ((tex_g * g_val) >> 16).max(0).min(255) as u32;
-                            let final_b = ((tex_b * b_val) >> 16).max(0).min(255) as u32;
-
-                            let final_color =
-                                ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
-
-                            if tex_a == 255 {
-                                *depth_val = z_curr;
-                                *pixel = final_color;
-                            } else if tex_a > 0 {
-                                let dest = *pixel;
-                                *pixel = blend_swar(
-                                    final_color,
-                                    dest,
-                                    (255 - (tex_a as u8)).into(),
-                                    (tex_a as u8).into(),
-                                );
-                            }
-                        }
-                        z_curr += gradients.dz_dx;
-                        r_curr += dr_dx_i;
-                        g_curr += dg_dx_i;
-                        b_curr += db_dx_i;
-                    }
-                }
-            }
-        }
+        let mut ctx = GouraudFilterContext {
+            texture,
+            fb_slice,
+            zb_slice,
+            z,
+            q,
+            u,
+            v,
+            u_tex_start,
+            v_tex_start,
+            du_tex_step,
+            dv_tex_step,
+            r_fix,
+            g_fix,
+            b_fix,
+            dr_dx_i,
+            dg_dx_i,
+            db_dx_i,
+            count,
+            gradients,
+        };
+        dispatch_filter_gouraud(&mut ctx);
 
         z += gradients.dz_dx * count as f32;
         q = q_end;
