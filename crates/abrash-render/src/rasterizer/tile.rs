@@ -75,7 +75,9 @@
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::gouraud::draw_scanline_gouraud_simd_fast;
 use super::gouraud::{GouraudEdgeWalker, GouraudGradients};
-use super::texture::{draw_span_bilinear, draw_span_nearest, draw_span_trilinear};
+use super::texture::{
+    TexSpanState, TexSpanStep, draw_span_bilinear, draw_span_nearest, draw_span_trilinear,
+};
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::texture::{draw_span_bilinear_simd, draw_span_nearest_simd, draw_span_trilinear_simd};
 
@@ -1242,12 +1244,16 @@ fn rasterize_scanline_textured(
                             pixels_slice,
                             depths_slice,
                             texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
+                            TexSpanState {
+                                z: z,
+                                u_fix: u_fix,
+                                v_fix: v_fix,
+                            },
+                            TexSpanStep {
+                                dz_dx: gradients.dz_dx,
+                                du_fix: du_fix,
+                                dv_fix: dv_fix,
+                            },
                         );
                     }
                 } else {
@@ -1255,12 +1261,16 @@ fn rasterize_scanline_textured(
                         pixels_slice,
                         depths_slice,
                         texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
+                        TexSpanState {
+                            z: z,
+                            u_fix: u_fix,
+                            v_fix: v_fix,
+                        },
+                        TexSpanStep {
+                            dz_dx: gradients.dz_dx,
+                            du_fix: du_fix,
+                            dv_fix: dv_fix,
+                        },
                     );
                 }
 
@@ -1269,12 +1279,16 @@ fn rasterize_scanline_textured(
                     pixels_slice,
                     depths_slice,
                     texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
+                    TexSpanState {
+                        z: z,
+                        u_fix: u_fix,
+                        v_fix: v_fix,
+                    },
+                    TexSpanStep {
+                        dz_dx: gradients.dz_dx,
+                        du_fix: du_fix,
+                        dv_fix: dv_fix,
+                    },
                 );
             }
             FilterMode::Bilinear => {
@@ -1290,12 +1304,16 @@ fn rasterize_scanline_textured(
                             pixels_slice,
                             depths_slice,
                             texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
+                            TexSpanState {
+                                z: z,
+                                u_fix: u_fix,
+                                v_fix: v_fix,
+                            },
+                            TexSpanStep {
+                                dz_dx: gradients.dz_dx,
+                                du_fix: du_fix,
+                                dv_fix: dv_fix,
+                            },
                         );
                     }
                 } else {
@@ -1303,12 +1321,16 @@ fn rasterize_scanline_textured(
                         pixels_slice,
                         depths_slice,
                         texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
+                        TexSpanState {
+                            z: z,
+                            u_fix: u_fix,
+                            v_fix: v_fix,
+                        },
+                        TexSpanStep {
+                            dz_dx: gradients.dz_dx,
+                            du_fix: du_fix,
+                            dv_fix: dv_fix,
+                        },
                     );
                 }
 
@@ -1317,12 +1339,16 @@ fn rasterize_scanline_textured(
                     pixels_slice,
                     depths_slice,
                     texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
+                    TexSpanState {
+                        z: z,
+                        u_fix: u_fix,
+                        v_fix: v_fix,
+                    },
+                    TexSpanStep {
+                        dz_dx: gradients.dz_dx,
+                        du_fix: du_fix,
+                        dv_fix: dv_fix,
+                    },
                 );
             }
             FilterMode::Trilinear => {
@@ -1351,12 +1377,16 @@ fn rasterize_scanline_textured(
                             pixels_slice,
                             depths_slice,
                             texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
+                            TexSpanState {
+                                z: z,
+                                u_fix: u_fix,
+                                v_fix: v_fix,
+                            },
+                            TexSpanStep {
+                                dz_dx: gradients.dz_dx,
+                                du_fix: du_fix,
+                                dv_fix: dv_fix,
+                            },
                             lod,
                         );
                     }
@@ -1365,12 +1395,16 @@ fn rasterize_scanline_textured(
                         pixels_slice,
                         depths_slice,
                         texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
+                        TexSpanState {
+                            z: z,
+                            u_fix: u_fix,
+                            v_fix: v_fix,
+                        },
+                        TexSpanStep {
+                            dz_dx: gradients.dz_dx,
+                            du_fix: du_fix,
+                            dv_fix: dv_fix,
+                        },
                         lod,
                     );
                 }
@@ -1380,12 +1414,16 @@ fn rasterize_scanline_textured(
                     pixels_slice,
                     depths_slice,
                     texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
+                    TexSpanState {
+                        z: z,
+                        u_fix: u_fix,
+                        v_fix: v_fix,
+                    },
+                    TexSpanStep {
+                        dz_dx: gradients.dz_dx,
+                        du_fix: du_fix,
+                        dv_fix: dv_fix,
+                    },
                     lod,
                 );
             }
