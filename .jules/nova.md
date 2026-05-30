@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## String Art Generator
+**Concept:** Implement a procedural string art generator that approximates an image by drawing straight lines between pins on a circle. To support this computationally heavy task, we precompute memory-mapped line indices and parallelize evaluation with Rayon.
+**Fate:** Successfully merged.
+**Lesson:** When repeatedly sampling lines (like in Bresenham's algorithm) inside tight evaluation loops, pre-calculating the 1D pixel array indices (`y * width + x`) into a cached matrix drastically speeds up the process by allowing direct indexed access and eliding bounds checks inside the hot path. Combining this with `rayon` par_iter reduction scales the pathfinding efficiently.
