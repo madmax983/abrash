@@ -428,35 +428,37 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberra
             // 1. Left Edge (x < offset): R is out of bounds (0)
             let left_limit = offset.min(width);
             for x in 0..left_limit {
-                let g = (row_scratch[x] >> 8) & 0xFF;
-                let a = (row_scratch[x] >> 24) & 0xFF;
-                let r = 0;
+                let ga = row_scratch[x] & 0xFF00_FF00;
                 let b = if x + offset < width {
-                    row_scratch[x + offset] & 0xFF
+                    row_scratch[x + offset] & 0x0000_00FF
                 } else {
                     0
                 };
-                row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+                row_pixels[x] = ga | b;
             }
 
             // 2. Middle (offset <= x < width - offset): Both R and B are in bounds
             if width > offset {
                 let right_limit = width.saturating_sub(offset).max(left_limit);
-                for x in left_limit..right_limit {
-                    let g = (row_scratch[x] >> 8) & 0xFF;
-                    let a = (row_scratch[x] >> 24) & 0xFF;
-                    let r = (row_scratch[x - offset] >> 16) & 0xFF;
-                    let b = row_scratch[x + offset] & 0xFF;
-                    row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+
+                // Fast path using slices to help LLVM elide bounds checks
+                let dst = &mut row_pixels[left_limit..right_limit];
+                let src_ga = &row_scratch[left_limit..right_limit];
+                let src_r = &row_scratch[left_limit - offset..right_limit - offset];
+                let src_b = &row_scratch[left_limit + offset..right_limit + offset];
+
+                for i in 0..dst.len() {
+                    let ga = src_ga[i] & 0xFF00_FF00;
+                    let r = src_r[i] & 0x00FF_0000;
+                    let b = src_b[i] & 0x0000_00FF;
+                    dst[i] = ga | r | b;
                 }
 
                 // 3. Right Edge (width - offset <= x < width): B is out of bounds (0)
                 for x in right_limit..width {
-                    let g = (row_scratch[x] >> 8) & 0xFF;
-                    let a = (row_scratch[x] >> 24) & 0xFF;
-                    let r = (row_scratch[x - offset] >> 16) & 0xFF;
-                    let b = 0;
-                    row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+                    let ga = row_scratch[x] & 0xFF00_FF00;
+                    let r = row_scratch[x - offset] & 0x00FF_0000;
+                    row_pixels[x] = ga | r;
                 }
             }
         }
@@ -1181,21 +1183,16 @@ mod simd {
 
                     // 1. Left Edge (Scalar)
                     while x < offset && x < width {
-                        let p_center = *src_ptr.add(x);
-                        let g = (p_center >> 8) & 0xFF;
-                        let a = (p_center >> 24) & 0xFF;
-
-                        // R is 0 (OOB)
-                        let r = 0;
+                        let ga = *src_ptr.add(x) & 0xFF00_FF00;
 
                         // B from x+offset (might be OOB)
                         let b = if x.saturating_add(offset) < width {
-                            *src_ptr.add(x + offset) & 0xFF
+                            *src_ptr.add(x + offset) & 0x0000_00FF
                         } else {
                             0
                         };
 
-                        *dst_ptr.add(x) = (a << 24) | (r << 16) | (g << 8) | b;
+                        *dst_ptr.add(x) = ga | b;
                         x += 1;
                     }
 
@@ -1248,21 +1245,23 @@ mod simd {
 
                     // 3. Right Edge (Scalar)
                     while x < width {
-                        let p_center = *src_ptr.add(x);
-                        let g = (p_center >> 8) & 0xFF;
-                        let a = (p_center >> 24) & 0xFF;
+                        let ga = *src_ptr.add(x) & 0xFF00_FF00;
 
                         // R from x-offset
                         let r = if x >= offset {
-                            (*src_ptr.add(x - offset) >> 16) & 0xFF
+                            *src_ptr.add(x - offset) & 0x00FF_0000
                         } else {
                             0
                         };
 
-                        // B is 0 (OOB)
-                        let b = 0;
+                        // B from x+offset (might be OOB)
+                        let b = if x.saturating_add(offset) < width {
+                            *src_ptr.add(x + offset) & 0x0000_00FF
+                        } else {
+                            0
+                        };
 
-                        *dst_ptr.add(x) = (a << 24) | (r << 16) | (g << 8) | b;
+                        *dst_ptr.add(x) = ga | r | b;
                         x += 1;
                     }
                 }
@@ -1909,7 +1908,6 @@ mod tests {
 
     #[test]
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-    #[ignore = "Known failing test"]
     fn test_apply_chromatic_aberration_simd_vs_scalar() {
         if !std::is_x86_feature_detected!("avx2") {
             return;
@@ -1971,7 +1969,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Known failing test"]
     fn test_apply_chromatic_aberration() {
         let width = 5;
         let height = 1;
