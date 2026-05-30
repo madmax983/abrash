@@ -6953,16 +6953,24 @@ pub fn integrate_simpson(values: &[f32], dx: f32) -> f32 {
 /// Returns a vector of length `signal.len() + kernel.len() - 1`.
 /// The kernel is not flipped (cross-correlation convention) — if you need
 /// true convolution, reverse the kernel before passing it.
+///
+/// ⚡ Bolt: Uses `Vec::with_capacity` and `.push()` to avoid the overhead of
+/// zero-initializing a large array with `vec![0.0; out_len]`, which saves
+/// memory writes and improves performance.
 pub fn convolve_1d(signal: &[f32], kernel: &[f32]) -> Vec<f32> {
     if signal.is_empty() || kernel.is_empty() {
-        return Vec::new();
+        return Vec::with_capacity(0);
     }
     let out_len = signal.len() + kernel.len() - 1;
-    let mut out = vec![0.0_f32; out_len];
-    for (i, &s) in signal.iter().enumerate() {
-        for (j, &k) in kernel.iter().enumerate() {
-            out[i + j] += s * k;
+    let mut out = Vec::with_capacity(out_len);
+    for i in 0..out_len {
+        let mut sum = 0.0;
+        let j_start = i.saturating_sub(kernel.len() - 1);
+        let j_end = std::cmp::min(i + 1, signal.len());
+        for j in j_start..j_end {
+            sum += signal[j] * kernel[i - j];
         }
+        out.push(sum);
     }
     out
 }
