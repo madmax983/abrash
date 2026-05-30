@@ -56,10 +56,11 @@ fn process_kuwahara_region(
         let px_start = x + dx_start;
         let px_end = x + dx_end;
 
+        let px_start_u = px_start as usize;
+        let px_end_u = px_end as usize;
+
         for py in py_start..=py_end {
             let row_offset = (py * width) as usize;
-            let px_start_u = px_start as usize;
-            let px_end_u = px_end as usize;
 
             for &pixel in &src_fb[row_offset + px_start_u..=row_offset + px_end_u] {
                 let r = (pixel >> 16) & 0xFF;
