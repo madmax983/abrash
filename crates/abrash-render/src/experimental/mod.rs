@@ -66,6 +66,7 @@ pub mod isosurface;
 pub mod jelly;
 pub mod kaleidoscope;
 pub mod kuwahara;
+pub mod lcd;
 pub mod led_matrix;
 pub mod lsystem;
 pub mod magnifying_glass;

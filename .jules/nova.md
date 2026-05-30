@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [LCD / Gameboy Screen Filter]
+**Concept:** A retro filter that simulates the look of an old liquid-crystal display. It maps the framebuffer's colors to a 4-color green palette (like the original Gameboy) and adds a subtle grid to simulate the physical gaps between LCD pixels.
+**Fate:** Implemented
+**Lesson:** Iterating over blocks using exact chunking (`par_chunks_exact_mut`) allows safely calculating the average luminance of a block and then filling the block in-place, avoiding the need for a secondary framebuffer allocation or thread-local buffers. Handling the remainder chunk outside the main parallel loop ensures full coverage without out-of-bounds panics.
