@@ -51,3 +51,6 @@
 **[Validating Time/Tick Loop Logic Without Flakiness]**
 **Learning:** Testing frame-time loops using `std::thread::sleep` introduces severe flakiness because CI runners or test threads can delay execution unpredictably. Instead of testing "real" time elapsed, test the internal response to elapsed time by directly simulating it on the structure (e.g. `timer.last_time = Instant::now()`, `timer.accumulator += 50ms`).
 **Action:** Never use `std::thread::sleep` for unit testing timing systems. Always manipulate the simulated time state directly to test logic boundaries.
+## [SIMD Math Precision Testing]
+**Learning:** When testing math code that relies on hardware SIMD intrinsics for approximation (like `_mm_rsqrt_ss` in `fast_inv_sqrt`), the floating-point precision will be lower than standard library scalar implementations. Testing functions like `intersect_triangle` under SIMD may fail strict epsilon checks (e.g., `1e-3` or `1e-4`).
+**Action:** When increasing test coverage or fixing flaky math tests in `simd` feature paths, safely relax assertion tolerances (e.g., to `2e-3`) to accommodate hardware-level approximation variances.
