@@ -167,16 +167,38 @@ pub trait WindowApp {
 use comfy_table::{Cell, Color, Table, presets};
 
 fn print_host_error_and_exit(err: &HostError) -> ! {
+    let err_str = format!("{err}");
     let mut table = Table::new();
     table
         .load_preset(presets::UTF8_FULL)
-        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
-        .set_header(vec![
-            Cell::new("❌ Window Application Error")
-                .add_attribute(comfy_table::Attribute::Bold)
-                .fg(Color::Red),
-        ])
-        .add_row(vec![Cell::new(format!("{err}")).fg(Color::Yellow)]);
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS);
+
+    if err_str.contains("neither WAYLAND_DISPLAY") || err_str.contains("DISPLAY is set") {
+        table
+            .set_header(vec![
+                Cell::new("❌ Headless Environment Detected")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(Color::Red),
+            ])
+            .add_row(vec![
+                Cell::new("No display server (X11 or Wayland) found.\nYou might be running over SSH or in a CI environment.")
+                    .fg(Color::White)
+                    .add_attribute(comfy_table::Attribute::Bold),
+            ])
+            .add_row(vec![
+                Cell::new("Fix: Try running with a terminal backend:\n    cargo run --example <name> --features backend-tui")
+                    .fg(Color::Green),
+            ])
+            .add_row(vec![Cell::new(format!("Raw trace: {err_str}")).fg(Color::DarkGrey)]);
+    } else {
+        table
+            .set_header(vec![
+                Cell::new("❌ Window Application Error")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(Color::Red),
+            ])
+            .add_row(vec![Cell::new(err_str).fg(Color::Yellow)]);
+    }
 
     eprintln!("\n{table}");
     std::process::exit(1);
