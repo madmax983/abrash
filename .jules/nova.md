@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## Bokeh Blur Filter
+**Concept:** A post-processing effect that simulates out-of-focus areas of an image, similar to the depth-of-field effect in photography. It goes beyond simple blur by simulating the shape of the lens aperture.
+**Fate:** Implementing an MVP as a post-processing pass using a circular aperture.
+**Lesson:** Iterating over a bounding box for each pixel is slow. I'll need to parallelize this with Rayon to get acceptable performance for large buffers.

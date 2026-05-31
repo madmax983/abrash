@@ -61,6 +61,11 @@ ratatui = "0.30.0"
 crossterm = "0.29.0"
 
 [[bench]]
+name = "bokeh_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
 name = "plasma_bench"
 harness = false
 required-features = ["nova"]
