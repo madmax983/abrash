@@ -116,6 +116,7 @@ use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_triangle_to_screen};
+use crate::rasterizer::texture::{GouraudSpanState, GouraudSpanStep, TexSpanState, TexSpanStep};
 use crate::texture::{FilterMode, Texture};
 use crate::zbuffer::ZBuffer;
 use std::ops::{Deref, DerefMut};
@@ -1255,12 +1256,12 @@ fn rasterize_scanline_textured(
                         pixels_slice,
                         depths_slice,
                         texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
+                        TexSpanState { z, u_fix, v_fix },
+                        &TexSpanStep {
+                            dz_dx: gradients.dz_dx,
+                            du_fix,
+                            dv_fix,
+                        },
                     );
                 }
 
@@ -1269,12 +1270,12 @@ fn rasterize_scanline_textured(
                     pixels_slice,
                     depths_slice,
                     texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
+                    TexSpanState { z, u_fix, v_fix },
+                    &TexSpanStep {
+                        dz_dx: gradients.dz_dx,
+                        du_fix,
+                        dv_fix,
+                    },
                 );
             }
             FilterMode::Bilinear => {
@@ -1303,12 +1304,12 @@ fn rasterize_scanline_textured(
                         pixels_slice,
                         depths_slice,
                         texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
+                        TexSpanState { z, u_fix, v_fix },
+                        &TexSpanStep {
+                            dz_dx: gradients.dz_dx,
+                            du_fix,
+                            dv_fix,
+                        },
                     );
                 }
 
@@ -1317,12 +1318,12 @@ fn rasterize_scanline_textured(
                     pixels_slice,
                     depths_slice,
                     texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
+                    TexSpanState { z, u_fix, v_fix },
+                    &TexSpanStep {
+                        dz_dx: gradients.dz_dx,
+                        du_fix,
+                        dv_fix,
+                    },
                 );
             }
             FilterMode::Trilinear => {
@@ -1365,12 +1366,12 @@ fn rasterize_scanline_textured(
                         pixels_slice,
                         depths_slice,
                         texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
+                        TexSpanState { z, u_fix, v_fix },
+                        &TexSpanStep {
+                            dz_dx: gradients.dz_dx,
+                            du_fix,
+                            dv_fix,
+                        },
                         lod,
                     );
                 }
@@ -1380,12 +1381,12 @@ fn rasterize_scanline_textured(
                     pixels_slice,
                     depths_slice,
                     texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
+                    TexSpanState { z, u_fix, v_fix },
+                    &TexSpanStep {
+                        dz_dx: gradients.dz_dx,
+                        du_fix,
+                        dv_fix,
+                    },
                     lod,
                 );
             }
