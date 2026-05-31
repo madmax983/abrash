@@ -65,10 +65,31 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     let depths = zb.as_slice();
 
     // 1. Find min and max depth (excluding Infinity)
-    let mut min_z = f32::MAX;
-    let mut max_z = f32::MIN;
-    let mut has_content = false;
+    let (mut min_z, mut max_z, mut has_content) = (f32::MAX, f32::MIN, false);
 
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::is_x86_feature_detected!("avx2") {
+        unsafe {
+            let (simd_min, simd_max, simd_has_content) = find_min_max_simd(depths);
+            min_z = simd_min;
+            max_z = simd_max;
+            has_content = simd_has_content;
+        }
+    } else {
+        for &z in depths {
+            if z != f32::INFINITY {
+                if z < min_z {
+                    min_z = z;
+                }
+                if z > max_z {
+                    max_z = z;
+                }
+                has_content = true;
+            }
+        }
+    }
+
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
     for &z in depths {
         if z != f32::INFINITY {
             if z < min_z {
@@ -116,6 +137,97 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
         *pixel = unsafe { *LUT.get_unchecked(t as usize) };
     }
+}
+
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+unsafe fn find_min_max_simd(depths: &[f32]) -> (f32, f32, bool) {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::*;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::{
+        _CMP_EQ_OQ, _mm256_blendv_ps, _mm256_castps_si256, _mm256_cmp_ps, _mm256_loadu_ps,
+        _mm256_max_ps, _mm256_min_ps, _mm256_movemask_ps, _mm256_set1_ps,
+    };
+
+    let len = depths.len();
+    let mut i = 0;
+
+    let inf_vec = _mm256_set1_ps(f32::INFINITY);
+    let f32_max_vec = _mm256_set1_ps(f32::MAX);
+    let f32_min_vec = _mm256_set1_ps(f32::MIN);
+
+    let mut min_acc = f32_max_vec;
+    let mut max_acc = f32_min_vec;
+    let mut has_content = false;
+
+    while i + 8 <= len {
+        let depth_val = _mm256_loadu_ps(depths.as_ptr().add(i));
+
+        // Check if elements are infinity
+        let is_inf = _mm256_cmp_ps(depth_val, inf_vec, _CMP_EQ_OQ);
+
+        // If all 8 elements are infinity, skip
+        let mask = _mm256_movemask_ps(is_inf);
+        if mask != 0xFF {
+            has_content = true;
+            // For min calculation, replace infinity with f32::MAX
+            // blendv_ps: if mask bit is 1 (infinity), pick from B (f32_max_vec). Else A (depth_val)
+            let min_val = _mm256_blendv_ps(depth_val, f32_max_vec, is_inf);
+            min_acc = _mm256_min_ps(min_acc, min_val);
+
+            // For max calculation, replace infinity with f32::MIN
+            let max_val = _mm256_blendv_ps(depth_val, f32_min_vec, is_inf);
+            max_acc = _mm256_max_ps(max_acc, max_val);
+        }
+
+        i += 8;
+    }
+
+    // Horizontal min/max for AVX2 requires extracting elements
+    let mut min_arr = [0.0f32; 8];
+    let mut max_arr = [0.0f32; 8];
+
+    #[cfg(target_arch = "x86_64")]
+    {
+        std::arch::x86_64::_mm256_storeu_ps(min_arr.as_mut_ptr(), min_acc);
+        std::arch::x86_64::_mm256_storeu_ps(max_arr.as_mut_ptr(), max_acc);
+    }
+    #[cfg(target_arch = "x86")]
+    {
+        std::arch::x86::_mm256_storeu_ps(min_arr.as_mut_ptr(), min_acc);
+        std::arch::x86::_mm256_storeu_ps(max_arr.as_mut_ptr(), max_acc);
+    }
+
+    let mut final_min = f32::MAX;
+    let mut final_max = f32::MIN;
+
+    for &val in &min_arr {
+        if val < final_min {
+            final_min = val;
+        }
+    }
+    for &val in &max_arr {
+        if val > final_max {
+            final_max = val;
+        }
+    }
+
+    // Scalar tail
+    for &z in &depths[i..len] {
+        if z != f32::INFINITY {
+            if z < final_min {
+                final_min = z;
+            }
+            if z > final_max {
+                final_max = z;
+            }
+            has_content = true;
+        }
+    }
+
+    (final_min, final_max, has_content)
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
