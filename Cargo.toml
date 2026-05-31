@@ -984,3 +984,8 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[example]]
+name = "lidar_demo"
+path = "examples/lidar_demo.rs"
+required-features = ["nova", "backend-winit"]
