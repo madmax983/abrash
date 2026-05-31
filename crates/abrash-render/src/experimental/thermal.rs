@@ -26,6 +26,47 @@ impl Default for ThermalConfig {
     }
 }
 
+const fn generate_thermal_lut() -> [u32; 256] {
+    let mut lut = [0u32; 256];
+    let mut lum = 0;
+    while lum <= 255 {
+        let (r, g, b) = match lum {
+            0..=50 => {
+                let t = lum as u32;
+                let b = (t * 255) / 51;
+                (0, 0, b)
+            }
+            51..=101 => {
+                let t = (lum - 51) as u32;
+                let r = (t * 128) / 51;
+                let b = 255 - ((t * 127) / 51);
+                (r, 0, b)
+            }
+            102..=152 => {
+                let t = (lum - 102) as u32;
+                let r = 128 + ((t * 127) / 51);
+                let b = 128 - ((t * 128) / 51);
+                (r, 0, b)
+            }
+            153..=203 => {
+                let t = (lum - 153) as u32;
+                let g = (t * 255) / 51;
+                (255, g, 0)
+            }
+            _ => {
+                let t = (lum - 204) as u32;
+                let b = (t * 255) / 51;
+                (255, 255, b)
+            }
+        };
+        lut[lum as usize] = (r << 16) | (g << 8) | b;
+        lum += 1;
+    }
+    lut
+}
+
+const THERMAL_LUT: [u32; 256] = generate_thermal_lut();
+
 /// Applies a thermal vision post-processing effect to the framebuffer.
 ///
 /// This filter converts the image into a heatmap based on luminance,
@@ -66,7 +107,7 @@ pub fn apply_thermal(fb: &mut Framebuffer, config: &ThermalConfig) {
 
 #[inline(always)]
 #[allow(clippy::cast_lossless)]
-const fn process_pixel(pixel: &mut u32, intensity_fixed: u32, invert: bool) {
+fn process_pixel(pixel: &mut u32, intensity_fixed: u32, invert: bool) {
     let p = *pixel;
     let mut lum = pixel_luminance(p);
 
@@ -74,42 +115,10 @@ const fn process_pixel(pixel: &mut u32, intensity_fixed: u32, invert: bool) {
         lum = 255 - lum;
     }
 
-    // Thermal Color Palette Mapping
-    // 0..51: Black -> Blue (0, 0, 0) -> (0, 0, 255)
-    // 51..102: Blue -> Purple (0, 0, 255) -> (128, 0, 128)
-    // 102..153: Purple -> Red (128, 0, 128) -> (255, 0, 0)
-    // 153..204: Red -> Yellow (255, 0, 0) -> (255, 255, 0)
-    // 204..255: Yellow -> White (255, 255, 0) -> (255, 255, 255)
-
-    let (r, g, b) = match lum {
-        0..=50 => {
-            let t = lum as u32;
-            let b = (t * 255) / 51;
-            (0, 0, b)
-        }
-        51..=101 => {
-            let t = (lum - 51) as u32;
-            let r = (t * 128) / 51;
-            let b = 255 - ((t * 127) / 51);
-            (r, 0, b)
-        }
-        102..=152 => {
-            let t = (lum - 102) as u32;
-            let r = 128 + ((t * 127) / 51);
-            let b = 128 - ((t * 128) / 51);
-            (r, 0, b)
-        }
-        153..=203 => {
-            let t = (lum - 153) as u32;
-            let g = (t * 255) / 51;
-            (255, g, 0)
-        }
-        _ => {
-            let t = (lum - 204) as u32;
-            let b = (t * 255) / 51;
-            (255, 255, b)
-        }
-    };
+    let thermal_color = unsafe { *THERMAL_LUT.get_unchecked(lum as usize) };
+    let r = (thermal_color >> 16) & 0xFF;
+    let g = (thermal_color >> 8) & 0xFF;
+    let b = thermal_color & 0xFF;
 
     // Blend original pixel with thermal pixel based on intensity
     let orig_a = p & 0xFF00_0000;
