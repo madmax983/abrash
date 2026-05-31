@@ -5150,7 +5150,7 @@ fn draw_scanline_laplacian_blend(
     let mut v = start.v;
 
     if xs < 0 {
-        let diff = (-xs) as f32;
+        let diff = -i64::from(xs) as f32;
         z += diff * gradients.dz_dx;
         q += diff * gradients.dq_dx;
         u += diff * gradients.du_dx;

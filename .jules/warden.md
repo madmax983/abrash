@@ -24,3 +24,13 @@
 ## 2026-04-18 - [Heap Buffer Overflow in Pixel Sort via Unchecked SendPtr]
 **Threat:** The `SendPtr` wrapper inside `crates/abrash-render/src/experimental/pixel_sort.rs` lacked a length parameter and blindly added indices to the raw pointer via `*ptr.0.add(...)`. If a framebuffer lied about its dimensions or if sorting logic failed, it would lead to a catastrophic out-of-bounds heap read/write.
 **Defense:** Rewrote `SendPtr` to capture and store the length of the slice at instantiation. Replaced direct raw pointer dereferencing with safe `read()` and `write()` methods containing an `assert!(index < self.1, "Index out of bounds")` guard before evaluating the `unsafe` block.
+
+
+**2026-05-01 - [Vulnerable Dependencies: imageproc & rand]**
+**Threat:** Found multiple active vulnerabilities in dependencies during `cargo audit` (RUSTSEC-2026-0115, -0116, -0117 for imageproc 0.25.0 and RUSTSEC-2026-0097 for rand 0.8.5 and 0.9.2). The imageproc vulnerability involved fragile bounds checks when sampling from images (unsound). The rand vulnerability involved unsound custom loggers.
+**Defense:** Fixed the vulnerabilities immediately by running `cargo update -p imageproc` and `cargo update -p rand` to bump the patched versions in Cargo.lock.
+
+
+**2026-05-01 - [Memory Safety: Scanline Rasterizers bounds vulnerability in release mode]**
+**Threat:** The `draw_scanline_laplacian_blend` and `draw_scanline_flat_blended` algorithms casted the negative `x_start` pixel directly to `f32` (e.g. `let diff = (-xs) as f32;`). When `xs` was `i32::MIN`, the negation `-xs` overflows the `i32` bounds in standard math, leading to a wrap-around in release mode or panic in debug mode, causing undefined logic and OOB accesses inside rendering pipelines due to negative coordinate indices evaluating to arbitrary offset pointers.
+**Defense:** Enforced secure math cast by modifying all `let diff = (-xs) as f32;` conversions into `let diff = -i64::from(xs) as f32;`. Expanding into `i64` before the inversion protects against `i32::MIN` overflow bounds, maintaining mathematical coherence regardless of how low `xs` stretches off-screen.
