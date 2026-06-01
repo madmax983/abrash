@@ -24,3 +24,7 @@
 ## 2026-04-18 - [Heap Buffer Overflow in Pixel Sort via Unchecked SendPtr]
 **Threat:** The `SendPtr` wrapper inside `crates/abrash-render/src/experimental/pixel_sort.rs` lacked a length parameter and blindly added indices to the raw pointer via `*ptr.0.add(...)`. If a framebuffer lied about its dimensions or if sorting logic failed, it would lead to a catastrophic out-of-bounds heap read/write.
 **Defense:** Rewrote `SendPtr` to capture and store the length of the slice at instantiation. Replaced direct raw pointer dereferencing with safe `read()` and `write()` methods containing an `assert!(index < self.1, "Index out of bounds")` guard before evaluating the `unsafe` block.
+
+**2025-01-28 - Uninitialized Memory Leak/Overwrite via Public Tris**
+**Threat:** The `PreparedTrianglesList`, `PreparedGouraudTrianglesList`, and `PreparedTexturedTrianglesList` exposed their `MaybeUninit` array fields (`pub tris`) to external code. This encapsulation failure allowed unsafe modifications and bypassing of `count`-based initialization invariants, opening the door to Undefined Behavior (UB) when the crate accesses the data assuming initialization up to `count`.
+**Defense:** Replaced the `pub` modifier with `pub(crate)` on `tris` in all triangle list structures to ensure only internal module code can safely mutate the uninitialized buffers according to the list invariants.
