@@ -4,7 +4,7 @@
 //! and composes a single output image using scanlines from different points in time,
 //! simulating physical slit-scan photography.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 

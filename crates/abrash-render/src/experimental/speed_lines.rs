@@ -4,7 +4,7 @@
 //! radiating outwards from a central point. The lines are generated using a
 //! pseudo-random hash function based on the angle and distance from the center.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 use abrash_core::utils::XorShift32;
 
 #[cfg(feature = "parallel")]

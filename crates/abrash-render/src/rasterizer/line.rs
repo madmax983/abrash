@@ -11,11 +11,11 @@
 //! When a line goes behind the camera, it must be clipped to the near plane before
 //! perspective division, otherwise projection math creates wild distortions.
 
-use crate::clipping::clip_line_to_frustum;
-use crate::framebuffer::Framebuffer;
-use crate::math::{Vec3, project_to_screen_optimized};
 use crate::rasterizer::core::assert_same_dimensions;
-use crate::zbuffer::ZBuffer;
+use abrash_core::clipping::clip_line_to_frustum;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::math::{Vec3, project_to_screen_optimized};
+use abrash_core::zbuffer::ZBuffer;
 
 /// Draws a 3D line between two clip-space vertices with depth testing.
 ///
@@ -34,7 +34,7 @@ use crate::zbuffer::ZBuffer;
 /// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_core::math::Vec3;
 /// use abrash_render::rasterizer::draw_line_3d;
-/// use abrash_render::zbuffer::ZBuffer;
+/// use abrash_core::zbuffer::ZBuffer;
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// let mut zb = ZBuffer::new(100, 100).unwrap();
@@ -157,7 +157,7 @@ pub fn draw_line_3d(
 /// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_core::math::Vec3;
 /// use abrash_render::rasterizer::fill_triangle_wireframe;
-/// use abrash_render::zbuffer::ZBuffer;
+/// use abrash_core::zbuffer::ZBuffer;
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// let mut zb = ZBuffer::new(100, 100).unwrap();
@@ -182,10 +182,10 @@ pub fn fill_triangle_wireframe(
 }
 #[cfg(test)]
 mod tests {
-    use crate::framebuffer::Framebuffer;
     use crate::rasterizer::line::draw_line_3d;
-    use crate::zbuffer::ZBuffer;
+    use abrash_core::framebuffer::Framebuffer;
     use abrash_core::math::Vec3;
+    use abrash_core::zbuffer::ZBuffer;
 
     #[test]
     #[should_panic(expected = "Framebuffer and ZBuffer widths must match")]

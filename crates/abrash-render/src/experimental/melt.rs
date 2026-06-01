@@ -3,7 +3,7 @@
 //! Creates a classic "Doom-style" screen melt transition effect where columns
 //! of pixels drip down the screen at varying speeds.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 use std::cell::RefCell;
 
 thread_local! {

@@ -4,9 +4,9 @@
 
 #![allow(warnings)]
 
-use crate::math::{Vec2, Vec3, Vec4};
-use crate::mesh::Mesh;
-use crate::utils::XorShift32;
+use abrash_core::math::{Vec2, Vec3, Vec4};
+use abrash_core::mesh::Mesh;
+use abrash_core::utils::XorShift32;
 
 /// A generator for procedural terrain meshes.
 pub struct TerrainGenerator;

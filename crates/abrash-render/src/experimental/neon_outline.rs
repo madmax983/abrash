@@ -4,7 +4,7 @@
 //! a Sobel operator and applies a vibrant, glowing neon tint based on the edge direction.
 //! Horizontal and vertical edges are mapped to distinct neon colors (e.g., cyan and pink).
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 use abrash_core::utils::pixel_luminance;
 
 #[cfg(feature = "parallel")]

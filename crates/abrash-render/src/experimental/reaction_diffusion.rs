@@ -2,8 +2,8 @@
 //!
 //! Simulates the complex organic Turing patterns formed by two interacting chemicals.
 
-use crate::framebuffer::Framebuffer;
 use abrash_core::color;
+use abrash_core::framebuffer::Framebuffer;
 use abrash_core::utils::XorShift32;
 
 #[cfg(feature = "parallel")]

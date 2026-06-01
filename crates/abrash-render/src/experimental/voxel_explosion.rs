@@ -4,12 +4,12 @@
 //! Each voxel becomes a particle that flies outward from the center.
 
 use crate::experimental::voxelizer::Voxelizer;
-use crate::geometry::AABB;
-use crate::math::Vec3;
-use crate::mesh::Mesh;
 use crate::particles::{Particle, ParticleSystem};
-use crate::texture::Texture;
-use crate::utils::XorShift32;
+use abrash_core::geometry::AABB;
+use abrash_core::math::Vec3;
+use abrash_core::mesh::Mesh;
+use abrash_core::texture::Texture;
+use abrash_core::utils::XorShift32;
 
 /// Configuration for the explosion effect.
 #[derive(Debug, Clone, Copy)]

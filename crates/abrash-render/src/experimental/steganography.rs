@@ -3,7 +3,7 @@
 //! This module provides functions to hide and extract string messages
 //! within the least significant bits (LSB) of a Framebuffer's RGB channels.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 /// Encodes a string message into the given framebuffer.
 ///

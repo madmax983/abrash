@@ -4,7 +4,7 @@
 //! of distinct colors in a [`Framebuffer`] to create a "poster-like" visual effect,
 //! commonly used in stylistic and retro rendering pipelines.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 /// Configuration for the Posterize effect.
 #[derive(Debug, Clone, Copy)]
@@ -68,7 +68,7 @@ pub fn apply_posterize(fb: &mut Framebuffer, config: &PosterizeConfig) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::framebuffer::Framebuffer;
+    use abrash_core::framebuffer::Framebuffer;
 
     #[test]
     fn test_apply_posterize_reduces_colors() {

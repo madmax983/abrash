@@ -3,7 +3,7 @@
 //! A retro sci-fi post-processing effect that turns the framebuffer into a flickering,
 //! scanline-heavy holographic projection.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 use std::cell::RefCell;
 
 #[cfg(feature = "parallel")]
@@ -136,7 +136,7 @@ pub fn apply_hologram(fb: &mut Framebuffer, config: &HologramConfig) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::framebuffer::Framebuffer;
+    use abrash_core::framebuffer::Framebuffer;
 
     #[test]
     fn test_apply_hologram_changes_buffer() {

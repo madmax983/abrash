@@ -3,7 +3,7 @@
 //! A retro post-processing effect that converts the framebuffer into an ASCII
 //! art display, rendering characters back onto the screen using a built-in font.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 use abrash_core::utils::pixel_luminance;
 
 #[cfg(feature = "parallel")]

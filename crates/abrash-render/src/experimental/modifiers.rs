@@ -3,7 +3,7 @@
 //! Assorted visual modifiers and filters that operate on the framebuffer.
 
 use crate::experimental::procedural_mesh::noise;
-use crate::mesh::Mesh;
+use abrash_core::mesh::Mesh;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -77,8 +77,10 @@ pub fn displace_noise(mesh: &mut Mesh, amount: f32, seed: u32) {
 
     // Fallback if still empty or length mismatch: initialize with UP
     if mesh.normals.len() != mesh.vertices.len() {
-        mesh.normals
-            .resize(mesh.vertices.len(), crate::math::Vec3::new(0.0, 1.0, 0.0));
+        mesh.normals.resize(
+            mesh.vertices.len(),
+            abrash_core::math::Vec3::new(0.0, 1.0, 0.0),
+        );
     }
 
     // ⚡ Bolt Optimization:

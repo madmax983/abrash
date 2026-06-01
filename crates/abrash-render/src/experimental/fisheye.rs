@@ -3,7 +3,7 @@
 //! Simulates an ultra-wide-angle lens distortion (barrel distortion) that warps the image,
 //! creating a bulbous, spherical effect where the center is magnified and the edges are compressed.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;

@@ -20,8 +20,8 @@
 //! * `[`: Push State (Save Position & Orientation)
 //! * `]`: Pop State (Restore Position & Orientation)
 
-use crate::math::Vec3;
-use crate::mesh::Mesh;
+use abrash_core::math::Vec3;
+use abrash_core::mesh::Mesh;
 use foldhash::HashMap;
 
 /// Configuration for an L-System generator.

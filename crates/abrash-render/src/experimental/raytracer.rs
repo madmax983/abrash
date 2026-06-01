@@ -42,10 +42,10 @@
 //! tracer.render(&scene, &mut fb);
 //! ```
 
-use crate::framebuffer::Framebuffer;
-use crate::geometry::AABB;
-use crate::math::{Vec2, Vec3};
 use crate::scene::{Scene, SceneObject};
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::geometry::AABB;
+use abrash_core::math::{Vec2, Vec3};
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -454,9 +454,9 @@ impl RayTracer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::Mat4;
-    use crate::mesh::Mesh;
     use crate::scene::Camera;
+    use abrash_core::math::Mat4;
+    use abrash_core::mesh::Mesh;
 
     #[test]
     fn should_return_background_color_on_miss() {

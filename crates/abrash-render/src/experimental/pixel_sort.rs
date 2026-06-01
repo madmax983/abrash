@@ -3,8 +3,8 @@
 //! A popular "glitch art" effect that sorts pixels along rows or columns
 //! based on a metric like luminance, creating a "melting" or "tearing" aesthetic.
 
-use crate::framebuffer::Framebuffer;
-use crate::utils::pixel_luminance;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::utils::pixel_luminance;
 
 /// Applies a pixel sort effect to the framebuffer.
 ///

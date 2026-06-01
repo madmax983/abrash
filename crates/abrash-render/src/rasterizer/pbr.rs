@@ -55,13 +55,13 @@
 //! assert_ne!(center_pixel, 0x00FF_000000);
 //! ```
 
-use crate::clipping::clip_triangle_to_frustum;
-use crate::framebuffer::Framebuffer;
-use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};
 use crate::rasterizer::core::{
     FIXED_SCALE, assert_same_dimensions, color_to_u32_scaled, is_backface, sort_by_y,
 };
-use crate::zbuffer::ZBuffer;
+use abrash_core::clipping::clip_triangle_to_frustum;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::math::{ScreenPoint, Vec3, project_triangle_to_screen};
+use abrash_core::zbuffer::ZBuffer;
 use std::f32::consts::PI;
 
 /// Represents the physical properties of a surface material.
@@ -1067,9 +1067,9 @@ fn draw_scanline_pbr_scalar(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::framebuffer::Framebuffer;
-    use crate::math::Vec3;
-    use crate::zbuffer::ZBuffer;
+    use abrash_core::framebuffer::Framebuffer;
+    use abrash_core::math::Vec3;
+    use abrash_core::zbuffer::ZBuffer;
 
     #[test]
     fn test_pbr_simd_matches_scalar() {

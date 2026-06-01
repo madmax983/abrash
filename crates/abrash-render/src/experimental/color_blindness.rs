@@ -2,7 +2,7 @@
 //!
 //! A post-processing effect that simulates various types of color vision deficiencies (CVD).
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;

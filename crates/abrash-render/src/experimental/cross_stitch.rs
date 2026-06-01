@@ -3,7 +3,7 @@
 //! A retro-style post-processing effect that converts the framebuffer into a pattern resembling a cross-stitch embroidery canvas.
 //! Groups pixels into blocks, samples the color, and draws an 'X' using absolute differences, backed by a canvas color.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 /// Configuration for the Cross-Stitch filter.
 #[derive(Debug, Clone, Copy)]

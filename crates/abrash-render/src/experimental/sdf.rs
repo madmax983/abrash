@@ -6,9 +6,9 @@
 
 #![allow(warnings)]
 
-use crate::framebuffer::Framebuffer;
-use crate::math::{Mat4, Vec2, Vec3};
-use crate::zbuffer::ZBuffer;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::math::{Mat4, Vec2, Vec3};
+use abrash_core::zbuffer::ZBuffer;
 
 /// Supported SDF Primitives.
 #[derive(Clone, Copy, Debug)]

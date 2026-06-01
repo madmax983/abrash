@@ -2,7 +2,7 @@
 //!
 //! Simulates the barrel distortion of a classic Cathode Ray Tube monitor.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 use std::cell::RefCell;
 
 /// Applies a CRT monitor barrel distortion effect to the framebuffer.

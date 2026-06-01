@@ -4,8 +4,8 @@
 //! and flattening it into discrete strata. It applies distinct shadow drops between
 //! depth layers to enhance the 2.5D pop-up book effect.
 
-use crate::framebuffer::Framebuffer;
-use crate::zbuffer::ZBuffer;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::zbuffer::ZBuffer;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;

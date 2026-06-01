@@ -1,9 +1,9 @@
 //! Render target combining pixel and depth buffers.
 
-use crate::framebuffer::Framebuffer;
-use crate::hiz_buffer::HiZBuffer;
 use crate::render_api::borrowed_target::BorrowedRenderTarget;
-use crate::zbuffer::ZBuffer;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::hiz_buffer::HiZBuffer;
+use abrash_core::zbuffer::ZBuffer;
 
 /// A render target combining pixel buffer, depth buffer, and optional Hi-Z pyramid.
 ///

@@ -2,7 +2,7 @@
 //!
 //! Renders mathematical fractals like the Mandelbrot set.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;

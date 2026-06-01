@@ -3,8 +3,8 @@
 //! Creates a retro red-cyan 3D stereoscopic image by offsetting the red color
 //! channel based on the depth from the `ZBuffer`.
 
-use crate::framebuffer::Framebuffer;
-use crate::zbuffer::ZBuffer;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::zbuffer::ZBuffer;
 
 /// Configuration for the Anaglyph 3D effect.
 #[derive(Debug, Clone, Copy)]

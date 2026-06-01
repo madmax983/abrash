@@ -8,7 +8,7 @@
 
 #![cfg(feature = "nova")]
 
-use crate::math::Vec3;
+use abrash_core::math::Vec3;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;

@@ -2,7 +2,7 @@
 //!
 //! A post-processing effect that simulates a magnifying glass moving over the screen.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use std::cell::RefCell;

@@ -1,7 +1,7 @@
 //! Frame submission types — the contract between scene logic and the renderer.
 
-use crate::math::{Mat4, Vec3};
 use crate::render_api::handles::{MaterialHandle, MeshHandle};
+use abrash_core::math::{Mat4, Vec3};
 
 /// A directional light source (infinite distance, parallel rays).
 #[derive(Debug, Clone, Copy)]

@@ -2,8 +2,8 @@
 //!
 //! Detects edges and applies a bloom-like glow to them.
 
-use crate::framebuffer::Framebuffer;
-use crate::utils::pixel_luminance;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::utils::pixel_luminance;
 
 use std::cell::RefCell;
 

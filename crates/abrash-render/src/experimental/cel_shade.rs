@@ -3,8 +3,8 @@
 //! Applies a stylized comic book / anime aesthetic by quantizing colors
 //! and drawing edge outlines based on depth and luminance discontinuities.
 
-use crate::framebuffer::Framebuffer;
-use crate::zbuffer::ZBuffer;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::zbuffer::ZBuffer;
 use std::cell::RefCell;
 
 use abrash_core::utils::pixel_luminance;

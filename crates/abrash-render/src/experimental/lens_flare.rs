@@ -2,8 +2,8 @@
 //!
 //! Provides screen-space lens flare artifacts based on bright light sources.
 
-use crate::framebuffer::Framebuffer;
-use crate::math::Vec2;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::math::Vec2;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;

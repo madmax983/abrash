@@ -2,8 +2,8 @@
 //!
 //! Maps luminance to a heat map color gradient.
 
-use crate::framebuffer::Framebuffer;
-use crate::utils::pixel_luminance;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::utils::pixel_luminance;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;

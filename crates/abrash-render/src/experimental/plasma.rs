@@ -2,7 +2,7 @@
 //!
 //! Simulates a classic demoscene plasma effect using sine waves.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 use abrash_core::math::fast_sin_cos;
 
 #[cfg(feature = "parallel")]

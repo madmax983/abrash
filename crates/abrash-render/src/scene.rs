@@ -62,15 +62,15 @@
 //! scene.render(&mut renderer, &mut fb, &mut zb);
 //! ```
 
-use crate::culling::Frustum;
-use crate::framebuffer::Framebuffer;
-use crate::geometry::AABB;
-use crate::math::{Mat4, Vec3};
-use crate::mesh::Mesh;
 use crate::rasterizer::TileRenderer;
 use crate::render_api::draw_list::{DrawBatch, DrawList};
 use crate::render_api::frame::FrameCamera;
-use crate::zbuffer::ZBuffer;
+use abrash_core::culling::Frustum;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::geometry::AABB;
+use abrash_core::math::{Mat4, Vec3};
+use abrash_core::mesh::Mesh;
+use abrash_core::zbuffer::ZBuffer;
 use std::cell::RefCell;
 use std::sync::Arc;
 
@@ -344,7 +344,7 @@ impl Scene {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::Vec3;
+    use abrash_core::math::Vec3;
 
     #[test]
     fn test_calculate_world_aabb_matches_naive() {

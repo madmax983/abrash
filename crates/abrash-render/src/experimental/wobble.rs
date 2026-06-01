@@ -4,7 +4,7 @@
 //! based on a sine wave of their Y-coordinate. This simulates classic SNES-style
 //! underwater, heat haze, or dream sequence effects.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 /// Configuration for the Wobble effect.
 #[derive(Debug, Clone, Copy)]
@@ -105,7 +105,7 @@ pub fn apply_wobble(fb: &mut Framebuffer, config: &WobbleConfig) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::framebuffer::Framebuffer;
+    use abrash_core::framebuffer::Framebuffer;
 
     #[test]
     fn test_apply_wobble_shifts_pixels() {

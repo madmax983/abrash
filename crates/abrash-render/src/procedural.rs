@@ -2,9 +2,9 @@
 //!
 //! Provides functions to generate textures algorithmically.
 
-use crate::texture::Texture;
-use crate::utils::XorShift32;
 use abrash_core::math::fast_sin_cos;
+use abrash_core::texture::Texture;
+use abrash_core::utils::XorShift32;
 
 /// Generates a classic XOR texture.
 ///

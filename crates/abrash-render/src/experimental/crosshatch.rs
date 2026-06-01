@@ -4,8 +4,8 @@
 //! lines over the image based on the underlying luminance. Darker areas
 //! receive thicker or more overlapping hatching lines.
 
-use crate::framebuffer::Framebuffer;
-use crate::utils::pixel_luminance;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::utils::pixel_luminance;
 
 /// Applies a crosshatch effect to the framebuffer.
 ///

@@ -4,7 +4,7 @@
 //! grouping pixels into cells and drawing a glowing circular LED for each cell
 //! to simulate a jumbotron or pixel display.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;

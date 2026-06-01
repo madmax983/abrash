@@ -1,5 +1,5 @@
+use abrash_core::framebuffer::Framebuffer;
 use abrash_render::experimental::night_vision::{NightVisionConfig, apply_night_vision};
-use abrash_render::framebuffer::Framebuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn night_vision_benchmark(c: &mut Criterion) {

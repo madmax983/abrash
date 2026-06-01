@@ -1,5 +1,5 @@
+use abrash_core::framebuffer::Framebuffer;
 use abrash_render::experimental::ascii_display::{AsciiDisplayConfig, apply_ascii_display};
-use abrash_render::framebuffer::Framebuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_ascii_display(c: &mut Criterion) {

@@ -2,7 +2,7 @@
 //!
 //! Creates a twisting, liquid-like deformation of the image around a center point.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 /// Configuration for the Swirl post-processing filter.
 #[derive(Debug, Clone, Copy)]

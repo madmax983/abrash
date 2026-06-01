@@ -3,8 +3,8 @@
 //! Maps the depth buffer (Z-buffer) to a color gradient, simulating a thermal camera.
 //! Uses auto-ranging to adapt to the scene depth.
 
-use crate::framebuffer::Framebuffer;
-use crate::zbuffer::ZBuffer;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::zbuffer::ZBuffer;
 
 const fn generate_lut() -> [u32; 1024] {
     let mut lut = [0u32; 1024];

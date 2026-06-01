@@ -1,6 +1,6 @@
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::zbuffer::ZBuffer;
 use abrash_render::experimental::vision::{VisionConfig, VisionMode, apply_vision};
-use abrash_render::framebuffer::Framebuffer;
-use abrash_render::zbuffer::ZBuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn vision_benchmark(c: &mut Criterion) {

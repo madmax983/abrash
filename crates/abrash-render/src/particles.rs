@@ -8,12 +8,12 @@
 //! * Texture support
 //! * Emitter configuration
 
-use crate::framebuffer::Framebuffer;
-use crate::math::{Mat4, Vec2, Vec3};
 use crate::rasterizer::texture::fill_quad_textured_gouraud;
-use crate::texture::Texture;
-use crate::utils::XorShift32;
-use crate::zbuffer::ZBuffer;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::math::{Mat4, Vec2, Vec3};
+use abrash_core::texture::Texture;
+use abrash_core::utils::XorShift32;
+use abrash_core::zbuffer::ZBuffer;
 
 /// A single particle in the system.
 ///

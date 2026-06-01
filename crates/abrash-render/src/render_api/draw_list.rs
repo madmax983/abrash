@@ -26,8 +26,8 @@
 //! [`Scene`]: crate::scene::Scene
 //! [`TileRenderer`]: crate::rasterizer::TileRenderer
 
-use crate::math::Vec3;
 use crate::render_api::frame::{FrameCamera, Light};
+use abrash_core::math::Vec3;
 
 /// A single pre-transformed draw call ready for rasterization.
 ///
@@ -200,7 +200,7 @@ impl DrawList {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::{Mat4, Vec3};
+    use abrash_core::math::{Mat4, Vec3};
 
     fn test_camera() -> FrameCamera {
         FrameCamera::new(

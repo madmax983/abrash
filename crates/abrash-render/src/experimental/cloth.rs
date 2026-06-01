@@ -2,8 +2,8 @@
 //!
 //! Implements a mass-spring system using Verlet integration for cloth simulation.
 
-use crate::math::{Vec2, Vec3};
-use crate::mesh::Mesh;
+use abrash_core::math::{Vec2, Vec3};
+use abrash_core::mesh::Mesh;
 
 /// A single particle in the cloth grid.
 #[derive(Clone, Copy, Debug)]

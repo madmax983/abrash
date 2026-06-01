@@ -7,8 +7,8 @@
 
 #![cfg(feature = "nova")]
 
-use crate::framebuffer::Framebuffer;
 use abrash_core::color::Color;
+use abrash_core::framebuffer::Framebuffer;
 use abrash_core::math::Vec2;
 use abrash_core::random::Rng;
 use std::cell::RefCell;
@@ -294,7 +294,7 @@ pub fn apply_physarum(fb: &mut Framebuffer, config: &PhysarumConfig) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::framebuffer::Framebuffer;
+    use abrash_core::framebuffer::Framebuffer;
 
     #[test]
     fn test_apply_physarum_no_crash() {

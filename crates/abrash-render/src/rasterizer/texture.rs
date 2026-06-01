@@ -29,13 +29,15 @@
 //! *   **Multiple Filtering Modes**: Nearest Neighbor, Bilinear, and Trilinear (Mipmapping).
 //! *   **Simd Optimization**: AVX2 accelerated rasterization for high performance.
 
-use crate::clipping::clip_triangle_to_frustum;
-use crate::framebuffer::Framebuffer;
-use crate::math::{
+use abrash_core::clipping::clip_triangle_to_frustum;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::math::{
     ScreenPoint, Vec2, Vec3, Vec4, project_quad_to_screen, project_triangle_to_screen,
 };
-use crate::texture::{FilterMode, Texture, blend_four_way, blend_swar, laplacian_blend_textures};
-use crate::zbuffer::ZBuffer;
+use abrash_core::texture::{
+    FilterMode, Texture, blend_four_way, blend_swar, laplacian_blend_textures,
+};
+use abrash_core::zbuffer::ZBuffer;
 
 use super::core::{FIXED_SCALE, assert_same_dimensions, color_to_u32, is_backface, sort_by_y};
 
@@ -4856,10 +4858,10 @@ fn fill_projected_triangle_textured_gouraud_with_gradients(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::framebuffer::Framebuffer;
-    use crate::math::{Vec2, Vec3};
-    use crate::texture::Texture;
-    use crate::zbuffer::ZBuffer;
+    use abrash_core::framebuffer::Framebuffer;
+    use abrash_core::math::{Vec2, Vec3};
+    use abrash_core::texture::Texture;
+    use abrash_core::zbuffer::ZBuffer;
 
     #[test]
     fn test_draw_scanline_nearest() {
@@ -4926,7 +4928,7 @@ mod tests {
         let mut fb = Framebuffer::new(10, 10).unwrap();
         let mut zb = ZBuffer::new(10, 10).unwrap();
         let mut tex = Texture::new(2, 2).unwrap();
-        tex.filter_mode = crate::texture::FilterMode::Bilinear;
+        tex.filter_mode = abrash_core::texture::FilterMode::Bilinear;
 
         // 0,0: Black (0x00000000)
         // 1,0: White (0xFFFF_FFFF)
@@ -5468,7 +5470,7 @@ fn test_draw_scanline_trilinear() {
     // Level 1 (1x1) should be Grey (approx 127/128)
     // 0x7F7F7F...
 
-    tex.filter_mode = crate::texture::FilterMode::Trilinear;
+    tex.filter_mode = abrash_core::texture::FilterMode::Trilinear;
 
     // 3. Setup Span
     // We want to sample at (0.5, 0.5) in texel space (Center of Top-Left pixel).

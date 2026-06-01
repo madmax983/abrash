@@ -2,7 +2,7 @@
 //!
 //! Simulates a bottom-up fire using a cellular automaton approach with a cooling map.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 use std::cell::RefCell;
 
 #[cfg(feature = "parallel")]

@@ -2,7 +2,6 @@
 //!
 //! Bridges the render API to the existing `TileRenderer` / scanline rasterization.
 
-use crate::mesh::Mesh;
 use crate::rasterizer::TileRenderer;
 use crate::render_api::borrowed_target::BorrowedRenderTarget;
 use crate::render_api::draw_list::{DrawBatch, DrawList};
@@ -10,7 +9,8 @@ use crate::render_api::frame::{Frame, FrameCamera};
 use crate::render_api::handles::{Handle, MaterialHandle, MeshHandle, ResourcePool, TextureHandle};
 use crate::render_api::material::Material;
 use crate::render_api::target::RenderTarget;
-use crate::texture::Texture;
+use abrash_core::mesh::Mesh;
+use abrash_core::texture::Texture;
 
 /// Errors from renderer operations.
 #[derive(Debug)]
@@ -50,7 +50,7 @@ thread_local! {
     /// depending on scene complexity. By caching this in a thread-local variable and using
     /// `.clone_from()` when updating, we optimally reuse the destination's existing pre-allocated
     /// capacities, safely eliminating O(N) heap deallocations and allocations per frame update.
-    pub static CPU_RENDERER_DRAW_LIST: std::cell::RefCell<DrawList> = std::cell::RefCell::new(DrawList::with_capacity(FrameCamera::new(crate::math::Mat4::identity(), crate::math::Mat4::identity()), 128, 1024, 0));
+    pub static CPU_RENDERER_DRAW_LIST: std::cell::RefCell<DrawList> = std::cell::RefCell::new(DrawList::with_capacity(FrameCamera::new(abrash_core::math::Mat4::identity(), abrash_core::math::Mat4::identity()), 128, 1024, 0));
 }
 
 /// Software rasterizer.
@@ -219,11 +219,13 @@ impl CpuRenderer {
                         // SAFETY: `ranges` ensures disjoint segments of the allocated buffer.
                         // The buffer is pre-allocated with `total_vertices` capacity.
                         unsafe {
-                            let offset_ptr = (ptr as *mut (crate::math::Vec3, f32)).add(start);
+                            let offset_ptr =
+                                (ptr as *mut (abrash_core::math::Vec3, f32)).add(start);
                             // We cast `offset_ptr` to `*mut std::mem::MaybeUninit` to pass into `transform_points_uninit`.
                             let slice = std::slice::from_raw_parts_mut(
                                 offset_ptr
-                                    .cast::<std::mem::MaybeUninit<(crate::math::Vec3, f32)>>(),
+                                    .cast::<std::mem::MaybeUninit<(abrash_core::math::Vec3, f32)>>(
+                                    ),
                                 mesh.vertices.len(),
                             );
                             mvp.transform_points_uninit(&mesh.vertices, slice);
@@ -498,12 +500,12 @@ impl CpuRenderer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::{Mat4, Vec3};
-    use crate::mesh::Mesh;
     use crate::render_api::borrowed_target::BorrowedRenderTarget;
     use crate::render_api::frame::{Frame, FrameCamera};
     use crate::render_api::material::Material;
     use crate::render_api::target::RenderTarget;
+    use abrash_core::math::{Mat4, Vec3};
+    use abrash_core::mesh::Mesh;
 
     fn test_camera() -> FrameCamera {
         FrameCamera::new(

@@ -20,8 +20,8 @@
 
 #![allow(warnings)]
 
-use crate::math::Vec3;
-use crate::mesh::Mesh;
+use abrash_core::math::Vec3;
+use abrash_core::mesh::Mesh;
 use foldhash::HashMap;
 use std::f32::consts::PI;
 

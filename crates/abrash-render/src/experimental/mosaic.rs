@@ -3,7 +3,7 @@
 //! A post-processing effect that converts the framebuffer into a hexagonal
 //! mosaic (honeycomb) pattern.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 /// Applies a hexagonal mosaic effect to the framebuffer.
 ///
@@ -160,7 +160,7 @@ pub fn apply_hex_mosaic(fb: &mut Framebuffer, cell_size: f32, border_size: f32, 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::framebuffer::Framebuffer;
+    use abrash_core::framebuffer::Framebuffer;
 
     #[test]
     fn test_apply_hex_mosaic() {

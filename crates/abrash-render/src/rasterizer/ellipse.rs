@@ -10,7 +10,7 @@
 //!
 //! If you just need a circle, consider using the functions in the [`crate::rasterizer::circle`] module instead.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 #[inline(always)]
 fn draw_ellipse_points(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {

@@ -7,7 +7,7 @@
 //! * Radial sampling accumulation for glowing light shafts.
 //! * Customizable density, weight, decay, and exposure.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 /// Applies a crepuscular ray (God Rays) effect to the framebuffer.
 ///

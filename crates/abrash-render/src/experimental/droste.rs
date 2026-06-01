@@ -2,7 +2,7 @@
 //!
 //! A recursive picture-in-picture effect.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 use std::cell::RefCell;
 
 #[cfg(feature = "parallel")]

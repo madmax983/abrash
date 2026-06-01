@@ -2,11 +2,11 @@
 //!
 //! Provides basic reflection mapping based on surface normals and view vectors.
 
-use crate::clipping::clip_triangle_to_frustum;
-use crate::framebuffer::Framebuffer;
-use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};
 use crate::skybox::Cubemap;
-use crate::zbuffer::ZBuffer;
+use abrash_core::clipping::clip_triangle_to_frustum;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::math::{ScreenPoint, Vec3, project_triangle_to_screen};
+use abrash_core::zbuffer::ZBuffer;
 
 use super::core::{FIXED_SCALE, assert_same_dimensions, is_backface, sort_by_y};
 

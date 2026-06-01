@@ -4,7 +4,7 @@
 //! It pixelates the image by averaging colors within a block and then applies procedural
 //! highlights and shadows to simulate a 3D stud on each block.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 /// Applies a "brickify" (Lego-style) effect to the framebuffer.
 ///

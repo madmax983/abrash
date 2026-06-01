@@ -2,7 +2,7 @@
 //!
 //! Implements integer-based circle rasterization.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 /// Draw an empty circle (outline) using Bresenham's algorithm.
 ///

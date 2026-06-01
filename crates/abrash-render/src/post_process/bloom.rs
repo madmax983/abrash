@@ -3,8 +3,8 @@
 //! Extracts bright areas of the image and applies a blur to simulate light bleeding.
 
 use super::blur::{box_blur_horizontal, box_blur_vertical};
-use crate::framebuffer::Framebuffer;
-use crate::utils::pixel_luminance;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::utils::pixel_luminance;
 use std::cell::RefCell;
 
 thread_local! {

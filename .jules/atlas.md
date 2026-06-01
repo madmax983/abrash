@@ -125,3 +125,6 @@
 1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
 2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors.
 3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
+**The Leaky Abstraction Fix**
+**Tangle:** `abrash-render`'s `lib.rs` re-exported all core modules (`pub use abrash_core::*`), causing internal paths to resolve through `crate::` instead of `abrash_core::`. This created a "Leaky Abstraction" where `abrash-render` implicitly offered `abrash_core` APIs, tangling dependencies and hiding the true architectural bounds.
+**Blueprint:** Removed `pub use abrash_core::*` from `crates/abrash-render/src/lib.rs` and executed a targeted codebase-wide find-and-replace to ensure all internal `use abrash_render::[core_module]` and `use crate::[core_module]` references directly point to `abrash_core::`. This enforces a clear, clean boundary.

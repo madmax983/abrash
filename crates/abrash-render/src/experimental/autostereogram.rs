@@ -4,8 +4,8 @@
 //! a union-find-like approach to link pixels horizontally by depth shift,
 //! allowing for perfect row-by-row parallelization.
 
-use crate::framebuffer::Framebuffer;
-use crate::zbuffer::ZBuffer;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::zbuffer::ZBuffer;
 
 /// Configuration for the Autostereogram effect.
 #[derive(Debug, Clone, Copy)]

@@ -4,7 +4,7 @@
 //! It amplifies luminance non-linearly, applies a green phosphor tint,
 //! adds high-frequency noise, scanlines, and a vignette.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -147,7 +147,7 @@ pub fn apply_night_vision(fb: &mut Framebuffer, config: &NightVisionConfig) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::framebuffer::Framebuffer;
+    use abrash_core::framebuffer::Framebuffer;
 
     #[test]
     fn test_night_vision_boosts_luminance_and_tints_green() {

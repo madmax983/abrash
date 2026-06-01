@@ -4,7 +4,7 @@
 //! simulating a classic kaleidoscope by mapping pixels to polar
 //! coordinates, applying modulo to the angle, and mapping back.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 use std::cell::RefCell;
 
 thread_local! {

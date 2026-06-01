@@ -4,11 +4,11 @@
 //! The skybox is rendered as a unit cube centered on the camera,
 //! with "infinite" depth (z=1.0) to serve as a background.
 
-use crate::framebuffer::Framebuffer;
-use crate::math::{Mat4, Vec2, Vec3};
 use crate::rasterizer::texture::fill_quad_textured;
-use crate::texture::Texture;
-use crate::zbuffer::ZBuffer;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::math::{Mat4, Vec2, Vec3};
+use abrash_core::texture::Texture;
+use abrash_core::zbuffer::ZBuffer;
 
 /// A Cubemap texture consisting of 6 faces.
 ///

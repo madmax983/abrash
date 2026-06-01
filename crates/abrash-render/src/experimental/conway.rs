@@ -3,7 +3,7 @@
 //! A retro cellular automata post-processing effect that transforms the framebuffer
 //! into an interactive simulation based on Conway's Game of Life rules.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 use abrash_core::utils::pixel_luminance;
 use std::cell::RefCell;
 

@@ -21,8 +21,8 @@
 //! - p is phase
 //! - d is damping
 
-use crate::framebuffer::Framebuffer;
-use crate::math::Vec2;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::math::Vec2;
 use std::f32::consts::PI;
 
 /// A single damped pendulum component.
@@ -189,7 +189,7 @@ fn draw_line_2d(fb: &mut Framebuffer, mut x0: i32, mut y0: i32, x1: i32, y1: i32
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::framebuffer::Framebuffer;
+    use abrash_core::framebuffer::Framebuffer;
 
     #[test]
     fn test_harmonograph_evaluate_at_zero() {

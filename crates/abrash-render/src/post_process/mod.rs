@@ -5,7 +5,7 @@
 //!
 //! ## Overview
 //!
-//! The pipeline operates on the [`crate::framebuffer::Framebuffer`] (Color) and [`crate::zbuffer::ZBuffer`] (Depth).
+//! The pipeline operates on the [`abrash_core::framebuffer::Framebuffer`] (Color) and [`abrash_core::zbuffer::ZBuffer`] (Depth).
 //! Most effects modify the framebuffer in-place, allowing you to chain multiple effects together.
 //!
 //! ## Available Effects

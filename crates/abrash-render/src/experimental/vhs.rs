@@ -3,7 +3,7 @@
 //! A retro post-processing effect that simulates the tracking distortion,
 //! chromatic aberration, and noise characteristic of degraded analog video tape (VHS).
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 use abrash_core::utils::XorShift32;
 
 #[cfg(feature = "parallel")]
@@ -202,7 +202,7 @@ fn get_channel_safe(src: &[u32], width: usize, _height: usize, x: i32, y: i32, s
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::framebuffer::Framebuffer;
+    use abrash_core::framebuffer::Framebuffer;
 
     #[test]
     fn test_apply_vhs_changes_buffer() {
