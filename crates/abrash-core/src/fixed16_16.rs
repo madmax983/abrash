@@ -339,13 +339,13 @@ mod tests {
     }
 
     #[test]
-    fn from_i32_trait() {
+    fn from_i32() {
         let a: Fixed16_16 = 42.into();
         assert_eq!(a, Fixed16_16::from_int(42));
     }
 
     #[test]
-    fn into_i32_trait() {
+    fn into_i32() {
         let a = Fixed16_16::from_int(42);
         let n: i32 = a.into();
         assert_eq!(n, 42);

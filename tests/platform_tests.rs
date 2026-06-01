@@ -2,7 +2,7 @@
 //!
 //! These tests verify that the platform abstractions are correctly wired up.
 //! We cannot create actual native or TUI windows in test mode, so we test
-//! enums and the host trait surface only.
+//! enums and the host surface only.
 
 use abrash::platform::{Event, WindowError};
 #[cfg(feature = "backend-winit")]
@@ -40,7 +40,7 @@ fn event_clone() {
 fn event_debug_format() {
     let close = Event::Close;
     let resize = Event::Resize(640, 480);
-    // Debug trait is derived, so formatting should not panic
+    // Debug is derived, so formatting should not panic
     let close_dbg = format!("{close:?}");
     let resize_dbg = format!("{resize:?}");
     assert!(close_dbg.contains("Close"));
@@ -84,8 +84,8 @@ fn window_error_implements_std_error() {
 
 // ---------- Window-like surface ----------
 
-/// Verify the `WindowBackend` trait is importable and has the expected methods
-/// by defining a compile-time-only mock. If the trait signature ever changes,
+/// Verify the `WindowBackend` is importable and has the expected methods
+/// by defining a compile-time-only mock. If the signature ever changes,
 /// this test will fail to compile.
 struct MockWindow {
     w: u32,
@@ -183,7 +183,7 @@ fn window_host_config_default_values() {
 
 #[cfg(feature = "backend-winit")]
 #[test]
-fn window_app_trait_surface_compiles() {
+fn window_app_surface_compiles() {
     let app = MockApp;
     let config = app.config();
     assert_eq!(config, WindowHostConfig::default());

@@ -21,3 +21,7 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+## [Reduction]
+**Bloat:** `trait Lerp` in benches, `trait BspTextures`/ `trait BspMap` references in docs, and unnecessary trait definitions.
+**Cut:** Removed `trait Lerp` documentation and flattened to concrete implementations. Fixed `BspTextureCache` and `BspMapData` struct documentations. Removed `Evaluable` trait references and adjusted `WindowBackend` mock testing logic to not mention trait.
+**Saved:** Several lines of documentation and removed a redundant trait concept reference.
