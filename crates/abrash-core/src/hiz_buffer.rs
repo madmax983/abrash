@@ -600,6 +600,18 @@ mod tests {
     use super::*;
 
     #[test]
+    #[should_panic(expected = "Dimensions must be positive")]
+    fn test_hiz_new_zero_width_panic() {
+        let _ = HiZBuffer::new(0, 10);
+    }
+
+    #[test]
+    #[should_panic(expected = "Dimensions must be positive")]
+    fn test_hiz_new_zero_height_panic() {
+        let _ = HiZBuffer::new(10, 0);
+    }
+
+    #[test]
     #[should_panic(expected = "capacity overflow")]
     fn test_hiz_dimensions_overflow() {
         let _ = HiZBuffer::new(u32::MAX, u32::MAX);
@@ -660,6 +672,47 @@ mod tests {
 
         hiz.build_pyramid(&zb);
         assert!(hiz.is_valid());
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion `left == right` failed")]
+    fn test_build_pyramid_dimensions_mismatch_width_panic() {
+        let mut hiz = HiZBuffer::new(800, 600);
+        let zb = ZBuffer::new(400, 600).unwrap();
+        hiz.build_pyramid(&zb);
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion `left == right` failed")]
+    fn test_build_pyramid_dimensions_mismatch_height_panic() {
+        let mut hiz = HiZBuffer::new(800, 600);
+        let zb = ZBuffer::new(800, 300).unwrap();
+        hiz.build_pyramid(&zb);
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion `left == right` failed")]
+    fn test_build_pyramid_from_depths_dimensions_mismatch_width_panic() {
+        let mut hiz = HiZBuffer::new(800, 600);
+        let zb = ZBuffer::new(400, 600).unwrap();
+        hiz.build_pyramid_from_depths(400, 600, zb.as_slice());
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion `left == right` failed")]
+    fn test_build_pyramid_from_depths_dimensions_mismatch_height_panic() {
+        let mut hiz = HiZBuffer::new(800, 600);
+        let zb = ZBuffer::new(800, 300).unwrap();
+        hiz.build_pyramid_from_depths(800, 300, zb.as_slice());
+    }
+
+    #[test]
+    #[should_panic(expected = "Depth slice too small for Hi-Z pyramid build")]
+    fn test_build_pyramid_from_depths_buffer_too_small_panic() {
+        let mut hiz = HiZBuffer::new(800, 600);
+        let zb = ZBuffer::new(800, 300).unwrap();
+        // Passing 800x600 but a slice of 800x300 length
+        hiz.build_pyramid_from_depths(800, 600, zb.as_slice());
     }
 
     #[test]
