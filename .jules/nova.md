@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [String Art Filter]
+**Concept:** A post-processing effect that converts the framebuffer into a procedural "string art" or "thread art" image. It places a set of "pegs" around a circular boundary and iteratively draws straight lines (strings) between pegs to reconstruct the dark areas of the image. The line scoring uses a pre-calculated darkness map and Bresenham's line algorithm.
+**Fate:** Implemented
+**Lesson:** For procedural path-based effects (like String Art), using a pre-processed 'darkness map' and evaluating path scores with Bresenham's line algorithm provides an efficient alternative to ray tracing. Pre-calculating structural coordinates (like circular peg positions) outside the hot evaluation loops significantly improves performance.
