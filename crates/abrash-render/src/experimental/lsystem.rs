@@ -101,6 +101,7 @@ impl LSystem {
 
                 for _ in 0..iterations {
                     next_bytes.clear();
+                    next_bytes.reserve(current_bytes.len() * 2);
                     for &b in &*current_bytes {
                         if let Some(replacement) = rules_array[(b as usize) & 127] {
                             next_bytes.extend_from_slice(replacement);
@@ -144,6 +145,7 @@ impl LSystem {
 
         for _ in 0..iterations {
             next_string.clear();
+            next_string.reserve(current_string.len() * 2);
 
             // Bolt Performance Optimization:
             // When `current` and `next_string` are swapped, the smaller buffer is recycled.
