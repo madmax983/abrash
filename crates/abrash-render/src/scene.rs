@@ -244,7 +244,6 @@ impl Scene {
 
             let num_objects = self.objects.len();
             world_aabbs.clear();
-            world_aabbs.reserve_exact(num_objects);
             cull_results.clear();
             cull_results.resize(num_objects, false);
 
@@ -273,9 +272,6 @@ impl Scene {
             draw_list.vertices.reserve(total_vertices);
             draw_list.batches.reserve(visible_count);
 
-            // ⚡ Bolt: Eliminate implicit bounds-checks during push by pre-allocating exact capacities for dynamic vectors
-            draw_list.batches.reserve_exact(visible_count);
-            draw_list.vertices.reserve_exact(total_vertices);
 
             // ⚡ Bolt: Zip iterator completely avoids bounds checking on cull_results inside the transform loop
             for (obj, &is_visible) in self.objects.iter().zip(cull_results.iter()) {
