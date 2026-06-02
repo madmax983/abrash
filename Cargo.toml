@@ -768,6 +768,11 @@ name = "scanline_jitter_bench"
 harness = false
 path = "benches/scanline_jitter_bench.rs"
 
+[[bench]]
+name = "string_art_bench"
+harness = false
+path = "benches/string_art_bench.rs"
+
 [[example]]
 name = "digital_rain_demo"
 path = "examples/digital_rain_demo.rs"
