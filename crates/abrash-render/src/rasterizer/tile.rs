@@ -3006,9 +3006,9 @@ impl TileRenderer {
         let tris = &self.tile_bins.tris;
 
         // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
+        // By increasing `SmallVec` stack capacity from 64 to 256, we keep the per-tile triangle indices buffer entirely on the stack
+        // even during heavy overdraw. This eliminates expensive dynamic heap allocations on the hot sorting path without needing to tie the allocation to the parent struct.
+        let mut indices: smallvec::SmallVec<[u32; 256]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
@@ -3529,9 +3529,9 @@ impl TileRenderer {
         let tris = &self.tile_bins.tris;
 
         // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
+        // By increasing `SmallVec` stack capacity from 64 to 256, we keep the per-tile triangle indices buffer entirely on the stack
+        // even during heavy overdraw. This eliminates expensive dynamic heap allocations on the hot sorting path without needing to tie the allocation to the parent struct.
+        let mut indices: smallvec::SmallVec<[u32; 256]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
@@ -3579,9 +3579,9 @@ impl TileRenderer {
         let tris = &self.tile_bins.tris;
 
         // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
+        // By increasing `SmallVec` stack capacity from 64 to 256, we keep the per-tile triangle indices buffer entirely on the stack
+        // even during heavy overdraw. This eliminates expensive dynamic heap allocations on the hot sorting path without needing to tie the allocation to the parent struct.
+        let mut indices: smallvec::SmallVec<[u32; 256]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
