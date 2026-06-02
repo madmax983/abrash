@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## Radar Effect
+**Concept:** Simulating a sweeping radar scope with trailing beams and gridlines.
+**Fate:** Successfully implemented as `radar` experimental module. Used Red/Green/Refactor.
+**Lesson:** Fixed-point colors and replacing trig via `fast_atan2` provides excellent rendering speeds even for dense pixel-by-pixel sweeps. Always remember to add `#![cfg(feature = "nova")]` to test files for experimental modules to avoid breaking `--no-default-features` builds.

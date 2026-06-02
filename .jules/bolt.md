@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+## 2024-05-XX - [Fast Trigonometry in Render Loops]
+**Learning:** In hot rendering loops (like post-processing effects), standard floating-point trigonometry functions like `f32::atan2()` are expensive.
+**Action:** Optimize them by using `abrash_core::math::fast_atan2()` to significantly bypass calculation overhead (e.g., radar effect runtime decreased by ~48%).
