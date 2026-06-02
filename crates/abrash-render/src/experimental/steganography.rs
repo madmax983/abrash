@@ -2,6 +2,13 @@
 //!
 //! This module provides functions to hide and extract string messages
 //! within the least significant bits (LSB) of a Framebuffer's RGB channels.
+//! This technique allows hidden data to be transmitted inside seemingly normal images.
+//!
+//! # Workflow
+//!
+//! 1. Use [`encode_message`] on a [`Framebuffer`] to hide a string.
+//! 2. The modified framebuffer can be saved or rendered as usual.
+//! 3. Use [`decode_message`] on the modified [`Framebuffer`] to extract the hidden string.
 
 use crate::framebuffer::Framebuffer;
 
@@ -10,8 +17,21 @@ use crate::framebuffer::Framebuffer;
 /// Hides the message length (4 bytes) and the message data in the least
 /// significant bits of the RGB channels.
 ///
-/// Returns an error if the framebuffer is not large enough to hold the message.
+/// # Examples
+///
+/// ```rust
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::experimental::steganography::encode_message;
+///
+/// let mut fb = Framebuffer::new(10, 10).unwrap();
+/// fb.clear(0xFFFF_FFFF); // Start with a white canvas
+///
+/// // Hide a secret message
+/// encode_message(&mut fb, "The cake is a lie").unwrap();
+/// ```
+///
 /// # Errors
+///
 /// Returns an error if the message is too long to fit in the framebuffer.
 pub fn encode_message(fb: &mut Framebuffer, message: &str) -> Result<(), &'static str> {
     let bytes = message.as_bytes();
@@ -70,6 +90,23 @@ pub fn encode_message(fb: &mut Framebuffer, message: &str) -> Result<(), &'stati
 }
 
 /// Decodes a string message hidden in the given framebuffer.
+///
+/// # Examples
+///
+/// ```rust
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::experimental::steganography::{encode_message, decode_message};
+///
+/// let mut fb = Framebuffer::new(10, 10).unwrap();
+/// fb.clear(0xFFFF_FFFF);
+///
+/// encode_message(&mut fb, "Hello, Nova!").unwrap();
+///
+/// let secret = decode_message(&fb).unwrap();
+/// assert_eq!(secret, "Hello, Nova!");
+/// ```
+///
+/// # Returns
 ///
 /// Returns `None` if the length is invalid or the data is not valid UTF-8.
 #[must_use]

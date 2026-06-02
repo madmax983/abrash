@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2024-05-20 - [Steganography Documentation]
+**Confusion:** The experimental `steganography` module lacked executable doctests, making it difficult for users to understand how to correctly initialize framebuffers and encode/decode hidden string messages within images.
+**Clarification:** Added module-level explanation regarding workflow and included full copy-pasteable `## Examples` for `encode_message` and `decode_message` illustrating the encoding and extraction pipeline.
