@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[L-System Heap Re-allocations]**
+**Learning:** Double-buffering dynamically growing string buffers via `std::mem::swap` combined with `.clear()` loses the capacity advantage if we don't explicitly call `.reserve(current.capacity())` on the newly cleared (formerly small) buffer before adding to it. Without it, the buffer undergoes O(N^2) dynamic heap allocations as it tries to match the exponential growth of the L-System during that specific iteration.
+**Action:** When implementing a `clear()` and `swap()` double-buffering pattern for collections that grow exponentially, always pre-allocate the cleared buffer to the capacity of the current buffer using `.reserve()`.
