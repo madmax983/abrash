@@ -232,3 +232,9 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+## Optimize Voronoi distance metric root evaluations
+**💡 What:** Extracted `.cbrt()`, `.sqrt().sqrt()`, and `.powf(inv_metric)` out of the inner loop in distance metrics.
+**🎯 Why:** Instead of evaluating the root function for every point inside a tight per-pixel per-seed loop, we can just compare the un-rooted distances and compute the root once on the final minimum result.
+**📊 Impact:** Massively reduces expensive root calculations inside the rendering loops.
+**🔬 Measurement:** Minkowski 4 benchmark reduced from ~290ms down to ~201ms (a 30.5% improvement).

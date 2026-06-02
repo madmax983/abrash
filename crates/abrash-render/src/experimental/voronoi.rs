@@ -222,8 +222,8 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                 let fy = y as f32;
                 for (x, pixel) in row.iter_mut().enumerate() {
                     let fx = x as f32;
-                    let mut min_dist = f32::MAX;
-                    let mut second_min_dist = f32::MAX;
+                    let mut min_dist_cubed = f32::MAX;
+                    let mut second_min_dist_cubed = f32::MAX;
                     let mut closest_idx = 0;
 
                     for (i, seed) in seeds.iter().enumerate() {
@@ -231,16 +231,18 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         let dy = fy - seed.y;
                         let dx = dx.abs();
                         let dy = dy.abs();
-                        let dist = (dx * dx * dx + dy * dy * dy).cbrt();
-                        if dist < min_dist {
-                            second_min_dist = min_dist;
-                            min_dist = dist;
+                        let dist_cubed = dx * dx * dx + dy * dy * dy;
+                        if dist_cubed < min_dist_cubed {
+                            second_min_dist_cubed = min_dist_cubed;
+                            min_dist_cubed = dist_cubed;
                             closest_idx = i;
-                        } else if dist < second_min_dist {
-                            second_min_dist = dist;
+                        } else if dist_cubed < second_min_dist_cubed {
+                            second_min_dist_cubed = dist_cubed;
                         }
                     }
 
+                    let min_dist = min_dist_cubed.cbrt();
+                    let second_min_dist = second_min_dist_cubed.cbrt();
                     let diff = (second_min_dist - min_dist).abs();
                     if diff <= config.border_thickness {
                         *pixel = config.border_color;
@@ -254,7 +256,7 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                 let fy = y as f32;
                 for (x, pixel) in row.iter_mut().enumerate() {
                     let fx = x as f32;
-                    let mut min_dist = f32::MAX;
+                    let mut min_dist_cubed = f32::MAX;
                     let mut closest_idx = 0;
 
                     for (i, seed) in seeds.iter().enumerate() {
@@ -262,9 +264,9 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         let dy = fy - seed.y;
                         let dx = dx.abs();
                         let dy = dy.abs();
-                        let dist = (dx * dx * dx + dy * dy * dy).cbrt();
-                        if dist < min_dist {
-                            min_dist = dist;
+                        let dist_cubed = dx * dx * dx + dy * dy * dy;
+                        if dist_cubed < min_dist_cubed {
+                            min_dist_cubed = dist_cubed;
                             closest_idx = i;
                         }
                     }
@@ -279,8 +281,8 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                 let fy = y as f32;
                 for (x, pixel) in row.iter_mut().enumerate() {
                     let fx = x as f32;
-                    let mut min_dist = f32::MAX;
-                    let mut second_min_dist = f32::MAX;
+                    let mut min_dist_4 = f32::MAX;
+                    let mut second_min_dist_4 = f32::MAX;
                     let mut closest_idx = 0;
 
                     for (i, seed) in seeds.iter().enumerate() {
@@ -290,17 +292,20 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         let dy = dy.abs();
                         let x2 = dx * dx;
                         let y2 = dy * dy;
-                        #[allow(clippy::imprecise_flops)]
-                        let dist = (x2 * x2 + y2 * y2).sqrt().sqrt();
-                        if dist < min_dist {
-                            second_min_dist = min_dist;
-                            min_dist = dist;
+                        let dist_4 = x2 * x2 + y2 * y2;
+                        if dist_4 < min_dist_4 {
+                            second_min_dist_4 = min_dist_4;
+                            min_dist_4 = dist_4;
                             closest_idx = i;
-                        } else if dist < second_min_dist {
-                            second_min_dist = dist;
+                        } else if dist_4 < second_min_dist_4 {
+                            second_min_dist_4 = dist_4;
                         }
                     }
 
+                    #[allow(clippy::imprecise_flops)]
+                    let min_dist = min_dist_4.sqrt().sqrt();
+                    #[allow(clippy::imprecise_flops)]
+                    let second_min_dist = second_min_dist_4.sqrt().sqrt();
                     let diff = (second_min_dist - min_dist).abs();
                     if diff <= config.border_thickness {
                         *pixel = config.border_color;
@@ -314,7 +319,7 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                 let fy = y as f32;
                 for (x, pixel) in row.iter_mut().enumerate() {
                     let fx = x as f32;
-                    let mut min_dist = f32::MAX;
+                    let mut min_dist_4 = f32::MAX;
                     let mut closest_idx = 0;
 
                     for (i, seed) in seeds.iter().enumerate() {
@@ -324,10 +329,9 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         let dy = dy.abs();
                         let x2 = dx * dx;
                         let y2 = dy * dy;
-                        #[allow(clippy::imprecise_flops)]
-                        let dist = (x2 * x2 + y2 * y2).sqrt().sqrt();
-                        if dist < min_dist {
-                            min_dist = dist;
+                        let dist_4 = x2 * x2 + y2 * y2;
+                        if dist_4 < min_dist_4 {
+                            min_dist_4 = dist_4;
                             closest_idx = i;
                         }
                     }
@@ -342,8 +346,8 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                 let fy = y as f32;
                 for (x, pixel) in row.iter_mut().enumerate() {
                     let fx = x as f32;
-                    let mut min_dist = f32::MAX;
-                    let mut second_min_dist = f32::MAX;
+                    let mut min_dist_pow = f32::MAX;
+                    let mut second_min_dist_pow = f32::MAX;
                     let mut closest_idx = 0;
 
                     for (i, seed) in seeds.iter().enumerate() {
@@ -351,16 +355,18 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         let dy = fy - seed.y;
                         let dx = dx.abs();
                         let dy = dy.abs();
-                        let dist = (dx.powf(metric) + dy.powf(metric)).powf(inv_metric);
-                        if dist < min_dist {
-                            second_min_dist = min_dist;
-                            min_dist = dist;
+                        let dist_pow = dx.powf(metric) + dy.powf(metric);
+                        if dist_pow < min_dist_pow {
+                            second_min_dist_pow = min_dist_pow;
+                            min_dist_pow = dist_pow;
                             closest_idx = i;
-                        } else if dist < second_min_dist {
-                            second_min_dist = dist;
+                        } else if dist_pow < second_min_dist_pow {
+                            second_min_dist_pow = dist_pow;
                         }
                     }
 
+                    let min_dist = min_dist_pow.powf(inv_metric);
+                    let second_min_dist = second_min_dist_pow.powf(inv_metric);
                     let diff = (second_min_dist - min_dist).abs();
                     if diff <= config.border_thickness {
                         *pixel = config.border_color;
@@ -374,7 +380,7 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                 let fy = y as f32;
                 for (x, pixel) in row.iter_mut().enumerate() {
                     let fx = x as f32;
-                    let mut min_dist = f32::MAX;
+                    let mut min_dist_pow = f32::MAX;
                     let mut closest_idx = 0;
 
                     for (i, seed) in seeds.iter().enumerate() {
@@ -382,9 +388,9 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         let dy = fy - seed.y;
                         let dx = dx.abs();
                         let dy = dy.abs();
-                        let dist = (dx.powf(metric) + dy.powf(metric)).powf(inv_metric);
-                        if dist < min_dist {
-                            min_dist = dist;
+                        let dist_pow = dx.powf(metric) + dy.powf(metric);
+                        if dist_pow < min_dist_pow {
+                            min_dist_pow = dist_pow;
                             closest_idx = i;
                         }
                     }
@@ -487,5 +493,104 @@ mod tests {
         // Check that at least some pixels are border colored
         let has_borders = fb.as_slice().iter().any(|&p| p == border_color);
         assert!(has_borders, "Voronoi borders should be drawn");
+    }
+
+    #[test]
+    fn test_voronoi_cbrt() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        fb.clear(0xFFFF_FFFF);
+
+        let config = VoronoiConfig {
+            num_seeds: 3,
+            use_image_color: false,
+            metric: 3.0,
+            seed: 77,
+            border_thickness: 0.0,
+            ..Default::default()
+        };
+
+        apply_voronoi(&mut fb, &config);
+
+        let mut first_color = None;
+        let mut has_multiple_colors = false;
+
+        for &pixel in fb.as_slice() {
+            if let Some(c) = first_color {
+                if c != pixel {
+                    has_multiple_colors = true;
+                    break;
+                }
+            } else {
+                first_color = Some(pixel);
+            }
+        }
+
+        assert!(has_multiple_colors, "Voronoi with CBRT metric should produce multiple colors");
+    }
+
+    #[test]
+    fn test_voronoi_sqrt() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        fb.clear(0xFFFF_FFFF);
+
+        let config = VoronoiConfig {
+            num_seeds: 3,
+            use_image_color: false,
+            metric: 4.0,
+            seed: 88,
+            border_thickness: 0.0,
+            ..Default::default()
+        };
+
+        apply_voronoi(&mut fb, &config);
+
+        let mut first_color = None;
+        let mut has_multiple_colors = false;
+
+        for &pixel in fb.as_slice() {
+            if let Some(c) = first_color {
+                if c != pixel {
+                    has_multiple_colors = true;
+                    break;
+                }
+            } else {
+                first_color = Some(pixel);
+            }
+        }
+
+        assert!(has_multiple_colors, "Voronoi with SQRT metric should produce multiple colors");
+    }
+
+    #[test]
+    fn test_voronoi_arbitrary_pow() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        fb.clear(0xFFFF_FFFF);
+
+        let config = VoronoiConfig {
+            num_seeds: 3,
+            use_image_color: false,
+            metric: 5.5,
+            seed: 99,
+            border_thickness: 0.0,
+            ..Default::default()
+        };
+
+        apply_voronoi(&mut fb, &config);
+
+        let mut first_color = None;
+        let mut has_multiple_colors = false;
+
+        for &pixel in fb.as_slice() {
+            if let Some(c) = first_color {
+                if c != pixel {
+                    has_multiple_colors = true;
+                    break;
+                }
+            } else {
+                first_color = Some(pixel);
+            }
+        }
+
+        assert!(has_multiple_colors, "Voronoi with arbitrary metric should produce multiple colors");
     }
 }
