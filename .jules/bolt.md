@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Fast Inverse Square Root Optimization]**
+**Learning:** In hot simulation loops (like Boids), standard floating point `.sqrt().recip()` or `1.0 / .sqrt()` division operations are slow. Using the custom `abrash_core::math::fast_inv_sqrt` intrinsic offers significant performance gains.
+**Action:** Replace `1.0 / dist` and `speed.sqrt()` division with `fast_inv_sqrt` combined with pre-calculating squared boundaries like `max_speed_sq = max_speed * max_speed`.
