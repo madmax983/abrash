@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Replacing assume_init() with assume_init_read() for Performance and Safety]**
+**Learning:** When reading initialized values from `MaybeUninit<T>` where `T` contains padding bytes (like `PreparedTriangle`), `assume_init()` triggers a typed by-value copy that causes Undefined Behavior (UB) under Miri and introduces slight overhead by copying uninitialized padding.
+**Action:** Always use `.assume_init_read()` instead, which performs a safer and faster `ptr::read` that elides the typed copy of uninitialized padding bytes, satisfying Warden's safety rules and slightly improving performance in hot rasterization loops.
