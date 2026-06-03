@@ -6,6 +6,9 @@
 use crate::framebuffer::Framebuffer;
 use crate::zbuffer::ZBuffer;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 const fn generate_lut() -> [u32; 1024] {
     let mut lut = [0u32; 1024];
     let mut t = 0;
@@ -65,21 +68,50 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     let depths = zb.as_slice();
 
     // 1. Find min and max depth (excluding Infinity)
-    let mut min_z = f32::MAX;
-    let mut max_z = f32::MIN;
-    let mut has_content = false;
+    #[cfg(not(feature = "parallel"))]
+    let (min_z, max_z, has_content) = {
+        let mut min_z = f32::MAX;
+        let mut max_z = f32::MIN;
+        let mut has_content = false;
 
-    for &z in depths {
-        if z != f32::INFINITY {
-            if z < min_z {
-                min_z = z;
+        for &z in depths {
+            if z != f32::INFINITY {
+                if z < min_z {
+                    min_z = z;
+                }
+                if z > max_z {
+                    max_z = z;
+                }
+                has_content = true;
             }
-            if z > max_z {
-                max_z = z;
-            }
-            has_content = true;
         }
-    }
+        (min_z, max_z, has_content)
+    };
+
+    #[cfg(feature = "parallel")]
+    let (min_z, max_z, has_content) = depths
+        .par_iter()
+        .fold(
+            || (f32::MAX, f32::MIN, false),
+            |(mut min_z, mut max_z, mut has_content), &z| {
+                if z != f32::INFINITY {
+                    if z < min_z {
+                        min_z = z;
+                    }
+                    if z > max_z {
+                        max_z = z;
+                    }
+                    has_content = true;
+                }
+                (min_z, max_z, has_content)
+            },
+        )
+        .reduce(
+            || (f32::MAX, f32::MIN, false),
+            |(min1, max1, has1), (min2, max2, has2)| {
+                (min1.min(min2), max1.max(max2), has1 || has2)
+            },
+        );
 
     if !has_content {
         // Nothing drawn, just clear to cold background
@@ -96,25 +128,66 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     // from truncating 1024 to 1023 when scaling.
     let scale = 1024.0 / range;
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if std::is_x86_feature_detected!("avx2") {
-        unsafe {
-            apply_heat_vision_simd(pixels, depths, min_z, scale, &LUT);
+    #[cfg(not(feature = "parallel"))]
+    {
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe {
+                apply_heat_vision_simd(pixels, depths, min_z, scale, &LUT);
+            }
+            return;
         }
-        return;
+
+        for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
+            if depth == f32::INFINITY {
+                *pixel = 0xFF00_0010; // Very Dark Blue Background
+                continue;
+            }
+
+            let t = ((depth - min_z) * scale) as u32;
+            let t = t.min(1023); // Clamp strictly to 1023
+
+            // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
+            *pixel = unsafe { *LUT.get_unchecked(t as usize) };
+        }
     }
 
-    for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
-        if depth == f32::INFINITY {
-            *pixel = 0xFF00_0010; // Very Dark Blue Background
-            continue;
+    #[cfg(feature = "parallel")]
+    {
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        let has_avx2 = std::is_x86_feature_detected!("avx2");
+        #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+        let has_avx2 = false;
+
+        if has_avx2 {
+            pixels
+                .par_chunks_mut(1024)
+                .zip(depths.par_chunks(1024))
+                .for_each(|(p_chunk, d_chunk)| {
+                    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+                    unsafe {
+                        apply_heat_vision_simd(p_chunk, d_chunk, min_z, scale, &LUT);
+                    }
+                });
+        } else {
+            pixels
+                .par_chunks_mut(1024)
+                .zip(depths.par_chunks(1024))
+                .for_each(|(p_chunk, d_chunk)| {
+                    for (pixel, &depth) in p_chunk.iter_mut().zip(d_chunk.iter()) {
+                        if depth == f32::INFINITY {
+                            *pixel = 0xFF00_0010; // Very Dark Blue Background
+                            continue;
+                        }
+
+                        let t = ((depth - min_z) * scale) as u32;
+                        let t = t.min(1023); // Clamp strictly to 1023
+
+                        // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
+                        *pixel = unsafe { *LUT.get_unchecked(t as usize) };
+                    }
+                });
         }
-
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023); // Clamp strictly to 1023
-
-        // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
-        *pixel = unsafe { *LUT.get_unchecked(t as usize) };
     }
 }
 
@@ -307,5 +380,39 @@ mod tests {
             p, 0x00FF_000000,
             "Should remain unchanged default Framebuffer color (Solid Black)"
         );
+    }
+
+    #[test]
+    #[cfg(feature = "parallel")]
+    fn test_heat_vision_parallel_consistency() {
+        // Ensure that parallel processing provides exact same pixel output as expected
+        let width = 2048; // Large enough to trigger multiple chunks of 1024
+        let height = 2;
+        let mut fb = Framebuffer::new(width, height).unwrap();
+        let mut zb = ZBuffer::new(width, height).unwrap();
+
+        for y in 0..height {
+            for x in 0..width {
+                if x == 500 && y == 0 {
+                    // Leave as default infinity
+                    continue;
+                }
+                // Gradient of depths from 0.1 to 100.0
+                let depth = 0.1 + (x as f32 / width as f32) * 99.9;
+                zb.test_and_set(x as i32, y as i32, depth);
+            }
+        }
+
+        apply_heat_vision(&mut fb, &zb);
+
+        // Check beginning, middle, and end
+        let p_start = fb.get_pixel(0, 0).unwrap();
+        assert_eq!(p_start, 0xFFFF_0000, "Start pixel should be hot/red");
+
+        let p_end = fb.get_pixel((width - 1) as i32, 0).unwrap();
+        assert_eq!(p_end, 0xFF00_00FF, "End pixel should be cold/blue");
+
+        let p_inf = fb.get_pixel(500, 0).unwrap();
+        assert_eq!(p_inf, 0xFF00_0010, "Infinity pixel should be background");
     }
 }
