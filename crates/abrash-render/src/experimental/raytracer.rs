@@ -416,12 +416,13 @@ impl RayTracer {
             };
 
             let mixed = final_color.lerp(reflected_color, reflectivity);
-            let mixed = Vec3::new(mixed.x.min(1.0), mixed.y.min(1.0), mixed.z.min(1.0));
 
-            return 0xFF00_0000
-                | ((mixed.x * 255.0) as u32) << 16
-                | ((mixed.y * 255.0) as u32) << 8
-                | ((mixed.z * 255.0) as u32);
+            // Replaced Vec3 mapping and float mapping with fast clamp and cast
+            let final_r = (mixed.x.clamp(0.0, 1.0) * 255.0) as u32;
+            let final_g = (mixed.y.clamp(0.0, 1.0) * 255.0) as u32;
+            let final_b = (mixed.z.clamp(0.0, 1.0) * 255.0) as u32;
+
+            return 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
         }
 
         self.background_color

@@ -115,17 +115,19 @@ pub fn apply_hologram(fb: &mut Framebuffer, config: &HologramConfig) {
                 let src_idx = y * width + (src_x as usize);
                 let p = src_pixels[src_idx];
 
-                let r = ((p >> 16) & 0xFF) as f32;
-                let g = ((p >> 8) & 0xFF) as f32;
-                let b = (p & 0xFF) as f32;
+                let r = ((p >> 16) & 0xFF) as i32;
+                let g = ((p >> 8) & 0xFF) as i32;
+                let b = (p & 0xFF) as i32;
 
-                // Grayscale luminance
-                let lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                // Grayscale luminance using integer math
+                // 0.299 * 256 ~= 77, 0.587 * 256 ~= 150, 0.114 * 256 ~= 29
+                let lum_i32 = (r * 77 + g * 150 + b * 29) >> 8;
+                let lum_factor = lum_i32 as f32 * combined_intensity / 255.0;
 
                 // Map luminance to target color, scaling by intensity
-                let final_r = (lum * tc_r / 255.0 * combined_intensity).clamp(0.0, 255.0) as u32;
-                let final_g = (lum * tc_g / 255.0 * combined_intensity).clamp(0.0, 255.0) as u32;
-                let final_b = (lum * tc_b / 255.0 * combined_intensity).clamp(0.0, 255.0) as u32;
+                let final_r = (tc_r * lum_factor).clamp(0.0, 255.0) as u32;
+                let final_g = (tc_g * lum_factor).clamp(0.0, 255.0) as u32;
+                let final_b = (tc_b * lum_factor).clamp(0.0, 255.0) as u32;
 
                 *pixel = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
             }

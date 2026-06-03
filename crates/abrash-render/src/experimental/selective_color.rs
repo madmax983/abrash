@@ -34,6 +34,10 @@ impl Default for SelectiveColorConfig {
 
 /// Applies the Selective Color filter to the framebuffer.
 pub fn apply_selective_color(fb: &mut Framebuffer, config: &SelectiveColorConfig) {
+    // Integer scale for desaturation (0..256)
+    let desat_factor = (config.desaturation.clamp(0.0, 1.0) * 256.0) as i32;
+    let keep_factor = 256 - desat_factor;
+
     let process_pixel = |p: u32| -> u32 {
         let color = Color::from_argb_u32(p);
         let (h, _, _) = color.to_hsv();
@@ -45,19 +49,19 @@ pub fn apply_selective_color(fb: &mut Framebuffer, config: &SelectiveColorConfig
         if dist <= config.tolerance {
             p // Keep original color
         } else {
-            // Apply desaturation based on the configuration
-            let luma = f32::from(pixel_luminance(p)) / 255.0;
-            let gray_color = Color::new(luma, luma, luma, color.a);
+            // Apply desaturation based on the configuration using integer math
+            let luma = i32::from(pixel_luminance(p));
 
-            // Lerp between the original color and grayscale based on desaturation
-            let final_color = Color::new(
-                color.r + (gray_color.r - color.r) * config.desaturation,
-                color.g + (gray_color.g - color.g) * config.desaturation,
-                color.b + (gray_color.b - color.b) * config.desaturation,
-                color.a,
-            );
+            let orig_a = (p >> 24) & 0xFF;
+            let orig_r = ((p >> 16) & 0xFF) as i32;
+            let orig_g = ((p >> 8) & 0xFF) as i32;
+            let orig_b = (p & 0xFF) as i32;
 
-            final_color.to_argb_u32()
+            let final_r = (orig_r * keep_factor + luma * desat_factor) >> 8;
+            let final_g = (orig_g * keep_factor + luma * desat_factor) >> 8;
+            let final_b = (orig_b * keep_factor + luma * desat_factor) >> 8;
+
+            (orig_a << 24) | ((final_r as u32) << 16) | ((final_g as u32) << 8) | (final_b as u32)
         }
     };
 

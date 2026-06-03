@@ -984,3 +984,18 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[bench]]
+name = "selective_color_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "hologram_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "raytracer_bench"
+harness = false
+required-features = ["nova"]
