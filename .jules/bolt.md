@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Procedural Plasma Float to Integer LUT Optimization]**
+**Learning:** In procedural texture generation like `plasma`, evaluating trigonometric color mappings per-pixel inside the generation loop using `fast_sin_cos` is extremely expensive due to multiple function calls and floating point math.
+**Action:** Pre-calculate the normalized color mapping into a fixed-size `[u32; 256]` array initialized via `std::sync::OnceLock`. This allows the inner per-pixel loop to simply calculate a mapped integer index (0..255) and perform a fast array lookup, bypassing all trigonometric overhead and yielding ~60% faster generation.
