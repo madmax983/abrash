@@ -11,3 +11,8 @@
 **Flaw:** The clock calculated `phase_advance` as `delta_secs / duration`. With near-zero subnormal floats, this resulted in a massively large float value. When added to the clock's current `phase` and then casting the integer portion (`whole_cycles`) to `u64` to accumulate into `self.cycle`, it caused a `u64` addition overflow (`attempt to add with overflow`) when the number of cycles exceeded `u64::MAX`.
 **Outcome:** Engine crashed via unhandled panic during animation evaluation.
 **Resolution:** Replaced the unchecked `self.cycle += whole_cycles` with `self.cycle = self.cycle.saturating_add(whole_cycles)`. The clock gracefully tops out at `u64::MAX` instead of crashing.
+## Havoc: Pixel Sort Vulnerability
+**Target:** `abrash_render::experimental::pixel_sort::apply_pixel_sort`
+**Trigger:** Calling `apply_pixel_sort` with a `Framebuffer` initialized to `width = 0` and `height = 0` (or `width = 0` alone) crashes due to a standard library `panic!` in `slice::chunks_exact_mut(0)`.
+**Fate:** The exploit was verified with a red-phase unit test running with the `nova` feature, resulting in a successful test execution of a test marked `#[should_panic]`.
+**Lesson:** The system assumed slice chunks are safely bounded but failed to guard `0` in `width` dynamically correctly resulting in standard library panics.
