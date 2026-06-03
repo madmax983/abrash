@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2024-06-01 - [CameraState vs GpuInteractionController Confusion]
+**Confusion:** When attempting to document the `abrash-gpu-render` methods (`adjust_zoom`, `update`, `apply_mouse_drag`), I initially assumed the struct implementing them was `CameraState` (a common name for this pattern). The tests failed because the type is actually `GpuInteractionController`.
+**Clarification:** Corrected the doctests to instantiate `GpuInteractionController::new(&config)` instead of `CameraState`. Always verify the struct name in the `impl` block before writing doctests.
