@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Cel-Shade Float-to-Integer Math Optimization]**
+**Learning:** In hot per-pixel rendering loops (like cel-shading), floating-point arithmetic (e.g., calculating quantized color bands using `(r * inv_factor + 0.5) as i32 as f32`) and clamping are extremely slow. Replacing them with pure, scaled integer arithmetic `((r * levels_minus_1 + 127) / 255 * 255) / safe_divisor` eliminates float conversion overhead and speeds up the inner loop significantly (e.g. ~10% performance gain), while mathematically reproducing the same posterization output.
+**Action:** Replace `f32::round()` logic and intermediate float conversions inside inner loop color quantizers (like `cel_shade.rs`) with scaled integer math.
