@@ -678,7 +678,7 @@ fn handle_input(
                 )?;
                 terminal.show_cursor()?;
 
-                let _ = run_demo(demo.example_name, true);
+                let _ = run_demo(demo.example_name, false);
 
                 // Re-enable TUI
                 enable_raw_mode()?;
@@ -781,7 +781,7 @@ fn render_details_pane(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app:
                         .add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
-                    demo_command(demo.example_name, true),
+                    demo_command(demo.example_name, false),
                     Style::default().fg(Color::DarkGray),
                 ),
             ]),
