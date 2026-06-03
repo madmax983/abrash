@@ -1049,9 +1049,10 @@ fn draw_scanline_pbr_scalar(
 
             // Gamma correction (Approximation Gamma 2.0 using sqrt)
             // fast_inv_sqrt is for 1/sqrt. sqrt is fast.
-            let corrected = Vec3::new(mx.sqrt(), my.sqrt(), mz.sqrt());
-
-            *pixel = color_to_u32_scaled(corrected * 255.0);
+            let r = (mx.sqrt() * 255.0) as u32;
+            let g = (my.sqrt() * 255.0) as u32;
+            let b = (mz.sqrt() * 255.0) as u32;
+            *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
         }
 
         z += gradients.dz_dx;

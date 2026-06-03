@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Eliding Intermediate Allocations in Color Packing]**
+**Learning:** In hot rendering loops (like PBR shading), converting intermediate values into structs like `Vec3` solely to be passed to helper conversion functions (e.g., `color_to_u32_scaled(Vec3)`) incurs measurable overhead.
+**Action:** Replace intermediate abstractions with inline bitwise packaging (e.g., `0xFF00_0000 | (r << 16) | (g << 8) | b`) bounded natively without function call overhead. This yielded an ~13-14% performance boost in the PBR fill triangle benchmark.
