@@ -219,6 +219,95 @@ pub unsafe fn blend_swar_simd(
     _mm256_or_si256(rb, _mm256_slli_epi32(ag, 8))
 }
 
+pub(crate) struct BaseTextureGradients {
+    pub dz_dx: f32,
+    pub dq_dx: f32,
+    pub du_dx: f32,
+    pub dv_dx: f32,
+    pub dq_dy: f32,
+    pub du_dy: f32,
+    pub dv_dy: f32,
+    pub ux: f32,
+    pub uy: f32,
+    pub vx: f32,
+    pub vy: f32,
+    pub inv_nz: f32,
+    pub nz: f32,
+}
+
+impl BaseTextureGradients {
+    #[inline(always)]
+    pub(crate) fn compute(
+        p0: crate::math::ScreenPoint,
+        p1: crate::math::ScreenPoint,
+        p2: crate::math::ScreenPoint,
+        q0: f32,
+        q1: f32,
+        q2: f32,
+        u0: f32,
+        u1: f32,
+        u2: f32,
+        v0: f32,
+        v1: f32,
+        v2: f32,
+    ) -> Self {
+        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+        let uz = p1.z - p0.z;
+        let uq = q1 - q0;
+        let uu = u1 - u0;
+        let uv = v1 - v0;
+
+        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+        let vz = p2.z - p0.z;
+        let vq = q2 - q0;
+        let vu = u2 - u0;
+        let vv = v2 - v0;
+
+        let nz = ux * vy - uy * vx;
+        let inv_nz = if nz.abs() > 0.000_1 { -1.0 / nz } else { 0.0 };
+
+        let nx_z = uy * vz - uz * vy;
+        let dz_dx = nx_z * inv_nz;
+
+        let nx_q = uy * vq - uq * vy;
+        let dq_dx = nx_q * inv_nz;
+
+        let nx_u = uy * vu - uu * vy;
+        let du_dx = nx_u * inv_nz;
+
+        let nx_v = uy * vv - uv * vy;
+        let dv_dx = nx_v * inv_nz;
+
+        // Calculate Y gradients
+        let ny_q = uq * vx - ux * vq;
+        let dq_dy = ny_q * inv_nz;
+
+        let ny_u = uu * vx - ux * vu;
+        let du_dy = ny_u * inv_nz;
+
+        let ny_v = uv * vx - ux * vv;
+        let dv_dy = ny_v * inv_nz;
+
+        Self {
+            dz_dx,
+            dq_dx,
+            du_dx,
+            dv_dx,
+            dq_dy,
+            du_dy,
+            dv_dy,
+            ux,
+            uy,
+            vx,
+            vy,
+            inv_nz,
+            nz,
+        }
+    }
+}
+
 pub(crate) struct BaseEdgeDelta {
     pub x_start: i64,
     pub dx_dy: i64,

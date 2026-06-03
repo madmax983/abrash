@@ -115,56 +115,21 @@ impl PerspectiveTextureGradients {
         v1: f32,
         v2: f32,
     ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-        let uz = p1.z - p0.z;
-        let uq = q1 - q0;
-        let uu = u1 - u0;
-        let uv = v1 - v0;
-
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        let vz = p2.z - p0.z;
-        let vq = q2 - q0;
-        let vu = u2 - u0;
-        let vv = v2 - v0;
-
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.000_1 { -1.0 / nz } else { 0.0 };
-
-        let nx_z = uy * vz - uz * vy;
-        let dz_dx = nx_z * inv_nz;
-
-        let nx_q = uy * vq - uq * vy;
-        let dq_dx = nx_q * inv_nz;
-
-        let nx_u = uy * vu - uu * vy;
-        let du_dx = nx_u * inv_nz;
-
-        let nx_v = uy * vv - uv * vy;
-        let dv_dx = nx_v * inv_nz;
-
-        // Calculate Y gradients
-        let ny_q = uq * vx - ux * vq;
-        let dq_dy = ny_q * inv_nz;
-
-        let ny_u = uu * vx - ux * vu;
-        let du_dy = ny_u * inv_nz;
-
-        let ny_v = uv * vx - ux * vv;
-        let dv_dy = ny_v * inv_nz;
+        let base = crate::rasterizer::core::BaseTextureGradients::compute(
+            p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2,
+        );
 
         (
             Self {
-                dz_dx,
-                dq_dx,
-                du_dx,
-                dv_dx,
-                dq_dy,
-                du_dy,
-                dv_dy,
+                dz_dx: base.dz_dx,
+                dq_dx: base.dq_dx,
+                du_dx: base.du_dx,
+                dv_dx: base.dv_dx,
+                dq_dy: base.dq_dy,
+                du_dy: base.du_dy,
+                dv_dy: base.dv_dy,
             },
-            nz > 0.0,
+            base.nz > 0.0,
         )
     }
 }
@@ -2323,61 +2288,38 @@ impl NormalMapGradients {
         l1: Vec3,
         l2: Vec3,
     ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-        let uz = p1.z - p0.z;
-        let uq = q1 - q0;
-        let uu = u1 - u0;
-        let uv = v1 - v0;
+        let base = crate::rasterizer::core::BaseTextureGradients::compute(
+            p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2,
+        );
+
         let ulx = l1.x - l0.x;
         let uly = l1.y - l0.y;
         let ulz = l1.z - l0.z;
 
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        let vz = p2.z - p0.z;
-        let vq = q2 - q0;
-        let vu = u2 - u0;
-        let vv = v2 - v0;
         let vlx = l2.x - l0.x;
         let vly = l2.y - l0.y;
         let vlz = l2.z - l0.z;
 
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+        let nx_lx = base.uy * vlx - ulx * base.vy;
+        let dlx_dx = nx_lx * base.inv_nz;
 
-        let nx_z = uy * vz - uz * vy;
-        let dz_dx = nx_z * inv_nz;
+        let nx_ly = base.uy * vly - uly * base.vy;
+        let dly_dx = nx_ly * base.inv_nz;
 
-        let nx_q = uy * vq - uq * vy;
-        let dq_dx = nx_q * inv_nz;
-
-        let nx_u = uy * vu - uu * vy;
-        let du_dx = nx_u * inv_nz;
-
-        let nx_v = uy * vv - uv * vy;
-        let dv_dx = nx_v * inv_nz;
-
-        let nx_lx = uy * vlx - ulx * vy;
-        let dlx_dx = nx_lx * inv_nz;
-
-        let nx_ly = uy * vly - uly * vy;
-        let dly_dx = nx_ly * inv_nz;
-
-        let nx_lz = uy * vlz - ulz * vy;
-        let dlz_dx = nx_lz * inv_nz;
+        let nx_lz = base.uy * vlz - ulz * base.vy;
+        let dlz_dx = nx_lz * base.inv_nz;
 
         (
             Self {
-                dz_dx,
-                dq_dx,
-                du_dx,
-                dv_dx,
+                dz_dx: base.dz_dx,
+                dq_dx: base.dq_dx,
+                du_dx: base.du_dx,
+                dv_dx: base.dv_dx,
                 dlx_dx,
                 dly_dx,
                 dlz_dx,
             },
-            nz > 0.0,
+            base.nz > 0.0,
         )
     }
 }
@@ -3545,86 +3487,54 @@ impl TexturedGouraudGradients {
         c1: Vec3,
         c2: Vec3,
     ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-        let uz = p1.z - p0.z;
-        let uq = q1 - q0;
-        let uu = u1 - u0;
-        let uv = v1 - v0;
+        let base = crate::rasterizer::core::BaseTextureGradients::compute(
+            p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2,
+        );
+
         let ur = c1.x - c0.x;
         let ug = c1.y - c0.y;
         let ub = c1.z - c0.z;
 
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        let vz = p2.z - p0.z;
-        let vq = q2 - q0;
-        let vu = u2 - u0;
-        let vv = v2 - v0;
         let vr = c2.x - c0.x;
         let vg = c2.y - c0.y;
         let vb = c2.z - c0.z;
 
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+        let nx_r = base.uy * vr - ur * base.vy;
+        let dr_dx = nx_r * base.inv_nz;
 
-        let nx_z = uy * vz - uz * vy;
-        let dz_dx = nx_z * inv_nz;
+        let nx_g = base.uy * vg - ug * base.vy;
+        let dg_dx = nx_g * base.inv_nz;
 
-        let nx_q = uy * vq - uq * vy;
-        let dq_dx = nx_q * inv_nz;
-
-        let nx_u = uy * vu - uu * vy;
-        let du_dx = nx_u * inv_nz;
-
-        let nx_v = uy * vv - uv * vy;
-        let dv_dx = nx_v * inv_nz;
-
-        let nx_r = uy * vr - ur * vy;
-        let dr_dx = nx_r * inv_nz;
-
-        let nx_g = uy * vg - ug * vy;
-        let dg_dx = nx_g * inv_nz;
-
-        let nx_b = uy * vb - ub * vy;
-        let db_dx = nx_b * inv_nz;
+        let nx_b = base.uy * vb - ub * base.vy;
+        let db_dx = nx_b * base.inv_nz;
 
         // Y gradients
-        let ny_q = uq * vx - ux * vq;
-        let dq_dy = ny_q * inv_nz;
+        let ny_r = ur * base.vx - base.ux * vr;
+        let dr_dy = ny_r * base.inv_nz;
 
-        let ny_u = uu * vx - ux * vu;
-        let du_dy = ny_u * inv_nz;
+        let ny_g = ug * base.vx - base.ux * vg;
+        let dg_dy = ny_g * base.inv_nz;
 
-        let ny_v = uv * vx - ux * vv;
-        let dv_dy = ny_v * inv_nz;
-
-        let ny_r = ur * vx - ux * vr;
-        let dr_dy = ny_r * inv_nz;
-
-        let ny_g = ug * vx - ux * vg;
-        let dg_dy = ny_g * inv_nz;
-
-        let ny_b = ub * vx - ux * vb;
-        let db_dy = ny_b * inv_nz;
+        let ny_b = ub * base.vx - base.ux * vb;
+        let db_dy = ny_b * base.inv_nz;
 
         (
             Self {
-                dz_dx,
-                dq_dx,
-                du_dx,
-                dv_dx,
+                dz_dx: base.dz_dx,
+                dq_dx: base.dq_dx,
+                du_dx: base.du_dx,
+                dv_dx: base.dv_dx,
                 dr_dx,
                 dg_dx,
                 db_dx,
-                dq_dy,
-                du_dy,
-                dv_dy,
+                dq_dy: base.dq_dy,
+                du_dy: base.du_dy,
+                dv_dy: base.dv_dy,
                 dr_dy,
                 dg_dy,
                 db_dy,
             },
-            nz > 0.0,
+            base.nz > 0.0,
         )
     }
 }
