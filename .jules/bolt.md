@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[reserve_exact Misconception]**
+**Learning:** `Vec::reserve_exact()` does *not* eliminate the dynamic bounds checking that occurs when subsequently calling `Vec::push()`. It only instructs the allocator not to perform capacity overallocation via standard heuristics (like doubling), which is useful when the maximum capacity is exactly known and you want to save memory. The bounds check `len < capacity` still happens on every `push()`.
+**Action:** Do not use `reserve_exact` or `reserve` to "eliminate bounds checks" for subsequent pushes. Instead, rely on methods like `extend` from slices or iterators where the compiler can natively elide the check, or rely on pre-allocated arrays where applicable.
