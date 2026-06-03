@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [JPEG Artifact Filter]
+**Concept:** A post-processing effect simulating lossy JPEG compression artifacts and ringing. The image is split into 8x8 (or configured) macroblocks, colors are locally averaged and quantized, and pseudo-random procedural noise is overlaid onto the blocks to simulate the high-frequency loss characteristic of Discrete Cosine Transform (DCT) algorithms.
+**Fate:** Implemented
+**Lesson:** Iterating block-by-block and distributing pre-calculated block averages across inner pixel loops is a simple yet surprisingly convincing way to simulate low-fidelity compression in pure pixel space, entirely avoiding the overhead of actual FFT/DCT processing. Adding structured periodic noise (`(nx ^ ny)`) successfully mimics the ringing that often accompanies such artifacts.

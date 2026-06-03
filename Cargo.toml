@@ -60,6 +60,16 @@ rand = "0.8"
 ratatui = "0.30.0"
 crossterm = "0.29.0"
 
+[[example]]
+name = "jpeg_artifact_demo"
+path = "examples/jpeg_artifact_demo.rs"
+required-features = ["nova", "backend-winit"]
+
+[[bench]]
+name = "jpeg_artifact_bench"
+harness = false
+required-features = ["nova"]
+
 [[bench]]
 name = "plasma_bench"
 harness = false

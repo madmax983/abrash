@@ -64,6 +64,7 @@ pub mod hologram;
 pub mod infinite_grid;
 pub mod isosurface;
 pub mod jelly;
+pub mod jpeg_artifact;
 pub mod kaleidoscope;
 pub mod kuwahara;
 pub mod led_matrix;
