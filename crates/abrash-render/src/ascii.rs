@@ -20,7 +20,7 @@
 //! fb.clear(0x00FF_FFFFFF); // White
 //!
 //! let converter = AsciiConverter::new(&fb, AsciiCharset::Standard);
-//! let art = converter.to_string();
+//! let art = converter.build_string();
 //! assert!(art.contains('@')); // White maps to dense characters
 //! ```
 
@@ -97,6 +97,39 @@ impl<'a> AsciiConverter<'a> {
             framebuffer,
             charset,
         }
+    }
+
+    /// Converts the framebuffer into an uncolored ASCII string representation.
+    ///
+    /// ⚡ Bolt: This is a fast, allocation-free alternative to relying on
+    /// the default `to_string()` provided by the `Display` trait, which incurs
+    /// massive formatting and trait dispatch overhead.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::framebuffer::Framebuffer;
+    /// use abrash_render::ascii::{AsciiConverter, AsciiCharset};
+    ///
+    /// let mut fb = Framebuffer::new(2, 2).unwrap();
+    /// let converter = AsciiConverter::new(&fb, AsciiCharset::Standard);
+    /// let art = converter.build_string();
+    /// ```
+    #[must_use]
+    pub fn build_string(&self) -> String {
+        let width = self.framebuffer.width() as usize;
+        let height = self.framebuffer.height() as usize;
+
+        let mut result = String::with_capacity((width + 1) * height);
+
+        for row in self.framebuffer.as_slice().chunks_exact(width) {
+            for &pixel in row {
+                result.push(self.charset.map(pixel_luminance(pixel)));
+            }
+            result.push('\n');
+        }
+
+        result
     }
 
     /// Converts the framebuffer to a colored String with ANSI escape codes.
@@ -340,7 +373,7 @@ mod tests {
     }
 
     #[test]
-    fn test_to_string() {
+    fn test_build_string() {
         let mut fb = Framebuffer::new(2, 2).unwrap();
         fb.set_pixel(0, 0, 0xFFFF_FFFF); // White -> @
         fb.set_pixel(1, 0, 0xFF00_0000); // Black -> ' '
@@ -348,7 +381,7 @@ mod tests {
         fb.set_pixel(1, 1, 0xFFFF_FFFF); // White -> @
 
         let converter = AsciiConverter::new(&fb, AsciiCharset::Standard);
-        let s = converter.to_string();
+        let s = converter.build_string();
 
         assert_eq!(s, "@ \n @\n");
     }
@@ -375,7 +408,7 @@ mod tests {
         fb.set_pixel(0, 0, 0xFF80_8080); // Mid-grey
 
         let converter = AsciiConverter::new(&fb, AsciiCharset::Blocks);
-        let s = converter.to_string();
+        let s = converter.build_string();
 
         // Should use one of the middle block characters
         assert!(s.contains('▒') || s.contains('▓'), "Got {s}");

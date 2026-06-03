@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+## ⚡ Bolt: Renaming public methods is a breaking API change
+**Learning:** While renaming public methods to avoid stylistic anti-patterns (e.g., renaming `to_colored_string` to `build_colored_string`) is tempting, it constitutes a breaking API change for downstream consumers. This violates the "Never do: Make breaking API changes" boundary.
+**Action:** Always maintain the exact signature of public methods during performance optimizations, unless explicitly authorized to make breaking changes. Add optimized internal methods (e.g., `build_string()`) while leaving existing methods intact or wrapping them.
