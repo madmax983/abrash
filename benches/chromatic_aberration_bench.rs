@@ -16,6 +16,17 @@ fn criterion_benchmark(c: &mut Criterion) {
             );
         });
     });
+
+    c.bench_function("apply_chromatic_aberration_4k", |b| {
+        let mut fb_4k = Framebuffer::new(3840, 2160).unwrap();
+        fb_4k.clear(0xFF_FF_FF_FF);
+        b.iter(|| {
+            apply_chromatic_aberration(
+                black_box(&mut fb_4k),
+                black_box(&abrash::post_process::ChromaticAberrationConfig { offset: 10 }),
+            );
+        });
+    });
 }
 
 criterion_group!(benches, criterion_benchmark);
