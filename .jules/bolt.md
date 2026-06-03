@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Thread-Local Buffer Reuse for Exponential String Growth]**
+**Learning:** In exponential string generation algorithms (like the non-ASCII path in `LSystem::expand`), repeatedly creating a new `String` for the current buffer and a new `String` for the next buffer at each iteration causes continuous O(N) heap allocations.
+**Action:** Cache intermediate buffers in a `thread_local!` using `RefCell<(String, String)>` and use `std::mem::swap()` combined with `.clear()` within the hot loop. This ensures the buffers expand once to their required capacity and are optimally reused across both loop iterations and subsequent function calls, safely eliminating dynamic memory allocation overhead.

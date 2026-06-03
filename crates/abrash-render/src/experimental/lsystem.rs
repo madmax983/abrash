@@ -123,12 +123,6 @@ impl LSystem {
             });
         }
 
-        // ⚡ Bolt: Rely on natural allocator growth instead of unconditionally pre-allocating `max_capacity`.
-        // When `max_capacity` is exceptionally large (e.g., 100MB), pre-allocating it immediately causes
-        // severe initialization overhead. Natural capacity growth via `.push_str()` is significantly faster.
-        let mut current_string = String::new();
-        current_string.push_str(&self.axiom);
-
         // Bolt Performance Optimization:
         // By pre-calculating a flat array for ASCII replacement lookups,
         // we bypass the `HashMap::get` and `SipHash` overhead entirely in the inner loop.
@@ -140,41 +134,54 @@ impl LSystem {
             }
         }
 
-        let mut next_string = String::new();
+        thread_local! {
+            static NON_ASCII_BUFFERS: std::cell::RefCell<(String, String)> = const { std::cell::RefCell::new((String::new(), String::new())) };
+        }
 
-        for _ in 0..iterations {
-            next_string.clear();
+        NON_ASCII_BUFFERS.with(|bufs| {
+            let mut bufs = bufs.borrow_mut();
+            let (current_string, next_string) = &mut *bufs;
 
-            // Bolt Performance Optimization:
-            // When `current` and `next_string` are swapped, the smaller buffer is recycled.
-            // By reserving capacity before pushing new characters, we prevent continuous O(N)
-            // heap reallocations as the string expands exponentially.
+            // ⚡ Bolt: Rely on natural allocator growth instead of unconditionally pre-allocating `max_capacity`.
+            // When `max_capacity` is exceptionally large (e.g., 100MB), pre-allocating it immediately causes
+            // severe initialization overhead. Natural capacity growth via `.push_str()` is significantly faster.
+            current_string.clear();
+            current_string.push_str(&self.axiom);
 
-            for c in current_string.chars() {
-                let u = c as u32;
-                if u < 128 {
-                    if let Some(replacement) = rules_array[u as usize] {
+            for _ in 0..iterations {
+                next_string.clear();
+
+                // Bolt Performance Optimization:
+                // When `current` and `next_string` are swapped, the smaller buffer is recycled.
+                // By reserving capacity before pushing new characters, we prevent continuous O(N)
+                // heap reallocations as the string expands exponentially.
+
+                for c in current_string.chars() {
+                    let u = c as u32;
+                    if u < 128 {
+                        if let Some(replacement) = rules_array[u as usize] {
+                            next_string.push_str(replacement);
+                        } else {
+                            next_string.push(c);
+                        }
+                    } else if let Some(replacement) = self.rules.get(&c) {
+                        // Fallback for non-ASCII
                         next_string.push_str(replacement);
                     } else {
                         next_string.push(c);
                     }
-                } else if let Some(replacement) = self.rules.get(&c) {
-                    // Fallback for non-ASCII
-                    next_string.push_str(replacement);
-                } else {
-                    next_string.push(c);
+
+                    // OOM Prevention check
+                    if next_string.len() > self.max_capacity {
+                        return Err("L-System expansion exceeded maximum capacity limit");
+                    }
                 }
 
-                // OOM Prevention check
-                if next_string.len() > self.max_capacity {
-                    return Err("L-System expansion exceeded maximum capacity limit");
-                }
+                std::mem::swap(current_string, next_string);
             }
 
-            std::mem::swap(&mut current_string, &mut next_string);
-        }
-
-        Ok(current_string)
+            Ok(current_string.clone())
+        })
     }
 }
 
