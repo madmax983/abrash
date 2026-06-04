@@ -68,17 +68,17 @@ impl SkeletonAnimator {
             let animator = &mut bone_animators[joint_idx];
             match (&channel.target, &channel.values) {
                 (ChannelTarget::Translation, ChannelValues::Translation(_)) => {
-                    let evaluable = channel_to_vec3_evaluable(channel);
+                    let evaluable = channel_to_vec3_evaluable(channel).expect("Valid translation or scale channel");
                     let tl = Timeline::from_evaluable(evaluable, playback);
                     animator.position = Some(tl);
                 }
                 (ChannelTarget::Rotation, ChannelValues::Rotation(_)) => {
-                    let evaluable = channel_to_quat_evaluable(channel);
+                    let evaluable = channel_to_quat_evaluable(channel).expect("Valid rotation channel");
                     let tl = Timeline::from_evaluable(evaluable, playback);
                     animator.rotation = Some(tl);
                 }
                 (ChannelTarget::Scale, ChannelValues::Scale(_)) => {
-                    let evaluable = channel_to_vec3_evaluable(channel);
+                    let evaluable = channel_to_vec3_evaluable(channel).expect("Valid translation or scale channel");
                     let tl = Timeline::from_evaluable(evaluable, playback);
                     animator.scale = Some(tl);
                 }

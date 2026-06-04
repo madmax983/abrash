@@ -16,14 +16,14 @@ use crate::clip::{AnimationChannel, ChannelValues};
 ///
 /// Creates N-1 linear `Keyframe` segments from N timestamp/value pairs.
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics if the channel values are not `Translation` or `Scale`.
+/// Returns an error if the channel values are not `Translation` or `Scale`.
 #[must_use]
-pub fn channel_to_vec3_evaluable(channel: &AnimationChannel) -> Evaluable<Vec3> {
+pub fn channel_to_vec3_evaluable(channel: &AnimationChannel) -> Result<Evaluable<Vec3>, &'static str> {
     let values = match &channel.values {
         ChannelValues::Translation(v) | ChannelValues::Scale(v) => v,
-        ChannelValues::Rotation(_) => panic!("Expected Vec3 channel values (Translation or Scale)"),
+        ChannelValues::Rotation(_) => return Err("Expected Vec3 channel values (Translation or Scale)"),
     };
     let timestamps = &channel.timestamps;
 
@@ -38,20 +38,20 @@ pub fn channel_to_vec3_evaluable(channel: &AnimationChannel) -> Evaluable<Vec3> 
         )));
     }
 
-    Evaluable::Sequence(Sequence::new(segments))
+    Ok(Evaluable::Sequence(Sequence::new(segments)))
 }
 
 /// Convert a rotation channel into a `Sequence<Quat>`.
 ///
 /// Creates N-1 linear `Keyframe` segments from N timestamp/value pairs.
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics if the channel values are not `Rotation`.
+/// Returns an error if the channel values are not `Rotation`.
 #[must_use]
-pub fn channel_to_quat_evaluable(channel: &AnimationChannel) -> Evaluable<Quat> {
+pub fn channel_to_quat_evaluable(channel: &AnimationChannel) -> Result<Evaluable<Quat>, &'static str> {
     let ChannelValues::Rotation(values) = &channel.values else {
-        panic!("Expected Quat channel values (Rotation)")
+        return Err("Expected Quat channel values (Rotation)")
     };
     let timestamps = &channel.timestamps;
 
@@ -66,7 +66,7 @@ pub fn channel_to_quat_evaluable(channel: &AnimationChannel) -> Evaluable<Quat> 
         )));
     }
 
-    Evaluable::Sequence(Sequence::new(segments))
+    Ok(Evaluable::Sequence(Sequence::new(segments)))
 }
 
 #[cfg(test)]
@@ -107,7 +107,7 @@ mod tests {
             ]),
         };
 
-        let evaluable = channel_to_vec3_evaluable(&channel);
+        let evaluable = channel_to_vec3_evaluable(&channel).unwrap();
 
         // phase 0.0 => start of first segment => origin
         let s0 = evaluable.evaluate(0.0);
@@ -135,7 +135,7 @@ mod tests {
             values: ChannelValues::Rotation(vec![Quat::identity(), rot90y]),
         };
 
-        let evaluable = channel_to_quat_evaluable(&channel);
+        let evaluable = channel_to_quat_evaluable(&channel).unwrap();
 
         // At phase 0.5, should be a 45-degree rotation
         let s_mid = evaluable.evaluate(0.5);
@@ -168,7 +168,7 @@ mod tests {
             values: ChannelValues::Translation(vec![Vec3::ZERO, Vec3::ONE, Vec3::ONE]),
         };
 
-        let evaluable = channel_to_vec3_evaluable(&channel);
+        let evaluable = channel_to_vec3_evaluable(&channel).unwrap();
         // Total duration = (1.0 - 0.0) + (3.0 - 1.0) = 1.0 + 2.0 = 3.0
         assert!(
             (evaluable.natural_duration() - 3.0).abs() < EPSILON,
@@ -186,13 +186,13 @@ mod tests {
             values: ChannelValues::Scale(vec![Vec3::ONE, Vec3::new(2.0, 2.0, 2.0)]),
         };
 
-        let evaluable = channel_to_vec3_evaluable(&channel);
+        let evaluable = channel_to_vec3_evaluable(&channel).unwrap();
         let s_mid = evaluable.evaluate(0.5);
         assert_vec3_near(s_mid.value, Vec3::new(1.5, 1.5, 1.5), "scale midpoint");
     }
 
     #[test]
-    #[should_panic(expected = "Expected Vec3")]
+
     fn vec3_evaluable_panics_on_rotation_values() {
         let channel = AnimationChannel {
             joint: JointId(0),
@@ -200,11 +200,11 @@ mod tests {
             timestamps: vec![0.0, 1.0],
             values: ChannelValues::Rotation(vec![Quat::identity(), Quat::identity()]),
         };
-        let _ = channel_to_vec3_evaluable(&channel);
+        assert!(channel_to_vec3_evaluable(&channel).is_err());
     }
 
     #[test]
-    #[should_panic(expected = "Expected Quat")]
+
     fn quat_evaluable_panics_on_translation_values() {
         let channel = AnimationChannel {
             joint: JointId(0),
@@ -212,6 +212,6 @@ mod tests {
             timestamps: vec![0.0, 1.0],
             values: ChannelValues::Translation(vec![Vec3::ZERO, Vec3::ONE]),
         };
-        let _ = channel_to_quat_evaluable(&channel);
+        assert!(channel_to_quat_evaluable(&channel).is_err());
     }
 }
