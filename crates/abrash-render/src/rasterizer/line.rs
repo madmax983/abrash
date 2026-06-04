@@ -109,9 +109,12 @@ pub fn draw_line_3d(
             0.0
         };
 
+        let width_u32 = width as u32;
+        let height_u32 = height as u32;
+
         loop {
             // Check bounds (clipping should handle most cases, but guard against precision issues)
-            if x0 >= 0 && x0 < width as i32 && y0 >= 0 && y0 < height as i32 {
+            if (x0 as u32) < width_u32 && (y0 as u32) < height_u32 {
                 // Z-test
                 // SAFETY: Bounds checked.
                 unsafe {
