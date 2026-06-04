@@ -132,7 +132,7 @@ unsafe fn apply_heat_vision_simd(
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::{
         __m256i, _CMP_EQ_OQ, _mm256_blendv_epi8, _mm256_castps_si256, _mm256_cmp_ps,
-        _mm256_cvttps_epi32, _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32,
+        _mm256_cvttps_epi32, _mm256_loadu_ps, _mm256_max_epi32, _mm256_sub_epi32, _mm256_slli_epi32, _mm256_or_si256,
         _mm256_min_epi32, _mm256_mul_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256,
         _mm256_storeu_si256, _mm256_sub_ps,
     };
@@ -168,9 +168,48 @@ unsafe fn apply_heat_vision_simd(
         // Clamp to 1023
         let t_clamped = _mm256_min_epi32(t_clamped_low, max_t_vec);
 
-        // Gather from LUT
-        // SAFETY: t_clamped is strictly between 0 and 1023, lut is 1024 elements
-        let gathered = _mm256_i32gather_epi32::<4>(lut_ptr, t_clamped);
+        // Calculate RGB components from t_clamped (0..1023)
+        let t = t_clamped;
+
+        // Constants for vector math
+        let c255 = _mm256_set1_epi32(255);
+        let c256 = _mm256_set1_epi32(256);
+        let c511 = _mm256_set1_epi32(511);
+        let c512 = _mm256_set1_epi32(512);
+        let c768 = _mm256_set1_epi32(768);
+        let c1023 = _mm256_set1_epi32(1023);
+        let c0 = _mm256_setzero_si256();
+
+        // 0 <= t < 256: R=255, G=t, B=0
+        // 256 <= t < 512: R=511-t, G=255, B=0
+        // 512 <= t < 768: R=0, G=255, B=t-512
+        // 768 <= t < 1024: R=0, G=1023-t, B=255
+
+        // R channel logic
+        let r_t1 = _mm256_sub_epi32(c511, t); // 511 - t
+        let r_t2 = _mm256_max_epi32(r_t1, c0); // max(511-t, 0)
+        let r_clamped = _mm256_min_epi32(r_t2, c255); // clamp R to 255
+
+        // G channel logic
+        let g_t1 = _mm256_sub_epi32(c1023, t); // 1023 - t
+        let g_t2 = _mm256_min_epi32(t, g_t1); // min(t, 1023-t)
+        let g_clamped = _mm256_min_epi32(g_t2, c255); // clamp G to 255
+
+        // B channel logic
+        let b_t1 = _mm256_sub_epi32(t, c512); // t - 512
+        let b_t2 = _mm256_max_epi32(b_t1, c0); // max(t-512, 0)
+        let b_clamped = _mm256_min_epi32(b_t2, c255); // clamp B to 255
+
+        // Shift into place
+        let r_shifted = _mm256_slli_epi32(r_clamped, 16);
+        let g_shifted = _mm256_slli_epi32(g_clamped, 8);
+
+        // Alpha component 0xFF000000
+        let a_shifted = _mm256_set1_epi32(0xFF00_0000_u32 as i32);
+
+        // OR everything together
+        let color_rgb = _mm256_or_si256(_mm256_or_si256(r_shifted, g_shifted), b_clamped);
+        let gathered = _mm256_or_si256(a_shifted, color_rgb);
 
         // Blend: if is_inf, use bg_color, else use gathered color
         let final_color = _mm256_blendv_epi8(gathered, bg_color, is_inf_int);
