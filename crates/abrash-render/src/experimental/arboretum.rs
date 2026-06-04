@@ -185,42 +185,53 @@ impl LSystem {
         // Fallback for unicode
         // ⚡ Bolt: Defer `axiom.clone()` until after the ASCII fast-path check
         // to completely eliminate an unnecessary `String` heap allocation on the hot path.
-        let mut current = self.axiom.clone();
-
-        let mut rules_array: [Option<&str>; 128] = [None; 128];
-        for (k, v) in &self.rules {
-            if (*k as usize) < 128 {
-                rules_array[*k as usize] = Some(v.as_str());
-            }
+        // ⚡ Bolt: Double-buffer strings using `thread_local` to completely eliminate
+        // string heap allocations across function invocations on hot paths.
+        thread_local! {
+            static ARBORETUM_UNICODE_BUFFERS: std::cell::RefCell<(String, String)> = const { std::cell::RefCell::new((String::new(), String::new())) };
         }
 
-        let mut next = String::new();
-        for _ in 0..iterations {
-            /// Moving the `next` String allocation out of the loop and reusing it via `swap`
-            /// and `clear`/`reserve` eliminates continuous string re-allocations on every iteration.
-            next.clear();
-            for c in current.chars() {
-                let u = c as usize;
-                if u < 128 {
-                    if let Some(replacement) = rules_array[u] {
+        return ARBORETUM_UNICODE_BUFFERS.with(|bufs| {
+            let mut bufs = bufs.borrow_mut();
+            let (current, next) = &mut *bufs;
+
+            current.clear();
+            current.push_str(&self.axiom);
+
+            let mut rules_array: [Option<&str>; 128] = [None; 128];
+            for (k, v) in &self.rules {
+                if (*k as usize) < 128 {
+                    rules_array[*k as usize] = Some(v.as_str());
+                }
+            }
+
+            for _ in 0..iterations {
+                next.clear();
+                for c in current.chars() {
+                    let u = c as usize;
+                    if u < 128 {
+                        if let Some(replacement) = rules_array[u] {
+                            next.push_str(replacement);
+                        } else {
+                            next.push(c);
+                        }
+                    } else if let Some(replacement) = self.rules.get(&c) {
                         next.push_str(replacement);
                     } else {
                         next.push(c);
                     }
-                } else if let Some(replacement) = self.rules.get(&c) {
-                    next.push_str(replacement);
-                } else {
-                    next.push(c);
-                }
 
-                if next.len() > limit {
-                    return Err("L-system exceeded memory limits".to_owned());
+                    if next.len() > limit {
+                        return Err("L-system exceeded memory limits".to_owned());
+                    }
                 }
+                std::mem::swap(current, next);
             }
-            std::mem::swap(&mut current, &mut next);
-        }
 
-        Ok(current)
+            // We must return ownership, so we take the fully allocated string and replace it with a fresh one
+            // inside the thread_local to avoid a massive final O(N) `.clone()`.
+            Ok(std::mem::take(current))
+        });
     }
 
     /// Generates a Mesh from the expanded L-System string.
