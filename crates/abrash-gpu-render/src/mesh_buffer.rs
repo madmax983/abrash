@@ -252,7 +252,12 @@ mod tests {
 
         // Generated normals should be unit-length
         for v in &vertices {
-            let len = (v.normal[0].powi(2) + v.normal[1].powi(2) + v.normal[2].powi(2)).sqrt();
+            let len = v.normal[2]
+                .mul_add(
+                    v.normal[2],
+                    v.normal[1].mul_add(v.normal[1], v.normal[0].powi(2)),
+                )
+                .sqrt();
             assert!(
                 (len - 1.0).abs() < 0.01,
                 "normal should be unit-length, got {len}"

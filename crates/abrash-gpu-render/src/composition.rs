@@ -177,39 +177,6 @@ impl CompositionPass {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_composition_shader_valid() {
-        assert!(COMPOSITION_SHADER.contains("@compute"));
-        assert!(COMPOSITION_SHADER.contains("debug_mode"));
-        assert!(COMPOSITION_SHADER.contains("gbuf_position"));
-        assert!(COMPOSITION_SHADER.contains("gbuf_normal"));
-        assert!(COMPOSITION_SHADER.contains("gbuf_albedo"));
-        // All 8 debug modes should be present
-        for i in 0..8 {
-            assert!(
-                COMPOSITION_SHADER.contains(&format!("case {i}u")),
-                "missing debug mode case {i}"
-            );
-        }
-    }
-
-    #[test]
-    fn test_composition_params_size() {
-        assert_eq!(std::mem::size_of::<CompositionParams>(), 16);
-    }
-
-    #[test]
-    fn test_debug_mode_values() {
-        assert_eq!(DebugMode::None as u32, 0);
-        assert_eq!(DebugMode::GBufferPosition as u32, 1);
-        assert_eq!(DebugMode::Depth as u32, 7);
-    }
-}
-
 fn create_composition_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("Composition Layout"),
@@ -284,4 +251,37 @@ fn create_composition_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGrou
             },
         ],
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_composition_shader_valid() {
+        assert!(COMPOSITION_SHADER.contains("@compute"));
+        assert!(COMPOSITION_SHADER.contains("debug_mode"));
+        assert!(COMPOSITION_SHADER.contains("gbuf_position"));
+        assert!(COMPOSITION_SHADER.contains("gbuf_normal"));
+        assert!(COMPOSITION_SHADER.contains("gbuf_albedo"));
+        // All 8 debug modes should be present
+        for i in 0..8 {
+            assert!(
+                COMPOSITION_SHADER.contains(&format!("case {i}u")),
+                "missing debug mode case {i}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_composition_params_size() {
+        assert_eq!(std::mem::size_of::<CompositionParams>(), 16);
+    }
+
+    #[test]
+    fn test_debug_mode_values() {
+        assert_eq!(DebugMode::None as u32, 0);
+        assert_eq!(DebugMode::GBufferPosition as u32, 1);
+        assert_eq!(DebugMode::Depth as u32, 7);
+    }
 }

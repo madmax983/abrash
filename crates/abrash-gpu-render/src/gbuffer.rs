@@ -305,29 +305,6 @@ impl GBufferTexturedPipeline {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_gbuffer_geometry_shader_valid() {
-        assert!(GBUFFER_GEOMETRY_SHADER.contains("fn vs_main"));
-        assert!(GBUFFER_GEOMETRY_SHADER.contains("fn fs_main"));
-        assert!(GBUFFER_GEOMETRY_SHADER.contains("GBufferOutput"));
-        assert!(GBUFFER_GEOMETRY_SHADER.contains("@location(0)"));
-        assert!(GBUFFER_GEOMETRY_SHADER.contains("@location(1)"));
-        assert!(GBUFFER_GEOMETRY_SHADER.contains("@location(2)"));
-    }
-
-    #[test]
-    fn test_gbuffer_textured_shader_valid() {
-        assert!(GBUFFER_TEXTURED_GEOMETRY_SHADER.contains("fn vs_main"));
-        assert!(GBUFFER_TEXTURED_GEOMETRY_SHADER.contains("fn fs_main"));
-        assert!(GBUFFER_TEXTURED_GEOMETRY_SHADER.contains("albedo_texture"));
-        assert!(GBUFFER_TEXTURED_GEOMETRY_SHADER.contains("textureSample"));
-    }
-}
-
 fn create_gbuffer_pipeline(
     device: &wgpu::Device,
     shader: &wgpu::ShaderModule,
@@ -417,4 +394,27 @@ fn create_gbuffer_draw_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGro
             count: None,
         }],
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_gbuffer_geometry_shader_valid() {
+        assert!(GBUFFER_GEOMETRY_SHADER.contains("fn vs_main"));
+        assert!(GBUFFER_GEOMETRY_SHADER.contains("fn fs_main"));
+        assert!(GBUFFER_GEOMETRY_SHADER.contains("GBufferOutput"));
+        assert!(GBUFFER_GEOMETRY_SHADER.contains("@location(0)"));
+        assert!(GBUFFER_GEOMETRY_SHADER.contains("@location(1)"));
+        assert!(GBUFFER_GEOMETRY_SHADER.contains("@location(2)"));
+    }
+
+    #[test]
+    fn test_gbuffer_textured_shader_valid() {
+        assert!(GBUFFER_TEXTURED_GEOMETRY_SHADER.contains("fn vs_main"));
+        assert!(GBUFFER_TEXTURED_GEOMETRY_SHADER.contains("fn fs_main"));
+        assert!(GBUFFER_TEXTURED_GEOMETRY_SHADER.contains("albedo_texture"));
+        assert!(GBUFFER_TEXTURED_GEOMETRY_SHADER.contains("textureSample"));
+    }
 }

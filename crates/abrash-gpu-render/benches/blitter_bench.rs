@@ -3,7 +3,7 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 fn blitter_pixel_conversion_bench(c: &mut Criterion) {
     let width = 1920;
     let height = 1080;
-    let pixels = vec![0xFFAABBCCu32; width * height];
+    let pixels = vec![0xFFAA_BBCC_u32; width * height];
 
     c.bench_function("pixel_conversion_zeroed", |b| {
         b.iter(|| {
@@ -15,7 +15,7 @@ fn blitter_pixel_conversion_bench(c: &mut Criterion) {
                 chunk[3] = ((px >> 24) & 0xFF) as u8;
             }
             black_box(rgba);
-        })
+        });
     });
 
     c.bench_function("pixel_conversion_flat_map", |b| {
@@ -32,7 +32,7 @@ fn blitter_pixel_conversion_bench(c: &mut Criterion) {
                 })
                 .collect();
             black_box(rgba);
-        })
+        });
     });
 }
 

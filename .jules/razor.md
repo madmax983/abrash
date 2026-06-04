@@ -21,3 +21,8 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+
+## [Reduction]
+**Bloat:** `CoordMode` enum in `abrash-gpu-render` that was completely unused (dead code).
+**Cut:** Removed the `CoordMode` enum entirely to adhere to YAGNI and KISS principles.
+**Saved:** Reduced cognitive load and removed unused dead code.
