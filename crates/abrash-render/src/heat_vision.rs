@@ -91,9 +91,6 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
 
     // Add a small epsilon to avoid division by zero if flat plane
     let range = (max_z - min_z).max(0.0001);
-    // Map [0.0, range] to [0, 1023] (4 segments of 256)
-    // Adding a slight bias to prevent floating point inaccuracy at the absolute top end
-    // from truncating 1024 to 1023 when scaling.
     let scale = 1024.0 / range;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -104,17 +101,23 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         return;
     }
 
-    for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
+    // ⚡ Bolt: Elide bounds checks and iteration overhead using explicit slices and manual index
+    let len = pixels.len().min(depths.len());
+    let mut i = 0;
+    while i < len {
+        let depth = unsafe { *depths.get_unchecked(i) };
         if depth == f32::INFINITY {
-            *pixel = 0xFF00_0010; // Very Dark Blue Background
-            continue;
+            unsafe { *pixels.get_unchecked_mut(i) = 0xFF00_0010 }; // Very Dark Blue Background
+        } else {
+            // Using integer multiplication to derive the index by deferring the scaling
+            // Wait, we need to apply float multiplication here to support the dynamic Z range.
+            let t = ((depth - min_z) * scale) as u32;
+            let t = t.min(1023); // Clamp strictly to 1023
+
+            // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
+            unsafe { *pixels.get_unchecked_mut(i) = *LUT.get_unchecked(t as usize) };
         }
-
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023); // Clamp strictly to 1023
-
-        // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
-        *pixel = unsafe { *LUT.get_unchecked(t as usize) };
+        i += 1;
     }
 }
 
