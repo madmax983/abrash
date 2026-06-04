@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Lava Lamp Filter]
+**Concept:** A procedural post-processing effect that generates a "lava lamp" or fluid-like blob pattern purely through math (layered sine waves and distance functions), mapping those fields to ASCII characters/colors on the framebuffer.
+**Fate:** Implemented
+**Lesson:** Complex organic shapes don't necessarily require Perlin noise or textures; combining several scaled sine/cosine waves and Euclidean distances can create remarkably fluid procedural fields that run entirely in a fast, parallelized screen-space loop. Using `dx.hypot(dy)` rather than manual `sqrt(dx*dx + dy*dy)` satisfies clippy constraints and improves precision.
