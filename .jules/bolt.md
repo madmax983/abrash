@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Persistent Allocation in Tile Sorting]**
+**Learning:** While `SmallVec` prevents heap allocations for small collections, it spills to the heap and incurs dynamic allocation overhead when its capacity is exceeded. In hot paths handling variable workloads (like rasterizing tiles with many overlapping triangles), repeatedly creating and dropping `SmallVec`s can lead to per-frame heap allocations if the workload consistently exceeds the inline capacity.
+**Action:** Replace locally scoped `SmallVec`s with a persistent, reusable `Vec` stored in the parent struct. Use `let mut buffer = std::mem::take(&mut self.buffer)` to temporarily take ownership during processing to avoid borrow checker conflicts, and restore it at the end of the method `self.buffer = buffer` to guarantee zero allocations regardless of element count.

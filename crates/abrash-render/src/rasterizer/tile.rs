@@ -1660,6 +1660,8 @@ pub struct TileRenderer {
     /// When set, `end_frame` writes ALL tiles (empty tiles get this color),
     /// eliminating the need for a separate full-frame `fb.clear()` + `zb.clear()`.
     clear_color: Option<u32>,
+    /// Persistent buffer for sorting triangle indices per tile, preventing dynamic allocations
+    sort_indices: Vec<u32>,
 }
 
 struct CoarseBinContext<'a> {
@@ -1724,6 +1726,7 @@ impl TileRenderer {
             half_width: width as f32 * 0.5,
             half_height: height as f32 * 0.5,
             clear_color: None,
+            sort_indices: Vec::with_capacity(128),
         }
     }
 
@@ -3006,9 +3009,8 @@ impl TileRenderer {
         let tris = &self.tile_bins.tris;
 
         // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
+        // Used a persistent vector from the struct to avoid dynamic heap allocations on the hot sorting path.
+        let mut indices = std::mem::take(&mut self.sort_indices);
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
@@ -3041,6 +3043,7 @@ impl TileRenderer {
                 tails[tile_idx] = indices[len - 1];
             }
         }
+        self.sort_indices = indices;
     }
 
     #[cfg_attr(feature = "parallel", allow(dead_code))]
@@ -3529,9 +3532,8 @@ impl TileRenderer {
         let tris = &self.tile_bins.tris;
 
         // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
+        // Used a persistent vector from the struct to avoid dynamic heap allocations on the hot sorting path.
+        let mut indices = std::mem::take(&mut self.sort_indices);
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
@@ -3564,6 +3566,7 @@ impl TileRenderer {
                 tails[tile_idx] = indices[len - 1];
             }
         }
+        self.sort_indices = indices;
     }
 
     /// Sorts textured triangles in each bin by depth.
@@ -3579,9 +3582,8 @@ impl TileRenderer {
         let tris = &self.tile_bins.tris;
 
         // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
+        // Used a persistent vector from the struct to avoid dynamic heap allocations on the hot sorting path.
+        let mut indices = std::mem::take(&mut self.sort_indices);
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
@@ -3614,6 +3616,7 @@ impl TileRenderer {
                 tails[tile_idx] = indices[len - 1];
             }
         }
+        self.sort_indices = indices;
     }
 
     /// Merge tile buffers into framebuffer using direct copy (no depth test).
