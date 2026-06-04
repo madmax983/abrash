@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+## [Performance]
+**Learning:** `par_chunks_exact_mut` parallelization provides a substantial (~50%) speedup for non-full-width clears on large surfaces (e.g., 4K resolutions), successfully overcoming Rayon overhead when `row_count > 100`.
+**Action:** Apply this parallelization strategy to other large-surface sub-region manipulation paths like `Framebuffer::clear_rect`, mirroring optimizations previously validated in `ZBuffer`.

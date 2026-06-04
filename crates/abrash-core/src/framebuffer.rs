@@ -317,6 +317,21 @@ impl Framebuffer {
             self.pixels[start_idx..end_idx].fill(color);
         } else {
             let len = ex - sx;
+
+            // Hot path optimization: process rows concurrently if large enough
+            #[cfg(feature = "parallel")]
+            {
+                use rayon::prelude::*;
+                // Only parallelize if the workload is large enough to overcome rayon's overhead
+                let row_count = ey - sy;
+                if row_count > 100 {
+                    self.pixels[start_idx..end_idx]
+                        .par_chunks_exact_mut(w)
+                        .for_each(|row| row[sx..ex].fill(color));
+                    return;
+                }
+            }
+
             let mut offset = start_idx + sx;
             let slice = self.pixels.as_mut_slice();
             for _ in sy..ey {
