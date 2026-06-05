@@ -3028,9 +3028,7 @@ impl TileRenderer {
                     let tri_idx_b = tris[b as usize] as usize;
                     let depth_a = unsafe { prepared_gouraud.get_unchecked(tri_idx_a).min_depth };
                     let depth_b = unsafe { prepared_gouraud.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                    depth_a.total_cmp(&depth_b)
                 });
 
                 *head = indices[0];
@@ -3551,9 +3549,7 @@ impl TileRenderer {
                     let tri_idx_b = tris[b as usize] as usize;
                     let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
                     let depth_b = unsafe { prepared.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                    depth_a.total_cmp(&depth_b)
                 });
 
                 *head = indices[0];
@@ -3601,9 +3597,7 @@ impl TileRenderer {
                     let tri_idx_b = tris[b as usize] as usize;
                     let depth_a = unsafe { prepared_textured.get_unchecked(tri_idx_a).min_depth };
                     let depth_b = unsafe { prepared_textured.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                    depth_a.total_cmp(&depth_b)
                 });
 
                 *head = indices[0];
@@ -5147,5 +5141,39 @@ mod tile_bins_tests {
         bins.push(0, 10);
         let items: Vec<usize> = bins.iter(0).collect();
         assert_eq!(items, vec![10]);
+    }
+}
+
+#[cfg(test)]
+mod sentry_tests {
+    use super::*;
+    use abrash_core::framebuffer::Framebuffer;
+    use abrash_core::math::Vec3;
+    use abrash_core::zbuffer::ZBuffer;
+
+    #[test]
+    fn test_tile_renderer_nan_depth_sorting() {
+        let width = 64;
+        let height = 64;
+        let mut fb = Framebuffer::new(width, height).unwrap();
+        let mut zb = ZBuffer::new(width, height).unwrap();
+        let mut tr = TileRenderer::new(width, height);
+
+        let mut triangles = Vec::new();
+        for i in 0..100 {
+            let depth = if i % 2 == 0 {
+                f32::NAN
+            } else {
+                (i as f32) * 0.1
+            };
+            triangles.push((
+                (Vec3::new(10.0, 10.0, depth), 1.0),
+                (Vec3::new(20.0, 10.0, depth), 1.0),
+                (Vec3::new(10.0, 20.0, depth), 1.0),
+                0xFFFFFFFF,
+            ));
+        }
+
+        tr.render_batch(&mut fb, &mut zb, &triangles);
     }
 }
