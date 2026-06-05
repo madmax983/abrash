@@ -101,6 +101,7 @@ pub mod starfield;
 pub mod steganography;
 pub mod swirl;
 pub mod thermal;
+pub mod thread_art;
 pub mod tilt_shift;
 pub mod topography;
 pub mod tunnel;
