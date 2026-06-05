@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+## [Heat Vision SIMD Gather Optimization]
+**Learning:** In hot per-pixel rendering loops (like the `apply_heat_vision` effect), float conversion is not always the bottleneck. In the AVX2 SIMD path, the memory fetch overhead of `_mm256_i32gather_epi32` when reading from a lookup table (LUT) completely dominated the execution time.
+**Action:** Replaced the LUT lookup instruction with an exact mathematical formula evaluated natively via pure SIMD register-based vector arithmetic (`sub`, `min`, `max`, `or`, `slli`). This eliminated the memory bandwidth bottleneck entirely, maintaining exactly the same linear gradient mapping while producing a massive 26-28% performance improvement across all resolutions.
