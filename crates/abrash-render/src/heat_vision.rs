@@ -104,17 +104,22 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         return;
     }
 
-    for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
-        if depth == f32::INFINITY {
-            *pixel = 0xFF00_0010; // Very Dark Blue Background
-            continue;
+    let len = pixels.len().min(depths.len());
+    let mut i = 0;
+    while i < len {
+        unsafe {
+            let depth = *depths.get_unchecked(i);
+            if depth == f32::INFINITY {
+                *pixels.get_unchecked_mut(i) = 0xFF00_0010; // Very Dark Blue Background
+            } else {
+                let t = ((depth - min_z) * scale) as u32;
+                let t = t.min(1023); // Clamp strictly to 1023
+
+                // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
+                *pixels.get_unchecked_mut(i) = *LUT.get_unchecked(t as usize);
+            }
         }
-
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023); // Clamp strictly to 1023
-
-        // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
-        *pixel = unsafe { *LUT.get_unchecked(t as usize) };
+        i += 1;
     }
 }
 
