@@ -1,0 +1,13 @@
+<<<<<<< SEARCH
+    let mut cx = 0;
+    let mut cy = radius;
+    // Convert to i64 to prevent circle algorithm overflow for massive radii
+    let mut cx = 0i64;
+    let mut cy = i64::from(radius);
+    let mut d = 3i64 - 2i64 * i64::from(radius);
+=======
+    // Convert to i64 to prevent circle algorithm overflow for massive radii
+    let mut cx = 0i64;
+    let mut cy = i64::from(radius);
+    let mut d = 3i64 - 2i64 * i64::from(radius);
+>>>>>>> REPLACE
