@@ -1,11 +1,14 @@
-1.  **Refactor Heat Vision to Fixed Point Math**
-    - The current `heat_vision.rs` uses floating-point math (`(normalized - 0.25) * 4.0`, etc.) inside a hot pixel loop to map depths to colors.
-    - We will follow the `[Posterize Float to Integer Math Optimization]` learning from `.jules/bolt.md` to map `0.0..1.0` depth range into integer `0..255`, and calculate RGB entirely using integer math (`t * 255 / scale`, etc.).
-    - We will pre-calculate `min_z` and `max_z` like before, calculate a `z_range` integer mapping multiplier, and use simple `(depth - min_z) * scale` to avoid floats in the main loop.
-2.  **Ensure Correctness**
-    - Ensure all existing tests in `heat_vision.rs` pass.
-3.  **Run Benchmark**
-    - Ensure `cargo bench --bench heat_vision_bench` runs successfully and shows performance improvements.
-4.  **Complete pre commit steps**
-    - Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done.
-5.  **Submit PR**
+1. **Remove the unused local benchmark trait `Lerp` and replace it with direct function calls.**
+   - In `benches/clipping_optimization.rs`, the `Lerp` trait is a "One-Time" trait implemented only for `(Vec3, f32)`.
+   - Remove the `pub trait Lerp` definition and its `impl Lerp for (Vec3, f32)`.
+   - Update `clip_triangle_to_frustum_legacy` signature from `pub fn clip_triangle_to_frustum_legacy<V: Lerp + Copy + Default>` to `pub fn clip_triangle_to_frustum_legacy<V: Copy + Default>`. It also needs a new argument `lerp_fn: impl Fn(V, V, f32) -> V`.
+   - Update `prev_v.lerp(curr_v, t)` to `lerp_fn(prev_v, curr_v, t)` inside the function.
+   - Update the calls to `clip_triangle_to_frustum_legacy` inside `bench_clipping` to pass the `lerp_fn` as the 5th argument: `|a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)`. This matches how `clip_triangle_to_frustum` does it. Note that `Vec3::lerp` is natively available since it's used in the optimized version.
+
+2. **Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.**
+   - Use `cargo test` and `cargo clippy` to verify that the refactoring did not break anything and follows the rules.
+   - Log the reduction in `.jules/razor.md`.
+
+3. **Submit the PR.**
+   - Title: `🪒 Razor: Remove single-use Lerp trait from clipping benchmark`
+   - Describe the bloat removed and code saved.
