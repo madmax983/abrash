@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Compile-Time vs OnceLock LUT Generation]**
+**Learning:** When pre-calculating Look-Up Tables (LUTs) for hot per-pixel loops where `const fn` is not applicable (e.g., due to float math or `sin/cos`), use a static `std::sync::OnceLock<[T; N]>` to initialize the palette once and replace costly math with fast array indexing.
+**Action:** Replaced dynamic sine wave color calculations in `apply_plasma` with a `OnceLock`-backed 1024-entry LUT indexed by the `v` accumulator.

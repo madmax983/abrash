@@ -4,9 +4,32 @@
 
 use crate::framebuffer::Framebuffer;
 use abrash_core::math::fast_sin_cos;
+use std::sync::OnceLock;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
+
+static PLASMA_LUT: OnceLock<[u32; 1024]> = OnceLock::new();
+
+fn get_plasma_lut() -> &'static [u32; 1024] {
+    PLASMA_LUT.get_or_init(|| {
+        let mut lut = [0; 1024];
+        for (i, entry) in lut.iter_mut().enumerate() {
+            // Map index [0, 1023] back to v [-3.0, 3.0]
+            let v = (i as f32 / 1023.0) * 6.0 - 3.0;
+
+            let (c_sin, _) = fast_sin_cos(v * std::f32::consts::PI);
+            let c = c_sin * 0.5 + 0.5;
+
+            let r = ((c * 255.0) as u32).min(255);
+            let g = (((c + 0.33) % 1.0 * 255.0) as u32).min(255);
+            let b = (((c + 0.66) % 1.0 * 255.0) as u32).min(255);
+
+            *entry = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+        }
+        lut
+    })
+}
 
 /// Applies a Plasma stylization filter to the framebuffer.
 ///
@@ -50,18 +73,9 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
             let (v_sin, _) = fast_sin_cos(x_sin + y_cos);
             v += v_sin;
 
-            // Map the value from [-3.0, 3.0] to roughly [0.0, 1.0]
-            // We use PI to create cyclical colors
-            let (c_sin, _) = fast_sin_cos(v * std::f32::consts::PI);
-            let c = c_sin * 0.5 + 0.5;
-
-            // Map the normalized value to RGB colors
-            // Simple color palette generation based on the phase
-            let r = ((c * 255.0) as u32).min(255);
-            let g = (((c + 0.33) % 1.0 * 255.0) as u32).min(255);
-            let b = (((c + 0.66) % 1.0 * 255.0) as u32).min(255);
-
-            *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+            // ⚡ Bolt: Map v [-3.0, 3.0] to LUT index [0, 1023] and read precalculated color
+            let lut_idx = (((v + 3.0) * (1023.0 / 6.0)) as usize).clamp(0, 1023);
+            *pixel = get_plasma_lut()[lut_idx];
         }
     });
 }
