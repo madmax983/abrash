@@ -232,3 +232,11 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Fixed-Point Math & AVX2 Shifting]**
+**Learning:** When implementing fixed-point math for positive float domains in AVX2 SIMD loops, avoid 32-bit integer multiplication overflows (from `_mm256_mullo_epi32`) and the performance penalty of variable bit shifts (`_mm256_srlv_epi32`) by right-shifting the float's bitwise representation (`to_bits()`) by a constant amount (e.g., 12 bits) before scaling. This fits positive IEEE 754 floats into smaller integer bounds (e.g., ~19 bits), allowing fast, constant-shift SIMD arithmetic (`_mm256_srli_epi32`).
+**Action:** Replace `_mm256_srlv_epi32` (variable shifts) with constant shifts `_mm256_srli_epi32` by pre-formatting bitwise domains.
+
+**[Fixed-Point Extrema Panics]**
+**Learning:** When subtracting large fixed-point integers (e.g., heavily scaled `i64` representations of `i32` values) to compute a difference, always cast the operands to a larger signed type or use `.saturating_sub()` *before* extreme mathematical operations. Simple subtraction on scaled bounds (like `f32::MIN`) causes overflow panics.
+**Action:** Use `depth.to_bits().saturating_sub(min_z_bits)` instead of converting directly and overflowing on extreme Z ranges.
