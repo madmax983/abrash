@@ -232,3 +232,11 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+## [Performance]
+**Bottleneck:** In `metaballs.rs`, the implicit surface evaluation loop (`update_and_render`) recalculated vectors `b_xs`, `b_ys`, and `b_r_sqs` every frame. This triggered repeated O(N) heap allocations and capacity management overhead during hot path execution.
+**Optimization:** Lifted the vectors into the `Metaballs` struct fields. Within `update_and_render`, standard vectors are now cleared (`clear()`) and repopulated, allowing natural allocator capacity reuse.
+**Impact:** Avoids reallocation every frame.
+
+**Bottleneck:** In the per-pixel hot loop of `metaballs.rs`, a conditional branch `if dist_sq > 0.001` was used to prevent division by zero (`b_r_sqs[i] / dist_sq`). Conditional branching inside tight mathematical loops significantly impacts CPU instruction pipelining.
+**Optimization:** Replaced the conditional branch with a branchless maximum operation (`dist_sq.max(0.001)`). The math evaluates directly via `b_r_sqs[i] / dist_sq.max(0.001)`.
+**Impact:** Substantial speedup (approx 24% reduced time) measured by `metaballs_bench`.

@@ -53,6 +53,9 @@ pub struct Metaballs {
     pub config: MetaballsConfig,
     pub balls: Vec<Metaball>,
     initialized: bool,
+    b_xs: Vec<f32>,
+    b_ys: Vec<f32>,
+    b_r_sqs: Vec<f32>,
 }
 
 impl Default for Metaballs {
@@ -68,6 +71,9 @@ impl Metaballs {
             config,
             balls: Vec::new(),
             initialized: false,
+            b_xs: Vec::new(),
+            b_ys: Vec::new(),
+            b_r_sqs: Vec::new(),
         }
     }
 
@@ -130,15 +136,19 @@ impl Metaballs {
         let num_balls = self.balls.len();
 
         // Cache ball positions and square sizes to avoid repeated property access in hot loop
-        let mut b_xs = Vec::with_capacity(num_balls);
-        let mut b_ys = Vec::with_capacity(num_balls);
-        let mut b_r_sqs = Vec::with_capacity(num_balls);
-
+        self.b_xs.clear();
+        self.b_ys.clear();
+        self.b_r_sqs.clear();
         for ball in &self.balls {
-            b_xs.push(ball.position.x);
-            b_ys.push(ball.position.y);
-            b_r_sqs.push(ball.size * ball.size);
+            self.b_xs.push(ball.position.x);
+            self.b_ys.push(ball.position.y);
+            self.b_r_sqs.push(ball.size * ball.size);
         }
+
+        // Extract slices so we can capture them in the parallel closure without borrowing self
+        let b_xs = self.b_xs.as_slice();
+        let b_ys = self.b_ys.as_slice();
+        let b_r_sqs = self.b_r_sqs.as_slice();
 
         #[cfg(feature = "parallel")]
         let iter = pixels.par_chunks_exact_mut(width_u).enumerate();
@@ -156,11 +166,7 @@ impl Metaballs {
                     let dy = fy - b_ys[i];
                     let dist_sq = dx * dx + dy * dy;
 
-                    // Prevent divide by zero if exactly on center
-                    if dist_sq > 0.001 {
-                        // Formula: f(x, y) = r^2 / d^2
-                        sum += b_r_sqs[i] / dist_sq;
-                    }
+                    sum += b_r_sqs[i] / dist_sq.max(0.001);
                 }
 
                 if sum >= threshold {
