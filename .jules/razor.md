@@ -21,3 +21,12 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+## [Reduction]
+**Bloat:** `TimelineState` enum used as internal state with complex `Completed` variant wrapping final sample values.
+**Cut:** Flattened the enum into an `is_completed: bool` field inside the `Timeline` struct directly and reused `last_sample`.
+**Saved:** ~10 lines of code, reduced branching overhead on every tick, and eliminated an unneeded abstraction.
+
+## [Reduction]
+**Bloat:** `PoolEntry` enum with `Occupied` and `Vacant` variants resulting in unreachable! panics during extraction on swap.
+**Cut:** Flattened the enum into a standard `PoolEntry<T>` struct containing an `Option<T>` and generation, significantly reducing the complexity of the `remove` extraction swap logic.
+**Saved:** ~25 lines of code, 2 unreachable panics eliminated, unified the storage format.
