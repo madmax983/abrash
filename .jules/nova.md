@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Video Feedback Filter]
+**Concept:** A post-processing effect simulating analog video feedback. It maintains a persistent history buffer and blends the current frame with a scaled, rotated, and faded version of the previous frame to create infinite trails and Hall of Mirrors effects.
+**Fate:** Implemented
+**Lesson:** Maintaining persistent state across frames for a post-processing filter can be achieved effectively using `thread_local!` `RefCell` buffers. This allows complex temporal effects like video feedback to interact dynamically with the 3D scene being rendered without passing state manually through the main pipeline. Using inverse transformations (from current pixel back to history pixel) prevents holes and artifacts that would appear from forward-mapping.
