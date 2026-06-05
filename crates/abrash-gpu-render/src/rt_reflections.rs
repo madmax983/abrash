@@ -112,16 +112,8 @@ pub struct RtReflectionPass {
 }
 
 impl RtReflectionPass {
-    /// Create the RT reflection pass.
-    #[must_use]
-    #[allow(clippy::too_many_lines)]
-    pub fn new(device: &wgpu::Device) -> Self {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("RT Reflection Compute"),
-            source: wgpu::ShaderSource::Wgsl(RT_REFLECTION_SHADER.into()),
-        });
-
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+    fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("RT Reflection Layout"),
             entries: &[
                 // 0: G-Buffer position
@@ -210,7 +202,18 @@ impl RtReflectionPass {
                     count: None,
                 },
             ],
+        })
+    }
+
+    /// Create the RT reflection pass.
+    #[must_use]
+    pub fn new(device: &wgpu::Device) -> Self {
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("RT Reflection Compute"),
+            source: wgpu::ShaderSource::Wgsl(RT_REFLECTION_SHADER.into()),
         });
+
+        let bind_group_layout = Self::create_bind_group_layout(device);
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("RT Reflection Pipeline Layout"),

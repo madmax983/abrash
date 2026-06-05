@@ -89,15 +89,8 @@ pub struct RtShadowPass {
 }
 
 impl RtShadowPass {
-    /// Create the RT shadow pass.
-    #[must_use]
-    pub fn new(device: &wgpu::Device) -> Self {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("RT Shadow Compute"),
-            source: wgpu::ShaderSource::Wgsl(RT_SHADOW_SHADER.into()),
-        });
-
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+    fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("RT Shadow Layout"),
             entries: &[
                 // G-Buffer position
@@ -146,7 +139,18 @@ impl RtShadowPass {
                     count: None,
                 },
             ],
+        })
+    }
+
+    /// Create the RT shadow pass.
+    #[must_use]
+    pub fn new(device: &wgpu::Device) -> Self {
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("RT Shadow Compute"),
+            source: wgpu::ShaderSource::Wgsl(RT_SHADOW_SHADER.into()),
         });
+
+        let bind_group_layout = Self::create_bind_group_layout(device);
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("RT Shadow Pipeline Layout"),
