@@ -100,12 +100,16 @@ fn apply_night_vision(fb: &mut Framebuffer, config: &VisionConfig) {
             let vignette = (1.0 - (dist_sq * inv_max_radius_sq)).max(0.0);
 
             // Extract RGB
-            let r = ((*pixel >> 16) & 0xFF) as f32;
-            let g = ((*pixel >> 8) & 0xFF) as f32;
-            let b = (*pixel & 0xFF) as f32;
+            let r = ((*pixel >> 16) & 0xFF) as u32;
+            let g = ((*pixel >> 8) & 0xFF) as u32;
+            let b = (*pixel & 0xFF) as u32;
 
             // Luminance (Standard Rec. 709)
-            let lum = r * 0.2126 + g * 0.7152 + b * 0.0722;
+            // 0.2126 * 65536 = 13933
+            // 0.7152 * 65536 = 46871
+            // 0.0722 * 65536 = 4732
+            let lum_i = (13933 * r + 46871 * g + 4732 * b) >> 16;
+            let lum = lum_i as f32;
 
             // Add Noise
             let noise = (rng.next_f32() - 0.5) * 50.0 * config.intensity;
@@ -353,4 +357,31 @@ mod tests {
         assert!(g > 100, "Pulse hit should be bright");
         assert!(b > 100, "Pulse hit should be bright");
     }
+}
+
+#[test]
+fn test_night_vision_integer_math_exact() {
+    let width = 10;
+    let height = 10;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    let zb = ZBuffer::new(width, height).unwrap();
+
+    fb.clear(0xFFFF_FF00); // Yellow
+
+    let config = VisionConfig {
+        mode: VisionMode::Night,
+        time: 0.0,
+        intensity: 1.0,
+    };
+
+    apply_vision(&mut fb, &zb, &config);
+
+    let pixel = fb.get_pixel(5, 5).unwrap();
+    // Since we will change math, let's just make sure it stays roughly the same or print it for observation initially
+    // r: 255, g: 255, b: 0
+    // lum (float): 255 * 0.2126 + 255 * 0.7152 + 0 = 54.213 + 182.376 = 236.589
+    // lum (int): (19595 * 255 + 38469 * 255) >> 16 = (4996725 + 9809595) >> 16 = 14806320 >> 16 = 225.9 -> 225
+    // Let's assert based on current output:
+    let expected_val = 4281063979;
+    assert_eq!(pixel, expected_val); // Sanity check to observe changes
 }
