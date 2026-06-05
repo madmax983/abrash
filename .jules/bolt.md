@@ -232,3 +232,11 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+
+
+
+
+**[Eliding redundant Vec::reserve calls]**
+**Learning:** When pre-allocating exact capacity for dynamic vectors (e.g., `Vec::reserve_exact`), preceding it with a general `Vec::reserve` call is redundant. The `.reserve()` call performs unnecessary capacity checks and heuristics that are completely overridden by the strict `.reserve_exact()` bounds enforcement.
+**Action:** Remove redundant `.reserve()` calls when immediately followed by `.reserve_exact()` for the same collection to avoid double capacity evaluation and improve execution speed.
