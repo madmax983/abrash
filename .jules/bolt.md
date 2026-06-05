@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+## [String Capacity Allocation Overflow]
+**Learning:** When computing memory allocation capacities (e.g., `String::with_capacity`) using `u32` dimensions like `width` and `height`, multiplying the dimensions as `u32` before casting to `usize` can cause arithmetic overflow panics on large inputs (e.g., framebuffers, matrices).
+**Action:** Always cast the individual operands to `usize` *before* multiplication (e.g., `(width as usize * 20) * height as usize`) to ensure the calculation leverages the full `usize` bit width, safely predicting capacity and gracefully falling back to OOM handles rather than deterministic thread panics.

@@ -144,7 +144,7 @@ impl<'a> AsciiConverter<'a> {
         let height = self.framebuffer.height();
         // Estimate capacity: (width * (chars per pixel + overhead)) * height
         // ANSI sequence is roughly "\x1b[38;2;RRR;GGG;BBBmC" -> ~20 chars
-        let mut result = String::with_capacity(((width * 20) * height) as usize);
+        let mut result = String::with_capacity((width as usize * 20) * height as usize);
 
         for row in self.framebuffer.as_slice().chunks_exact(width as usize) {
             for &pixel in row {
