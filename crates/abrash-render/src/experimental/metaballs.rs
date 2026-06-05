@@ -71,6 +71,17 @@ impl Metaballs {
         }
     }
 
+    /// ⚡ Bolt: Create a new `Metaballs` with pre-allocated capacity for the balls array.
+    /// This eliminates dynamic heap reallocations when spawning the initial balls.
+    #[must_use]
+    pub fn with_capacity(config: MetaballsConfig, capacity: usize) -> Self {
+        Self {
+            config,
+            balls: Vec::with_capacity(capacity),
+            initialized: false,
+        }
+    }
+
     /// Updates the metaball positions and renders them to the framebuffer.
     pub fn update_and_render(&mut self, fb: &mut Framebuffer) {
         let width = fb.width() as f32;

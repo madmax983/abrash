@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**Optimize Object Allocation in Procedural Renderers**
+**Learning:** Experimental modules like `Boids`, `DigitalRain`, `Metaballs`, and `SdfScene` allocate massive inner arrays dynamically on start via `Vec::new()`, resulting in slow allocation overhead and capacity checks during the initial setup/spawn loop.
+**Action:** Adding `pub fn with_capacity(...) -> Self` constructors parallel to the `new()` defaults allows callers to pre-allocate vector sizes when setting up the rendering stage.

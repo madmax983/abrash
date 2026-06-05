@@ -34,6 +34,18 @@ impl DigitalRain {
         Self::default()
     }
 
+    /// ⚡ Bolt: Create a new `DigitalRain` with pre-allocated capacity for the drops array.
+    /// This eliminates dynamic heap reallocations when resizing the effect.
+    #[must_use]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            drops: Vec::with_capacity(capacity),
+            rng: XorShift32::new(0xDEAD_BEEF),
+            cached_width: 0,
+            cached_height: 0,
+        }
+    }
+
     /// Renders the digital rain onto the given framebuffer
     ///
     /// * `fb`: Framebuffer to render to
