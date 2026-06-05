@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+## [String and ASCII Optimizations]
+**Learning:** `std::str::from_utf8(bytes).map(|s| s.to_string())` involves an O(N) UTF-8 validity check and creates a new heap allocation, which creates overhead in hot paths. Additionally, integer string formatting (like `write!`) is very expensive.
+**Action:** When byte arrays are guaranteed to be purely ASCII (by previous checks), `unsafe { String::from_utf8_unchecked(bytes.clone()) }` bypasses the validation loop and safely creates the string with just the clone allocation. For integer formatting up to 3 digits (like RGB 0-255), unrolling the division loop with direct conditionals (`if n < 10 { ... } else if n < 100 { ... }`) significantly outperforms both standard library formatting and simple `while` loop division by eliminating branch mispredictions and loop overhead.
