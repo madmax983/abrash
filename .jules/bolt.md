@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Heat Vision Fixed-Point Optimization]**
+**Learning:** In the heat vision per-pixel render loop, avoiding the need for a 1024-element LUT lookup (`gather` in SIMD) combined with avoiding floating point arithmetic and bounds checks yields significant performance gains. Calculating RGB on the fly with pure integer mapping logic eliminates memory indirection.
+**Action:** Replaced the static array LUT and float calculation in `apply_heat_vision` and `apply_heat_vision_simd` with fixed-point SIMD and scalar math mapping logic.
