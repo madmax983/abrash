@@ -21,3 +21,7 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+## [Reduction]
+**Bloat:** `TimelineState` and `PoolEntry` internal state enums that were unnecessarily verbose and required pattern matching. `TimelineState` duplicated `Sample<T>` tracking which `Timeline` already did, and `PoolEntry` variants shared `Generation` fields while triggering panics on `unreachable!()` paths.
+**Cut:** Flattened both enums into structs. `TimelineState` became a single `is_completed: bool` flag inside the struct, and `PoolEntry` became a simple struct holding `Option<T>` alongside `Generation`.
+**Saved:** Dozens of lines of nested `match` boilerplate, eliminated several unreachable branches, and removed two obsolete unit tests dedicated exclusively to testing unreachable logic.

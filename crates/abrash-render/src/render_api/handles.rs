@@ -149,9 +149,9 @@ pub struct ResourcePool<T> {
     free_list: Vec<u32>,
 }
 
-enum PoolEntry<T> {
-    Occupied { value: T, generation: Generation },
-    Vacant { generation: Generation },
+struct PoolEntry<T> {
+    value: Option<T>,
+    generation: Generation,
 }
 
 impl<T> ResourcePool<T> {
@@ -190,16 +190,16 @@ impl<T> ResourcePool<T> {
     pub fn insert(&mut self, value: T) -> Handle<T> {
         if let Some(index) = self.free_list.pop() {
             let entry = &mut self.entries[index as usize];
-            let generation = match entry {
-                PoolEntry::Vacant { generation } => *generation,
-                PoolEntry::Occupied { .. } => unreachable!("free list pointed to occupied slot"),
-            };
-            *entry = PoolEntry::Occupied { value, generation };
+            let generation = entry.generation;
+            entry.value = Some(value);
             Handle::new(index, generation)
         } else {
             let index = self.entries.len() as u32;
             let generation = 0;
-            self.entries.push(PoolEntry::Occupied { value, generation });
+            self.entries.push(PoolEntry {
+                value: Some(value),
+                generation,
+            });
             Handle::new(index, generation)
         }
     }
@@ -207,25 +207,25 @@ impl<T> ResourcePool<T> {
     /// Look up a resource by handle. Returns `None` if handle is stale or invalid.
     #[must_use]
     pub fn get(&self, handle: Handle<T>) -> Option<&T> {
-        self.entries
-            .get(handle.index as usize)
-            .and_then(|entry| match entry {
-                PoolEntry::Occupied { value, generation } if *generation == handle.generation => {
-                    Some(value)
-                }
-                _ => None,
-            })
+        self.entries.get(handle.index as usize).and_then(|entry| {
+            if entry.generation == handle.generation {
+                entry.value.as_ref()
+            } else {
+                None
+            }
+        })
     }
 
     /// Mutable lookup by handle.
     pub fn get_mut(&mut self, handle: Handle<T>) -> Option<&mut T> {
         self.entries
             .get_mut(handle.index as usize)
-            .and_then(|entry| match entry {
-                PoolEntry::Occupied { value, generation } if *generation == handle.generation => {
-                    Some(value)
+            .and_then(|entry| {
+                if entry.generation == handle.generation {
+                    entry.value.as_mut()
+                } else {
+                    None
                 }
-                _ => None,
             })
     }
 
@@ -235,21 +235,22 @@ impl<T> ResourcePool<T> {
     /// prevent duplicate nested replacements during reclamation.
     pub fn remove(&mut self, handle: Handle<T>) -> Option<T> {
         let entry = self.entries.get_mut(handle.index as usize)?;
-        let old_gen = match entry {
-            PoolEntry::Occupied { generation, .. } if *generation == handle.generation => {
-                *generation
-            }
-            _ => return None,
-        };
 
+        if entry.generation != handle.generation || entry.value.is_none() {
+            return None;
+        }
+
+        let old_gen = entry.generation;
         let new_gen = if old_gen == Generation::MAX {
             Generation::MAX
         } else {
             old_gen + 1
         };
+
         let old_entry = std::mem::replace(
             entry,
-            PoolEntry::Vacant {
+            PoolEntry {
+                value: None,
                 generation: new_gen,
             },
         );
@@ -258,10 +259,7 @@ impl<T> ResourcePool<T> {
             self.free_list.push(handle.index);
         }
 
-        match old_entry {
-            PoolEntry::Occupied { value, .. } => Some(value),
-            PoolEntry::Vacant { .. } => unreachable!(),
-        }
+        old_entry.value
     }
 }
 
@@ -372,23 +370,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "free list pointed to occupied slot")]
-    fn test_pool_free_list_occupied_slot_panic() {
-        let mut pool: ResourcePool<i32> = ResourcePool::new();
-        let h1 = pool.insert(42);
-        pool.remove(h1);
-
-        // Tamper with the internal state to simulate a bug in the free list logic
-        pool.entries[h1.index as usize] = PoolEntry::Occupied {
-            value: 99,
-            generation: h1.generation + 1,
-        };
-
-        // This insert should pull from the free list and encounter the illegally occupied slot
-        pool.insert(100);
-    }
-
-    #[test]
     fn test_pool_default() {
         let pool: ResourcePool<i32> = ResourcePool::default();
         assert!(pool.entries.is_empty());
@@ -405,10 +386,8 @@ mod tests {
         // 2. We simulate a long running server that has cycled through `u32::MAX` creations/deletions
         // on the same slot. We do this by maxing out the generation of the handle and the entry.
         if let Some(entry) = pool.entries.get_mut(handle_to_exploit.index as usize) {
-            *entry = PoolEntry::Occupied {
-                value: "Sensitive Data".to_string(),
-                generation: Generation::MAX,
-            };
+            entry.value = Some("Sensitive Data".to_string());
+            entry.generation = Generation::MAX;
         }
         let handle_to_exploit = Handle::new(handle_to_exploit.index, Generation::MAX);
 
@@ -436,10 +415,8 @@ mod tests {
 
         // Set generation to u32::MAX to simulate 4 billion insertions/deletions
         if let Some(entry) = pool.entries.get_mut(handle.index as usize) {
-            *entry = PoolEntry::Occupied {
-                value: 42,
-                generation: Generation::MAX,
-            };
+            entry.value = Some(42);
+            entry.generation = Generation::MAX;
         }
         handle.generation = Generation::MAX;
 
@@ -448,17 +425,5 @@ mod tests {
 
         // Ensure it's not in the free list
         assert!(pool.free_list.is_empty());
-    }
-
-    #[test]
-    #[should_panic(expected = "internal error: entered unreachable code")]
-    fn test_pool_remove_unreachable_guard() {
-        let old = PoolEntry::Vacant::<i32> { generation: 0 };
-        match old {
-            PoolEntry::Occupied { value, .. } => {
-                let _ = value;
-            }
-            PoolEntry::Vacant { .. } => unreachable!(),
-        }
     }
 }
