@@ -1660,6 +1660,9 @@ pub struct TileRenderer {
     /// When set, `end_frame` writes ALL tiles (empty tiles get this color),
     /// eliminating the need for a separate full-frame `fb.clear()` + `zb.clear()`.
     clear_color: Option<u32>,
+    /// Persistent workspace for sorting triangle indices within a tile.
+    /// Reusing this avoids dynamic heap allocations (even `SmallVec` spills) when a tile has many triangles.
+    sort_workspace: Vec<u32>,
 }
 
 struct CoarseBinContext<'a> {
@@ -1724,6 +1727,7 @@ impl TileRenderer {
             half_width: width as f32 * 0.5,
             half_height: height as f32 * 0.5,
             clear_color: None,
+            sort_workspace: Vec::with_capacity(128),
         }
     }
 
@@ -3006,9 +3010,10 @@ impl TileRenderer {
         let tris = &self.tile_bins.tris;
 
         // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
+        // Extracted `SmallVec` into a persistent `sort_workspace` `Vec` on the parent struct.
+        // This guarantees zero allocations during the hot sorting phase, even when tiles have >64 triangles.
+        self.sort_workspace.clear();
+        let indices = &mut self.sort_workspace;
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
@@ -3529,9 +3534,10 @@ impl TileRenderer {
         let tris = &self.tile_bins.tris;
 
         // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
+        // Extracted `SmallVec` into a persistent `sort_workspace` `Vec` on the parent struct.
+        // This guarantees zero allocations during the hot sorting phase, even when tiles have >64 triangles.
+        self.sort_workspace.clear();
+        let indices = &mut self.sort_workspace;
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
@@ -3579,9 +3585,10 @@ impl TileRenderer {
         let tris = &self.tile_bins.tris;
 
         // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
+        // Extracted `SmallVec` into a persistent `sort_workspace` `Vec` on the parent struct.
+        // This guarantees zero allocations during the hot sorting phase, even when tiles have >64 triangles.
+        self.sort_workspace.clear();
+        let indices = &mut self.sort_workspace;
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;

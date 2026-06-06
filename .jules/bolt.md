@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[TileRenderer Sorting Allocation Optimization]**
+**Learning:** In tile-based rendering, initializing a `SmallVec` (`SmallVec::new()`) inside the hot `for` loop that sorts triangles per-tile still incurs meaningful overhead and potential spilling to the heap if the capacity (e.g., 64) is exceeded.
+**Action:** Extract the sorting buffer into the parent `TileRenderer` struct as a persistent `sort_workspace: Vec<u32>` and reuse it (`self.sort_workspace.clear()`) across all tiles. This guarantees zero allocations during the sorting phase regardless of how many triangles intersect a single tile.
