@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [Cymatics (Chladni Plate) Filter]
+**Concept:** A procedural post-processing effect that evaluates modal frequencies (n, m) over screen coordinates to simulate standing acoustic waves (Chladni figures) where sand gathers at nodal lines.
+**Fate:** Implemented
+**Lesson:** Iterating across normalized screen coordinates allows us to seamlessly map the Chladni equation (`sin(n*x)*sin(m*y) - sin(m*x)*sin(n*y)`) in parallel across the framebuffer to create intricate visual patterns without requiring external asset dependencies.
