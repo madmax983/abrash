@@ -232,3 +232,12 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+## [Optimization] Fixed-Point Heat Vision
+
+**What:** Refactored the `heat_vision.rs` pixel mapping loop to entirely eliminate floating point arithmetic.
+
+**Why:** Floating-point subtraction and conversion (`as u32`) within a hot, per-pixel AVX/scalar loop causes high pipeline latency.
+
+**Impact:** Performance improved by ~15-25% across all resolutions (e.g. 1920x1080 dropped from ~8.6ms to ~6.6ms).
+
+**Measurement:** Benchmarked using `cargo bench --bench heat_vision_bench`.
