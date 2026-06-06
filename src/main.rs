@@ -36,10 +36,6 @@ struct Args {
     /// List all available demos
     #[arg(long, short)]
     list: bool,
-
-    /// Run the interactive TUI dashboard
-    #[arg(long)]
-    tui: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -452,7 +448,25 @@ fn demo_command(example_name: &str, use_tui_backend: bool) -> String {
     build_demo_command_args(example_name, use_tui_backend).join(" ")
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
+    if let Err(e) = run_main() {
+        let mut error_table = ComfyTable::new();
+        error_table
+            .load_preset(ComfyPresets::UTF8_FULL)
+            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+            .set_header(vec![
+                ComfyCell::new("❌ Application Error")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(ComfyColor::Red),
+            ])
+            .add_row(vec![ComfyCell::new(format!("{e}")).fg(ComfyColor::Yellow)]);
+
+        eprintln!("\n{error_table}");
+        std::process::exit(1);
+    }
+}
+
+fn run_main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     if let Some(demo_name) = args.demo {
@@ -465,12 +479,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
-    if args.tui {
-        return run_tui_dashboard();
-    }
-
-    print_demo_list();
-    Ok(())
+    // Default to TUI dashboard
+    run_tui_dashboard()
 }
 
 fn run_tui_dashboard() -> Result<(), Box<dyn Error>> {
@@ -898,13 +908,6 @@ fn run_demo(name: &str, use_tui_backend: bool) -> Result<(), Box<dyn Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clap::Parser;
-
-    #[test]
-    fn test_args_accepts_tui_flag() {
-        let parsed = Args::try_parse_from(["abrash", "--tui"]);
-        assert!(parsed.is_ok());
-    }
 
     #[test]
     fn test_demo_command_uses_default_features_for_cpu() {
