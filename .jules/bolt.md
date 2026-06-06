@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**Optimize SoftBody Edge Generation Hashers**
+**Learning:** `std::collections::HashSet` uses `SipHash` which is cryptographically secure but unnecessarily slow for simple struct creation tasks like mesh edge deduplication in the `SoftBody` physics simulation.
+**Action:** Always prefer a fast, non-cryptographic hasher like `foldhash::HashSet` initialized with `HashSet::with_capacity_and_hasher(capacity, Default::default())` when dealing with integer tuple keys in performance-sensitive game engine or physics initialization paths, *provided* the crate is already present in `Cargo.toml`.

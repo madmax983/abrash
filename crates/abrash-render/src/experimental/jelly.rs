@@ -8,7 +8,7 @@
 use super::sdf::SdfScene;
 use crate::math::{Vec3, Vec4};
 use crate::mesh::Mesh;
-use std::collections::HashSet;
+use foldhash::HashSet;
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[target_feature(enable = "avx2")]
@@ -199,7 +199,7 @@ impl SoftBody {
         // ⚡ Bolt: Pre-allocate vectors and sets to prevent dynamic heap reallocations.
         // We know exactly the maximum possible number of edges/springs (3 per triangle).
         let max_edges = mesh.indices.len() * 3;
-        let mut edges = HashSet::with_capacity(max_edges);
+        let mut edges = HashSet::with_capacity_and_hasher(max_edges, Default::default());
         let mut spring_indices_a = Vec::with_capacity(max_edges);
         let mut spring_indices_b = Vec::with_capacity(max_edges);
         let mut spring_rest_lengths = Vec::with_capacity(max_edges);
