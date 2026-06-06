@@ -315,24 +315,23 @@ impl SoftBody {
             let delta = p_b - p_a;
             let current_length = delta.length();
 
-            if current_length > 0.0001 {
-                // Optimization: reuse current_length to normalize, avoiding rsqrt/sqrt
-                let direction = delta * (1.0 / current_length);
+            // Optimization: reuse current_length to normalize, avoiding rsqrt/sqrt.
+            // Using branchless .max(0.0001) avoids pipeline stalls on near-zero divisions.
+            let direction = delta * (1.0 / current_length.max(0.0001));
 
-                // Hooke's Law: F = -k * (x - x0)
-                let displacement = current_length - rest_len;
-                let spring_force_mag = -self.stiffness * displacement;
+            // Hooke's Law: F = -k * (x - x0)
+            let displacement = current_length - rest_len;
+            let spring_force_mag = -self.stiffness * displacement;
 
-                // Damping Force: Fd = -d * (v_rel . dir)
-                let v_rel = v_b - v_a;
-                let damping_force_mag = -self.damping * v_rel.dot(direction);
+            // Damping Force: Fd = -d * (v_rel . dir)
+            let v_rel = v_b - v_a;
+            let damping_force_mag = -self.damping * v_rel.dot(direction);
 
-                let total_force = direction * (spring_force_mag + damping_force_mag);
+            let total_force = direction * (spring_force_mag + damping_force_mag);
 
-                // Apply equal and opposite forces
-                self.forces[idx_a] = self.forces[idx_a] - total_force;
-                self.forces[idx_b] = self.forces[idx_b] + total_force;
-            }
+            // Apply equal and opposite forces
+            self.forces[idx_a] = self.forces[idx_a] - total_force;
+            self.forces[idx_b] = self.forces[idx_b] + total_force;
         }
 
         // 2. Integration (Semi-Implicit Euler)
