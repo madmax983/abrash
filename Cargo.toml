@@ -984,3 +984,8 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[example]]
+name = "video_feedback_demo"
+path = "examples/video_feedback_demo.rs"
+required-features = ["nova"]

@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Video Feedback Filter]
+**Concept:** A retro post-processing effect simulating an analog video feedback loop by feeding the previous frame back into the current frame with optional transformations (scale, rotation, translation) and decay.
+**Fate:** Implemented
+**Lesson:** Using a `thread_local!` `RefCell` to store the history buffer avoids costly per-frame allocations. Utilizing inverse-mapping (from the current frame back to the history frame) with nearest-neighbor sampling ensures the trail is drawn continuously without any holes, effectively supporting parallel computation with Rayon over the framebuffer without data races.
