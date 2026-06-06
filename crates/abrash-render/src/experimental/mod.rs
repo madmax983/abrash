@@ -105,6 +105,7 @@ pub mod tilt_shift;
 pub mod topography;
 pub mod tunnel;
 pub mod vhs;
+pub mod video_feedback;
 pub mod vision;
 pub mod volume;
 pub mod voronoi;
