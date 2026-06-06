@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Heat Vision SIMD LUT Optimization]**
+**Learning:** In AVX2 SIMD implementations, gather instructions (like `_mm256_i32gather_epi32` for LUT lookups) are significant performance bottlenecks. Replacing them with pure register-based vector arithmetic substantially improves execution speed. For `heat_vision`, calculating the gradient mapped colors directly inside SIMD registers eliminates the need for gather operations on the pre-computed color LUT.
+**Action:** Replace `_mm256_i32gather_epi32` with pure integer logic and bitwise shifts mapped to the original LUT's color behavior (e.g. `r = max(0, min(255, 511 - t))`).

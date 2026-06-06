@@ -132,9 +132,9 @@ unsafe fn apply_heat_vision_simd(
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::{
         __m256i, _CMP_EQ_OQ, _mm256_blendv_epi8, _mm256_castps_si256, _mm256_cmp_ps,
-        _mm256_cvttps_epi32, _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32,
-        _mm256_min_epi32, _mm256_mul_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256,
-        _mm256_storeu_si256, _mm256_sub_ps,
+        _mm256_cvttps_epi32, _mm256_loadu_ps, _mm256_max_epi32, _mm256_min_epi32, _mm256_mul_ps,
+        _mm256_or_si256, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256,
+        _mm256_slli_epi32, _mm256_storeu_si256, _mm256_sub_epi32, _mm256_sub_ps,
     };
 
     let len = pixels.len().min(depths.len());
@@ -145,7 +145,13 @@ unsafe fn apply_heat_vision_simd(
     let inf_vec = _mm256_set1_ps(f32::INFINITY);
     let max_t_vec = _mm256_set1_epi32(1023);
     let bg_color = _mm256_set1_epi32(0xFF00_0010_u32 as i32);
-    let lut_ptr = lut.as_ptr().cast::<i32>();
+
+    let zero = _mm256_setzero_si256();
+    let max_val = _mm256_set1_epi32(255);
+    let c511 = _mm256_set1_epi32(511);
+    let c1023 = _mm256_set1_epi32(1023);
+    let c512 = _mm256_set1_epi32(512);
+    let a_mask = _mm256_set1_epi32(0xFF00_0000_u32 as i32);
 
     while i + 8 <= len {
         let depth_ptr = depths.as_ptr().add(i);
@@ -161,18 +167,29 @@ unsafe fn apply_heat_vision_simd(
         // t_u32 = t_f32 as i32
         let t_i32 = _mm256_cvttps_epi32(t_f32);
 
-        // Ensure not negative
-        let zero_vec = _mm256_setzero_si256();
-        let t_clamped_low = _mm256_max_epi32(t_i32, zero_vec);
+        // Ensure not negative and clamp to 1023
+        let t_clamped = _mm256_min_epi32(_mm256_max_epi32(t_i32, zero), max_t_vec);
 
-        // Clamp to 1023
-        let t_clamped = _mm256_min_epi32(t_clamped_low, max_t_vec);
+        // Calculate RGB
+        let r_pre = _mm256_sub_epi32(c511, t_clamped);
+        let r = _mm256_min_epi32(_mm256_max_epi32(r_pre, zero), max_val);
 
-        // Gather from LUT
-        // SAFETY: t_clamped is strictly between 0 and 1023, lut is 1024 elements
-        let gathered = _mm256_i32gather_epi32::<4>(lut_ptr, t_clamped);
+        let g_pre1 = _mm256_sub_epi32(c1023, t_clamped);
+        let g_pre2 = _mm256_min_epi32(t_clamped, g_pre1);
+        let g = _mm256_min_epi32(_mm256_max_epi32(g_pre2, zero), max_val);
 
-        // Blend: if is_inf, use bg_color, else use gathered color
+        let b_pre = _mm256_sub_epi32(t_clamped, c512);
+        let b = _mm256_min_epi32(_mm256_max_epi32(b_pre, zero), max_val);
+
+        let r_shifted = _mm256_slli_epi32(r, 16);
+        let g_shifted = _mm256_slli_epi32(g, 8);
+
+        let gathered = _mm256_or_si256(
+            a_mask,
+            _mm256_or_si256(r_shifted, _mm256_or_si256(g_shifted, b)),
+        );
+
+        // Blend: if is_inf, use bg_color, else use calculated color
         let final_color = _mm256_blendv_epi8(gathered, bg_color, is_inf_int);
 
         // Store to framebuffer
@@ -196,7 +213,6 @@ unsafe fn apply_heat_vision_simd(
         *pixel = unsafe { *lut.get_unchecked(t as usize) };
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
