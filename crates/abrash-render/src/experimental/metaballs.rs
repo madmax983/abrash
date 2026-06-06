@@ -156,11 +156,9 @@ impl Metaballs {
                     let dy = fy - b_ys[i];
                     let dist_sq = dx * dx + dy * dy;
 
-                    // Prevent divide by zero if exactly on center
-                    if dist_sq > 0.001 {
-                        // Formula: f(x, y) = r^2 / d^2
-                        sum += b_r_sqs[i] / dist_sq;
-                    }
+                    // Prevent divide by zero if exactly on center.
+                    // Formula: f(x, y) = r^2 / d^2
+                    sum += b_r_sqs[i] / dist_sq.max(0.001);
                 }
 
                 if sum >= threshold {

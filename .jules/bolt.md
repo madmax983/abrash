@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Avoid Conditional Branches in Hot Loops (Metaballs)]**
+**Learning:** In the hot per-pixel rendering loop for metaballs, using a conditional `if dist_sq > 0.001` to prevent division by zero introduces branching overhead. Replacing it with `dist_sq.max(0.001)` allows the compiler to use branchless execution.
+**Action:** Replaced `if dist_sq > 0.001 { sum += b_r_sqs[i] / dist_sq; }` with `sum += b_r_sqs[i] / dist_sq.max(0.001);` in `crates/abrash-render/src/experimental/metaballs.rs`.
