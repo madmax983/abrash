@@ -584,9 +584,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         #[cfg(all(not(feature = "backend-winit"), feature = "backend-tui"))]
         {
-            eprintln!(
-                "Graphical window mode is unavailable with backend-tui. Use --ascii or --colored-ascii."
-            );
+            use comfy_table::{Cell, Color, Table, presets};
+            let mut error_table = Table::new();
+            error_table
+                .load_preset(presets::UTF8_FULL)
+                .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+                .set_header(vec![
+                    Cell::new("❌ Application Error")
+                        .add_attribute(comfy_table::Attribute::Bold)
+                        .fg(Color::Red),
+                ])
+                .add_row(vec![
+                    Cell::new("Graphical window mode is unavailable with backend-tui. Use --ascii or --colored-ascii.").fg(Color::Yellow),
+                ]);
+            eprintln!("\n{error_table}");
             std::process::exit(1);
         }
     }
