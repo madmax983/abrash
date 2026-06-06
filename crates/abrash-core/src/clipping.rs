@@ -338,13 +338,13 @@ pub fn clip_triangle_to_frustum<V: Copy>(
                 let mut out_count = 0;
                 let prev_idx = count - 1;
                 // SAFETY: We only read up to `count`, which are initialized.
-                let mut prev_v = unsafe { $buf_in[prev_idx].assume_init() };
+                let mut prev_v = unsafe { $buf_in[prev_idx].assume_init_read() };
                 let (prev_pos, prev_w) = get_pos(&prev_v);
                 let mut prev_d = $dist_fn(prev_pos, prev_w);
 
                 for i in 0..count {
                     // SAFETY: i < count
-                    let curr_v = unsafe { $buf_in[i].assume_init() };
+                    let curr_v = unsafe { $buf_in[i].assume_init_read() };
                     let (curr_pos, curr_w) = get_pos(&curr_v);
                     let curr_d = $dist_fn(curr_pos, curr_w);
 
@@ -427,7 +427,7 @@ pub fn clip_triangle_to_frustum<V: Copy>(
     if count >= 3 {
         // Pivot vertex
         // SAFETY: count >= 3, so final_buf[0] is initialized
-        let pivot = unsafe { final_buf[0].assume_init() };
+        let pivot = unsafe { final_buf[0].assume_init_read() };
         // Generate triangles: (0, 1, 2), (0, 2, 3), (0, 3, 4), ...
         // Number of triangles = count - 2
 
@@ -435,8 +435,8 @@ pub fn clip_triangle_to_frustum<V: Copy>(
             if result.count < 8 {
                 let idx = result.count * 3;
                 // SAFETY: i < count-1, so i and i+1 are within bounds and initialized
-                let v1 = unsafe { final_buf[i].assume_init() };
-                let v2 = unsafe { final_buf[i + 1].assume_init() };
+                let v1 = unsafe { final_buf[i].assume_init_read() };
+                let v2 = unsafe { final_buf[i + 1].assume_init_read() };
                 result.tris[idx].write(pivot);
                 result.tris[idx + 1].write(v1);
                 result.tris[idx + 2].write(v2);
@@ -620,17 +620,17 @@ pub fn clip_triangle_against_near_plane<V: Copy>(
 
     // Now assemble triangles
     if out_count == 3 {
-        result.tris[0].write(unsafe { out_verts[0].assume_init() });
-        result.tris[1].write(unsafe { out_verts[1].assume_init() });
-        result.tris[2].write(unsafe { out_verts[2].assume_init() });
+        result.tris[0].write(unsafe { out_verts[0].assume_init_read() });
+        result.tris[1].write(unsafe { out_verts[1].assume_init_read() });
+        result.tris[2].write(unsafe { out_verts[2].assume_init_read() });
         result.count = 1;
     } else if out_count == 4 {
         // Quad (0,1,2,3) -> Tri1(0,1,2), Tri2(0,2,3)
         // Accessing indices 0,1,2,3 is safe because out_count == 4
-        let v0 = unsafe { out_verts[0].assume_init() };
-        let v1 = unsafe { out_verts[1].assume_init() };
-        let v2 = unsafe { out_verts[2].assume_init() };
-        let v3 = unsafe { out_verts[3].assume_init() };
+        let v0 = unsafe { out_verts[0].assume_init_read() };
+        let v1 = unsafe { out_verts[1].assume_init_read() };
+        let v2 = unsafe { out_verts[2].assume_init_read() };
+        let v3 = unsafe { out_verts[3].assume_init_read() };
 
         result.tris[0].write(v0);
         result.tris[1].write(v1);

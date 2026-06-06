@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+## [Safe Uninitialized Memory Reads]
+**Learning:** When reading initialized values from `MaybeUninit<T>` where `T` is a struct containing padding bytes (e.g., due to field alignment), calling `.assume_init()` triggers a typed, by-value copy of the entire struct. Because the padding bytes remain uninitialized, this copy operation violates Rust's safety guarantees and causes Undefined Behavior (UB), which is caught by Miri. Additionally, it introduces minor overhead.
+**Action:** Replace `unsafe { maybe_uninit.assume_init() }` with `unsafe { maybe_uninit.assume_init_read() }`. This performs a direct `ptr::read`, correctly transferring ownership while safely eliding the typed by-value copy of the uninitialized padding bytes, resolving the UB and slightly reducing overhead on the hot path.
