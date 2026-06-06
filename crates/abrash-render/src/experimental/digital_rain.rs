@@ -34,6 +34,17 @@ impl DigitalRain {
         Self::default()
     }
 
+    /// Creates a new instance with pre-allocated capacity for drops
+    #[must_use]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            drops: Vec::with_capacity(capacity),
+            rng: XorShift32::new(0xDEAD_BEEF),
+            cached_width: 0,
+            cached_height: 0,
+        }
+    }
+
     /// Renders the digital rain onto the given framebuffer
     ///
     /// * `fb`: Framebuffer to render to
