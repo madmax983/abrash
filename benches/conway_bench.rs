@@ -28,6 +28,16 @@ fn bench_apply_conway(c: &mut Criterion) {
             apply_conway(black_box(&mut fb), black_box(&config));
         });
     });
+
+    group.bench_function("apply_conway_1080p_cell_size_1", |b| {
+        let config_small = ConwayConfig {
+            cell_size: 1,
+            ..config
+        };
+        b.iter(|| {
+            apply_conway(black_box(&mut fb), black_box(&config_small));
+        });
+    });
     group.finish();
 }
 

@@ -127,10 +127,22 @@ pub fn apply_conway(fb: &mut Framebuffer, config: &ConwayConfig) {
                             if dr == 0 && dc == 0 {
                                 continue;
                             }
+                            // Wrap around boundaries (optimized)
+                            let nr = if dr == -1 {
+                                if r == 0 { rows - 1 } else { r - 1 }
+                            } else if dr == 1 {
+                                if r == rows - 1 { 0 } else { r + 1 }
+                            } else {
+                                r
+                            };
 
-                            // Wrap around boundaries
-                            let nr = (r as isize + dr).rem_euclid(rows as isize) as usize;
-                            let nc = (c as isize + dc).rem_euclid(cols as isize) as usize;
+                            let nc = if dc == -1 {
+                                if c == 0 { cols - 1 } else { c - 1 }
+                            } else if dc == 1 {
+                                if c == cols - 1 { 0 } else { c + 1 }
+                            } else {
+                                c
+                            };
 
                             if curr_grid[nr * cols + nc] {
                                 live_neighbors += 1;
