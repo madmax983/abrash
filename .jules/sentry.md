@@ -51,3 +51,7 @@
 **[Validating Time/Tick Loop Logic Without Flakiness]**
 **Learning:** Testing frame-time loops using `std::thread::sleep` introduces severe flakiness because CI runners or test threads can delay execution unpredictably. Instead of testing "real" time elapsed, test the internal response to elapsed time by directly simulating it on the structure (e.g. `timer.last_time = Instant::now()`, `timer.accumulator += 50ms`).
 **Action:** Never use `std::thread::sleep` for unit testing timing systems. Always manipulate the simulated time state directly to test logic boundaries.
+
+## Refactored Panic Points to Results
+**Learning:** Found deep-seated internal buffers matching `.unwrap()` across the rendering encoding steps. By creating a failing panic simulation test, I validated the panic behavior exactly, and safely migrated the internal states (`GBuffer`, `HdrTarget`, etc) to return `Result` allowing failures to propagate up nicely instead of instantly crashing the process on missing bounds/buffers.
+**Action:** Always search for `unwrap` inside functions mapped sequentially or in `par_extend()`, and convert their containing closures/methods to natively support `Result` parsing (`try_fold`, `.collect::<Result<_, _>>`).

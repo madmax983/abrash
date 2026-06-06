@@ -615,7 +615,7 @@ impl GpuRenderer {
 
         // Pass 2.5: RT shadows (replaces shadow map when RT available)
         #[cfg(feature = "ray-tracing")]
-        self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws);
+        self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws)?;
 
         // Pass 2.6: Refraction surface pass (refractive geometry → slim G-buffer)
         if has_refractive {
@@ -625,13 +625,13 @@ impl GpuRenderer {
 
         // Pass 3: Deferred lighting → HDR
         self.ensure_hdr_target(w, h);
-        self.encode_deferred_lighting(&mut encoder);
+        self.encode_deferred_lighting(&mut encoder)?;
 
         // Pass 3.5: Skybox (fills background pixels in HDR target)
-        self.encode_skybox(&mut encoder, frame);
+        self.encode_skybox(&mut encoder, frame)?;
 
         // Pass 4: TAA (if enabled)
-        let hdr_view_for_tonemap = self.encode_taa_pass(&mut encoder, frame, w, h);
+        let hdr_view_for_tonemap = self.encode_taa_pass(&mut encoder, frame, w, h)?;
 
         // Pass 4.5: Refraction Newton-method resolve → composite into scene
         let refraction_view = if has_refractive {
@@ -642,16 +642,16 @@ impl GpuRenderer {
                 frame,
                 w,
                 h,
-            ))
+            )?)
         } else {
             None
         };
 
         // Pass 5: Composition (debug visualization)
-        self.encode_composition(&mut encoder, &hdr_view_for_tonemap, w, h);
+        self.encode_composition(&mut encoder, &hdr_view_for_tonemap, w, h)?;
 
         // Pass 6: Tone mapping → LDR capture target
-        self.encode_tone_map_final(&mut encoder, refraction_view.as_ref(), &target.color_view);
+        self.encode_tone_map_final(&mut encoder, refraction_view.as_ref(), &target.color_view)?;
 
         // Store current VP for next frame's TAA reprojection
         let vp = frame.camera.view * frame.camera.projection;
@@ -781,7 +781,7 @@ impl GpuRenderer {
 
         // Pass 2.5: RT shadows (when RT available)
         #[cfg(feature = "ray-tracing")]
-        self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws);
+        self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws)?;
 
         // Pass 2.6: Refraction surface pass (refractive geometry → slim G-buffer)
         if has_refractive {
@@ -791,13 +791,13 @@ impl GpuRenderer {
 
         // Pass 3: Deferred lighting → HDR
         self.ensure_hdr_target(w, h);
-        self.encode_deferred_lighting(&mut encoder);
+        self.encode_deferred_lighting(&mut encoder)?;
 
         // Pass 3.5: Skybox
-        self.encode_skybox(&mut encoder, frame);
+        self.encode_skybox(&mut encoder, frame)?;
 
         // Pass 4: TAA (if enabled)
-        let hdr_view_for_tonemap = self.encode_taa_pass(&mut encoder, frame, w, h);
+        let hdr_view_for_tonemap = self.encode_taa_pass(&mut encoder, frame, w, h)?;
 
         // Pass 4.5: Refraction Newton-method resolve → composite into scene
         let refraction_view = if has_refractive {
@@ -808,16 +808,16 @@ impl GpuRenderer {
                 frame,
                 w,
                 h,
-            ))
+            )?)
         } else {
             None
         };
 
         // Pass 5: Composition (debug visualization)
-        self.encode_composition(&mut encoder, &hdr_view_for_tonemap, w, h);
+        self.encode_composition(&mut encoder, &hdr_view_for_tonemap, w, h)?;
 
         // Pass 6: Tone mapping → surface
-        self.encode_tone_map_final(&mut encoder, refraction_view.as_ref(), &view);
+        self.encode_tone_map_final(&mut encoder, refraction_view.as_ref(), &view)?;
 
         // Store current VP for next frame's TAA reprojection
         let vp = frame.camera.view * frame.camera.projection;
@@ -1031,10 +1031,13 @@ impl GpuRenderer {
         frame: &Frame,
         width: u32,
         height: u32,
-    ) -> wgpu::TextureView {
+    ) -> Result<wgpu::TextureView, String> {
         let surface = self.refraction_surface.as_ref().unwrap();
         let output = self.refraction_output.as_ref().unwrap();
-        let gbuffer = self.gbuffer.as_ref().unwrap();
+        let gbuffer = self
+            .gbuffer
+            .as_ref()
+            .ok_or_else(|| "G-Buffer uninitialized".to_string())?;
 
         let vp = frame.camera.view * frame.camera.projection;
         let vp_flat: [f32; 16] = bytemuck::cast(vp.m);
@@ -1061,9 +1064,9 @@ impl GpuRenderer {
             params,
         );
 
-        output
+        Ok(output
             .texture
-            .create_view(&wgpu::TextureViewDescriptor::default())
+            .create_view(&wgpu::TextureViewDescriptor::default()))
     }
 
     fn prepare_frame_uniforms(&self, frame: &Frame) -> (FrameUniforms, Vec<GpuLightData>) {
@@ -1273,7 +1276,10 @@ impl GpuRenderer {
         encoder: &mut wgpu::CommandEncoder,
         prepared_draws: &[PreparedDraw],
     ) -> Result<(), String> {
-        let gbuffer = self.gbuffer.as_ref().unwrap();
+        let gbuffer = self
+            .gbuffer
+            .as_ref()
+            .ok_or_else(|| "G-Buffer uninitialized".to_string())?;
 
         // Create bind groups for G-Buffer pass
         let frame_bg = self
@@ -1390,7 +1396,7 @@ impl GpuRenderer {
         encoder: &mut wgpu::CommandEncoder,
         frame: &Frame,
         prepared_draws: &[PreparedDraw],
-    ) {
+    ) -> Result<(), String> {
         if !self.rt_enabled {
             return;
         }
@@ -1429,7 +1435,10 @@ impl GpuRenderer {
         );
 
         // Ensure RT shadow output texture
-        let gbuffer = self.gbuffer.as_ref().unwrap();
+        let gbuffer = self
+            .gbuffer
+            .as_ref()
+            .ok_or_else(|| "G-Buffer uninitialized".to_string())?;
         if let Some(pass) = &mut self.rt_shadow_pass {
             pass.ensure_output(self.gpu.device(), gbuffer.width, gbuffer.height);
 
@@ -1449,9 +1458,15 @@ impl GpuRenderer {
         }
     }
 
-    fn encode_deferred_lighting(&self, encoder: &mut wgpu::CommandEncoder) {
-        let gbuffer = self.gbuffer.as_ref().unwrap();
-        let hdr = self.hdr_target.as_ref().unwrap();
+    fn encode_deferred_lighting(&self, encoder: &mut wgpu::CommandEncoder) -> Result<(), String> {
+        let gbuffer = self
+            .gbuffer
+            .as_ref()
+            .ok_or_else(|| "G-Buffer uninitialized".to_string())?;
+        let hdr = self
+            .hdr_target
+            .as_ref()
+            .ok_or_else(|| "HDR target uninitialized".to_string())?;
 
         let gbuffer_bg = self.deferred_pass.create_gbuffer_bind_group(
             self.gpu.device(),
@@ -1465,7 +1480,10 @@ impl GpuRenderer {
         );
 
         // IBL bind group (uses precomputed IBL if environment is set)
-        let ibl_bg = self.ibl_bind_group.as_ref().unwrap();
+        let ibl_bg = self
+            .ibl_bind_group
+            .as_ref()
+            .ok_or_else(|| "IBL bind group uninitialized".to_string())?;
 
         self.deferred_pass.encode(
             encoder,
@@ -1475,13 +1493,21 @@ impl GpuRenderer {
             ibl_bg,
             &hdr.color_view,
         );
+        Ok(())
     }
 
-    fn encode_skybox(&self, encoder: &mut wgpu::CommandEncoder, frame: &Frame) {
+    fn encode_skybox(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        frame: &Frame,
+    ) -> Result<(), String> {
         let Some(ref bind_group) = self.skybox_bind_group else {
-            return; // No environment map set
+            return Ok(()); // No environment map set
         };
-        let hdr = self.hdr_target.as_ref().unwrap();
+        let hdr = self
+            .hdr_target
+            .as_ref()
+            .ok_or_else(|| "HDR target uninitialized".to_string())?;
 
         // Upload inverse view-projection for direction reconstruction
         let view_proj = frame.camera.view * frame.camera.projection;
@@ -1498,6 +1524,7 @@ impl GpuRenderer {
 
         self.skybox_pass
             .encode(encoder, bind_group, &hdr.color_view);
+        Ok(())
     }
 
     /// Encode TAA resolve pass. Returns the texture view to use for tone mapping.
@@ -1511,13 +1538,16 @@ impl GpuRenderer {
         _frame: &Frame,
         w: u32,
         h: u32,
-    ) -> wgpu::TextureView {
+    ) -> Result<wgpu::TextureView, String> {
         if !self.taa_enabled {
             // No TAA — return a view of the HDR target
-            let hdr = self.hdr_target.as_ref().unwrap();
+            let hdr = self
+                .hdr_target
+                .as_ref()
+                .ok_or_else(|| "HDR target uninitialized".to_string())?;
             #[allow(clippy::used_underscore_binding)]
             let tex = &hdr._texture;
-            return tex.create_view(&wgpu::TextureViewDescriptor::default());
+            return Ok(tex.create_view(&wgpu::TextureViewDescriptor::default()));
         }
 
         self.taa_pass.ensure_textures(self.gpu.device(), w, h);
@@ -1534,8 +1564,14 @@ impl GpuRenderer {
             .queue()
             .write_buffer(&self.taa_pass.params_buffer, 0, bytemuck::bytes_of(&params));
 
-        let hdr = self.hdr_target.as_ref().unwrap();
-        let gbuffer = self.gbuffer.as_ref().unwrap();
+        let hdr = self
+            .hdr_target
+            .as_ref()
+            .ok_or_else(|| "HDR target uninitialized".to_string())?;
+        let gbuffer = self
+            .gbuffer
+            .as_ref()
+            .ok_or_else(|| "G-Buffer uninitialized".to_string())?;
 
         let bg = self
             .gpu
@@ -1551,7 +1587,10 @@ impl GpuRenderer {
                     wgpu::BindGroupEntry {
                         binding: 1,
                         resource: wgpu::BindingResource::TextureView(
-                            self.taa_pass.history_view.as_ref().unwrap(),
+                            self.taa_pass
+                                .history_view
+                                .as_ref()
+                                .ok_or_else(|| "TAA history uninitialized".to_string())?,
                         ),
                     },
                     wgpu::BindGroupEntry {
@@ -1565,7 +1604,10 @@ impl GpuRenderer {
                     wgpu::BindGroupEntry {
                         binding: 4,
                         resource: wgpu::BindingResource::TextureView(
-                            self.taa_pass.output_view.as_ref().unwrap(),
+                            self.taa_pass
+                                .output_view
+                                .as_ref()
+                                .ok_or_else(|| "TAA output view uninitialized".to_string())?,
                         ),
                     },
                 ],
@@ -1582,11 +1624,12 @@ impl GpuRenderer {
         }
 
         // Return the TAA output for subsequent passes
-        self.taa_pass
+        Ok(self
+            .taa_pass
             .output_texture
             .as_ref()
-            .unwrap()
-            .create_view(&wgpu::TextureViewDescriptor::default())
+            .ok_or_else(|| "TAA output texture uninitialized".to_string())?
+            .create_view(&wgpu::TextureViewDescriptor::default()))
     }
 
     /// Encode composition pass (debug visualization).
@@ -1599,16 +1642,22 @@ impl GpuRenderer {
         _hdr_view: &wgpu::TextureView,
         w: u32,
         h: u32,
-    ) {
+    ) -> Result<(), String> {
         if matches!(
             self.composition_pass.debug_mode,
             crate::composition::DebugMode::None
         ) {
-            return; // No-op: normal rendering
+            return Ok(()); // No-op: normal rendering
         }
 
-        let hdr = self.hdr_target.as_ref().unwrap();
-        let gbuffer = self.gbuffer.as_ref().unwrap();
+        let hdr = self
+            .hdr_target
+            .as_ref()
+            .ok_or_else(|| "HDR target uninitialized".to_string())?;
+        let gbuffer = self
+            .gbuffer
+            .as_ref()
+            .ok_or_else(|| "G-Buffer uninitialized".to_string())?;
 
         // Upload debug mode
         let params = crate::composition::CompositionParams {
@@ -1674,6 +1723,7 @@ impl GpuRenderer {
             pass.set_bind_group(0, &bg, &[]);
             pass.dispatch_workgroups(w.div_ceil(8), h.div_ceil(8), 1);
         }
+        Ok(())
     }
 
     /// Tone map from the current HDR result to the final LDR output.
@@ -1686,8 +1736,11 @@ impl GpuRenderer {
         encoder: &mut wgpu::CommandEncoder,
         refraction_override: Option<&wgpu::TextureView>,
         output_view: &wgpu::TextureView,
-    ) {
-        let hdr = self.hdr_target.as_ref().unwrap();
+    ) -> Result<(), String> {
+        let hdr = self
+            .hdr_target
+            .as_ref()
+            .ok_or_else(|| "HDR target uninitialized".to_string())?;
 
         // Priority: refraction composite > debug/TAA output > raw HDR.
         let mut owned_taa_view = None;
@@ -1712,6 +1765,7 @@ impl GpuRenderer {
             .tone_map_pass
             .create_bind_group(self.gpu.device(), view);
         self.tone_map_pass.encode(encoder, &tonemap_bg, output_view);
+        Ok(())
     }
 }
 
