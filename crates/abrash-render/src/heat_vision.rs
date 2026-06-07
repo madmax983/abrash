@@ -132,9 +132,9 @@ unsafe fn apply_heat_vision_simd(
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::{
         __m256i, _CMP_EQ_OQ, _mm256_blendv_epi8, _mm256_castps_si256, _mm256_cmp_ps,
-        _mm256_cvttps_epi32, _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32,
+        _mm256_cvttps_epi32, _mm256_loadu_ps, _mm256_max_epi32,
         _mm256_min_epi32, _mm256_mul_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256,
-        _mm256_storeu_si256, _mm256_sub_ps,
+        _mm256_storeu_si256, _mm256_sub_ps, _mm256_sub_epi32, _mm256_slli_epi32, _mm256_or_si256,
     };
 
     let len = pixels.len().min(depths.len());
@@ -145,7 +145,12 @@ unsafe fn apply_heat_vision_simd(
     let inf_vec = _mm256_set1_ps(f32::INFINITY);
     let max_t_vec = _mm256_set1_epi32(1023);
     let bg_color = _mm256_set1_epi32(0xFF00_0010_u32 as i32);
-    let lut_ptr = lut.as_ptr().cast::<i32>();
+
+    let max_color_val = _mm256_set1_epi32(255);
+    let c_511 = _mm256_set1_epi32(511);
+    let c_512 = _mm256_set1_epi32(512);
+    let c_1023 = _mm256_set1_epi32(1023);
+    let alpha_mask = _mm256_set1_epi32(0xFF00_0000_u32 as i32);
 
     while i + 8 <= len {
         let depth_ptr = depths.as_ptr().add(i);
@@ -168,12 +173,30 @@ unsafe fn apply_heat_vision_simd(
         // Clamp to 1023
         let t_clamped = _mm256_min_epi32(t_clamped_low, max_t_vec);
 
-        // Gather from LUT
-        // SAFETY: t_clamped is strictly between 0 and 1023, lut is 1024 elements
-        let gathered = _mm256_i32gather_epi32::<4>(lut_ptr, t_clamped);
+        // Calculate R: min(255, max(0, 511 - t))
+        let r_val = _mm256_sub_epi32(c_511, t_clamped);
+        let r_clamped_low = _mm256_max_epi32(r_val, zero_vec);
+        let r = _mm256_min_epi32(r_clamped_low, max_color_val);
 
-        // Blend: if is_inf, use bg_color, else use gathered color
-        let final_color = _mm256_blendv_epi8(gathered, bg_color, is_inf_int);
+        // Calculate G: min(255, min(t, max(0, 1023 - t)))
+        let g_sub = _mm256_sub_epi32(c_1023, t_clamped);
+        let g_clamped_low = _mm256_max_epi32(g_sub, zero_vec);
+        let g_min_t = _mm256_min_epi32(t_clamped, g_clamped_low);
+        let g = _mm256_min_epi32(g_min_t, max_color_val);
+
+        // Calculate B: min(255, max(0, t - 512))
+        let b_sub = _mm256_sub_epi32(t_clamped, c_512);
+        let b_clamped_low = _mm256_max_epi32(b_sub, zero_vec);
+        let b = _mm256_min_epi32(b_clamped_low, max_color_val);
+
+        // Combine into ARGB: (r << 16) | (g << 8) | b | 0xFF00_0000
+        let r_shifted = _mm256_slli_epi32::<16>(r);
+        let g_shifted = _mm256_slli_epi32::<8>(g);
+        let rgb = _mm256_or_si256(_mm256_or_si256(r_shifted, g_shifted), b);
+        let argb = _mm256_or_si256(rgb, alpha_mask);
+
+        // Blend: if is_inf, use bg_color, else use calculated argb
+        let final_color = _mm256_blendv_epi8(argb, bg_color, is_inf_int);
 
         // Store to framebuffer
         #[allow(clippy::cast_ptr_alignment)]
