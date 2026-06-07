@@ -232,3 +232,9 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+## [Heat Vision SIMD Array Lookups]
+**What:** Replaced the `_mm256_i32gather_epi32` Look-Up Table (LUT) gather instruction in `heat_vision.rs` with pure, register-based arithmetic.
+**Why:** The LUT gather logic for `t_clamped` caused a memory bottleneck due to slow AVX2 gather instructions indexing a small 1024-element LUT.
+**Impact:** `heat_vision_bench` showed a 15-20% execution speed improvement across 320x240, 800x600, and 1080p target framebuffers.
+**Measurement:** 298.90 µs down to 240.13 µs for 320x240, and 8.5416 ms down to 7.1787 ms for 1920x1080 via `cargo bench --bench heat_vision_bench`.

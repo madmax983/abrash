@@ -131,10 +131,11 @@ unsafe fn apply_heat_vision_simd(
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::{
-        __m256i, _CMP_EQ_OQ, _mm256_blendv_epi8, _mm256_castps_si256, _mm256_cmp_ps,
-        _mm256_cvttps_epi32, _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32,
-        _mm256_min_epi32, _mm256_mul_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256,
-        _mm256_storeu_si256, _mm256_sub_ps,
+        __m256i, _CMP_EQ_OQ, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8,
+        _mm256_castps_si256, _mm256_cmp_ps, _mm256_cmpgt_epi32, _mm256_cvttps_epi32,
+        _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32, _mm256_min_epi32, _mm256_mul_ps,
+        _mm256_or_si256, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256,
+        _mm256_slli_epi32, _mm256_storeu_si256, _mm256_sub_epi32, _mm256_sub_ps,
     };
 
     let len = pixels.len().min(depths.len());
@@ -145,7 +146,13 @@ unsafe fn apply_heat_vision_simd(
     let inf_vec = _mm256_set1_ps(f32::INFINITY);
     let max_t_vec = _mm256_set1_epi32(1023);
     let bg_color = _mm256_set1_epi32(0xFF00_0010_u32 as i32);
-    let lut_ptr = lut.as_ptr().cast::<i32>();
+
+    let val_256 = _mm256_set1_epi32(256);
+    let val_512 = _mm256_set1_epi32(512);
+    let val_768 = _mm256_set1_epi32(768);
+    let val_255 = _mm256_set1_epi32(255);
+    let alpha_mask = _mm256_set1_epi32(0xFF00_0000_u32 as i32);
+    let neg_one = _mm256_set1_epi32(-1);
 
     while i + 8 <= len {
         let depth_ptr = depths.as_ptr().add(i);
@@ -168,9 +175,45 @@ unsafe fn apply_heat_vision_simd(
         // Clamp to 1023
         let t_clamped = _mm256_min_epi32(t_clamped_low, max_t_vec);
 
-        // Gather from LUT
-        // SAFETY: t_clamped is strictly between 0 and 1023, lut is 1024 elements
-        let gathered = _mm256_i32gather_epi32::<4>(lut_ptr, t_clamped);
+        // Calculate color segments based on t_clamped
+        let seg0 = _mm256_cmpgt_epi32(val_256, t_clamped);
+        let t_lt_512 = _mm256_cmpgt_epi32(val_512, t_clamped);
+        let seg1 = _mm256_andnot_si256(seg0, t_lt_512);
+        let t_lt_768 = _mm256_cmpgt_epi32(val_768, t_clamped);
+        let seg2 = _mm256_andnot_si256(t_lt_512, t_lt_768);
+        let seg3 = _mm256_andnot_si256(t_lt_768, neg_one);
+
+        let local_t = _mm256_and_si256(t_clamped, val_255);
+        let inv_local_t = _mm256_sub_epi32(val_255, local_t);
+
+        // r
+        let r = _mm256_or_si256(
+            _mm256_and_si256(seg0, val_255),
+            _mm256_and_si256(seg1, inv_local_t),
+        );
+
+        // g
+        let seg1_or_seg2 = _mm256_andnot_si256(seg0, t_lt_768);
+        let g = _mm256_or_si256(
+            _mm256_and_si256(seg0, local_t),
+            _mm256_or_si256(
+                _mm256_and_si256(seg1_or_seg2, val_255),
+                _mm256_and_si256(seg3, inv_local_t),
+            ),
+        );
+
+        // b
+        let b = _mm256_or_si256(
+            _mm256_and_si256(seg2, local_t),
+            _mm256_and_si256(seg3, val_255),
+        );
+
+        let r_shifted = _mm256_slli_epi32(r, 16);
+        let g_shifted = _mm256_slli_epi32(g, 8);
+        let gathered = _mm256_or_si256(
+            alpha_mask,
+            _mm256_or_si256(r_shifted, _mm256_or_si256(g_shifted, b)),
+        );
 
         // Blend: if is_inf, use bg_color, else use gathered color
         let final_color = _mm256_blendv_epi8(gathered, bg_color, is_inf_int);
@@ -306,6 +349,72 @@ mod tests {
         assert_eq!(
             p, 0x00FF_000000,
             "Should remain unchanged default Framebuffer color (Solid Black)"
+        );
+    }
+}
+
+#[test]
+fn test_heat_vision_simd_vs_scalar_consistency() {
+    let width = 200;
+    let height = 2; // Make sure we hit the SIMD path and the scalar tail
+    let mut fb_simd = Framebuffer::new(width, height).unwrap();
+    let mut zb_simd = ZBuffer::new(width, height).unwrap();
+
+    let mut fb_scalar = Framebuffer::new(width, height).unwrap();
+    let mut zb_scalar = ZBuffer::new(width, height).unwrap();
+
+    for y in 0..height {
+        for x in 0..width {
+            let depth = if (x + y) % 10 == 0 {
+                f32::INFINITY
+            } else {
+                (x as f32) + (y as f32)
+            };
+            zb_simd.test_and_set(x as i32, y as i32, depth);
+            zb_scalar.test_and_set(x as i32, y as i32, depth);
+        }
+    }
+
+    apply_heat_vision(&mut fb_simd, &zb_simd);
+
+    // Emulate scalar fallback logic
+    const LUT: [u32; 1024] = generate_lut();
+    let pixels = fb_scalar.as_mut_slice();
+    let depths = zb_scalar.as_slice();
+
+    let mut min_z = f32::MAX;
+    let mut max_z = f32::MIN;
+    for &z in depths {
+        if z != f32::INFINITY {
+            if z < min_z {
+                min_z = z;
+            }
+            if z > max_z {
+                max_z = z;
+            }
+        }
+    }
+    let range = (max_z - min_z).max(0.0001);
+    let scale = 1024.0 / range;
+
+    for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
+        if depth == f32::INFINITY {
+            *pixel = 0xFF00_0010;
+            continue;
+        }
+        let t = ((depth - min_z) * scale) as u32;
+        let t = t.min(1023);
+        *pixel = LUT[t as usize];
+    }
+
+    for i in 0..(width * height) as usize {
+        assert_eq!(
+            fb_simd.as_slice()[i],
+            fb_scalar.as_slice()[i],
+            "Mismatch at index {}: SIMD {:08X} vs Scalar {:08X}",
+            i,
+            fb_simd.as_slice()[i],
+            fb_scalar.as_slice()[i]
         );
     }
 }
