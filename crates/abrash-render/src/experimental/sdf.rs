@@ -104,6 +104,14 @@ impl SdfScene {
         }
     }
 
+    /// ⚡ Bolt: Creates a new `SdfScene` with pre-allocated capacity for objects.
+    #[must_use]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            objects: Vec::with_capacity(capacity),
+        }
+    }
+
     pub fn add(&mut self, object: SdfObject) {
         self.objects.push(object);
     }
@@ -470,7 +478,7 @@ mod tests {
 
     #[test]
     fn test_scene_map() {
-        let mut scene = SdfScene::new();
+        let mut scene = SdfScene::with_capacity(1);
         scene.add(SdfObject {
             primitive: SdfPrimitive::Sphere {
                 radius: 1.0,
@@ -486,7 +494,7 @@ mod tests {
 
     #[test]
     fn test_scene_normal() {
-        let mut scene = SdfScene::new();
+        let mut scene = SdfScene::with_capacity(1);
         scene.add(SdfObject {
             primitive: SdfPrimitive::Sphere {
                 radius: 1.0,

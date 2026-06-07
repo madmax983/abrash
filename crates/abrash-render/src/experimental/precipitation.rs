@@ -69,8 +69,24 @@ pub struct PrecipitationState {
 
 impl Default for PrecipitationState {
     fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PrecipitationState {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             drops: Vec::new(),
+            rng: XorShift32::new(0x1234_5678),
+        }
+    }
+
+    /// ⚡ Bolt: Creates a new `PrecipitationState` with pre-allocated capacity for drops.
+    #[must_use]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            drops: Vec::with_capacity(capacity),
             rng: XorShift32::new(0x1234_5678),
         }
     }

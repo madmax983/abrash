@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Pre-allocating inner vectors for Experimental Scene/Effect Types]**
+**Learning:** Experimental modules like `DigitalRain`, `Metaballs`, `SdfScene`, and `PrecipitationState` allocate their inner object arrays (`drops`, `balls`, `objects`) dynamically using `Vec::new()` during the initial setup/spawn loop or inside `new()` constructors. This introduces unnecessary heap allocations and capacity check overhead, particularly in tight inner loops or repetitive rendering logic where the capacity is known ahead of time.
+**Action:** Always provide a `pub fn with_capacity(...) -> Self` constructor alongside `new()` or `default()` that pre-allocates vectors internally using `Vec::with_capacity(capacity)`. Update instantiations across the codebase (including tests) to use `with_capacity` to eliminate these runtime heap overallocations.
