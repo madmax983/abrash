@@ -232,3 +232,9 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+## [Performance] cel_shade quantization optimization
+**What:** Replaced `f32` scaling and rounding logic with scaled integer arithmetic in `quantize_color`.
+**Why:** Floating-point conversions (`as f32`, `as u32`) and arithmetic in hot pixel loops are significantly slower than pure integer bitwise/math operations.
+**Impact:** ~7% performance improvement measured in `cel_shade_800x600` benchmark.
+**Measurement:** 27.9ms -> 26.0ms (using `cargo bench --bench cel_shade_bench --features nova`).
