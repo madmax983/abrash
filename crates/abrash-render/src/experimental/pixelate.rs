@@ -5,6 +5,13 @@
 
 use crate::framebuffer::Framebuffer;
 
+/// Configuration for the Pixelate effect.
+#[derive(Debug, Clone, Copy)]
+pub struct PixelateConfig {
+    /// The size of the pixelation blocks. A size of 0 or 1 has no effect.
+    pub block_size: u32,
+}
+
 /// Applies a pixelate effect to the framebuffer.
 ///
 /// Divides the framebuffer into blocks of `block_size` x `block_size`.
@@ -13,13 +20,14 @@ use crate::framebuffer::Framebuffer;
 /// # Arguments
 ///
 /// * `fb` - The framebuffer to modify in-place.
-/// * `block_size` - The size of the pixelation blocks. A size of 0 or 1 has no effect.
+/// * `config` - The configuration for the pixelate effect.
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-pub fn apply_pixelate(fb: &mut Framebuffer, block_size: u32) {
-    if block_size <= 1 {
+pub fn apply_pixelate(fb: &mut Framebuffer, config: &PixelateConfig) {
+    if config.block_size <= 1 {
         return;
     }
 
+    let block_size = config.block_size;
     let width = fb.width() as usize;
     if width == 0 {
         return;

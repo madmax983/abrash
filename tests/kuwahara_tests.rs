@@ -1,7 +1,7 @@
 #![cfg(feature = "nova")]
 
-use abrash::experimental::kuwahara::apply_kuwahara;
-use abrash::framebuffer::Framebuffer;
+use abrash_render::experimental::kuwahara::apply_kuwahara;
+use abrash_render::framebuffer::Framebuffer;
 
 #[test]
 fn test_kuwahara_smoothes_noise_preserves_edge() {
@@ -24,7 +24,10 @@ fn test_kuwahara_smoothes_noise_preserves_edge() {
     }
 
     // Apply Kuwahara with radius 1 (3x3 window)
-    apply_kuwahara(&mut fb, 1);
+    apply_kuwahara(
+        &mut fb,
+        &abrash_render::experimental::kuwahara::KuwaharaConfig { radius: 1 },
+    );
 
     // The filter should smooth the noise on each side
     // but preserve the sharp edge between the red and blue sides.
@@ -71,7 +74,10 @@ fn test_kuwahara_preserves_solid_color() {
     let mut fb = Framebuffer::new(10, 10).unwrap();
     fb.clear(0xFF00_FF00); // Solid green
 
-    apply_kuwahara(&mut fb, 2);
+    apply_kuwahara(
+        &mut fb,
+        &abrash_render::experimental::kuwahara::KuwaharaConfig { radius: 2 },
+    );
 
     for y in 0..10 {
         for x in 0..10 {

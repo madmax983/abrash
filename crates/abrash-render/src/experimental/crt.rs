@@ -5,6 +5,13 @@
 use crate::framebuffer::Framebuffer;
 use std::cell::RefCell;
 
+/// Configuration for the CRT effect.
+#[derive(Debug, Clone, Copy)]
+pub struct CrtConfig {
+    /// The strength of the barrel distortion (e.g., 0.1 to 0.3).
+    pub distortion: f32,
+}
+
 /// Applies a CRT monitor barrel distortion effect to the framebuffer.
 ///
 /// Pixels are mapped using a radial distortion function to curve the image
@@ -20,12 +27,13 @@ use std::cell::RefCell;
 /// # Arguments
 ///
 /// * `fb` - The framebuffer to modify in-place.
-/// * `distortion` - The strength of the barrel distortion (e.g., 0.1 to 0.3).
-pub fn apply_crt(fb: &mut Framebuffer, distortion: f32) {
-    if distortion <= 0.0 {
+/// * `config` - The configuration for the CRT effect.
+pub fn apply_crt(fb: &mut Framebuffer, config: &CrtConfig) {
+    if config.distortion <= 0.0 {
         return;
     }
 
+    let distortion = config.distortion;
     let width = fb.width() as usize;
     let height = fb.height() as usize;
 

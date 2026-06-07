@@ -1,5 +1,5 @@
-use abrash::experimental::pixelate::apply_pixelate;
-use abrash::framebuffer::Framebuffer;
+use abrash_render::experimental::pixelate::apply_pixelate;
+use abrash_render::framebuffer::Framebuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn benchmark_pixelate(c: &mut Criterion) {
@@ -17,13 +17,21 @@ fn benchmark_pixelate(c: &mut Criterion) {
 
     c.bench_function("apply_pixelate 1080p (block_size=8)", |b| {
         b.iter(|| {
-            apply_pixelate(black_box(&mut fb), black_box(8));
+            apply_pixelate(
+                black_box(&mut fb),
+                black_box(&abrash_render::experimental::pixelate::PixelateConfig { block_size: 8 }),
+            );
         });
     });
 
     c.bench_function("apply_pixelate 1080p (block_size=16)", |b| {
         b.iter(|| {
-            apply_pixelate(black_box(&mut fb), black_box(16));
+            apply_pixelate(
+                black_box(&mut fb),
+                black_box(&abrash_render::experimental::pixelate::PixelateConfig {
+                    block_size: 16,
+                }),
+            );
         });
     });
 }

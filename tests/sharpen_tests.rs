@@ -1,7 +1,7 @@
 #![cfg(feature = "nova")]
 
-use abrash::experimental::sharpen::apply_sharpen;
-use abrash::framebuffer::Framebuffer;
+use abrash_render::experimental::sharpen::apply_sharpen;
+use abrash_render::framebuffer::Framebuffer;
 
 #[test]
 fn test_apply_sharpen_basic() {
@@ -33,7 +33,10 @@ fn test_apply_sharpen_basic() {
     // Neighbors = 170 (top, bottom, left, right)
     // New center = 5 * 85 - 170 - 170 - 170 - 170 = 425 - 680 = -255 -> clamped to 0
     // So center pixel should become black (0x00)
-    apply_sharpen(&mut fb2, 1.0);
+    apply_sharpen(
+        &mut fb2,
+        &abrash_render::experimental::sharpen::SharpenConfig { amount: 1.0 },
+    );
 
     let center_pixel = fb2.get_pixel(1, 1).unwrap();
     let r = (center_pixel >> 16) & 0xFF;
@@ -58,7 +61,10 @@ fn test_apply_sharpen_amount_zero() {
     fb.clear(0xFFAA_AAAA);
     fb.set_pixel(1, 1, 0xFF55_5555);
 
-    apply_sharpen(&mut fb, 0.0);
+    apply_sharpen(
+        &mut fb,
+        &abrash_render::experimental::sharpen::SharpenConfig { amount: 0.0 },
+    );
 
     assert_eq!(fb.get_pixel(1, 1).unwrap(), 0xFF55_5555);
 }

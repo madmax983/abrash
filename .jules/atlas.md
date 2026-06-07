@@ -125,3 +125,12 @@
 1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
 2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors.
 3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
+
+## [Experimental/Post-Process Filter Parameterization Fix]
+**Tangle:** Several post-processing filters (e.g., `apply_black_hole`, `apply_halftone`, `apply_plasma`) suffered from the "Argument Jungle" structural smell, accepting loose primitive parameters. This created a fragmented API alongside the other configured post-processing filters, making future extensions difficult.
+**Blueprint:**
+1.  **Introduce Configs:** Created configuration structs (`BlackHoleConfig`, `HalftoneConfig`, `GlitchConfig`, `PlasmaConfig`, `FrostedGlassConfig`, `FisheyeConfig`, `KaleidoscopeConfig`, `CrosshatchConfig`, `CrtConfig`, `PixelateConfig`, `SharpenConfig`, `KuwaharaConfig`, `HexMosaicConfig`, `GammaCorrectionConfig`, `SolarizeConfig`) in their respective files.
+2.  **Refactor Signatures:** Modified the `apply_*` functions to accept a reference to their new configuration structs.
+3.  **Update Callers:** Updated all call sites (examples, benches, unit tests, integration tests, doc tests) to instantiate and pass the new structs.
+
+**Stability:** Improved high cohesion by standardizing the effect parameterization with the rest of the post-processing module. Lowered coupling between the caller and the specific internal parameters of the post-processing effects, making the public API cleaner and more extensible.

@@ -1,5 +1,5 @@
-use abrash::experimental::kuwahara::apply_kuwahara;
-use abrash::framebuffer::Framebuffer;
+use abrash_render::experimental::kuwahara::apply_kuwahara;
+use abrash_render::framebuffer::Framebuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_kuwahara(c: &mut Criterion) {
@@ -19,19 +19,28 @@ fn bench_kuwahara(c: &mut Criterion) {
 
     group.bench_function("radius_1", |b| {
         b.iter(|| {
-            apply_kuwahara(black_box(&mut fb), black_box(1));
+            apply_kuwahara(
+                black_box(&mut fb),
+                black_box(&abrash_render::experimental::kuwahara::KuwaharaConfig { radius: 1 }),
+            );
         });
     });
 
     group.bench_function("radius_3", |b| {
         b.iter(|| {
-            apply_kuwahara(black_box(&mut fb), black_box(3));
+            apply_kuwahara(
+                black_box(&mut fb),
+                black_box(&abrash_render::experimental::kuwahara::KuwaharaConfig { radius: 3 }),
+            );
         });
     });
 
     group.bench_function("radius_5", |b| {
         b.iter(|| {
-            apply_kuwahara(black_box(&mut fb), black_box(5));
+            apply_kuwahara(
+                black_box(&mut fb),
+                black_box(&abrash_render::experimental::kuwahara::KuwaharaConfig { radius: 5 }),
+            );
         });
     });
 

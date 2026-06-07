@@ -1,7 +1,7 @@
 #![cfg(feature = "nova")]
 
-use abrash::experimental::crt::apply_crt;
-use abrash::framebuffer::Framebuffer;
+use abrash_render::experimental::crt::apply_crt;
+use abrash_render::framebuffer::Framebuffer;
 
 #[test]
 fn test_apply_crt_distortion() {
@@ -22,7 +22,10 @@ fn test_apply_crt_distortion() {
     }
 
     // Apply CRT distortion
-    apply_crt(&mut fb, 0.2); // moderate distortion
+    apply_crt(
+        &mut fb,
+        &abrash_render::experimental::crt::CrtConfig { distortion: 0.2 },
+    ); // moderate distortion
 
     // Center should remain unaffected
     assert_eq!(

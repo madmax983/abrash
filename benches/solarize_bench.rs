@@ -98,7 +98,10 @@ fn benchmark_solarize(c: &mut Criterion) {
 
     c.bench_function("solarize", |b| {
         b.iter(|| {
-            apply_solarize(black_box(&mut fb), black_box(127));
+            apply_solarize(
+                black_box(&mut fb),
+                black_box(&abrash_render::post_process::filters::SolarizeConfig { threshold: 127 }),
+            );
         });
     });
 

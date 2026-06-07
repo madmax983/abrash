@@ -13,7 +13,10 @@ fn test_gamma_correction_srgb() {
     // 0.50196 ^ 0.4545 ≈ 0.7297
     // 0.7297 * 255 ≈ 186.08 -> 186
     // Expected output color is roughly 186 (0xBA)
-    apply_gamma_correction(&mut fb, 2.2);
+    apply_gamma_correction(
+        &mut fb,
+        &abrash_render::post_process::filters::GammaCorrectionConfig { gamma: 2.2 },
+    );
 
     let pixel = fb.get_pixel(0, 0).unwrap();
     let r = (pixel >> 16) & 0xFF;
@@ -32,7 +35,10 @@ fn test_gamma_correction_identity() {
     fb.set_pixel(0, 0, 0xFF80_8080);
 
     // Apply gamma correction with gamma 1.0 (no change)
-    apply_gamma_correction(&mut fb, 1.0);
+    apply_gamma_correction(
+        &mut fb,
+        &abrash_render::post_process::filters::GammaCorrectionConfig { gamma: 1.0 },
+    );
 
     let pixel = fb.get_pixel(0, 0).unwrap();
     let r = (pixel >> 16) & 0xFF;

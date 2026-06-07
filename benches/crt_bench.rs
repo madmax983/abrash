@@ -1,5 +1,5 @@
-use abrash::experimental::crt::apply_crt;
-use abrash::framebuffer::Framebuffer;
+use abrash_render::experimental::crt::apply_crt;
+use abrash_render::framebuffer::Framebuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn benchmark_crt(c: &mut Criterion) {
@@ -17,7 +17,10 @@ fn benchmark_crt(c: &mut Criterion) {
 
     c.bench_function("apply_crt 1080p (distortion=0.2)", |b| {
         b.iter(|| {
-            apply_crt(black_box(&mut fb), black_box(0.2));
+            apply_crt(
+                black_box(&mut fb),
+                black_box(&abrash_render::experimental::crt::CrtConfig { distortion: 0.2 }),
+            );
         });
     });
 }

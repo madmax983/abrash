@@ -1,5 +1,5 @@
-use abrash::experimental::crosshatch::apply_crosshatch;
-use abrash::framebuffer::Framebuffer;
+use abrash_render::experimental::crosshatch::apply_crosshatch;
+use abrash_render::framebuffer::Framebuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn benchmark_crosshatch(c: &mut Criterion) {

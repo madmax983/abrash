@@ -64,7 +64,10 @@ fn main() {
     }
 
     // Apply the gamma correction filter
-    apply_gamma_correction(&mut fb, 2.2);
+    apply_gamma_correction(
+        &mut fb,
+        &abrash_render::post_process::filters::GammaCorrectionConfig { gamma: 2.2 },
+    );
 
     print_success(width, height);
 }

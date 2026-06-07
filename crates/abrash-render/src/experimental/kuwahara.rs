@@ -18,14 +18,13 @@ thread_local! {
 
 #[allow(clippy::too_many_arguments)]
 
-/// Applies a Kuwahara filter to the framebuffer.
-///
-/// # Arguments
-///
-/// * `fb` - The framebuffer to modify in-place.
-/// * `radius` - The radius of the Kuwahara kernel (e.g., 2 means 5x5 total window size).
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// Configuration for the Kuwahara effect.
+#[derive(Debug, Clone, Copy)]
+pub struct KuwaharaConfig {
+    /// The radius of the Kuwahara kernel (e.g., 2 means 5x5 total window size).
+    pub radius: i32,
+}
+
 #[allow(clippy::too_many_arguments)]
 fn process_kuwahara_region(
     src_fb: &[u32],
@@ -133,11 +132,18 @@ fn process_kuwahara_region(
     }
 }
 
-pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
-    if radius <= 0 {
+/// Applies a Kuwahara filter to the framebuffer.
+///
+/// # Arguments
+///
+/// * `fb` - The framebuffer to modify in-place.
+/// * `config` - The configuration for the Kuwahara effect.
+pub fn apply_kuwahara(fb: &mut Framebuffer, config: &KuwaharaConfig) {
+    if config.radius <= 0 {
         return;
     }
 
+    let radius = config.radius;
     let width = fb.width() as i32;
     let height = fb.height() as i32;
 
@@ -274,7 +280,7 @@ mod tests {
 
             // Should not panic with varying radii
             for radius in [1, 2, 5, 10] {
-                apply_kuwahara(&mut fb, radius);
+                apply_kuwahara(&mut fb, &KuwaharaConfig { radius });
             }
         }
     }

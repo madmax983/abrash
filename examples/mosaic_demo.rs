@@ -222,7 +222,14 @@ impl WindowApp for MosaicDemo {
         #[cfg(feature = "nova")]
         {
             let cell_size = 15.0 + (self.time * 2.0).sin() * 5.0; // Animate cell size
-            apply_hex_mosaic(&mut self.framebuffer, cell_size, 2.0, 0xFF_000000);
+            apply_hex_mosaic(
+                &mut self.framebuffer,
+                &abrash_render::experimental::mosaic::HexMosaicConfig {
+                    cell_size,
+                    border_size: 2.0,
+                    border_color: 0xFF_000000,
+                },
+            );
         }
 
         let framebuffer = &self.framebuffer;

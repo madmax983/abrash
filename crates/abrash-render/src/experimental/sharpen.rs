@@ -4,6 +4,13 @@
 
 use crate::framebuffer::Framebuffer;
 
+/// Configuration for the Sharpen effect.
+#[derive(Debug, Clone, Copy)]
+pub struct SharpenConfig {
+    /// The intensity of the sharpen effect (0.0 to 1.0).
+    pub amount: f32,
+}
+
 /// Applies a sharpen effect to the framebuffer.
 ///
 /// Uses a 3x3 convolution kernel to enhance edges.
@@ -12,11 +19,11 @@ use crate::framebuffer::Framebuffer;
 /// # Arguments
 ///
 /// * `fb` - The framebuffer to modify in-place.
-/// * `amount` - The intensity of the sharpen effect (0.0 to 1.0).
+/// * `config` - The configuration for the sharpen effect.
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
-    if amount <= 0.0 {
+pub fn apply_sharpen(fb: &mut Framebuffer, config: &SharpenConfig) {
+    if config.amount <= 0.0 {
         return;
     }
 
@@ -27,7 +34,7 @@ pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
         return;
     }
 
-    let amount = amount.clamp(0.0, 1.0);
+    let amount = config.amount.clamp(0.0, 1.0);
 
     // Original weight is scaled by amount
     // Center pixel gets (1 + 4 * amount), surrounding gets (-amount)

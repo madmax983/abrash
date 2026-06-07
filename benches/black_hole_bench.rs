@@ -1,5 +1,5 @@
-use abrash::experimental::black_hole::apply_black_hole;
-use abrash::framebuffer::Framebuffer;
+use abrash_render::experimental::black_hole::apply_black_hole;
+use abrash_render::framebuffer::Framebuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_apply_black_hole(c: &mut Criterion) {

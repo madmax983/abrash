@@ -28,21 +28,31 @@ thread_local! {
 ///
 /// Uses the formula: output = 255 * (input/255)^(1/gamma)
 ///
+/// Configuration for Gamma Correction.
+#[derive(Debug, Clone, Copy)]
+pub struct GammaCorrectionConfig {
+    /// The gamma value to apply (e.g., 2.2 for sRGB).
+    pub gamma: f32,
+}
+
+/// Applies gamma correction to the framebuffer in-place.
+///
 /// # Examples
 ///
-/// rust
-/// use `abrash_core::framebuffer::Framebuffer`;
-/// use `abrash_render::post_process::filters::apply_gamma_correction`;
+/// ```rust
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::post_process::filters::{apply_gamma_correction, GammaCorrectionConfig};
 ///
-/// let mut fb = `Framebuffer::new(1`, `1).unwrap()`;
-/// `fb.set_pixel(0, 0, 0xFF80_8080);`
-/// `apply_gamma_correction(&mut fb, 2.2);`
+/// let mut fb = Framebuffer::new(1, 1).unwrap();
+/// fb.set_pixel(0, 0, 0xFF80_8080);
+/// apply_gamma_correction(&mut fb, &GammaCorrectionConfig { gamma: 2.2 });
 /// // With gamma 2.2, mid-gray becomes roughly 186.
-/// let p = `fb.get_pixel(0`, `0).unwrap()`;
-/// `assert_eq!((p` >> 16) & 0xFF, 186);
-///
-pub fn apply_gamma_correction(fb: &mut Framebuffer, gamma: f32) {
+/// let p = fb.get_pixel(0, 0).unwrap();
+/// assert_eq!((p >> 16) & 0xFF, 186);
+/// ```
+pub fn apply_gamma_correction(fb: &mut Framebuffer, config: &GammaCorrectionConfig) {
     let pixels = fb.as_mut_slice();
+    let gamma = config.gamma;
     let inv_gamma = 1.0 / gamma;
 
     // ⚡ Bolt: Cache the 256-element Look-Up Table (LUT) per thread to avoid 256
@@ -236,23 +246,31 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 ///
 /// // Alpha is preserved (FF), color is inverted (000000 -> FFFFFF)
 /// `assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFFFF_FFFF);`
+/// Configuration for the Solarize effect.
+#[derive(Debug, Clone, Copy)]
+pub struct SolarizeConfig {
+    /// Colors with a value above this threshold will be inverted.
+    pub threshold: u8,
+}
+
 /// Applies a solarize filter to the framebuffer in-place.
 ///
 /// Colors with a value above the given threshold will be inverted.
 /// Colors below the threshold remain unchanged.
 ///
 /// # Examples
-/// rust
-/// use `abrash_core::framebuffer::Framebuffer`;
-/// use `abrash_render::post_process::filters::apply_solarize`;
+/// ```rust
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::post_process::filters::{apply_solarize, SolarizeConfig};
 ///
-/// let mut fb = `Framebuffer::new(1`, `1).unwrap()`;
-/// `fb.clear(0xFFC0_C0C0)`; // Light Gray (192)
-/// `apply_solarize(&mut` fb, 127);
-/// `assert_eq!(fb.get_pixel(0`, `0).unwrap()`, `0xFF3F_3F3F`);
-///
-pub fn apply_solarize(fb: &mut Framebuffer, threshold: u8) {
+/// let mut fb = Framebuffer::new(1, 1).unwrap();
+/// fb.clear(0xFFC0_C0C0); // Light Gray (192)
+/// apply_solarize(&mut fb, &SolarizeConfig { threshold: 127 });
+/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFF3F_3F3F);
+/// ```
+pub fn apply_solarize(fb: &mut Framebuffer, config: &SolarizeConfig) {
     let pixels = fb.as_mut_slice();
+    let threshold = config.threshold;
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     {
         if std::is_x86_feature_detected!("avx2") {
@@ -1691,7 +1709,7 @@ mod tests {
         fb.set_pixel(1, 0, 0xFF40_4040); // Dark Gray (64) -> Below threshold (127), should remain (64)
         fb.set_pixel(2, 0, 0xFFC0_C0C0); // Light Gray (192) -> Above threshold (127), should invert (255 - 192 = 63)
 
-        apply_solarize(&mut fb, 127);
+        apply_solarize(&mut fb, &SolarizeConfig { threshold: 127 });
 
         let p0 = fb.get_pixel(0, 0).unwrap();
         assert_eq!((p0 >> 16) & 0xFF, 127, "R channel failed at x=0");

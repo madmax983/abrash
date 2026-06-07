@@ -13,7 +13,10 @@ fn test_apply_pixelate_basic() {
         }
     }
 
-    apply_pixelate(&mut fb, 2);
+    apply_pixelate(
+        &mut fb,
+        &abrash::experimental::pixelate::PixelateConfig { block_size: 2 },
+    );
 
     unsafe {
         // Block 1: (0,0) - (1,1) -> Should take color of (0,0) which is 0
@@ -43,7 +46,10 @@ fn test_apply_pixelate_no_effect() {
     fb.set_pixel(1, 1, 20);
 
     // size 1 does nothing
-    apply_pixelate(&mut fb, 1);
+    apply_pixelate(
+        &mut fb,
+        &abrash::experimental::pixelate::PixelateConfig { block_size: 1 },
+    );
     unsafe {
         assert_eq!(fb.get_pixel_unchecked(0, 0), 10);
         assert_eq!(fb.get_pixel_unchecked(1, 1), 20);
@@ -58,7 +64,10 @@ fn test_apply_pixelate_edge_case() {
 
     // Block size 2 on a 3x3 buffer.
     // Rightmost and bottommost blocks will be truncated.
-    apply_pixelate(&mut fb, 2);
+    apply_pixelate(
+        &mut fb,
+        &abrash::experimental::pixelate::PixelateConfig { block_size: 2 },
+    );
 
     unsafe {
         assert_eq!(fb.get_pixel_unchecked(0, 0), 10);

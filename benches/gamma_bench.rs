@@ -17,7 +17,12 @@ fn benchmark_gamma(c: &mut Criterion) {
 
     c.bench_function("apply_gamma_correction 1080p (gamma=2.2)", |b| {
         b.iter(|| {
-            apply_gamma_correction(black_box(&mut fb), black_box(2.2));
+            apply_gamma_correction(
+                black_box(&mut fb),
+                black_box(
+                    &abrash_render::post_process::filters::GammaCorrectionConfig { gamma: 2.2 },
+                ),
+            );
         });
     });
 }

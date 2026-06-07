@@ -1,8 +1,8 @@
-use abrash::framebuffer::Framebuffer;
+use abrash_render::framebuffer::Framebuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 #[cfg(feature = "nova")]
-use abrash::experimental::kaleidoscope::apply_kaleidoscope;
+use abrash_render::experimental::kaleidoscope::apply_kaleidoscope;
 
 #[cfg(feature = "nova")]
 fn bench_kaleidoscope(c: &mut Criterion) {
