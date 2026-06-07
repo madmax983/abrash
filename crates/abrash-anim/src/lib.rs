@@ -12,7 +12,7 @@ pub mod keyframe;
 pub mod sequence;
 pub mod timeline;
 
-pub use clock::{AnimationClock, ClockEvent, PlaybackMode};
+pub use clock::{AnimationClock, PlaybackMode};
 pub use easing::Easing;
 pub use evaluable::{Evaluable, Sample};
 pub use hold::Hold;

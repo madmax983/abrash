@@ -50,40 +50,6 @@ pub enum ShadingMode {
         /// How reflective the surface is (0.0 = diffuse, 1.0 = perfect mirror).
         reflectivity: f32,
     },
-    /// Normal-mapped with per-pixel lighting.
-    NormalMapped {
-        /// Base diffuse color map.
-        diffuse: TextureHandle,
-        /// Tangent-space normal map.
-        normal_map: TextureHandle,
-        /// Specular shininess exponent.
-        shininess: f32,
-    },
-    /// Screen-space refraction using Newton's method.
-    ///
-    /// Implements the technique from "Ultrafast Screen-Space Refractions and
-    /// Caustics via Newton's Method" (JCGT Vol. 15, No. 1, 2026).
-    Refractive {
-        /// Index of refraction ratio n1/n2 (e.g. 1.0/1.5 ≈ 0.667 for glass in air,
-        /// 1.0/1.33 ≈ 0.752 for water in air).
-        ior: f32,
-    },
-    /// Two-texture Laplacian pyramid blend.
-    ///
-    /// Implements the algorithm from "GPU-Friendly Laplacian Texture Blending"
-    /// (JCGT Vol. 14, No. 1, 2025). Avoids contrast loss and ghosting at blend
-    /// boundaries by blending each frequency band of the textures separately,
-    /// using the same-frequency Gaussian of the blend mask as the blending weight.
-    LaplacianBlend {
-        /// Primary texture (selected when mask red channel = 0).
-        tex0: TextureHandle,
-        /// Secondary texture (selected when mask red channel = 255).
-        tex1: TextureHandle,
-        /// Blend mask texture; red channel controls the transition.
-        mask: TextureHandle,
-        /// Number of Laplacian pyramid levels (3–4 recommended).
-        num_levels: usize,
-    },
 }
 
 /// A material definition combining shading mode with rendering properties.
@@ -128,20 +94,6 @@ impl Material {
             },
             color,
             receive_light: true,
-        }
-    }
-
-    /// Create a refractive (glass/water) material.
-    ///
-    /// The `ior` parameter is the ratio n1/n2 of refractive indices, e.g.:
-    /// - Glass in air: `1.0 / 1.5 ≈ 0.667`
-    /// - Water in air: `1.0 / 1.33 ≈ 0.752`
-    #[must_use]
-    pub const fn refractive(color: u32, ior: f32) -> Self {
-        Self {
-            shading: ShadingMode::Refractive { ior },
-            color,
-            receive_light: false,
         }
     }
 

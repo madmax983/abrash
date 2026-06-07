@@ -30,8 +30,7 @@ struct GpuMaterial {
     metallic: f32,
     roughness: f32,
     texture: Option<u32>,
-    /// True when this material uses screen-space refraction.
-    is_refractive: bool,
+    // True when this material uses screen-space refraction.
 }
 
 /// A texture uploaded to the GPU with its view and bind group.
@@ -47,7 +46,6 @@ struct PreparedDraw {
     triangle_count: u32,
     color: u32,
     texture_index: Option<u32>,
-    is_refractive: bool,
 }
 
 /// Convert `0xAARRGGBB` into a wgpu clear color.
@@ -454,23 +452,6 @@ impl GpuRenderer {
             receive_light: _,
         } = material;
 
-        // Refractive materials are handled separately — they don't go through
-        // the standard deferred G-buffer and are rendered to the refraction
-        // surface buffer instead.
-        if let ShadingMode::Refractive { ior } = shading {
-            let index = self.materials.len() as u32;
-            self.materials.push(Some(GpuMaterial {
-                color,
-                shininess: ior,
-                specular_strength: 0.0,
-                metallic: 0.0,
-                roughness: 0.0,
-                texture: None,
-                is_refractive: true,
-            }));
-            return MaterialHandle::from_raw_parts(index, 0);
-        }
-
         let (color, shininess, spec, metallic, roughness, texture) = match shading {
             ShadingMode::Flat { color } => (color, 1.0, 0.0, 0.0, 1.0, None),
             ShadingMode::Phong {
@@ -495,7 +476,6 @@ impl GpuRenderer {
             metallic,
             roughness,
             texture,
-            is_refractive: false,
         }));
         MaterialHandle::from_raw_parts(index, 0)
     }
@@ -604,7 +584,7 @@ impl GpuRenderer {
                     label: Some("Deferred Capture Encoder"),
                 });
 
-        let has_refractive = prepared_draws.iter().any(|d| d.is_refractive);
+        let has_refractive = false;
 
         // Pass 1: Shadow depth (fallback, always runs)
         self.encode_shadow_pass(&mut encoder, frame, &prepared_draws)?;
@@ -770,7 +750,7 @@ impl GpuRenderer {
                     label: Some("Deferred Surface Encoder"),
                 });
 
-        let has_refractive = prepared_draws.iter().any(|d| d.is_refractive);
+        let has_refractive = false;
 
         // Pass 1: Shadow depth (fallback)
         self.encode_shadow_pass(&mut encoder, frame, &prepared_draws)?;
@@ -1002,10 +982,6 @@ impl GpuRenderer {
             pass.set_pipeline(&self.refraction_surface_pipeline.pipeline);
 
             for draw in prepared_draws {
-                if !draw.is_refractive {
-                    continue;
-                }
-
                 let gpu_mesh = self.meshes[draw.mesh_index].as_ref().ok_or_else(|| {
                     format!("stale mesh at refraction command {}", draw.command_index)
                 })?;
@@ -1172,7 +1148,6 @@ impl GpuRenderer {
                 triangle_count: gpu_mesh.triangle_count,
                 color: material.color,
                 texture_index: material.texture,
-                is_refractive: material.is_refractive,
             });
             total_triangles = total_triangles.saturating_add(gpu_mesh.triangle_count);
         }
@@ -1350,11 +1325,6 @@ impl GpuRenderer {
             });
 
             for draw in prepared_draws {
-                // Refractive objects are rendered in the refraction surface pass.
-                if draw.is_refractive {
-                    continue;
-                }
-
                 let gpu_mesh = self.meshes[draw.mesh_index]
                     .as_ref()
                     .ok_or_else(|| format!("stale mesh at command {}", draw.command_index))?;

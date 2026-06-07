@@ -21,15 +21,6 @@ pub enum PlaybackMode {
     Count(u32),
 }
 
-/// Events emitted by the clock on each tick.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ClockEvent {
-    /// Normal phase advance within a cycle.
-    Normal,
-    /// One or more cycles completed this tick.
-    CycleBoundary { completed: u64 },
-}
-
 /// A drift-free animation clock.
 ///
 /// Uses `(cycle: u64, phase: f32)` to eliminate floating-point
@@ -52,9 +43,9 @@ impl AnimationClock {
 
     /// Advance the clock by `delta_secs` for an animation of `duration` seconds.
     ///
-    /// Returns a `ClockEvent` indicating whether a cycle boundary was crossed.
+    /// Returns a boolean indicating whether a cycle boundary was crossed.
     /// Delta is clamped to `MAX_DELTA_SECS` to handle tab-backgrounding.
-    pub fn tick(&mut self, delta_secs: f32, duration: f32) -> ClockEvent {
+    pub fn tick(&mut self, delta_secs: f32, duration: f32) -> bool {
         debug_assert!(duration > 0.0, "Clock duration must be positive");
 
         let clamped = delta_secs.clamp(0.0, MAX_DELTA_SECS);
@@ -65,12 +56,10 @@ impl AnimationClock {
             let whole_cycles = new_phase as u64;
             self.cycle = self.cycle.saturating_add(whole_cycles);
             self.phase = new_phase.fract();
-            ClockEvent::CycleBoundary {
-                completed: whole_cycles,
-            }
+            true
         } else {
             self.phase = new_phase;
-            ClockEvent::Normal
+            false
         }
     }
 
@@ -134,21 +123,21 @@ mod tests {
     }
 
     /// Helper: tick the clock multiple times with small deltas to reach `target_secs`.
-    fn tick_to(c: &mut AnimationClock, target_secs: f32, duration: f32) -> ClockEvent {
+    fn tick_to(c: &mut AnimationClock, target_secs: f32, duration: f32) -> bool {
         let step = 0.05; // 50ms steps, well under MAX_DELTA_SECS
         let steps = (target_secs / step) as u32;
         let remainder = target_secs - (steps as f32 * step);
-        let mut last_event = ClockEvent::Normal;
+        let mut last_event = false;
         for _ in 0..steps {
             let e = c.tick(step, duration);
-            if matches!(e, ClockEvent::CycleBoundary { .. }) {
-                last_event = e;
+            if e {
+                last_event = true;
             }
         }
         if remainder > f32::EPSILON {
             let e = c.tick(remainder, duration);
-            if matches!(e, ClockEvent::CycleBoundary { .. }) {
-                last_event = e;
+            if e {
+                last_event = true;
             }
         }
         last_event
@@ -158,7 +147,7 @@ mod tests {
     fn tick_advances_phase() {
         let mut c = AnimationClock::new();
         let event = c.tick(0.05, 1.0); // 50ms into 1-second duration
-        assert!(matches!(event, ClockEvent::Normal));
+        assert!(matches!(event, false));
         assert!((c.phase() - 0.05).abs() < EPSILON);
     }
 
