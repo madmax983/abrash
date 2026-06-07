@@ -20,7 +20,7 @@ use abrash_core::ivec::IVec2;
 /// ⚡ Bolt: Fast horizontal line fill that avoids per-pixel bounds checks in the inner loop.
 #[inline(always)]
 fn draw_horizontal_line(fb: &mut Framebuffer, x0: i32, x1: i32, y: i32, color: u32) {
-    if y < 0 || y >= fb.height() as i32 {
+    if (y as u32) >= fb.height() {
         return;
     }
 

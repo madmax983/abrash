@@ -232,3 +232,12 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+## ⚡ Bolt: Eliding Bounds Checks in Rendering
+
+**Learning:** Bounds checks performed using signed integers (e.g. `if y < 0 || y >= height as i32`) require multiple branching conditions inside critical code paths. In performance-sensitive rendering loops (like rasterization setup), these boundaries are checked repeatedly across function calls.
+**Action:** Replace `if y < 0 || y >= height as i32` with a single, unsigned comparison `if (y as u32) >= height`. Due to two's complement, negative numbers wrap to extreme positive values, satisfying both boundary checks in a single branch and improving execution throughput without violating safety.
+
+**[Bounding Box Optimization via Saturating Sub]**
+**Learning:** During drawing operations like `draw_rect`, clamping an ending coordinate (e.g., `x_end = x1.min(...)`) can result in out-of-bounds operations if `x1` happens to wrap or exceed the slice's maximum bounds safely. Attempting to use floating-point max/min functions adds unnecessary types casting.
+**Action:** Utilizing `.saturating_sub(1)` against the buffer's width ensures a maximum bound without panicking, and `.max(0) as u32` allows for unsigned boundary evaluations in hot-path `draw` and `clear` algorithms, producing consistent performance wins and safe operations over unvalidated array manipulation.

@@ -299,7 +299,7 @@ fn draw_horizontal_line_unchecked(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32
 #[inline(always)]
 fn draw_horizontal_line(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32, color: u32) {
     // Quick bounds check for y
-    if y < 0 || y >= fb.height() as i32 {
+    if (y as u32) >= fb.height() {
         return;
     }
 

@@ -192,7 +192,7 @@ pub fn draw_ellipse(fb: &mut Framebuffer, xc: i32, yc: i32, rx: i32, ry: i32, co
 
 #[inline(always)]
 fn draw_horizontal_line(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32, color: u32) {
-    if y < 0 || y >= fb.height() as i32 {
+    if (y as u32) >= fb.height() {
         return;
     }
 

@@ -280,24 +280,24 @@ impl Framebuffer {
 
         // Prevent overflow when adding width to x
         // Use i64 for intermediate calculation to avoid wrapping
-        let x2_i64 = i64::from(x) + i64::from(width);
-        let y2_i64 = i64::from(y) + i64::from(height);
+        let start_x = x.max(0) as u32;
+        let start_y = y.max(0) as u32;
 
-        let x2 = if x2_i64 > i64::from(i32::MAX) {
-            i32::MAX
+        if start_x >= self.width || start_y >= self.height {
+            return;
+        }
+
+        let end_x = if x < 0 {
+            width.saturating_sub((-x) as u32).min(self.width)
         } else {
-            x2_i64 as i32
-        };
-        let y2 = if y2_i64 > i64::from(i32::MAX) {
-            i32::MAX
-        } else {
-            y2_i64 as i32
+            start_x.saturating_add(width).min(self.width)
         };
 
-        let start_x = x1.max(0).min(self.width as i32) as u32;
-        let start_y = y1.max(0).min(self.height as i32) as u32;
-        let end_x = x2.max(0).min(self.width as i32) as u32;
-        let end_y = y2.max(0).min(self.height as i32) as u32;
+        let end_y = if y < 0 {
+            height.saturating_sub((-y) as u32).min(self.height)
+        } else {
+            start_y.saturating_add(height).min(self.height)
+        };
 
         if start_x >= end_x || start_y >= end_y {
             return;

@@ -111,7 +111,7 @@ pub fn draw_line_3d(
 
         loop {
             // Check bounds (clipping should handle most cases, but guard against precision issues)
-            if x0 >= 0 && x0 < width as i32 && y0 >= 0 && y0 < height as i32 {
+            if (x0 as u32) < width && (y0 as u32) < height {
                 // Z-test
                 // SAFETY: Bounds checked.
                 unsafe {
