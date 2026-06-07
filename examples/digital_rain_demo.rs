@@ -25,7 +25,7 @@ impl DigitalRainDemoApp {
             presenter: None,
             framebuffer: Framebuffer::new(WIDTH, HEIGHT)
                 .map_err(|error| HostError::App(error.to_string()))?,
-            rain: DigitalRain::new(),
+            rain: DigitalRain::with_capacity((WIDTH as f32 / 8.0).ceil() as usize),
         })
     }
 

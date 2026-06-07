@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+## [Avoid dynamic allocations via `with_capacity` constructors]
+**Learning:** `Vec::new()` without explicit capacity pre-allocates zero elements, resulting in dynamic heap allocations and resizing when subsequently populated. This causes measurable initialization lag on the main thread for long-lived components initialized each frame or during startup.
+**Action:** Always provide and utilize `pub fn with_capacity(capacity: usize)` constructors for structs containing `Vec` fields when the target capacity is known ahead of time. Note that `Vec::with_capacity` is not `const fn` compatible.

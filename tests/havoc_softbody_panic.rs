@@ -13,7 +13,7 @@ fn test_havoc_softbody_panic() {
 
     let mut jelly = SoftBody::new(mesh, 1.0, 10.0, 0.5).unwrap();
 
-    let mut scene = SdfScene::new();
+    let mut scene = SdfScene::with_capacity(1);
     scene.add(SdfObject {
         primitive: SdfPrimitive::Sphere {
             radius: 10.0,

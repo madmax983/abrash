@@ -34,6 +34,17 @@ impl DigitalRain {
         Self::default()
     }
 
+    /// ⚡ Bolt: Creates a new instance of the digital rain effect with pre-allocated capacities to avoid dynamic heap allocations when updating rain drops.
+    #[must_use]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            drops: Vec::with_capacity(capacity),
+            rng: XorShift32::new(0xDEAD_BEEF),
+            cached_width: 0,
+            cached_height: 0,
+        }
+    }
+
     /// Renders the digital rain onto the given framebuffer
     ///
     /// * `fb`: Framebuffer to render to
@@ -132,7 +143,7 @@ mod tests {
         let mut fb = Framebuffer::new(32, 32).unwrap();
         fb.clear(0xFF_00_00_00);
 
-        let mut rain = DigitalRain::new();
+        let mut rain = DigitalRain::with_capacity((32.0 / 8.0_f32).ceil() as usize);
         // First frame
         rain.apply(&mut fb, 0.1);
 

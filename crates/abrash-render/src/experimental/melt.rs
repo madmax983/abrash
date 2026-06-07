@@ -51,6 +51,18 @@ impl MeltConfig {
         }
     }
 
+    /// ⚡ Bolt: Creates a new `MeltConfig` with pre-allocated column capacities to avoid dynamic heap reallocations when resizing the offsets vector per frame.
+    #[must_use]
+    pub fn with_capacity(speed: f32, background_color: u32, capacity: usize) -> Self {
+        Self {
+            time: 0.0,
+            speed,
+            background_color,
+            offsets: Vec::with_capacity(capacity),
+            initialized_width: 0,
+        }
+    }
+
     /// Resets the melt state, forcing it to generate new column offsets on the next frame.
     pub fn reset(&mut self) {
         self.time = 0.0;
@@ -189,7 +201,7 @@ mod tests {
             fb.set_pixel(x, 0, 0xFF_FF_00_00);
         }
 
-        let mut config = MeltConfig::new(100.0, 0xFF_00_FF_00);
+        let mut config = MeltConfig::with_capacity(100.0, 0xFF_00_FF_00, 5);
         config.time = 100.0; // Force a large time to ensure all columns drop
 
         apply_melt(&mut fb, &mut config);

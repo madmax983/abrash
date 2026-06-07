@@ -4,7 +4,7 @@ use criterion::{Criterion, criterion_group, criterion_main};
 
 fn metaballs_benchmark(c: &mut Criterion) {
     let mut fb = Framebuffer::new(800, 600).unwrap();
-    let mut sim = Metaballs::new(MetaballsConfig::default());
+    let mut sim = Metaballs::with_capacity(MetaballsConfig::default(), 5);
 
     c.bench_function("metaballs_update_and_render_800x600", |b| {
         b.iter(|| {
