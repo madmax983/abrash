@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Normal Mapping Filter]
+**Concept:** A screen-space normal map generation filter that reconstructs surface normals directly from the Z-Buffer, turning a depth map into a normal map (for deferred shading or artistic effects).
+**Fate:** Implemented
+**Lesson:** Sampling adjacent depths from the zbuffer effectively calculates local tangent vectors via finite differences. Taking the cross product provides realistic surface normals completely in screen-space, allowing pseudo-bump mapping on any rendered scene without vertex shaders.
