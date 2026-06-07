@@ -68,7 +68,7 @@ impl MeltDemoApp {
             framebuffer: Framebuffer::new(WIDTH, HEIGHT)
                 .map_err(|error| HostError::App(error.to_string()))?,
             background_fb,
-            config: MeltConfig::new(150.0, 0xFF_11_11_11),
+            config: MeltConfig::with_capacity(150.0, 0xFF_11_11_11, WIDTH as usize),
             time: 0.0,
         })
     }

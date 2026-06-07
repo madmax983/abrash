@@ -104,6 +104,13 @@ impl SdfScene {
         }
     }
 
+    #[must_use]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            objects: Vec::with_capacity(capacity),
+        }
+    }
+
     pub fn add(&mut self, object: SdfObject) {
         self.objects.push(object);
     }
@@ -536,5 +543,11 @@ mod tests {
         assert_ne!(p, 0xFF00_0000, "Center pixel should not be black");
 
         Ok(())
+    }
+
+    #[test]
+    fn test_sdf_scene_with_capacity() {
+        let scene = SdfScene::with_capacity(42);
+        assert!(scene.objects.capacity() >= 42);
     }
 }

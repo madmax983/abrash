@@ -71,6 +71,15 @@ impl Metaballs {
         }
     }
 
+    #[must_use]
+    pub fn with_capacity(config: MetaballsConfig, capacity: usize) -> Self {
+        Self {
+            config,
+            balls: Vec::with_capacity(capacity),
+            initialized: false,
+        }
+    }
+
     /// Updates the metaball positions and renders them to the framebuffer.
     pub fn update_and_render(&mut self, fb: &mut Framebuffer) {
         let width = fb.width() as f32;
@@ -183,5 +192,11 @@ mod tests {
         let mut fb = Framebuffer::new(100, 100).unwrap();
         sim.update_and_render(&mut fb);
         // Initially empty
+    }
+
+    #[test]
+    fn test_metaballs_with_capacity() {
+        let metaballs = Metaballs::with_capacity(MetaballsConfig::default(), 42);
+        assert!(metaballs.balls.capacity() >= 42);
     }
 }

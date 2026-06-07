@@ -1,5 +1,7 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::platform::{HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed};
+use abrash::platform::{
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+};
 use abrash_render::experimental::metaballs::{Metaballs, MetaballsConfig};
 
 const WIDTH: u32 = 800;
@@ -16,15 +18,19 @@ impl DemoApp {
     fn new() -> Result<Self, HostError> {
         Ok(Self {
             presenter: None,
-            fb: Framebuffer::new(WIDTH, HEIGHT).map_err(|error| HostError::App(error.to_string()))?,
-            metaballs: Metaballs::new(MetaballsConfig {
-                num_balls: 10,
-                threshold: 1.0,
-                blob_color: 0xFF_FF00FF, // Magenta blobs
-                bg_color: 0xFF_111111,
-                speed: 5.0,
-                max_size: 40.0,
-            }),
+            fb: Framebuffer::new(WIDTH, HEIGHT)
+                .map_err(|error| HostError::App(error.to_string()))?,
+            metaballs: Metaballs::with_capacity(
+                MetaballsConfig {
+                    num_balls: 10,
+                    threshold: 1.0,
+                    blob_color: 0xFF_FF00FF, // Magenta blobs
+                    bg_color: 0xFF_111111,
+                    speed: 5.0,
+                    max_size: 40.0,
+                },
+                10,
+            ),
         })
     }
 }
@@ -52,7 +58,8 @@ impl WindowApp for DemoApp {
         width: u32,
         height: u32,
     ) -> Result<(), Self::Error> {
-        self.fb = Framebuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
+        self.fb =
+            Framebuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
         Ok(())
     }
 

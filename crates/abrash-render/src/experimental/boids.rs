@@ -75,6 +75,15 @@ impl Flock {
         }
     }
 
+    #[must_use]
+    pub fn with_capacity(config: FlockConfig, capacity: usize) -> Self {
+        Self {
+            boids: Vec::with_capacity(capacity),
+            old_boids: Vec::with_capacity(capacity),
+            config,
+        }
+    }
+
     pub fn add_boid(&mut self, boid: Boid) {
         self.boids.push(boid);
     }
@@ -336,5 +345,23 @@ mod tests {
         assert!(flock.boids[0].velocity.x > 0.0);
         assert!(flock.boids[0].velocity.y > 0.0);
         assert!(flock.boids[0].velocity.z > 0.0);
+    }
+
+    #[test]
+    fn test_flock_with_capacity() {
+        let config = FlockConfig {
+            separation_weight: 1.0,
+            alignment_weight: 1.0,
+            cohesion_weight: 1.0,
+            bound_weight: 1.0,
+            perception_radius: 10.0,
+            separation_radius: 2.0,
+            max_speed: 10.0,
+            min_speed: 1.0,
+            bounds: Vec3::new(10.0, 10.0, 10.0),
+        };
+        let flock = Flock::with_capacity(config, 42);
+        assert!(flock.boids.capacity() >= 42);
+        assert!(flock.old_boids.capacity() >= 42);
     }
 }

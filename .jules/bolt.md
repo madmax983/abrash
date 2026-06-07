@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**Workflow & Rules (Planning): Do not assume the existence of a `#[cfg(test)] mod tests` block or `Default` trait implementations when planning to add tests. Explicitly verify their existence or construct required types and test modules manually to adhere to the Groundedness Rule.**
+**Learning:** When planning to add unit tests to existing files, assuming the file has a standard `#[cfg(test)] mod tests` block or that structs implement the `Default` trait without explicit verification violates the Groundedness Rule and leads to rejected plans.
+**Action:** Always verify the existence of test modules and trait implementations using tools like `grep` or `cat` before writing the plan, or defensively wrap new tests in a new test module and construct instances manually.

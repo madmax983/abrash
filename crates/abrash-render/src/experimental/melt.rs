@@ -51,6 +51,18 @@ impl MeltConfig {
         }
     }
 
+    /// Creates a new `MeltConfig` with the specified speed, background color, and initial capacity.
+    #[must_use]
+    pub fn with_capacity(speed: f32, background_color: u32, capacity: usize) -> Self {
+        Self {
+            time: 0.0,
+            speed,
+            background_color,
+            offsets: Vec::with_capacity(capacity),
+            initialized_width: 0,
+        }
+    }
+
     /// Resets the melt state, forcing it to generate new column offsets on the next frame.
     pub fn reset(&mut self) {
         self.time = 0.0;
@@ -202,5 +214,11 @@ mod tests {
                 "Pixel should be replaced by background color after a long melt"
             );
         }
+    }
+
+    #[test]
+    fn test_melt_config_with_capacity() {
+        let config = MeltConfig::with_capacity(100.0, 0, 42);
+        assert!(config.offsets.capacity() >= 42);
     }
 }

@@ -34,6 +34,16 @@ impl DigitalRain {
         Self::default()
     }
 
+    #[must_use]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            drops: Vec::with_capacity(capacity),
+            rng: XorShift32::new(0xDEAD_BEEF),
+            cached_width: 0,
+            cached_height: 0,
+        }
+    }
+
     /// Renders the digital rain onto the given framebuffer
     ///
     /// * `fb`: Framebuffer to render to
@@ -147,5 +157,11 @@ mod tests {
 
         // Test fading
         rain.apply(&mut fb, 0.1);
+    }
+
+    #[test]
+    fn test_digital_rain_with_capacity() {
+        let rain = DigitalRain::with_capacity(42);
+        assert!(rain.drops.capacity() >= 42);
     }
 }
