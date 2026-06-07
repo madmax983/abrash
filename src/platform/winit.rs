@@ -175,8 +175,32 @@ fn print_host_error_and_exit(err: &HostError) -> ! {
             Cell::new("❌ Window Application Error")
                 .add_attribute(comfy_table::Attribute::Bold)
                 .fg(Color::Red),
-        ])
-        .add_row(vec![Cell::new(format!("{err}")).fg(Color::Yellow)]);
+            Cell::new(""),
+        ]);
+
+    let (human_msg, raw_msg) = match err {
+        HostError::EventLoop(e) => (
+            "Failed to initialize display system. Are you running in a headless environment without an X11/Wayland server?",
+            e,
+        ),
+        HostError::Window(e) => ("Failed to open an application window.", e),
+        HostError::App(e) => ("The application encountered an internal error during setup.", e),
+        HostError::Present(e) => ("Failed to render the frame to the screen.", e),
+    };
+
+    table.add_row(vec![
+        Cell::new("Issue")
+            .add_attribute(comfy_table::Attribute::Bold)
+            .fg(Color::Cyan),
+        Cell::new(human_msg).fg(Color::White),
+    ]);
+
+    table.add_row(vec![
+        Cell::new("Details")
+            .add_attribute(comfy_table::Attribute::Bold)
+            .fg(Color::DarkGrey),
+        Cell::new(raw_msg).fg(Color::DarkGrey),
+    ]);
 
     eprintln!("\n{table}");
     std::process::exit(1);

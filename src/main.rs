@@ -861,10 +861,28 @@ fn print_launch_error(status: std::process::ExitStatus) {
             ComfyCell::new("❌ Demo Crashed")
                 .add_attribute(comfy_table::Attribute::Bold)
                 .fg(ComfyColor::Red),
-        ])
-        .add_row(vec![
-            ComfyCell::new(format!("Exit Status: {status}")).fg(ComfyColor::Yellow),
+            ComfyCell::new(""),
         ]);
+
+    let exit_code = status.code().unwrap_or(1);
+    let reason = match exit_code {
+        101 => "The demo panicked (Rust Panic). Check the console output above for details.",
+        _ => "The demo exited with an error status.",
+    };
+
+    error_table.add_row(vec![
+        ComfyCell::new("Issue")
+            .add_attribute(comfy_table::Attribute::Bold)
+            .fg(ComfyColor::Cyan),
+        ComfyCell::new(reason).fg(ComfyColor::White),
+    ]);
+
+    error_table.add_row(vec![
+        ComfyCell::new("Details")
+            .add_attribute(comfy_table::Attribute::Bold)
+            .fg(ComfyColor::DarkGrey),
+        ComfyCell::new(format!("Exit Status: {status}")).fg(ComfyColor::DarkGrey),
+    ]);
 
     println!("\n{error_table}");
 
