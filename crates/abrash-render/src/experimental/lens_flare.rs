@@ -29,11 +29,31 @@ impl Default for LensFlareConfig {
     fn default() -> Self {
         Self {
             ghosts: vec![
-                FlareGhost { offset_scale: 0.2, radius: 40.0, color: 0x44FF_AA33 },
-                FlareGhost { offset_scale: -0.3, radius: 25.0, color: 0x4433_FF55 },
-                FlareGhost { offset_scale: -0.5, radius: 70.0, color: 0x2233_AAFF },
-                FlareGhost { offset_scale: -0.9, radius: 15.0, color: 0x66FF_3333 },
-                FlareGhost { offset_scale: 1.0, radius: 120.0, color: 0x11FF_FFFF },
+                FlareGhost {
+                    offset_scale: 0.2,
+                    radius: 40.0,
+                    color: 0x44FF_AA33,
+                },
+                FlareGhost {
+                    offset_scale: -0.3,
+                    radius: 25.0,
+                    color: 0x4433_FF55,
+                },
+                FlareGhost {
+                    offset_scale: -0.5,
+                    radius: 70.0,
+                    color: 0x2233_AAFF,
+                },
+                FlareGhost {
+                    offset_scale: -0.9,
+                    radius: 15.0,
+                    color: 0x66FF_3333,
+                },
+                FlareGhost {
+                    offset_scale: 1.0,
+                    radius: 120.0,
+                    color: 0x11FF_FFFF,
+                },
             ],
             halo_radius: 150.0,
             halo_thickness: 10.0,
@@ -81,7 +101,7 @@ struct RenderableGhost {
     max_x: i32,
 }
 
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlareConfig) {
@@ -178,7 +198,8 @@ pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlar
                     let intensity = (256.0 * (1.0 - (center_dist / config.halo_thickness))) as i32;
                     if intensity > 0 {
                         let idx = x as usize;
-                        row_slice[idx] = add_blend_int(row_slice[idx], config.halo_color, intensity as u32);
+                        row_slice[idx] =
+                            add_blend_int(row_slice[idx], config.halo_color, intensity as u32);
                     }
                 }
             }
@@ -187,15 +208,47 @@ pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlar
 
     #[cfg(feature = "parallel")]
     {
-        pixels.par_chunks_exact_mut(width as usize).enumerate().for_each(|(y, row_slice)| {
-            process_row(y as i32, row_slice);
-        });
+        pixels
+            .par_chunks_exact_mut(width as usize)
+            .enumerate()
+            .for_each(|(y, row_slice)| {
+                process_row(y as i32, row_slice);
+            });
     }
 
     #[cfg(not(feature = "parallel"))]
     {
-        pixels.chunks_exact_mut(width as usize).enumerate().for_each(|(y, row_slice)| {
-            process_row(y as i32, row_slice);
-        });
+        pixels
+            .chunks_exact_mut(width as usize)
+            .enumerate()
+            .for_each(|(y, row_slice)| {
+                process_row(y as i32, row_slice);
+            });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_apply_lens_flare() {
+        let mut fb = Framebuffer::new(100, 100).unwrap();
+        fb.clear(0xFF00_0000);
+
+        let config = LensFlareConfig::default();
+        let light_pos = Vec2::new(50.0, 50.0);
+
+        apply_lens_flare(&mut fb, light_pos, &config);
+
+        // Assert that at least some pixels have changed from black
+        let mut has_color = false;
+        for &pixel in fb.as_slice() {
+            if pixel != 0xFF00_0000 {
+                has_color = true;
+                break;
+            }
+        }
+        assert!(has_color, "Lens flare should alter some pixels.");
     }
 }

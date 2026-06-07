@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [Lens Flare Filter]
+**Concept:** A post-processing effect that simulates screen-space lens flare artifacts based on bright light sources. It creates overlapping internal reflection ghosts and halos.
+**Fate:** Implemented
+**Lesson:** Iterating precisely over the bounding box of each ghost/halo using parallel or chunks iterators helps avoid looping over the entire 4K framebuffer when rendering small artifacts, making the mathematical add-blend fast enough for interactive rendering.
