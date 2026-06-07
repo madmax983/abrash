@@ -67,6 +67,15 @@ pub struct Flock {
 
 impl Flock {
     #[must_use]
+    #[must_use]
+    pub fn with_capacity(capacity: usize, config: FlockConfig) -> Self {
+        Self {
+            boids: Vec::with_capacity(capacity),
+            old_boids: Vec::with_capacity(capacity),
+            config,
+        }
+    }
+
     pub const fn new(config: FlockConfig) -> Self {
         Self {
             boids: Vec::new(),
@@ -247,7 +256,7 @@ mod tests {
 
     #[test]
     fn test_separation() {
-        let mut flock = Flock::new(FlockConfig {
+        let mut flock = Flock::with_capacity(2, FlockConfig {
             separation_weight: 1.0,
             alignment_weight: 0.0,
             cohesion_weight: 0.0,
@@ -278,7 +287,7 @@ mod tests {
 
     #[test]
     fn test_alignment() {
-        let mut flock = Flock::new(FlockConfig {
+        let mut flock = Flock::with_capacity(2, FlockConfig {
             separation_weight: 0.0,
             alignment_weight: 1.0,
             cohesion_weight: 0.0,
@@ -309,7 +318,7 @@ mod tests {
 
     #[test]
     fn test_cohesion() {
-        let mut flock = Flock::new(FlockConfig {
+        let mut flock = Flock::with_capacity(2, FlockConfig {
             separation_weight: 0.0,
             alignment_weight: 0.0,
             cohesion_weight: 1.0,

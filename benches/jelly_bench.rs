@@ -36,7 +36,7 @@ fn bench_jelly_collide_sdf(c: &mut Criterion) {
     let mut softbody = SoftBody::new(mesh, 1.0, 10.0, 0.5).expect("Failed to create SoftBody");
 
     // Create a sphere scene right in the middle
-    let mut scene = SdfScene::new();
+    let mut scene = SdfScene::with_capacity(1);
     scene.add(SdfObject {
         primitive: SdfPrimitive::Sphere {
             center: Vec3::new(15.0, 0.0, 15.0),

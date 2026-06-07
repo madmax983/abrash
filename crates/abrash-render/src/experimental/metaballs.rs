@@ -63,6 +63,15 @@ impl Default for Metaballs {
 
 impl Metaballs {
     #[must_use]
+    #[must_use]
+    pub fn with_capacity(capacity: usize, config: MetaballsConfig) -> Self {
+        Self {
+            config,
+            balls: Vec::with_capacity(capacity),
+            initialized: false,
+        }
+    }
+
     pub const fn new(config: MetaballsConfig) -> Self {
         Self {
             config,

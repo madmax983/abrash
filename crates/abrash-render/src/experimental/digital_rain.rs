@@ -30,6 +30,14 @@ impl Default for DigitalRain {
 impl DigitalRain {
     /// Creates a new instance of the digital rain effect
     #[must_use]
+    /// Creates a new instance of the digital rain effect with a pre-allocated capacity
+    #[must_use]
+    pub fn with_capacity(capacity: usize) -> Self {
+        let mut s = Self::default();
+        s.drops = Vec::with_capacity(capacity);
+        s
+    }
+
     pub fn new() -> Self {
         Self::default()
     }
@@ -132,7 +140,7 @@ mod tests {
         let mut fb = Framebuffer::new(32, 32).unwrap();
         fb.clear(0xFF_00_00_00);
 
-        let mut rain = DigitalRain::new();
+        let mut rain = DigitalRain::with_capacity(100);
         // First frame
         rain.apply(&mut fb, 0.1);
 
