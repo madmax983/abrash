@@ -579,6 +579,40 @@ mod tests {
             other => panic!("Expected StaleHandle(material), got {other}"),
         }
     }
+    #[test]
+    fn test_cpu_renderer_stale_texture_handle() {
+        let mut renderer = CpuRenderer::new(100, 100);
+        let tex = Texture::new(2, 2).unwrap();
+        let handle = renderer.create_texture(&tex).unwrap();
+
+        renderer.destroy_texture(handle);
+
+        let updated = Texture::new(2, 2).unwrap();
+        let result = renderer.update_texture(handle, &updated);
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            RenderError::StaleHandle(kind) => assert_eq!(kind, "texture"),
+            other => panic!("Expected StaleHandle(texture), got {other}"),
+        }
+    }
+
+    #[test]
+    fn test_cpu_renderer_stale_mesh_update() {
+        let mut renderer = CpuRenderer::new(100, 100);
+        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+
+        renderer.destroy_mesh(mesh_h);
+
+        let mesh = Mesh::cube(2.0);
+        let result = renderer.update_mesh(mesh_h, &mesh);
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            RenderError::StaleHandle(kind) => assert_eq!(kind, "mesh"),
+            other => panic!("Expected StaleHandle(mesh), got {other}"),
+        }
+    }
 
     #[test]
     fn test_cpu_renderer_invalid_mesh() {
