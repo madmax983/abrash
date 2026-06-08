@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2024-05-20 - [Capture Target and Skeleton Animator Documentation]
+**Confusion:** The `GpuCaptureTarget` struct for offscreen headless capture and the `SkeletonAnimator` were missing executable `## Examples` block, leading to user confusion regarding their initialization and usage.
+**Clarification:** Added comprehensive docstrings and executable doc-tests explaining the setup and utilization of these core structures. Specifically addressed the `no_run` setup needed for the `wgpu` instance in CI environments.

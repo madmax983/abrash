@@ -46,6 +46,29 @@ impl CaptureConfig {
 }
 
 /// Offscreen GPU render target with readback capability.
+///
+/// Use this struct to create a headless capture target, typically for debugging
+/// or integration testing of rendering output without requiring a surface.
+///
+/// ## Examples
+///
+/// ```no_run
+/// use pollster::FutureExt as _;
+/// use abrash_gpu_render::capture::GpuCaptureTarget;
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let instance = wgpu::Instance::default();
+/// let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions::default()).await.unwrap();
+/// let (device, _) = adapter.request_device(&Default::default()).await.unwrap();
+///
+/// // Create a 800x600 offscreen capture target
+/// let capture_target = GpuCaptureTarget::new(&device, 800, 600);
+///
+/// assert_eq!(capture_target.width(), 800);
+/// assert_eq!(capture_target.height(), 600);
+/// # Ok(())
+/// # }
+/// ```
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct GpuCaptureTarget {
@@ -126,8 +149,25 @@ impl GpuCaptureTarget {
     }
 }
 
-/// Per-batch statistics in a captured frame.
 #[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Contains information about individual draw calls or batches submitted
+/// within a single rendered frame, useful for analyzing performance or
+/// verifying rendering correctness.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash_gpu_render::capture::BatchStats;
+///
+/// let batch = BatchStats {
+///     index: 0,
+///     triangle_count: 12,
+///     color: 0xFFFF0000, // Red
+/// };
+///
+/// assert_eq!(batch.triangle_count, 12);
+/// ```
 pub struct BatchStats {
     /// Batch index in submission order.
     pub index: usize,
@@ -137,8 +177,32 @@ pub struct BatchStats {
     pub color: u32,
 }
 
-/// Frame-level statistics from a GPU capture.
 #[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Provides a high-level summary of a single captured frame, including
+/// resolution, total geometry rendered, and an array of individual batch statistics.
+///
+/// ## Examples
+///
+/// ```
+/// use std::time::Duration;
+/// use abrash_gpu_render::capture::{FrameStats, BatchStats};
+///
+/// let stats = FrameStats {
+///     width: 800,
+///     height: 600,
+///     batch_count: 1,
+///     total_triangles: 12,
+///     render_time: Duration::from_millis(5),
+///     batches: vec![BatchStats {
+///         index: 0,
+///         triangle_count: 12,
+///         color: 0xFFFF0000,
+///     }],
+/// };
+///
+/// assert_eq!(stats.total_triangles, 12);
+/// ```
 pub struct FrameStats {
     /// Resolution width.
     pub width: u32,
@@ -154,8 +218,33 @@ pub struct FrameStats {
     pub batches: Vec<BatchStats>,
 }
 
-/// Result of a headless GPU capture.
 #[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Contains the raw pixel data and statistics from an offscreen rendering pass.
+/// Use this to verify rendering output programmatically without displaying it.
+///
+/// ## Examples
+///
+/// ```
+/// use std::time::Duration;
+/// use abrash_gpu_render::capture::{GpuDebugCapture, FrameStats};
+///
+/// let capture = GpuDebugCapture {
+///     stats: FrameStats {
+///         width: 10,
+///         height: 10,
+///         batch_count: 0,
+///         total_triangles: 0,
+///         render_time: Duration::ZERO,
+///         batches: vec![],
+///     },
+///     pixels_rgba: vec![0; 400], // 10x10 * 4 bytes
+///     visible_pixel_count: 0,
+/// };
+///
+/// assert_eq!(capture.total_pixels(), 100);
+/// assert_eq!(capture.coverage_percent(), 0.0);
+/// ```
 pub struct GpuDebugCapture {
     /// Frame statistics.
     pub stats: FrameStats,

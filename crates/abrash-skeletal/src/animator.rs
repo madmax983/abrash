@@ -29,6 +29,42 @@ pub struct BoneAnimator {
 ///
 /// Owns a skeleton, per-bone animators, and a playback mode.
 /// Call [`tick`](Self::tick) each frame to advance the animation and produce a [`Pose`].
+///
+/// ## Examples
+///
+/// ```
+/// use abrash_skeletal::animator::SkeletonAnimator;
+/// use abrash_skeletal::clip::AnimationClip;
+/// use abrash_skeletal::skeleton::{Skeleton, Joint};
+/// use abrash_anim::clock::PlaybackMode;
+/// use abrash_core::transform::Transform;
+/// use abrash_core::math::Mat4;
+///
+/// // Create a single-bone skeleton
+/// let joints = vec![Joint {
+///     name: "root".to_string(),
+///     parent: None,
+///     inverse_bind_matrix: Mat4::identity(),
+///     bind_transform: Transform::identity(),
+/// }];
+/// let skeleton = Skeleton::new(joints);
+///
+/// // A dummy empty clip for demonstration
+/// let clip = AnimationClip {
+///     name: "idle".to_string(),
+///     duration: 1.0,
+///     channels: vec![],
+/// };
+///
+/// let mut animator = SkeletonAnimator::new(skeleton, &clip, PlaybackMode::Once);
+///
+/// // Advance the animation by 0.5 seconds
+/// animator.tick(0.5);
+///
+/// // Retrieve the current pose
+/// let pose = animator.current_pose();
+/// assert_eq!(pose.local_transforms.len(), 1);
+/// ```
 pub struct SkeletonAnimator {
     skeleton: Skeleton,
     bone_animators: Vec<BoneAnimator>,
