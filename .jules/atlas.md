@@ -125,3 +125,7 @@
 1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
 2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors.
 3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
+
+**[Argument Jungle in Texture Rasterizer]**
+**Tangle:** `crates/abrash-render/src/rasterizer/texture.rs` had severe argument jungles in basic and gouraud texturing functions (`draw_span_nearest`, `draw_span_bilinear`, etc.), with functions accepting 9 to 15+ primitive arguments (`z`, `dz_dx`, `u_fix`, `v_fix`, `du_fix`, `dv_fix`, `r_fix`, `g_fix`, `b_fix`, etc.). This caused high coupling and made SIMD fallbacks extremely fragile.
+**Blueprint:** Abstracted the loose arguments into logical units (`TexSpanState`, `TexSpanStep`, `GouraudSpanState`, `GouraudSpanStep`) reflecting the mutable running state vs the immutable per-step gradients. This reduced argument counts down to 5 struct-based parameters, simplifying signatures and call sites across `texture.rs` and `tile.rs`.
