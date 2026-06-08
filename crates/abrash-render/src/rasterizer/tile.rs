@@ -1660,6 +1660,8 @@ pub struct TileRenderer {
     /// When set, `end_frame` writes ALL tiles (empty tiles get this color),
     /// eliminating the need for a separate full-frame `fb.clear()` + `zb.clear()`.
     clear_color: Option<u32>,
+    /// Persistent workspace to prevent `SmallVec` from spilling to the heap during tile sorting.
+    sort_workspace: Vec<u32>,
 }
 
 struct CoarseBinContext<'a> {
@@ -1724,6 +1726,7 @@ impl TileRenderer {
             half_width: width as f32 * 0.5,
             half_height: height as f32 * 0.5,
             clear_color: None,
+            sort_workspace: Vec::with_capacity(128),
         }
     }
 
@@ -3004,25 +3007,22 @@ impl TileRenderer {
         let nexts = &mut self.tile_bins.nexts;
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
+        let sort_workspace = &mut self.sort_workspace;
 
-        // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
             }
 
-            indices.clear();
+            sort_workspace.clear();
             let mut curr = *head;
             while curr != u32::MAX {
-                indices.push(curr);
+                sort_workspace.push(curr);
                 curr = nexts[curr as usize];
             }
 
-            if indices.len() > 1 {
-                indices.sort_unstable_by(|&a, &b| {
+            if sort_workspace.len() > 1 {
+                sort_workspace.sort_unstable_by(|&a, &b| {
                     let tri_idx_a = tris[a as usize] as usize;
                     let tri_idx_b = tris[b as usize] as usize;
                     let depth_a = unsafe { prepared_gouraud.get_unchecked(tri_idx_a).min_depth };
@@ -3032,13 +3032,13 @@ impl TileRenderer {
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
 
-                *head = indices[0];
-                let len = indices.len();
+                *head = sort_workspace[0];
+                let len = sort_workspace.len();
                 for i in 0..len - 1 {
-                    nexts[indices[i] as usize] = indices[i + 1];
+                    nexts[sort_workspace[i] as usize] = sort_workspace[i + 1];
                 }
-                nexts[indices[len - 1] as usize] = u32::MAX;
-                tails[tile_idx] = indices[len - 1];
+                nexts[sort_workspace[len - 1] as usize] = u32::MAX;
+                tails[tile_idx] = sort_workspace[len - 1];
             }
         }
     }
@@ -3527,25 +3527,22 @@ impl TileRenderer {
         let nexts = &mut self.tile_bins.nexts;
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
+        let sort_workspace = &mut self.sort_workspace;
 
-        // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
             }
 
-            indices.clear();
+            sort_workspace.clear();
             let mut curr = *head;
             while curr != u32::MAX {
-                indices.push(curr);
+                sort_workspace.push(curr);
                 curr = nexts[curr as usize];
             }
 
-            if indices.len() > 1 {
-                indices.sort_unstable_by(|&a, &b| {
+            if sort_workspace.len() > 1 {
+                sort_workspace.sort_unstable_by(|&a, &b| {
                     let tri_idx_a = tris[a as usize] as usize;
                     let tri_idx_b = tris[b as usize] as usize;
                     let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
@@ -3555,13 +3552,13 @@ impl TileRenderer {
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
 
-                *head = indices[0];
-                let len = indices.len();
+                *head = sort_workspace[0];
+                let len = sort_workspace.len();
                 for i in 0..len - 1 {
-                    nexts[indices[i] as usize] = indices[i + 1];
+                    nexts[sort_workspace[i] as usize] = sort_workspace[i + 1];
                 }
-                nexts[indices[len - 1] as usize] = u32::MAX;
-                tails[tile_idx] = indices[len - 1];
+                nexts[sort_workspace[len - 1] as usize] = u32::MAX;
+                tails[tile_idx] = sort_workspace[len - 1];
             }
         }
     }
@@ -3577,25 +3574,22 @@ impl TileRenderer {
         let nexts = &mut self.tile_bins.nexts;
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
+        let sort_workspace = &mut self.sort_workspace;
 
-        // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
             }
 
-            indices.clear();
+            sort_workspace.clear();
             let mut curr = *head;
             while curr != u32::MAX {
-                indices.push(curr);
+                sort_workspace.push(curr);
                 curr = nexts[curr as usize];
             }
 
-            if indices.len() > 1 {
-                indices.sort_unstable_by(|&a, &b| {
+            if sort_workspace.len() > 1 {
+                sort_workspace.sort_unstable_by(|&a, &b| {
                     let tri_idx_a = tris[a as usize] as usize;
                     let tri_idx_b = tris[b as usize] as usize;
                     let depth_a = unsafe { prepared_textured.get_unchecked(tri_idx_a).min_depth };
@@ -3605,13 +3599,13 @@ impl TileRenderer {
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
 
-                *head = indices[0];
-                let len = indices.len();
+                *head = sort_workspace[0];
+                let len = sort_workspace.len();
                 for i in 0..len - 1 {
-                    nexts[indices[i] as usize] = indices[i + 1];
+                    nexts[sort_workspace[i] as usize] = sort_workspace[i + 1];
                 }
-                nexts[indices[len - 1] as usize] = u32::MAX;
-                tails[tile_idx] = indices[len - 1];
+                nexts[sort_workspace[len - 1] as usize] = u32::MAX;
+                tails[tile_idx] = sort_workspace[len - 1];
             }
         }
     }
