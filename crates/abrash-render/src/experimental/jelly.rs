@@ -8,6 +8,7 @@
 use super::sdf::SdfScene;
 use crate::math::{Vec3, Vec4};
 use crate::mesh::Mesh;
+use comfy_table::{Attribute, Cell, Color, Table, modifiers, presets};
 use std::collections::HashSet;
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
@@ -255,12 +256,25 @@ impl SoftBody {
         if self.mesh.vertices.len() != self.velocities.len()
             || self.mesh.vertices.len() != self.forces.len()
         {
-            eprintln!(
-                "SoftBody Error: Mesh vertex count ({}) mismatch with physics state (v:{}/f:{})",
-                self.mesh.vertices.len(),
-                self.velocities.len(),
-                self.forces.len()
-            );
+            let mut error_table = Table::new();
+            error_table
+                .load_preset(presets::UTF8_FULL)
+                .apply_modifier(modifiers::UTF8_ROUND_CORNERS)
+                .set_header(vec![
+                    Cell::new("❌ SoftBody Error")
+                        .add_attribute(Attribute::Bold)
+                        .fg(Color::Red),
+                ])
+                .add_row(vec![
+                    Cell::new(format!(
+                        "Mesh vertex count ({}) mismatch with physics state (v:{}/f:{})",
+                        self.mesh.vertices.len(),
+                        self.velocities.len(),
+                        self.forces.len()
+                    ))
+                    .fg(Color::Yellow),
+                ]);
+            eprintln!("\n{error_table}");
             return;
         }
 
@@ -271,7 +285,19 @@ impl SoftBody {
             .chain(self.spring_indices_b.iter())
         {
             if idx >= self.mesh.vertices.len() {
-                eprintln!("SoftBody Error: Spring index {} out of bounds", idx);
+                let mut error_table = Table::new();
+                error_table
+                    .load_preset(presets::UTF8_FULL)
+                    .apply_modifier(modifiers::UTF8_ROUND_CORNERS)
+                    .set_header(vec![
+                        Cell::new("❌ SoftBody Error")
+                            .add_attribute(Attribute::Bold)
+                            .fg(Color::Red),
+                    ])
+                    .add_row(vec![
+                        Cell::new(format!("Spring index {} out of bounds", idx)).fg(Color::Yellow),
+                    ]);
+                eprintln!("\n{error_table}");
                 return;
             }
         }
