@@ -51,3 +51,6 @@
 **[Validating Time/Tick Loop Logic Without Flakiness]**
 **Learning:** Testing frame-time loops using `std::thread::sleep` introduces severe flakiness because CI runners or test threads can delay execution unpredictably. Instead of testing "real" time elapsed, test the internal response to elapsed time by directly simulating it on the structure (e.g. `timer.last_time = Instant::now()`, `timer.accumulator += 50ms`).
 **Action:** Never use `std::thread::sleep` for unit testing timing systems. Always manipulate the simulated time state directly to test logic boundaries.
+**[Validating Update Material Error Path]**
+**Learning:** An error variant like `RenderError::StaleHandle("material")` was theoretically accessible via the `update_material` method but was entirely untested, leaving a critical failure path unprotected from regressions.
+**Action:** Always ensure that every method that can return a `Result` containing a specific error variant has a corresponding test that deliberately triggers that exact error variant (e.g. passing a destroyed handle to an update method).
