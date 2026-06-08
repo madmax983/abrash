@@ -65,6 +65,7 @@ pub mod infinite_grid;
 pub mod isosurface;
 pub mod jelly;
 pub mod kaleidoscope;
+pub mod kintsugi;
 pub mod kuwahara;
 pub mod led_matrix;
 pub mod lsystem;
