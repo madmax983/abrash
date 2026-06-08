@@ -208,18 +208,19 @@ fn quantize_color(color: u32, levels: u32) -> u32 {
         return color; // No quantization if levels is 1 or less
     }
 
-    let factor = 255.0 / (levels - 1) as f32;
-    let inv_factor = (levels - 1) as f32 / 255.0;
+    let levels_minus_1 = levels - 1;
 
     let a = color & 0xFF00_0000;
-    let r = ((color >> 16) & 0xFF) as f32;
-    let g = ((color >> 8) & 0xFF) as f32;
-    let b = (color & 0xFF) as f32;
+    // To prevent integer overflow panics when using very high `levels` with `127` bias, cast intermediate calcs to u64
+    let r = ((color >> 16) & 0xFF) as u64;
+    let g = ((color >> 8) & 0xFF) as u64;
+    let b = (color & 0xFF) as u64;
+    let l_m_1 = levels_minus_1 as u64;
 
     // ⚡ Bolt: Replace f32::round() with fast integer casting
-    let qr = (((r * inv_factor + 0.5) as i32 as f32) * factor).clamp(0.0, 255.0) as u32;
-    let qg = (((g * inv_factor + 0.5) as i32 as f32) * factor).clamp(0.0, 255.0) as u32;
-    let qb = (((b * inv_factor + 0.5) as i32 as f32) * factor).clamp(0.0, 255.0) as u32;
+    let qr = (((r * l_m_1 + 127) / 255 * 255) / l_m_1) as u32;
+    let qg = (((g * l_m_1 + 127) / 255 * 255) / l_m_1) as u32;
+    let qb = (((b * l_m_1 + 127) / 255 * 255) / l_m_1) as u32;
 
     a | (qr << 16) | (qg << 8) | qb
 }
