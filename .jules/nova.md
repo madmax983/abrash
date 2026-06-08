@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Polar Inversion Filter]
+**Concept:** A post-processing effect that transforms Cartesian screen coordinates into polar coordinates, inverts the radius, and maps them back to create a stereographic "Tiny Planet" distortion effect.
+**Fate:** Implemented
+**Lesson:** By using thread-local double-buffering, we can safely perform complex spatial sampling transformations (where output coordinates arbitrarily read from input coordinates) across a parallelized iteration without triggering read-after-write data races or requiring frame-by-frame heap allocations.
