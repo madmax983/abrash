@@ -232,3 +232,11 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+## [Heat Vision SIMD Optimization]
+**Concept:** Replaced LUT gather operations with pure register-based SIMD math to calculate colors branchlessly.
+**Fate:** Implemented
+**Lesson:** The  intrinsic selects the *second* operand () when the mask is true. Reversing this causes extreme corruption.
+## [Heat Vision SIMD Optimization]
+**Concept:** Replaced LUT gather operations with pure register-based SIMD math to calculate colors branchlessly.
+**Fate:** Implemented
+**Lesson:** The `_mm256_blendv_epi8(a, b, mask)` intrinsic selects the *second* operand (`b`) when the mask is true. Reversing this causes extreme corruption.
