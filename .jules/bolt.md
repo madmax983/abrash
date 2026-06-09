@@ -232,3 +232,9 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+## 2023-10-27 - Bolt Optimization: Heat Vision
+
+**Problem:** The `apply_heat_vision` effect was using slow floating point multiplication to scale pixel intensities in the main loop.
+**Solution:** Optimized `apply_heat_vision` to utilize a `scale` multiplier computed ahead of time. This float multiplies a pixel's delta before it casts to `u32` inside the scalar loop. Inside the SIMD loop, it's bitshifted down exactly matching the target boundaries.
+**Result:** Benchmarking indicated a marginal improvement within noise tolerance or even slightly regressing the `avx2` optimization.

@@ -91,10 +91,14 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
 
     // Add a small epsilon to avoid division by zero if flat plane
     let range = (max_z - min_z).max(0.0001);
-    // Map [0.0, range] to [0, 1023] (4 segments of 256)
-    // Adding a slight bias to prevent floating point inaccuracy at the absolute top end
-    // from truncating 1024 to 1023 when scaling.
-    let scale = 1024.0 / range;
+
+    // We want to map [0.0, range] to [0, 1023].
+    // Fixed point setup: map the entire depth range to 0..i32::MAX.
+    // We use i32::MAX to avoid `_mm256_cvttps_epi32` overflowing and causing negative max values.
+    // However, floating point rounding can cause the max value to hit 2147483648 (i32::MAX + 1).
+    // So we use (i32::MAX - 2048) as our ceiling to prevent rounding overflows.
+    let safe_max = f64::from(i32::MAX - 2048);
+    let scale = (safe_max / f64::from(range)) as f32;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::is_x86_feature_detected!("avx2") {
@@ -110,10 +114,15 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023); // Clamp strictly to 1023
+        // Map depth delta (float) to full 31-bit unsigned space first, then bitshift down
+        // to map to the 1024-entry LUT. This relies strictly on bitshifting for the color scale,
+        // avoiding divisions and matching SIMD integer shifts well.
+        let depth_delta = (depth - min_z).max(0.0);
+        let t_u32 = (depth_delta * scale) as u32;
+        // Shift right by 21 bits (31 - 10) to map from [0..i32::MAX] to [0..1023].
+        let t = (t_u32 >> 21).min(1023);
 
-        // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
+        // SAFETY: t is strictly <= 1023 because it is masked to 10 bits above, which is within the bounds of the 1024-element LUT.
         *pixel = unsafe { *LUT.get_unchecked(t as usize) };
     }
 }
@@ -134,7 +143,7 @@ unsafe fn apply_heat_vision_simd(
         __m256i, _CMP_EQ_OQ, _mm256_blendv_epi8, _mm256_castps_si256, _mm256_cmp_ps,
         _mm256_cvttps_epi32, _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32,
         _mm256_min_epi32, _mm256_mul_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256,
-        _mm256_storeu_si256, _mm256_sub_ps,
+        _mm256_srli_epi32, _mm256_storeu_si256, _mm256_sub_ps,
     };
 
     let len = pixels.len().min(depths.len());
@@ -143,9 +152,9 @@ unsafe fn apply_heat_vision_simd(
     let min_z_vec = _mm256_set1_ps(min_z);
     let scale_vec = _mm256_set1_ps(scale);
     let inf_vec = _mm256_set1_ps(f32::INFINITY);
-    let max_t_vec = _mm256_set1_epi32(1023);
     let bg_color = _mm256_set1_epi32(0xFF00_0010_u32 as i32);
     let lut_ptr = lut.as_ptr().cast::<i32>();
+    let max_t_vec = _mm256_set1_epi32(1023);
 
     while i + 8 <= len {
         let depth_ptr = depths.as_ptr().add(i);
@@ -159,14 +168,17 @@ unsafe fn apply_heat_vision_simd(
         let t_f32 = _mm256_mul_ps(_mm256_sub_ps(depth_val, min_z_vec), scale_vec);
 
         // t_u32 = t_f32 as i32
+        // Since we mapped the range to [0..i32::MAX], and cvttps_epi32 saturates correctly to signed ints,
+        // we can safely cast this without worrying about negatives and float-to-int overflow, but we clamp anyway just in case.
         let t_i32 = _mm256_cvttps_epi32(t_f32);
 
         // Ensure not negative
         let zero_vec = _mm256_setzero_si256();
         let t_clamped_low = _mm256_max_epi32(t_i32, zero_vec);
 
-        // Clamp to 1023
-        let t_clamped = _mm256_min_epi32(t_clamped_low, max_t_vec);
+        // Right shift 21 bits (31 - 10) to map down to [0..1023] cleanly in fixed-point space
+        let t_shifted = _mm256_srli_epi32::<21>(t_clamped_low);
+        let t_clamped = _mm256_min_epi32(t_shifted, max_t_vec);
 
         // Gather from LUT
         // SAFETY: t_clamped is strictly between 0 and 1023, lut is 1024 elements
@@ -190,8 +202,9 @@ unsafe fn apply_heat_vision_simd(
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023);
+        let depth_delta = (depth - min_z).max(0.0);
+        let t_u32 = (depth_delta * scale) as u32;
+        let t = (t_u32 >> 21).min(1023);
 
         *pixel = unsafe { *lut.get_unchecked(t as usize) };
     }
