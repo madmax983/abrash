@@ -51,3 +51,7 @@
 **[Validating Time/Tick Loop Logic Without Flakiness]**
 **Learning:** Testing frame-time loops using `std::thread::sleep` introduces severe flakiness because CI runners or test threads can delay execution unpredictably. Instead of testing "real" time elapsed, test the internal response to elapsed time by directly simulating it on the structure (e.g. `timer.last_time = Instant::now()`, `timer.accumulator += 50ms`).
 **Action:** Never use `std::thread::sleep` for unit testing timing systems. Always manipulate the simulated time state directly to test logic boundaries.
+
+**[Simulating Hardware-Dependent Panics in Tests]**
+**Learning:** Using a manual `panic!("expected message")` fallback inside a `#[should_panic]` test to "gracefully fail" on unsupported hardware is a deceptive anti-pattern. It causes the test to trivially pass without ever running the target code, creating a false sense of security that code review bots will catch.
+**Action:** When writing tests that assert panics on hardware-dependent features (like wgpu extensions), do not use `#[should_panic]`. Instead, write a standard test that returns early if the hardware is unsupported, and if supported, use `std::panic::catch_unwind` to assert the panic message.
