@@ -542,51 +542,58 @@ impl IntoIterator for PreparedTrianglesList {
 #[cfg(feature = "parallel")]
 impl rayon::iter::IntoParallelIterator for PreparedTrianglesList {
     type Item = PreparedTriangle;
-    type Iter = rayon::iter::Flatten<rayon::array::IntoIter<Option<PreparedTriangle>, 8>>;
+    type Iter = rayon::iter::Copied<rayon::slice::Iter<'static, PreparedTriangle>>;
 
     fn into_par_iter(self) -> Self::Iter {
         use rayon::iter::IntoParallelIterator;
         use rayon::iter::ParallelIterator;
-        // ⚡ Bolt: Elides dynamic heap allocation by mapping directly over a stack array
-        let mut arr: [Option<PreparedTriangle>; 8] = [None; 8];
-        for i in 0..self.count {
-            arr[i] = Some(unsafe { self.tris[i].assume_init() });
+        // ⚡ Bolt: Elides dynamic heap allocation by returning a parallel iterator directly over a slice.
+        // We safely bypass the `Option` wrapping and mapping required by array chunking.
+        unsafe {
+            std::slice::from_raw_parts(self.tris.as_ptr().cast::<PreparedTriangle>(), self.count)
         }
-        arr.into_par_iter().flatten()
+        .into_par_iter()
+        .copied()
     }
 }
 
 #[cfg(feature = "parallel")]
 impl rayon::iter::IntoParallelIterator for PreparedTexturedTrianglesList {
     type Item = PreparedTexturedTriangle;
-    type Iter = rayon::iter::Flatten<rayon::array::IntoIter<Option<PreparedTexturedTriangle>, 8>>;
+    type Iter = rayon::iter::Copied<rayon::slice::Iter<'static, PreparedTexturedTriangle>>;
 
     fn into_par_iter(self) -> Self::Iter {
         use rayon::iter::IntoParallelIterator;
         use rayon::iter::ParallelIterator;
-        // ⚡ Bolt: Elides dynamic heap allocation by mapping directly over a stack array
-        let mut arr: [Option<PreparedTexturedTriangle>; 8] = [None; 8];
-        for i in 0..self.count {
-            arr[i] = Some(unsafe { self.tris[i].assume_init() });
+        // ⚡ Bolt: Elides dynamic heap allocation by returning a parallel iterator directly over a slice.
+        unsafe {
+            std::slice::from_raw_parts(
+                self.tris.as_ptr().cast::<PreparedTexturedTriangle>(),
+                self.count,
+            )
         }
-        arr.into_par_iter().flatten()
+        .into_par_iter()
+        .copied()
     }
 }
 
 #[cfg(feature = "parallel")]
 impl rayon::iter::IntoParallelIterator for PreparedGouraudTrianglesList {
     type Item = PreparedGouraudTriangle;
-    type Iter = rayon::iter::Flatten<rayon::array::IntoIter<Option<PreparedGouraudTriangle>, 8>>;
+    type Iter = rayon::iter::Copied<rayon::slice::Iter<'static, PreparedGouraudTriangle>>;
 
     fn into_par_iter(self) -> Self::Iter {
         use rayon::iter::IntoParallelIterator;
         use rayon::iter::ParallelIterator;
-        // ⚡ Bolt: Elides dynamic heap allocation by mapping directly over a stack array
-        let mut arr: [Option<PreparedGouraudTriangle>; 8] = [None; 8];
-        for i in 0..self.count {
-            arr[i] = Some(unsafe { self.tris[i].assume_init() });
+        // ⚡ Bolt: Elides dynamic heap allocation by returning a parallel iterator directly over a slice.
+        unsafe {
+            std::slice::from_raw_parts(
+                self.tris.as_ptr().cast::<PreparedGouraudTriangle>(),
+                self.count,
+            )
         }
-        arr.into_par_iter().flatten()
+        .into_par_iter()
+        .copied()
     }
 }
 

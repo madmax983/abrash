@@ -232,3 +232,11 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimal Parallel Iterator Array Slicing]**
+**Learning:** Returning a mapped array iterator (e.g. `arr.into_par_iter().flatten()`) incurs overhead compared to directly casting a stack array of initialized elements into a slice and generating an iterator (`std::slice::from_raw_parts`).
+**Action:** Replace `Option`-wrapped array iteration with `std::slice::from_raw_parts(...).into_par_iter().copied()` for safe, zero-allocation parallel iteration over stack arrays.
+
+**[Extending Pre-Allocated Vectors with Iterator Maps]**
+**Learning:** Replacing a loop containing `Vec::push` with `Vec::reserve_exact` followed by `.extend()` utilizing an iterator allows LLVM and the Rust compiler to entirely elide sequential bounds checks, resulting in superior performance on hot vector construction paths.
+**Action:** When populating `Vec`s of known size from iterators, prefer `reserve_exact` + `extend` over sequential `push`.

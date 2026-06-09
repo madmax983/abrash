@@ -307,10 +307,15 @@ impl RayTracer {
         AABB_BUFFER.with(|buffer| {
             let mut world_aabbs = buffer.borrow_mut();
             world_aabbs.clear();
-            world_aabbs.reserve(scene.objects.len());
-            for obj in &scene.objects {
-                world_aabbs.push(obj.calculate_world_aabb());
-            }
+            // ⚡ Bolt: Use `reserve_exact` instead of `reserve` to avoid over-allocation,
+            // and `extend` over `push` to let the compiler elide vector bounds checks.
+            world_aabbs.reserve_exact(scene.objects.len());
+            world_aabbs.extend(
+                scene
+                    .objects
+                    .iter()
+                    .map(super::super::scene::SceneObject::calculate_world_aabb),
+            );
         });
 
         AABB_BUFFER.with(|buffer| {
