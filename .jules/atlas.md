@@ -125,3 +125,8 @@
 1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
 2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors.
 3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
+**[Winit/TUI Backend Split]**
+**Tangle:** The `abrash` workspace examples directly relied on `winit`-specific types (`WindowContext` holding an `EventLoopWindowTarget`) and `WindowApp` traits defined inside `src/platform/winit.rs`. This meant compiling with only the `backend-tui` feature failed entirely because the unified trait was gated behind `winit` dependencies.
+**Blueprint:** Abstracted `WindowApp`, `WindowContext`, and related event enums directly in the `platform::tui` module mirroring the `winit` types. Updated `mod.rs` to conditionally export `tui::*` or `winit::*` based on the active backend feature. Updated examples to conditionally import event types (`KeyEvent`, `ElementState`, `WindowEvent`, `Key`, `NamedKey`) based on the active backend feature.
+**Stability:** Decouples `backend-tui` from `winit`, enabling standalone terminal UI builds of all CPU examples. Prevents cross-contamination of backend states while presenting a unified trait to caller applications.
+**Verification:** Run `cargo check --no-default-features --features backend-tui` and ensure examples like `cube_3d` compile flawlessly.

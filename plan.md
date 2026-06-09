@@ -1,11 +1,16 @@
-1.  **Refactor Heat Vision to Fixed Point Math**
-    - The current `heat_vision.rs` uses floating-point math (`(normalized - 0.25) * 4.0`, etc.) inside a hot pixel loop to map depths to colors.
-    - We will follow the `[Posterize Float to Integer Math Optimization]` learning from `.jules/bolt.md` to map `0.0..1.0` depth range into integer `0..255`, and calculate RGB entirely using integer math (`t * 255 / scale`, etc.).
-    - We will pre-calculate `min_z` and `max_z` like before, calculate a `z_range` integer mapping multiplier, and use simple `(depth - min_z) * scale` to avoid floats in the main loop.
-2.  **Ensure Correctness**
-    - Ensure all existing tests in `heat_vision.rs` pass.
-3.  **Run Benchmark**
-    - Ensure `cargo bench --bench heat_vision_bench` runs successfully and shows performance improvements.
+1.  **Refactor `src/platform/tui.rs`**
+    *   Add types/traits mirroring `winit.rs` (`WindowHostConfig`, `WindowContext`, `WindowApp`, `HostError`, `FrameClock`).
+    *   Implement `run_windowed` in `tui.rs` to run the app using Ratatui/Crossterm instead of an explicit `while window.is_open()` loop.
+    *   Implement `SoftwarePresenter` in `tui.rs` to act as a no-op or pass-through that tells the `TuiWindow` to blit the framebuffer. (We could also change `TuiWindow` to implement `SoftwarePresenter`). Wait, `run_windowed` takes a `WindowApp`. The `WindowApp` creates a `SoftwarePresenter`. The `SoftwarePresenter` needs some window context.
+2.  **Refactor `src/platform/mod.rs`**
+    *   Conditionally export `tui::*` or `winit::*` based on the backend feature.
+    *   Re-export `WindowApp`, `WindowContext`, `WindowHostConfig`, `HostError`, `SoftwarePresenter`, `run_windowed`.
+3.  **Update `examples/cube_3d.rs` (and other examples)**
+    *   Remove `use abrash_render::platform::tui::TuiWindow;`.
+    *   Ensure they just use `abrash::platform::{run_windowed, WindowApp, ...}` and it works transparently.
 4.  **Complete pre commit steps**
-    - Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done.
-5.  **Submit PR**
+    *   Complete pre commit steps to ensure proper testing, verification, review, and reflection are done.
+5.  **Submit the change**
+    *   Branch: `atlas-tui-winit-split`
+    *   Title: `🗺️ Atlas: [Winit/TUI Backend Split]`
+    *   Message: Includes Tangle, Blueprint, Stability, Verification.
