@@ -57,9 +57,9 @@ pub fn apply_posterize(fb: &mut Framebuffer, config: &PosterizeConfig) {
         let g = (p >> 8) & 0xFF;
         let b = p & 0xFF;
 
-        let new_r = ((r * levels_minus_1 + 127) / 255 * 255) / safe_divisor;
-        let new_g = ((g * levels_minus_1 + 127) / 255 * 255) / safe_divisor;
-        let new_b = ((b * levels_minus_1 + 127) / 255 * 255) / safe_divisor;
+        let new_r = (((r as u64 * levels_minus_1 as u64 + 127) / 255 * 255) / safe_divisor as u64) as u32;
+        let new_g = (((g as u64 * levels_minus_1 as u64 + 127) / 255 * 255) / safe_divisor as u64) as u32;
+        let new_b = (((b as u64 * levels_minus_1 as u64 + 127) / 255 * 255) / safe_divisor as u64) as u32;
 
         *pixel = a | (new_r.min(255) << 16) | (new_g.min(255) << 8) | new_b.min(255);
     }

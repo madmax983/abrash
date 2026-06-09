@@ -343,6 +343,56 @@ fn benchmark_halftone(c: &mut Criterion) {
 }
 
 #[cfg(feature = "nova")]
+fn benchmark_posterize(c: &mut Criterion) {
+    let width = 1920;
+    let height = 1080;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    for y in 0..height {
+        for x in 0..width {
+            let color = if (x / 50 + y / 50) % 2 == 0 {
+                0xFFFF_FFFF
+            } else {
+                0xFF00_0000
+            };
+            fb.set_pixel(x as i32, y as i32, color);
+        }
+    }
+
+    let config = abrash::experimental::posterize::PosterizeConfig { levels: 8.0 };
+    c.bench_function("apply_posterize 1080p", |b| {
+        b.iter(|| {
+            abrash::experimental::posterize::apply_posterize(black_box(&mut fb), black_box(&config));
+        });
+    });
+}
+
+#[cfg(feature = "nova")]
+fn benchmark_cel_shade(c: &mut Criterion) {
+    let width = 1920;
+    let height = 1080;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    let mut zb = ZBuffer::new(width, height).unwrap();
+    for y in 0..height {
+        for x in 0..width {
+            let color = if (x / 50 + y / 50) % 2 == 0 {
+                0xFFFF_FFFF
+            } else {
+                0xFF00_0000
+            };
+            fb.set_pixel(x as i32, y as i32, color);
+            zb.test_and_set(x as i32, y as i32, 0.5);
+        }
+    }
+
+    let config = abrash::experimental::cel_shade::CelShadeConfig::default();
+    c.bench_function("apply_cel_shade 1080p", |b| {
+        b.iter(|| {
+            abrash::experimental::cel_shade::apply_cel_shade(black_box(&mut fb), black_box(&zb), black_box(&config));
+        });
+    });
+}
+
+#[cfg(feature = "nova")]
 criterion_group!(
     benches,
     benchmark_grayscale,
@@ -360,6 +410,8 @@ criterion_group!(
     benchmark_color_adjust,
     benchmark_pixel_sort,
     benchmark_halftone,
+    benchmark_posterize,
+    benchmark_cel_shade,
 );
 
 #[cfg(not(feature = "nova"))]
