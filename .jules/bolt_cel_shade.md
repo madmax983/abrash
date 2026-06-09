@@ -1,0 +1,3 @@
+## [Bolt] Cel Shading Quantization Optimization
+**Learning:** In hot pixel loops for post-processing color quantization (e.g., cel-shading), replacing floating-point arithmetic and rounding (`as f32`, division, `+ 0.5`) with pure scaled integer math (`((r * (levels - 1) + 127) / 255 * 255) / safe_divisor`) eliminates expensive type conversions and significantly improves benchmark performance. Casting intermediate color channels to `u64` prevents overflow issues before down-casting back to `u32`.
+**Action:** Implemented pure scaled integer math inside `quantize_color` and verified benchmarks show performance gains. Handled Clippy casts warnings.
