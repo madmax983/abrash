@@ -193,8 +193,12 @@ fn extract_primitive(
     let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
 
     // Positions (required for a valid mesh)
+    // ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
+    // This explicitly prevents intermediate allocator resizing chains when mapping over GLTF buffers.
     let positions: Vec<Vec3> = reader.read_positions().map_or_else(Vec::new, |iter| {
-        iter.map(|p| Vec3::new(p[0], p[1], p[2])).collect()
+        let mut vec = Vec::with_capacity(iter.size_hint().0);
+        vec.extend(iter.map(|p| Vec3::new(p[0], p[1], p[2])));
+        vec
     });
 
     if positions.is_empty() {
@@ -202,19 +206,31 @@ fn extract_primitive(
     }
 
     // Normals (optional)
+    // ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
+    // This explicitly prevents intermediate allocator resizing chains when mapping over GLTF buffers.
     let normals: Vec<Vec3> = reader.read_normals().map_or_else(Vec::new, |iter| {
-        iter.map(|n| Vec3::new(n[0], n[1], n[2])).collect()
+        let mut vec = Vec::with_capacity(iter.size_hint().0);
+        vec.extend(iter.map(|n| Vec3::new(n[0], n[1], n[2])));
+        vec
     });
 
     // Texture coordinates (optional)
+    // ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
+    // This explicitly prevents intermediate allocator resizing chains when mapping over GLTF buffers.
     let uvs: Vec<Vec2> = reader.read_tex_coords(0).map_or_else(Vec::new, |iter| {
         let iter = iter.into_f32();
-        iter.map(|uv| Vec2::new(uv[0], uv[1])).collect()
+        let mut vec = Vec::with_capacity(iter.size_hint().0);
+        vec.extend(iter.map(|uv| Vec2::new(uv[0], uv[1])));
+        vec
     });
 
     // Tangents (optional)
+    // ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
+    // This explicitly prevents intermediate allocator resizing chains when mapping over GLTF buffers.
     let tangents: Vec<Vec4> = reader.read_tangents().map_or_else(Vec::new, |iter| {
-        iter.map(|t| Vec4::new(t[0], t[1], t[2], t[3])).collect()
+        let mut vec = Vec::with_capacity(iter.size_hint().0);
+        vec.extend(iter.map(|t| Vec4::new(t[0], t[1], t[2], t[3])));
+        vec
     });
 
     // Indices (triangulated)
@@ -236,15 +252,23 @@ fn extract_primitive(
     let vertex_count = positions.len();
 
     // Joint indices (optional — only present on skinned meshes)
+    // ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
+    // This explicitly prevents intermediate allocator resizing chains when mapping over GLTF buffers.
     let joint_indices: Vec<[u16; 4]> = reader.read_joints(0).map_or_else(Vec::new, |iter| {
         let iter = iter.into_u16();
-        iter.collect()
+        let mut vec = Vec::with_capacity(iter.size_hint().0);
+        vec.extend(iter);
+        vec
     });
 
     // Weights (optional)
+    // ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
+    // This explicitly prevents intermediate allocator resizing chains when mapping over GLTF buffers.
     let weights: Vec<[f32; 4]> = reader.read_weights(0).map_or_else(Vec::new, |iter| {
         let iter = iter.into_f32();
-        iter.collect()
+        let mut vec = Vec::with_capacity(iter.size_hint().0);
+        vec.extend(iter);
+        vec
     });
 
     let mesh = Mesh {
@@ -323,12 +347,18 @@ fn extract_skeleton(
     let child_to_parent = build_parent_map(&joint_nodes, &node_idx_to_provisional);
 
     // Read inverse bind matrices (column-major in glTF → transpose to row-major)
+    // ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
+    // This explicitly prevents intermediate allocator resizing chains when mapping over GLTF buffers.
     let ibms: Vec<Mat4> = skin
         .reader(|b| Some(&buffers[b.index()]))
         .read_inverse_bind_matrices()
         .map_or_else(
             || vec![Mat4::identity(); joint_count],
-            |iter| iter.map(|m| transpose_col_major_to_mat4(&m)).collect(),
+            |iter| {
+                let mut vec = Vec::with_capacity(iter.size_hint().0);
+                vec.extend(iter.map(|m| transpose_col_major_to_mat4(&m)));
+                vec
+            },
         );
 
     // Collect provisional joint data
@@ -552,18 +582,24 @@ fn extract_clips(
 
             let (target, values) = match outputs {
                 gltf::animation::util::ReadOutputs::Translations(iter) => {
-                    let vals: Vec<Vec3> = iter.map(|t| Vec3::new(t[0], t[1], t[2])).collect();
+                    // ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
+                    let mut vals = Vec::with_capacity(iter.size_hint().0);
+                    vals.extend(iter.map(|t| Vec3::new(t[0], t[1], t[2])));
                     (ChannelTarget::Translation, ChannelValues::Translation(vals))
                 }
                 gltf::animation::util::ReadOutputs::Rotations(iter) => {
                     let iter = iter
                         .into_f32()
                         .map(|r| Quat::new(r[0], r[1], r[2], r[3]).normalize());
-                    let vals: Vec<Quat> = iter.collect();
+                    // ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
+                    let mut vals = Vec::with_capacity(iter.size_hint().0);
+                    vals.extend(iter);
                     (ChannelTarget::Rotation, ChannelValues::Rotation(vals))
                 }
                 gltf::animation::util::ReadOutputs::Scales(iter) => {
-                    let vals: Vec<Vec3> = iter.map(|s| Vec3::new(s[0], s[1], s[2])).collect();
+                    // ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
+                    let mut vals = Vec::with_capacity(iter.size_hint().0);
+                    vals.extend(iter.map(|s| Vec3::new(s[0], s[1], s[2])));
                     (ChannelTarget::Scale, ChannelValues::Scale(vals))
                 }
                 gltf::animation::util::ReadOutputs::MorphTargetWeights(_) => {
