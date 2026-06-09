@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Heat Vision Inline Integer Math Optimization]**
+**Learning:** In the `apply_heat_vision` post-processing effect, using a pre-calculated 1024-entry LUT and `_mm256_i32gather_epi32` instructions requires memory indirection that limits throughput. By replacing the LUT entirely with pure SIMD scaled integer math and conditional blending (`_mm256_blendv_epi8`), memory loads are eliminated in favor of ALU operations.
+**Action:** Replace `LUT` arrays and `gather` calls with inline conditional arithmetic using scaling and `blendv_epi8`, resulting in a ~10-17% speedup.
