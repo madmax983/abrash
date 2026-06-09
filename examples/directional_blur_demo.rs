@@ -2,7 +2,7 @@ use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::platform::{
-    SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 use abrash::scene::{Camera, Scene, SceneObject};
 use abrash::time::FixedTimestep;
@@ -194,6 +194,8 @@ impl WindowApp for DirectionalBlurDemoApp {
 #[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), AppError> {
     print_banner();
-    run_windowed(DirectionalBlurDemoApp::new().unwrap());
+    run_windowed_app(
+        DirectionalBlurDemoApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
     Ok(())
 }

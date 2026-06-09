@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
-    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 use abrash::post_process::apply_chromatic_aberration;
 
@@ -143,5 +143,7 @@ fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(ChromaticAberrationDemo::new().unwrap());
+    run_windowed_app(
+        ChromaticAberrationDemo::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
 }

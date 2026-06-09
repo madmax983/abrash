@@ -166,7 +166,7 @@ pub trait WindowApp {
 
 use comfy_table::{Cell, Color, Table, presets};
 
-fn print_host_error_and_exit(err: &HostError) -> ! {
+pub fn print_host_error_and_exit(err: &HostError) -> ! {
     let mut table = Table::new();
     table
         .load_preset(presets::UTF8_FULL)
@@ -179,6 +179,8 @@ fn print_host_error_and_exit(err: &HostError) -> ! {
         .add_row(vec![Cell::new(format!("{err}")).fg(Color::Yellow)]);
 
     eprintln!("\n{table}");
+    eprintln!("\nPress Enter to exit...");
+    let _ = std::io::stdin().read_line(&mut String::new());
     std::process::exit(1);
 }
 
@@ -186,6 +188,18 @@ fn print_host_error_and_exit(err: &HostError) -> ! {
 ///
 /// Handles initialization and main event loop. Prints a formatted
 /// error table and exits cleanly if any window or application error occurs.
+
+/// Run an app that returns a `Result<A, HostError>`
+pub fn run_windowed_app<A>(app_result: Result<A, HostError>)
+where
+    A: WindowApp,
+{
+    match app_result {
+        Ok(app) => run_windowed(app),
+        Err(err) => print_host_error_and_exit(&err),
+    }
+}
+
 pub fn run_windowed<A>(mut app: A)
 where
     A: WindowApp,

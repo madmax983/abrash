@@ -3,7 +3,7 @@ use abrash::heat_vision::apply_heat_vision;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::platform::{
-    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
@@ -180,5 +180,7 @@ impl WindowApp for HeatVisionApp {
 
 fn main() {
     print_banner();
-    run_windowed(HeatVisionApp::new().unwrap());
+    run_windowed_app(
+        HeatVisionApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
 }

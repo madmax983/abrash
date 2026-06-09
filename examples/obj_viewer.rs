@@ -204,7 +204,7 @@ mod winit_demo {
         BACKGROUND, Framebuffer, HEIGHT, Mat4, Mesh, PI, Vec3, WIDTH, ZBuffer, render_mesh,
     };
     use abrash::platform::{
-        SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+        SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
     };
     use std::io;
 
@@ -214,7 +214,10 @@ mod winit_demo {
         normals: Vec<Vec3>,
         source_name: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        run_windowed(ObjViewerApp::new(mesh, normals, source_name).unwrap());
+        run_windowed_app(
+            ObjViewerApp::new(mesh, normals, source_name)
+                .map_err(|e| abrash::platform::HostError::App(e.to_string())),
+        );
         Ok(())
     }
 

@@ -516,7 +516,10 @@ fn run_tui_dashboard() -> Result<(), Box<dyn Error>> {
                 ComfyCell::new(format!("{err}")).fg(ComfyColor::Yellow),
             ]);
 
-        println!("\n{error_table}");
+        eprintln!("\n{error_table}");
+        // Give user a chance to read the error
+        println!("\n{}", "Press Enter to return to dashboard...".grey());
+        let _ = std::io::stdin().read_line(&mut String::new());
     }
 
     Ok(())
@@ -866,7 +869,7 @@ fn print_launch_error(status: std::process::ExitStatus) {
             ComfyCell::new(format!("Exit Status: {status}")).fg(ComfyColor::Yellow),
         ]);
 
-    println!("\n{error_table}");
+    eprintln!("\n{error_table}");
 
     // Give user a chance to read the error
     println!("\n{}", "Press Enter to return to dashboard...".grey());

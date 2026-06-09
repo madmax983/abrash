@@ -1,7 +1,7 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::platform::{
-    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 use abrash::skybox::{Cubemap, draw_skybox};
 use abrash::texture::Texture;
@@ -163,5 +163,7 @@ impl WindowApp for SkyboxDemoApp {
 
 fn main() {
     print_banner();
-    run_windowed(SkyboxDemoApp::new().unwrap());
+    run_windowed_app(
+        SkyboxDemoApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
 }

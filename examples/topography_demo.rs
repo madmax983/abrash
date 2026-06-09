@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
-    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 
 #[cfg(feature = "nova")]
@@ -150,7 +150,9 @@ impl WindowApp for TopographyDemoApp {
 #[cfg(feature = "nova")]
 fn main() {
     print_banner();
-    run_windowed(TopographyDemoApp::new().unwrap());
+    run_windowed_app(
+        TopographyDemoApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
 }
 
 #[cfg(not(feature = "nova"))]

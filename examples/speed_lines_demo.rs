@@ -9,7 +9,7 @@
 
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
-    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 use abrash_render::experimental::speed_lines::{SpeedLinesConfig, apply_speed_lines};
 
@@ -140,5 +140,7 @@ impl WindowApp for SpeedLinesApp {
 
 fn main() {
     print_banner();
-    run_windowed(SpeedLinesApp::new().unwrap());
+    run_windowed_app(
+        SpeedLinesApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
 }

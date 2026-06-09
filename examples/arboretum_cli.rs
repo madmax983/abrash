@@ -348,6 +348,8 @@ fn main() {
                 ]);
 
             eprintln!("\n{error_table}");
+            eprintln!("\nPress Enter to exit...");
+            let _ = std::io::stdin().read_line(&mut String::new());
             std::process::exit(1);
         }
     }
@@ -374,6 +376,8 @@ fn main() {
             ]);
 
         eprintln!("\n{error_table}");
+        eprintln!("\nPress Enter to exit...");
+        let _ = std::io::stdin().read_line(&mut String::new());
         std::process::exit(1);
     }
 }

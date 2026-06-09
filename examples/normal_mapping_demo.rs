@@ -5,7 +5,7 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec2, Vec3, Vec4};
 use abrash::platform::{
-    SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 use abrash::rasterizer::fill_triangle_normal_mapped;
 use abrash::texture::Texture;
@@ -240,6 +240,8 @@ impl WindowApp for NormalMappingDemoApp {
 #[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), AppError> {
     print_banner();
-    run_windowed(NormalMappingDemoApp::new().unwrap());
+    run_windowed_app(
+        NormalMappingDemoApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
     Ok(())
 }

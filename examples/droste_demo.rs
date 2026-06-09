@@ -7,7 +7,7 @@ use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::platform::{
-    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 use abrash::zbuffer::ZBuffer;
 use abrash_render::experimental::droste::{DrosteConfig, apply_droste};
@@ -177,5 +177,7 @@ fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(DrosteDemoApp::new().unwrap());
+    run_windowed_app(
+        DrosteDemoApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
 }

@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
-    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 use abrash_render::experimental::halftone::apply_halftone;
 use std::f32::consts::PI;
@@ -159,5 +159,7 @@ fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(HalftoneDemoApp::new().unwrap());
+    run_windowed_app(
+        HalftoneDemoApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
 }

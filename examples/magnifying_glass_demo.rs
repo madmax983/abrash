@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
-    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 use abrash_render::experimental::magnifying_glass::{
     MagnifyingGlassConfig, apply_magnifying_glass,
@@ -159,5 +159,7 @@ fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(MagnifyingGlassDemoApp::new().unwrap());
+    run_windowed_app(
+        MagnifyingGlassDemoApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
 }

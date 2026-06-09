@@ -134,7 +134,7 @@ mod winit_demo {
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
     use abrash::platform::{
-        SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+        SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
     };
     use abrash::rasterizer::fill_triangle_3d;
     use abrash::zbuffer::ZBuffer;
@@ -147,7 +147,9 @@ mod winit_demo {
 
     #[allow(clippy::unnecessary_wraps)]
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
-        run_windowed(ClothApp::new().unwrap());
+        run_windowed_app(
+            ClothApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+        );
         Ok(())
     }
 

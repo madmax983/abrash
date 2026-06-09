@@ -9,7 +9,7 @@
 
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
-    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 use abrash_render::experimental::swirl::{SwirlConfig, apply_swirl};
 use std::f32::consts::PI;
@@ -151,5 +151,5 @@ impl WindowApp for SwirlApp {
 
 fn main() {
     print_banner();
-    run_windowed(SwirlApp::new().unwrap());
+    run_windowed_app(SwirlApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())));
 }

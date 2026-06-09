@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
-    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 use abrash_render::experimental::plasma::apply_plasma;
 use abrash_render::experimental::steganography::{decode_message, encode_message};
@@ -210,5 +210,7 @@ fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(SteganographyDemoApp::new().unwrap());
+    run_windowed_app(
+        SteganographyDemoApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
 }

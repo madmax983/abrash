@@ -31,7 +31,7 @@ mod winit_demo {
     use abrash::math::{Mat4, Vec3};
     use abrash::mesh::Mesh;
     use abrash::platform::{
-        SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+        SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
     };
     use abrash::scene::{Camera, Scene, SceneObject};
     use abrash_render::experimental::raytracer::RayTracer;
@@ -44,7 +44,9 @@ mod winit_demo {
 
     #[allow(clippy::unnecessary_wraps)]
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
-        run_windowed(RaytracerApp::new().unwrap());
+        run_windowed_app(
+            RaytracerApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+        );
         Ok(())
     }
 

@@ -1,7 +1,7 @@
 use abrash::experimental::led_matrix::{LedMatrixConfig, apply_led_matrix};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
-    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 
 #[cfg(feature = "nova")]
@@ -161,5 +161,7 @@ fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(LedMatrixDemoApp::new().unwrap());
+    run_windowed_app(
+        LedMatrixDemoApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
 }

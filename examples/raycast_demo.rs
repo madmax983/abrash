@@ -2,7 +2,7 @@ use abrash::bam::{ANG90, Bam};
 use abrash::fixed16_16::Fixed16_16;
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
-    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 use abrash::raycast::map::ArrayGridMap;
 use abrash::raycast::types::{Cell, Vec2Fixed};
@@ -268,5 +268,7 @@ impl WindowApp for RaycastDemoApp {
 
 fn main() {
     print_banner();
-    run_windowed(RaycastDemoApp::new().unwrap());
+    run_windowed_app(
+        RaycastDemoApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
 }

@@ -2,7 +2,7 @@
 
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
-    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 use abrash_render::experimental::plasma::apply_plasma;
 
@@ -111,5 +111,7 @@ impl WindowApp for PlasmaDemoApp {
 fn main() {
     print_banner();
 
-    run_windowed(PlasmaDemoApp::new().unwrap());
+    run_windowed_app(
+        PlasmaDemoApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
 }

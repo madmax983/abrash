@@ -3,7 +3,7 @@ use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::platform::{
-    SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
@@ -227,6 +227,8 @@ impl WindowApp for SlitScanDemoApp {
 #[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), AppError> {
     print_banner();
-    run_windowed(SlitScanDemoApp::new().unwrap());
+    run_windowed_app(
+        SlitScanDemoApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
     Ok(())
 }

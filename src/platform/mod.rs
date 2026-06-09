@@ -45,7 +45,7 @@ pub mod winit;
 #[cfg(feature = "backend-winit")]
 pub use winit::{
     FrameClock, HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig,
-    run_windowed,
+    run_windowed, run_windowed_app,
 };
 
 #[cfg(feature = "backend-tui")]

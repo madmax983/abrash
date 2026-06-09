@@ -58,13 +58,16 @@ fn print_banner() {
 mod winit_demo {
     use super::{EdgeGlowConfig, Framebuffer, apply_edge_glow};
     use abrash::platform::{
-        SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+        SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
     };
     use std::io;
 
     #[allow(clippy::unnecessary_wraps)]
     pub fn run(width: u32, height: u32) -> Result<(), Box<dyn std::error::Error>> {
-        run_windowed(EdgeGlowApp::new(width, height).unwrap());
+        run_windowed_app(
+            EdgeGlowApp::new(width, height)
+                .map_err(|e| abrash::platform::HostError::App(e.to_string())),
+        );
         Ok(())
     }
 

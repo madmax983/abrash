@@ -2,7 +2,7 @@ use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::particles::ParticleSystem;
 use abrash::platform::{
-    SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 use abrash::texture::Texture;
 use abrash::time::FixedTimestep;
@@ -263,6 +263,8 @@ impl WindowApp for ParticleDemoApp {
 fn main() -> Result<(), AppError> {
     let args = Args::parse();
     print_banner(&args);
-    run_windowed(ParticleDemoApp::new(&args).unwrap());
+    run_windowed_app(
+        ParticleDemoApp::new(&args).map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
     Ok(())
 }

@@ -13,7 +13,7 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec2, Vec3};
 use abrash::platform::{
-    SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 use abrash::rasterizer::fill_triangle_laplacian_blend;
 use abrash::texture::Texture;
@@ -321,6 +321,8 @@ impl WindowApp for LaplacianBlendDemoApp {
 #[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), AppError> {
     print_banner();
-    run_windowed(LaplacianBlendDemoApp::new().unwrap());
+    run_windowed_app(
+        LaplacianBlendDemoApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
     Ok(())
 }

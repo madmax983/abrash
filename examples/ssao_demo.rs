@@ -10,7 +10,7 @@ use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::platform::{
-    SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed_app,
 };
 use abrash::post_process::{apply_ssao, ssao::SsaoConfig};
 use abrash::rasterizer::fill_triangle_lit;
@@ -299,6 +299,8 @@ impl WindowApp for SsaoDemoApp {
 #[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), AppError> {
     print_banner();
-    run_windowed(SsaoDemoApp::new().unwrap());
+    run_windowed_app(
+        SsaoDemoApp::new().map_err(|e| abrash::platform::HostError::App(e.to_string())),
+    );
     Ok(())
 }
