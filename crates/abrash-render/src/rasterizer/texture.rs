@@ -4259,64 +4259,124 @@ fn draw_span_textured_gouraud_scalar(
     let tex_pixels = &texture.pixels;
     let tex_w = texture.width;
     let tex_h = texture.height;
+    let tex_w_usize = tex_w as usize;
+
+    let len = fb_slice.len().min(zb_slice.len()) as i32;
+    let can_use_fast_path = if len > 0 {
+        let u_start_64 = i64::from(u_fix);
+        let du_64 = i64::from(du_fix);
+        let u_end_64 = u_start_64 + du_64 * i64::from(len - 1);
+
+        let (u_min_64, u_max_64) = if du_64 >= 0 {
+            (u_start_64, u_end_64)
+        } else {
+            (u_end_64, u_start_64)
+        };
+
+        let v_start_64 = i64::from(v_fix);
+        let dv_64 = i64::from(dv_fix);
+        let v_end_64 = v_start_64 + dv_64 * i64::from(len - 1);
+
+        let (v_min_64, v_max_64) = if dv_64 >= 0 {
+            (v_start_64, v_end_64)
+        } else {
+            (v_end_64, v_start_64)
+        };
+
+        u_min_64 >= 0
+            && (u_max_64 >> 16) < i64::from(tex_w)
+            && u_max_64 <= i64::from(i32::MAX)
+            && v_min_64 >= 0
+            && (v_max_64 >> 16) < i64::from(tex_h)
+            && v_max_64 <= i64::from(i32::MAX)
+    } else {
+        false
+    };
+
     let shift = texture.width_shift;
     let is_pot = shift < 32;
 
-    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-        if z < *depth_val {
-            let u = u_fix >> 16;
-            let v = v_fix >> 16;
+    macro_rules! process_span {
+        ($fetch_block:block) => {
+            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                if z < *depth_val {
+                    let color = $fetch_block;
 
-            let color = if (u as u32) < tex_w && (v as u32) < tex_h {
-                if is_pot {
-                    unsafe { *tex_pixels.get_unchecked(((v as usize) << shift) + (u as usize)) }
-                } else {
-                    unsafe {
-                        *tex_pixels.get_unchecked((v as usize) * (tex_w as usize) + (u as usize))
+                    let tex_r = ((color >> 16) & 0xFF) as i32;
+                    let tex_g = ((color >> 8) & 0xFF) as i32;
+                    let tex_b = (color & 0xFF) as i32;
+                    let tex_a = (color >> 24) & 0xFF;
+
+                    let r_clamped = r_fix.max(0);
+                    let g_clamped = g_fix.max(0);
+                    let b_clamped = b_fix.max(0);
+
+                    let final_r = ((tex_r * r_clamped) >> 16).max(0).min(255) as u32;
+                    let final_g = ((tex_g * g_clamped) >> 16).max(0).min(255) as u32;
+                    let final_b = ((tex_b * b_clamped) >> 16).max(0).min(255) as u32;
+
+                    let final_color =
+                        ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
+
+                    if tex_a == 255 {
+                        *depth_val = z;
+                        *pixel = final_color;
+                    } else if tex_a > 0 {
+                        let dest = *pixel;
+                        *pixel = blend_swar(
+                            final_color,
+                            dest,
+                            (255 - (tex_a as u8)).into(),
+                            (tex_a as u8).into(),
+                        );
                     }
                 }
-            } else {
-                texture.get_pixel_texel(u, v)
-            };
-
-            let tex_r = ((color >> 16) & 0xFF) as i32;
-            let tex_g = ((color >> 8) & 0xFF) as i32;
-            let tex_b = (color & 0xFF) as i32;
-            let tex_a = (color >> 24) & 0xFF;
-
-            // Use 16.16 shade values.
-            // Shade is max 1.0 (65536). Tex is max 255.
-            // tex * shade -> max ~1.67e7 (fits in i32).
-            // Shift right 16 to get result in 0..255 range.
-            let r_clamped = r_fix.max(0);
-            let g_clamped = g_fix.max(0);
-            let b_clamped = b_fix.max(0);
-
-            let final_r = ((tex_r * r_clamped) >> 16).max(0).min(255) as u32;
-            let final_g = ((tex_g * g_clamped) >> 16).max(0).min(255) as u32;
-            let final_b = ((tex_b * b_clamped) >> 16).max(0).min(255) as u32;
-
-            let final_color = ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
-
-            if tex_a == 255 {
-                *depth_val = z;
-                *pixel = final_color;
-            } else if tex_a > 0 {
-                let dest = *pixel;
-                *pixel = blend_swar(
-                    final_color,
-                    dest,
-                    (255 - (tex_a as u8)).into(),
-                    (tex_a as u8).into(),
-                );
+                z += dz_dx;
+                u_fix = u_fix.wrapping_add(du_fix);
+                v_fix = v_fix.wrapping_add(dv_fix);
+                r_fix = r_fix.wrapping_add(dr_dx);
+                g_fix = g_fix.wrapping_add(dg_dx);
+                b_fix = b_fix.wrapping_add(db_dx);
             }
+        };
+    }
+
+    if can_use_fast_path {
+        if is_pot {
+            process_span!({
+                let u = (u_fix >> 16) as usize;
+                let v = (v_fix >> 16) as usize;
+                unsafe { *tex_pixels.get_unchecked((v << shift) + u) }
+            });
+        } else {
+            process_span!({
+                let u = (u_fix >> 16) as usize;
+                let v = (v_fix >> 16) as usize;
+                unsafe { *tex_pixels.get_unchecked(v * tex_w_usize + u) }
+            });
         }
-        z += dz_dx;
-        u_fix = u_fix.wrapping_add(du_fix);
-        v_fix = v_fix.wrapping_add(dv_fix);
-        r_fix = r_fix.wrapping_add(dr_dx);
-        g_fix = g_fix.wrapping_add(dg_dx);
-        b_fix = b_fix.wrapping_add(db_dx);
+    } else {
+        if is_pot {
+            process_span!({
+                let u = u_fix >> 16;
+                let v = v_fix >> 16;
+                if (u as u32) < tex_w && (v as u32) < tex_h {
+                    unsafe { *tex_pixels.get_unchecked(((v as usize) << shift) + (u as usize)) }
+                } else {
+                    texture.get_pixel_texel(u, v)
+                }
+            });
+        } else {
+            process_span!({
+                let u = u_fix >> 16;
+                let v = v_fix >> 16;
+                if (u as u32) < tex_w && (v as u32) < tex_h {
+                    unsafe { *tex_pixels.get_unchecked((v as usize) * tex_w_usize + (u as usize)) }
+                } else {
+                    texture.get_pixel_texel(u, v)
+                }
+            });
+        }
     }
 }
 

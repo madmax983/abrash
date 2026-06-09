@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Fast-Path for Textured Gouraud Scanline Rendering]**
+**Learning:** In the `draw_span_textured_gouraud_scalar` inner loop, repeating bound checks using `texture.get_pixel_texel(u, v)` (which has logic for wrapping and clamping) per pixel introduces noticeable overhead, despite branch prediction.
+**Action:** Implemented a pre-loop fast-path check that validates if the entire texture coordinate span `(u_start..u_end)` and `(v_start..v_end)` stays strictly within the texture bounds. If safe, it drops into a highly optimized macro loop utilizing `unsafe { *tex_pixels.get_unchecked(...) }`. This completely elides bounds checks inside the hot loop and yields a ~12-13% performance improvement on nearest-neighbor textured gouraud benchmarks.
