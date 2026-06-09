@@ -151,8 +151,8 @@ impl WindowApp for Cube3dApp {
         self.framebuffer.clear(BACKGROUND);
         self.zbuffer.clear();
 
-        let model = Mat4::rotation_y(self.rotation_y.current_value())
-            * Mat4::rotation_x(self.rotation_x.current_value());
+        let model = Mat4::rotation_y(*self.rotation_y.current_value_ref())
+            * Mat4::rotation_x(*self.rotation_x.current_value_ref());
         let mvp = projection * (view * model);
 
         for (face_idx, tri_indices) in self.cube.indices.iter().enumerate() {

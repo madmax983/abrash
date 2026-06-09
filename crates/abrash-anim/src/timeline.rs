@@ -143,6 +143,12 @@ impl<T: Animatable + Send + Sync + 'static> Timeline<T> {
         self.last_sample.value.clone()
     }
 
+    /// The most recently evaluated value as a reference, avoiding allocations.
+    #[must_use]
+    pub const fn current_value_ref(&self) -> &T {
+        &self.last_sample.value
+    }
+
     /// Reset the timeline to the beginning.
     pub fn reset(&mut self) {
         self.clock.reset();
@@ -241,8 +247,8 @@ mod tests {
         // Advance into second cycle (1.5s total for a 1s animation)
         tick_secs(&mut tl, 1.5);
         assert!(!tl.is_completed());
-        let val = tl.current_value();
-        assert!(val < 10.0, "PingPong should reverse: got {val}");
+        let val = tl.current_value_ref();
+        assert!(*val < 10.0, "PingPong should reverse: got {val}");
     }
 
     #[test]

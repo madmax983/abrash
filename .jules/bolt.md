@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+## 2024-05-18 - [Eliminating .clone() allocations on public APIs without breaking them]
+**Learning:** When eliminating `.clone()` heap allocations on public methods returning `T` by returning a reference `&T` instead, do not alter the existing method signature, as this constitutes a breaking API change.
+**Action:** Preserve the original method (`fn current_value(&self) -> T`) and introduce a new sibling method (`const fn current_value_ref(&self) -> &T`), then migrate internal workspace consumers to the new allocation-free method.
