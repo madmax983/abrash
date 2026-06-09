@@ -189,16 +189,13 @@ impl PbrGradients {
 }
 
 struct PbrEdgeWalker {
-    x: i64,
-    z: f32,
+    base: crate::rasterizer::core::EdgeWalker,
     nx: f32,
     ny: f32,
     nz: f32,
     wx: f32,
     wy: f32,
     wz: f32,
-    dx_dy: i64,
-    dz_dy: f32,
     dnx_dy: f32,
     dny_dy: f32,
     dnz_dy: f32,
@@ -217,26 +214,23 @@ impl PbrEdgeWalker {
         w_start: Vec3,
         w_end: Vec3,
     ) -> Self {
-        let base = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
+        let base_delta = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
 
-        let dnx_dy = (n_end.x - n_start.x) * base.inv_h;
-        let dny_dy = (n_end.y - n_start.y) * base.inv_h;
-        let dnz_dy = (n_end.z - n_start.z) * base.inv_h;
-        let dwx_dy = (w_end.x - w_start.x) * base.inv_h;
-        let dwy_dy = (w_end.y - w_start.y) * base.inv_h;
-        let dwz_dy = (w_end.z - w_start.z) * base.inv_h;
+        let dnx_dy = (n_end.x - n_start.x) * base_delta.inv_h;
+        let dny_dy = (n_end.y - n_start.y) * base_delta.inv_h;
+        let dnz_dy = (n_end.z - n_start.z) * base_delta.inv_h;
+        let dwx_dy = (w_end.x - w_start.x) * base_delta.inv_h;
+        let dwy_dy = (w_end.y - w_start.y) * base_delta.inv_h;
+        let dwz_dy = (w_end.z - w_start.z) * base_delta.inv_h;
 
         Self {
-            x: base.x_start,
-            z: p_start.z,
+            base: crate::rasterizer::core::EdgeWalker::from_delta(&base_delta, p_start),
             nx: n_start.x,
             ny: n_start.y,
             nz: n_start.z,
             wx: w_start.x,
             wy: w_start.y,
             wz: w_start.z,
-            dx_dy: base.dx_dy,
-            dz_dy: base.dz_dy,
             dnx_dy,
             dny_dy,
             dnz_dy,
@@ -247,8 +241,7 @@ impl PbrEdgeWalker {
     }
 
     fn step(&mut self) {
-        self.x += self.dx_dy;
-        self.z += self.dz_dy;
+        self.base.step();
         self.nx += self.dnx_dy;
         self.ny += self.dny_dy;
         self.nz += self.dnz_dy;
@@ -259,8 +252,7 @@ impl PbrEdgeWalker {
 
     fn step_n(&mut self, n: i64) {
         let n_f = n as f32;
-        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
-        self.z += self.dz_dy * n_f;
+        self.base.step_n(n);
         self.nx += self.dnx_dy * n_f;
         self.ny += self.dny_dy * n_f;
         self.nz += self.dnz_dy * n_f;
@@ -461,9 +453,9 @@ pub fn fill_triangle_pbr(
             let (x_start, x_end, z_left, nx_left, ny_left, nz_left, wx_left, wy_left, wz_left) =
                 if long_edge_is_left {
                     (
-                        (edge_a.x >> 16) as i32,
-                        (edge_b.x >> 16) as i32,
-                        edge_a.z,
+                        (edge_a.base.x >> 16) as i32,
+                        (edge_b.base.x >> 16) as i32,
+                        edge_a.base.z,
                         edge_a.nx,
                         edge_a.ny,
                         edge_a.nz,
@@ -473,9 +465,9 @@ pub fn fill_triangle_pbr(
                     )
                 } else {
                     (
-                        (edge_b.x >> 16) as i32,
-                        (edge_a.x >> 16) as i32,
-                        edge_b.z,
+                        (edge_b.base.x >> 16) as i32,
+                        (edge_a.base.x >> 16) as i32,
+                        edge_b.base.z,
                         edge_b.nx,
                         edge_b.ny,
                         edge_b.nz,

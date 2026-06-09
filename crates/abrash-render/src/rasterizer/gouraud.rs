@@ -549,11 +549,8 @@ impl GouraudGradients {
 }
 
 pub(crate) struct GouraudEdgeWalker {
-    pub(crate) x: i64,
-    pub(crate) z: f32,
+    pub(crate) base: crate::rasterizer::core::EdgeWalker,
     pub(crate) c: (i32, i32, i32),
-    dx_dy: i64,
-    dz_dy: f32,
     dc_dy: (i32, i32, i32),
 }
 
@@ -564,12 +561,12 @@ impl GouraudEdgeWalker {
         c_start: Vec3,
         c_end: Vec3,
     ) -> Self {
-        let base = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
+        let base_delta = crate::rasterizer::core::BaseEdgeDelta::compute(p_start, p_end);
 
-        let dc_dy = if base.inv_h == 0.0 {
+        let dc_dy = if base_delta.inv_h == 0.0 {
             (0, 0, 0)
         } else {
-            let dc = (c_end - c_start) * base.inv_h;
+            let dc = (c_end - c_start) * base_delta.inv_h;
             (
                 (dc.x * FIXED_SCALE) as i32,
                 (dc.y * FIXED_SCALE) as i32,
@@ -584,18 +581,14 @@ impl GouraudEdgeWalker {
         );
 
         Self {
-            x: base.x_start,
-            z: p_start.z,
+            base: crate::rasterizer::core::EdgeWalker::from_delta(&base_delta, p_start),
             c: c_fixed,
-            dx_dy: base.dx_dy,
-            dz_dy: base.dz_dy,
             dc_dy,
         }
     }
 
     pub(crate) fn step(&mut self) {
-        self.x += self.dx_dy;
-        self.z += self.dz_dy;
+        self.base.step();
         self.c.0 += self.dc_dy.0;
         self.c.1 += self.dc_dy.1;
         self.c.2 += self.dc_dy.2;
@@ -603,8 +596,7 @@ impl GouraudEdgeWalker {
 
     pub(crate) fn step_n(&mut self, n: i64) {
         let n_f = n as f32;
-        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
-        self.z += self.dz_dy * n_f;
+        self.base.step_n(n);
         let n_i32 = n as i32;
         self.c.0 = self.c.0.wrapping_add(self.dc_dy.0.wrapping_mul(n_i32));
         self.c.1 = self.c.1.wrapping_add(self.dc_dy.1.wrapping_mul(n_i32));
@@ -794,16 +786,16 @@ pub fn fill_triangle_gouraud(
 
             let (x_start, x_end, z_left, c_left) = if long_edge_is_left {
                 (
-                    (edge_a.x >> 16) as i32,
-                    (edge_b.x >> 16) as i32,
-                    edge_a.z,
+                    (edge_a.base.x >> 16) as i32,
+                    (edge_b.base.x >> 16) as i32,
+                    edge_a.base.z,
                     edge_a.c,
                 )
             } else {
                 (
-                    (edge_b.x >> 16) as i32,
-                    (edge_a.x >> 16) as i32,
-                    edge_b.z,
+                    (edge_b.base.x >> 16) as i32,
+                    (edge_a.base.x >> 16) as i32,
+                    edge_b.base.z,
                     edge_b.c,
                 )
             };

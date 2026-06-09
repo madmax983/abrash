@@ -1024,18 +1024,18 @@ fn render_triangle_in_tile_textured(
 
         let (x_start, x_end, z_left, q_left, u_left, v_left) = if tri.long_edge_is_left {
             (
-                (edge_a.x >> 16) as i32,
-                (edge_b.x >> 16) as i32,
-                edge_a.z,
+                (edge_a.base.x >> 16) as i32,
+                (edge_b.base.x >> 16) as i32,
+                edge_a.base.z,
                 edge_a.q,
                 edge_a.u,
                 edge_a.v,
             )
         } else {
             (
-                (edge_b.x >> 16) as i32,
-                (edge_a.x >> 16) as i32,
-                edge_b.z,
+                (edge_b.base.x >> 16) as i32,
+                (edge_a.base.x >> 16) as i32,
+                edge_b.base.z,
                 edge_b.q,
                 edge_b.u,
                 edge_b.v,
@@ -3938,16 +3938,16 @@ fn render_triangle_in_tile_gouraud(ctx: &mut TileContext, tri: &PreparedGouraudT
 
         let (x_start, x_end, z_left, c_left) = if tri.long_edge_is_left {
             (
-                (edge_a.x >> 16) as i32,
-                (edge_b.x >> 16) as i32,
-                edge_a.z,
+                (edge_a.base.x >> 16) as i32,
+                (edge_b.base.x >> 16) as i32,
+                edge_a.base.z,
                 edge_a.c,
             )
         } else {
             (
-                (edge_b.x >> 16) as i32,
-                (edge_a.x >> 16) as i32,
-                edge_b.z,
+                (edge_b.base.x >> 16) as i32,
+                (edge_a.base.x >> 16) as i32,
+                edge_b.base.z,
                 edge_b.c,
             )
         };

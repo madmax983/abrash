@@ -269,6 +269,10 @@ pub(crate) struct EdgeWalker {
 impl EdgeWalker {
     pub(crate) fn new(p_start: ScreenPoint, p_end: ScreenPoint) -> Self {
         let base = BaseEdgeDelta::compute(p_start, p_end);
+        Self::from_delta(&base, p_start)
+    }
+
+    pub(crate) const fn from_delta(base: &BaseEdgeDelta, p_start: ScreenPoint) -> Self {
         Self {
             x: base.x_start,
             z: p_start.z,
