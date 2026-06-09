@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Histogram Overlay Filter]
+**Concept:** A post-processing effect that calculates the overall luminance distribution of the framebuffer and renders it as an alpha-blended bar graph directly onto the image, allowing real-time exposure monitoring.
+**Fate:** Implemented
+**Lesson:** Iterating over the framebuffer first to calculate distribution frequencies into buckets, and then rendering those buckets using an inverted coordinate system allows the creation of standard data visualization overlays entirely in screen-space with basic alpha blending.
