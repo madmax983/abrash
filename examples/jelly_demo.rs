@@ -24,7 +24,7 @@ mod demo {
         let mut zb = ZBuffer::new(width, height)?;
 
         // Scene Setup
-        let mut sdf_scene = SdfScene::new();
+        let mut sdf_scene = SdfScene::with_capacity(2);
         // Floor
         sdf_scene.add(SdfObject {
             primitive: SdfPrimitive::Plane {
@@ -172,7 +172,7 @@ mod winit_demo {
             let framebuffer = Framebuffer::new(width, height).map_err(io::Error::other)?;
             let zbuffer = ZBuffer::new(width, height).map_err(io::Error::other)?;
 
-            let mut sdf_scene = SdfScene::new();
+            let mut sdf_scene = SdfScene::with_capacity(2);
             sdf_scene.add(SdfObject {
                 primitive: SdfPrimitive::Plane {
                     normal: Vec3::new(0.0, 1.0, 0.0),

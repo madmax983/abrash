@@ -104,6 +104,15 @@ impl SdfScene {
         }
     }
 
+    /// ⚡ Bolt: Create a new `SdfScene` with pre-allocated capacity for objects.
+    /// This eliminates heap reallocations when registering initial scene assets.
+    #[must_use]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            objects: Vec::with_capacity(capacity),
+        }
+    }
+
     pub fn add(&mut self, object: SdfObject) {
         self.objects.push(object);
     }
