@@ -235,51 +235,39 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     // Faster loop hoisting arithmetic conversions
     let mut x_i64 = 0_i64;
     let mut y_i64 = i64::from(y);
-    if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
-        while y_i64 >= x_i64 {
-            draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
-            if x > 0 {
-                draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc - x, color);
-            }
+    let fully_on_screen =
+        min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height());
 
-            if d > 0 {
-                if y_i64 > x_i64 {
-                    draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
-                    draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
+    macro_rules! process_circle {
+        ($draw_fn:ident) => {
+            while y_i64 >= x_i64 {
+                $draw_fn(fb, xc - y, xc + y, yc + x, color);
+                if x > 0 {
+                    $draw_fn(fb, xc - y, xc + y, yc - x, color);
                 }
-                y -= 1;
-                y_i64 -= 1;
-                d += 4 * (x_i64 - y_i64) + 10;
-            } else {
-                d += 4 * x_i64 + 6;
-            }
 
-            x += 1;
-            x_i64 += 1;
-        }
+                if d > 0 {
+                    if y_i64 > x_i64 {
+                        $draw_fn(fb, xc - x, xc + x, yc + y, color);
+                        $draw_fn(fb, xc - x, xc + x, yc - y, color);
+                    }
+                    y -= 1;
+                    y_i64 -= 1;
+                    d += 4 * (x_i64 - y_i64) + 10;
+                } else {
+                    d += 4 * x_i64 + 6;
+                }
+
+                x += 1;
+                x_i64 += 1;
+            }
+        };
+    }
+
+    if fully_on_screen {
+        process_circle!(draw_horizontal_line_unchecked);
     } else {
-        // Safe path: clip against screen bounds
-        while y_i64 >= x_i64 {
-            draw_horizontal_line(fb, xc - y, xc + y, yc + x, color);
-            if x > 0 {
-                draw_horizontal_line(fb, xc - y, xc + y, yc - x, color);
-            }
-
-            if d > 0 {
-                if y_i64 > x_i64 {
-                    draw_horizontal_line(fb, xc - x, xc + x, yc + y, color);
-                    draw_horizontal_line(fb, xc - x, xc + x, yc - y, color);
-                }
-                y -= 1;
-                y_i64 -= 1;
-                d += 4 * (x_i64 - y_i64) + 10;
-            } else {
-                d += 4 * x_i64 + 6;
-            }
-
-            x += 1;
-            x_i64 += 1;
-        }
+        process_circle!(draw_horizontal_line);
     }
 }
 

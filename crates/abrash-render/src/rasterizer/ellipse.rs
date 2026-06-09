@@ -113,80 +113,53 @@ pub fn draw_ellipse(fb: &mut Framebuffer, xc: i32, yc: i32, rx: i32, ry: i32, co
         return;
     }
 
-    if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
-        // Fast path: fully on screen
-        draw_ellipse_points_unchecked(fb, xc, yc, x, y, color);
+    let fully_on_screen =
+        min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height());
 
-        // Region 1
-        let mut p = ry_sq - (rx_sq * i64::from(ry)) + (rx_sq / 4);
-        while px < py {
-            x += 1;
-            px += 2 * ry_sq;
-            if p < 0 {
-                p += ry_sq + px;
-            } else {
-                y -= 1;
-                py -= 2 * rx_sq;
-                p += ry_sq + px - py;
-            }
-            draw_ellipse_points_unchecked(fb, xc, yc, x, y, color);
-        }
+    macro_rules! process_ellipse {
+        ($draw_fn:ident) => {
+            $draw_fn(fb, xc, yc, x, y, color);
 
-        // Region 2
-        // ⚡ Bolt: Hoist type conversions and algebraically simplify to reduce operations
-        let x_i64 = i64::from(x);
-        let y_minus_1 = i64::from(y - 1);
-        let mut p2 = ry_sq * x_i64 * (x_i64 + 1) + rx_sq * (y_minus_1 * y_minus_1 - ry_sq);
-
-        while y > 0 {
-            y -= 1;
-            py -= 2 * rx_sq;
-            if p2 > 0 {
-                p2 += rx_sq - py;
-            } else {
+            // Region 1
+            let mut p = ry_sq - (rx_sq * i64::from(ry)) + (rx_sq / 4);
+            while px < py {
                 x += 1;
                 px += 2 * ry_sq;
-                p2 += rx_sq - py + px;
+                if p < 0 {
+                    p += ry_sq + px;
+                } else {
+                    y -= 1;
+                    py -= 2 * rx_sq;
+                    p += ry_sq + px - py;
+                }
+                $draw_fn(fb, xc, yc, x, y, color);
             }
-            draw_ellipse_points_unchecked(fb, xc, yc, x, y, color);
-        }
+
+            // Region 2
+            // ⚡ Bolt: Hoist type conversions and algebraically simplify to reduce operations
+            let x_i64 = i64::from(x);
+            let y_minus_1 = i64::from(y - 1);
+            let mut p2 = ry_sq * x_i64 * (x_i64 + 1) + rx_sq * (y_minus_1 * y_minus_1 - ry_sq);
+
+            while y > 0 {
+                y -= 1;
+                py -= 2 * rx_sq;
+                if p2 > 0 {
+                    p2 += rx_sq - py;
+                } else {
+                    x += 1;
+                    px += 2 * ry_sq;
+                    p2 += rx_sq - py + px;
+                }
+                $draw_fn(fb, xc, yc, x, y, color);
+            }
+        };
+    }
+
+    if fully_on_screen {
+        process_ellipse!(draw_ellipse_points_unchecked);
     } else {
-        // Safe path: bounds checking
-        draw_ellipse_points(fb, xc, yc, x, y, color);
-
-        // Region 1
-        let mut p = ry_sq - (rx_sq * i64::from(ry)) + (rx_sq / 4);
-        while px < py {
-            x += 1;
-            px += 2 * ry_sq;
-            if p < 0 {
-                p += ry_sq + px;
-            } else {
-                y -= 1;
-                py -= 2 * rx_sq;
-                p += ry_sq + px - py;
-            }
-            draw_ellipse_points(fb, xc, yc, x, y, color);
-        }
-
-        // Region 2
-        // ⚡ Bolt: Hoist type conversions and algebraically simplify to reduce operations
-        let x_i64 = i64::from(x);
-        let y_minus_1 = i64::from(y - 1);
-        let mut p2 = ry_sq * x_i64 * (x_i64 + 1) + rx_sq * (y_minus_1 * y_minus_1 - ry_sq);
-
-        while y > 0 {
-            y -= 1;
-            py -= 2 * rx_sq;
-            if p2 > 0 {
-                p2 += rx_sq - py;
-            } else {
-                x += 1;
-                px += 2 * ry_sq;
-                p2 += rx_sq - py + px;
-            }
-            draw_ellipse_points(fb, xc, yc, x, y, color);
-        }
+        process_ellipse!(draw_ellipse_points);
     }
 }
 
@@ -283,98 +256,62 @@ pub fn fill_ellipse(fb: &mut Framebuffer, xc: i32, yc: i32, rx: i32, ry: i32, co
         return;
     }
 
-    if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
-        // Fast path: fully on screen
-        draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
-        if y != 0 {
-            draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
-        }
+    let fully_on_screen =
+        min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height());
 
-        // Region 1
-        let mut p = ry_sq - (rx_sq * i64::from(ry)) + (rx_sq / 4);
-        while px < py {
-            x += 1;
-            px += 2 * ry_sq;
-            if p < 0 {
-                p += ry_sq + px;
-            } else {
-                y -= 1;
-                py -= 2 * rx_sq;
-                p += ry_sq + px - py;
-            }
-            draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
+    macro_rules! process_ellipse {
+        ($draw_fn:ident) => {
+            $draw_fn(fb, xc - x, xc + x, yc + y, color);
             if y != 0 {
-                draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
+                $draw_fn(fb, xc - x, xc + x, yc - y, color);
             }
-        }
 
-        // Region 2
-        // ⚡ Bolt: Hoist type conversions and algebraically simplify to reduce operations
-        let x_i64 = i64::from(x);
-        let y_minus_1 = i64::from(y - 1);
-        let mut p2 = ry_sq * x_i64 * (x_i64 + 1) + rx_sq * (y_minus_1 * y_minus_1 - ry_sq);
-
-        while y > 0 {
-            y -= 1;
-            py -= 2 * rx_sq;
-            if p2 > 0 {
-                p2 += rx_sq - py;
-            } else {
+            // Region 1
+            let mut p = ry_sq - (rx_sq * i64::from(ry)) + (rx_sq / 4);
+            while px < py {
                 x += 1;
                 px += 2 * ry_sq;
-                p2 += rx_sq - py + px;
+                if p < 0 {
+                    p += ry_sq + px;
+                } else {
+                    y -= 1;
+                    py -= 2 * rx_sq;
+                    p += ry_sq + px - py;
+                }
+                $draw_fn(fb, xc - x, xc + x, yc + y, color);
+                if y != 0 {
+                    $draw_fn(fb, xc - x, xc + x, yc - y, color);
+                }
             }
-            draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
-            if y != 0 {
-                draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
+
+            // Region 2
+            // ⚡ Bolt: Hoist type conversions and algebraically simplify to reduce operations
+            let x_i64 = i64::from(x);
+            let y_minus_1 = i64::from(y - 1);
+            let mut p2 = ry_sq * x_i64 * (x_i64 + 1) + rx_sq * (y_minus_1 * y_minus_1 - ry_sq);
+
+            while y > 0 {
+                y -= 1;
+                py -= 2 * rx_sq;
+                if p2 > 0 {
+                    p2 += rx_sq - py;
+                } else {
+                    x += 1;
+                    px += 2 * ry_sq;
+                    p2 += rx_sq - py + px;
+                }
+                $draw_fn(fb, xc - x, xc + x, yc + y, color);
+                if y != 0 {
+                    $draw_fn(fb, xc - x, xc + x, yc - y, color);
+                }
             }
-        }
+        };
+    }
+
+    if fully_on_screen {
+        process_ellipse!(draw_horizontal_line_unchecked);
     } else {
-        // Safe path: bounds checking
-        draw_horizontal_line(fb, xc - x, xc + x, yc + y, color);
-        if y != 0 {
-            draw_horizontal_line(fb, xc - x, xc + x, yc - y, color);
-        }
-
-        // Region 1
-        let mut p = ry_sq - (rx_sq * i64::from(ry)) + (rx_sq / 4);
-        while px < py {
-            x += 1;
-            px += 2 * ry_sq;
-            if p < 0 {
-                p += ry_sq + px;
-            } else {
-                y -= 1;
-                py -= 2 * rx_sq;
-                p += ry_sq + px - py;
-            }
-            draw_horizontal_line(fb, xc - x, xc + x, yc + y, color);
-            if y != 0 {
-                draw_horizontal_line(fb, xc - x, xc + x, yc - y, color);
-            }
-        }
-
-        // Region 2
-        // ⚡ Bolt: Hoist type conversions and algebraically simplify to reduce operations
-        let x_i64 = i64::from(x);
-        let y_minus_1 = i64::from(y - 1);
-        let mut p2 = ry_sq * x_i64 * (x_i64 + 1) + rx_sq * (y_minus_1 * y_minus_1 - ry_sq);
-
-        while y > 0 {
-            y -= 1;
-            py -= 2 * rx_sq;
-            if p2 > 0 {
-                p2 += rx_sq - py;
-            } else {
-                x += 1;
-                px += 2 * ry_sq;
-                p2 += rx_sq - py + px;
-            }
-            draw_horizontal_line(fb, xc - x, xc + x, yc + y, color);
-            if y != 0 {
-                draw_horizontal_line(fb, xc - x, xc + x, yc - y, color);
-            }
-        }
+        process_ellipse!(draw_horizontal_line);
     }
 }
 

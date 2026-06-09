@@ -68,20 +68,8 @@ impl LSystem {
 
         let mut is_pure_ascii = self.axiom.is_ascii();
         if is_pure_ascii {
-            for v in self.rules.values() {
-                if !v.is_ascii() {
-                    is_pure_ascii = false;
-                    break;
-                }
-            }
-            if is_pure_ascii {
-                for k in self.rules.keys() {
-                    if !k.is_ascii() {
-                        is_pure_ascii = false;
-                        break;
-                    }
-                }
-            }
+            is_pure_ascii = self.rules.values().all(|v| v.is_ascii())
+                && self.rules.keys().all(char::is_ascii);
         }
 
         if is_pure_ascii {

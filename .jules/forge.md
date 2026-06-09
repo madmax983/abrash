@@ -8,3 +8,9 @@
 **Learning:** Functions like `execute_draw_list_owned` and `execute_draw_list_into` contained identical internal rendering logic causing duplication and reducing maintainability.
 **Action:** Extract this identical rendering logic into a single private helper function (e.g., `execute_draw_list_inner`) that both functions can delegate to. This adheres to DRY principles and eliminates duplication.
 **[Extract Shared EdgeWalker Init]**\n**Learning:** When implementing multiple struct variants that share similar primitive logic (e.g., `EdgeWalker` implementations across different rasterizers like Phong, Pbr, or Gouraud), screen-space delta math and setup routines (`inv_h`, `dx_dy`, `dz_dy`) are frequently duplicated in their `new()` constructors.\n**Action:** Extract this common 2D coordinate initialization into a shared helper struct (e.g., `BaseEdgeDelta`) in a common module (like `core.rs`) effectively eliminating these "Primitive Cluster" and "God Function" anti-patterns.
+**[Local Macros in Refactoring]
+**Learning:** Local  blocks must explicitly capture all local variables. They do not implicitly close over their environment, unlike standard closures.
+**Action:** When extracting duplicate code blocks into local macros, pass all required variables explicitly as arguments to avoid scoping compilation errors.
+**[Local Macros in Refactoring]**
+**Learning:** Local macro_rules! blocks must explicitly capture all local variables. They do not implicitly close over their environment, unlike standard closures.
+**Action:** When extracting duplicate code blocks into local macros, pass all required variables explicitly as arguments to avoid scoping compilation errors.
