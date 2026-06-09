@@ -83,6 +83,7 @@ pub mod pencil_sketch;
 pub mod physarum;
 pub mod pixel_sort;
 pub mod pixelate;
+pub mod pointillism;
 pub mod plasma;
 pub mod pop_art;
 pub mod posterize;

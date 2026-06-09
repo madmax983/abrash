@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Pointillism Filter]
+**Concept:** A non-photorealistic post-processing effect that converts the image into a Pointillist painting (like Georges Seurat). Instead of drawing rectangular pixels, it draws thousands of overlapping, slightly randomized circles (dots) based on the underlying image colors.
+**Fate:** Implemented
+**Lesson:** Iterating over the destination pixels and reverse-mapping them to their 3x3 neighboring cell dot centers allows us to calculate dot overlap in a completely parallel, lock-free manner without read-after-write hazards.
