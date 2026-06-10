@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Gltf Loading: Replacing `.collect()` with `extend()` & `with_capacity()`]
+**Learning:** `gltf::accessor::Iter` correctly implements `size_hint()`. By using this and `Vec::with_capacity` followed by `.extend()`, we can eliminate intermediate heap allocation and resizing that occurs during `.collect::<Vec<_>>()`.
+**Action:** Always pre-allocate capacities when building collections during asset parsing or processing, replacing `.collect::<Vec<_>>()` calls.

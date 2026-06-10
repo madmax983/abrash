@@ -1,0 +1,99 @@
+--- crates/abrash-skeletal/src/gltf_loader.rs
++++ crates/abrash-skeletal/src/gltf_loader.rs
+@@ -194,7 +194,11 @@
+
+     // Positions (required for a valid mesh)
+     let positions: Vec<Vec3> = reader.read_positions().map_or_else(Vec::new, |iter| {
+-        iter.map(|p| Vec3::new(p[0], p[1], p[2])).collect()
++        let (lower, _) = iter.size_hint();
++        // ⚡ Bolt: Pre-allocate vectors with capacity using size_hint to avoid intermediate heap resizing chains.
++        let mut vec = Vec::with_capacity(lower);
++        vec.extend(iter.map(|p| Vec3::new(p[0], p[1], p[2])));
++        vec
+     });
+
+     if positions.is_empty() {
+@@ -203,18 +207,27 @@
+
+     // Normals (optional)
+     let normals: Vec<Vec3> = reader.read_normals().map_or_else(Vec::new, |iter| {
+-        iter.map(|n| Vec3::new(n[0], n[1], n[2])).collect()
++        let (lower, _) = iter.size_hint();
++        let mut vec = Vec::with_capacity(lower);
++        vec.extend(iter.map(|n| Vec3::new(n[0], n[1], n[2])));
++        vec
+     });
+
+     // Texture coordinates (optional)
+     let uvs: Vec<Vec2> = reader.read_tex_coords(0).map_or_else(Vec::new, |iter| {
+         let iter = iter.into_f32();
+-        iter.map(|uv| Vec2::new(uv[0], uv[1])).collect()
++        let (lower, _) = iter.size_hint();
++        let mut vec = Vec::with_capacity(lower);
++        vec.extend(iter.map(|uv| Vec2::new(uv[0], uv[1])));
++        vec
+     });
+
+     // Tangents (optional)
+     let tangents: Vec<Vec4> = reader.read_tangents().map_or_else(Vec::new, |iter| {
+-        iter.map(|t| Vec4::new(t[0], t[1], t[2], t[3])).collect()
++        let (lower, _) = iter.size_hint();
++        let mut vec = Vec::with_capacity(lower);
++        vec.extend(iter.map(|t| Vec4::new(t[0], t[1], t[2], t[3])));
++        vec
+     });
+
+     // Indices (triangulated)
+@@ -238,13 +251,19 @@
+     // Joint indices (optional — only present on skinned meshes)
+     let joint_indices: Vec<[u16; 4]> = reader.read_joints(0).map_or_else(Vec::new, |iter| {
+         let iter = iter.into_u16();
+-        iter.collect()
++        let (lower, _) = iter.size_hint();
++        let mut vec = Vec::with_capacity(lower);
++        vec.extend(iter);
++        vec
+     });
+
+     // Weights (optional)
+     let weights: Vec<[f32; 4]> = reader.read_weights(0).map_or_else(Vec::new, |iter| {
+         let iter = iter.into_f32();
+-        iter.collect()
++        let (lower, _) = iter.size_hint();
++        let mut vec = Vec::with_capacity(lower);
++        vec.extend(iter);
++        vec
+     });
+
+     let mesh = Mesh {
+@@ -552,18 +571,27 @@
+
+             let (target, values) = match outputs {
+                 gltf::animation::util::ReadOutputs::Translations(iter) => {
+-                    let vals: Vec<Vec3> = iter.map(|t| Vec3::new(t[0], t[1], t[2])).collect();
++                    let (lower, _) = iter.size_hint();
++                    let mut vals = Vec::with_capacity(lower);
++                    vals.extend(iter.map(|t| Vec3::new(t[0], t[1], t[2])));
+                     (ChannelTarget::Translation, ChannelValues::Translation(vals))
+                 }
+                 gltf::animation::util::ReadOutputs::Rotations(iter) => {
+                     let iter = iter
+                         .into_f32()
+                         .map(|r| Quat::new(r[0], r[1], r[2], r[3]).normalize());
+-                    let vals: Vec<Quat> = iter.collect();
++
++                    let (lower, _) = iter.size_hint();
++                    let mut vals = Vec::with_capacity(lower);
++                    vals.extend(iter);
++
+                     (ChannelTarget::Rotation, ChannelValues::Rotation(vals))
+                 }
+                 gltf::animation::util::ReadOutputs::Scales(iter) => {
+-                    let vals: Vec<Vec3> = iter.map(|s| Vec3::new(s[0], s[1], s[2])).collect();
++                    let (lower, _) = iter.size_hint();
++                    let mut vals = Vec::with_capacity(lower);
++                    vals.extend(iter.map(|s| Vec3::new(s[0], s[1], s[2])));
++
+                     (ChannelTarget::Scale, ChannelValues::Scale(vals))
+                 }
+                 gltf::animation::util::ReadOutputs::MorphTargetWeights(_) => {
