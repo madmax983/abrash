@@ -128,7 +128,7 @@ pub fn apply_physarum(fb: &mut Framebuffer, config: &PhysarumConfig) {
                 let mut rng = Rng::seeded(
                     std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
+                        .expect("Failed to create framebuffer in test")
                         .as_nanos() as u64,
                 );
 
@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     fn test_apply_physarum_no_crash() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("Failed to create framebuffer in test");
         let config = PhysarumConfig {
             agent_count: 1000,
             ..Default::default()

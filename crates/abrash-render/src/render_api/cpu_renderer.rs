@@ -207,11 +207,14 @@ impl CpuRenderer {
                 .batches
                 .par_extend(frame.commands.par_iter().zip(ranges.as_slice()).map(
                     |(cmd, &(start, end))| {
-                        let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
+                        let cpu_mesh = self
+                            .meshes
+                            .get(from_mesh_handle(cmd.mesh))
+                            .expect("Mesh handle was previously validated");
                         let material = self
                             .materials
                             .get(from_material_handle(cmd.material))
-                            .unwrap();
+                            .expect("Material handle was previously validated");
 
                         let mvp = cmd.transform * view_proj;
                         let mesh = &cpu_mesh.mesh;
