@@ -54,6 +54,91 @@ const fn generate_lut() -> [u32; 1024] {
 ///
 /// apply_heat_vision(&mut fb, &zb);
 /// ```
+fn find_min_max_scalar(depths: &[f32]) -> (f32, f32, bool) {
+    let mut min_z = f32::MAX;
+    let mut max_z = f32::MIN;
+    let mut has_content = false;
+    for &z in depths {
+        if z != f32::INFINITY {
+            if z < min_z {
+                min_z = z;
+            }
+            if z > max_z {
+                max_z = z;
+            }
+            has_content = true;
+        }
+    }
+    (min_z, max_z, has_content)
+}
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+unsafe fn find_min_max_simd(depths: &[f32]) -> (f32, f32, bool) {
+    use std::arch::x86_64::{
+        _CMP_EQ_OQ, _mm256_blendv_ps, _mm256_cmp_ps, _mm256_loadu_ps, _mm256_max_ps, _mm256_min_ps,
+        _mm256_set1_ps, _mm256_storeu_ps,
+    };
+
+    let mut min_vec = _mm256_set1_ps(f32::MAX);
+    let mut max_vec = _mm256_set1_ps(f32::MIN);
+    let inf_vec = _mm256_set1_ps(f32::INFINITY);
+
+    let mut i = 0;
+    let len = depths.len();
+    while i + 8 <= len {
+        let vals = _mm256_loadu_ps(depths.as_ptr().add(i));
+        let is_inf = _mm256_cmp_ps(vals, inf_vec, _CMP_EQ_OQ);
+
+        let valid_for_min = _mm256_blendv_ps(vals, _mm256_set1_ps(f32::MAX), is_inf);
+        let valid_for_max = _mm256_blendv_ps(vals, _mm256_set1_ps(f32::MIN), is_inf);
+
+        min_vec = _mm256_min_ps(min_vec, valid_for_min);
+        max_vec = _mm256_max_ps(max_vec, valid_for_max);
+
+        i += 8;
+    }
+
+    let mut min_arr = [0.0; 8];
+    let mut max_arr = [0.0; 8];
+    _mm256_storeu_ps(min_arr.as_mut_ptr(), min_vec);
+    _mm256_storeu_ps(max_arr.as_mut_ptr(), max_vec);
+
+    let mut min_z = f32::MAX;
+    let mut max_z = f32::MIN;
+    let mut has_content = false;
+
+    for &v in &min_arr {
+        if v < min_z {
+            min_z = v;
+        }
+    }
+    for &v in &max_arr {
+        if v > max_z {
+            max_z = v;
+        }
+    }
+
+    #[allow(clippy::float_cmp)]
+    if min_z != f32::MAX {
+        has_content = true;
+    }
+
+    for &z in &depths[i..] {
+        if z != f32::INFINITY {
+            if z < min_z {
+                min_z = z;
+            }
+            if z > max_z {
+                max_z = z;
+            }
+            has_content = true;
+        }
+    }
+
+    (min_z, max_z, has_content)
+}
+
 pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     const LUT: [u32; 1024] = generate_lut();
 
