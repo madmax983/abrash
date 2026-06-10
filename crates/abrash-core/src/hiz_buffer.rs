@@ -600,6 +600,15 @@ mod tests {
     use super::*;
 
     #[test]
+    #[should_panic(expected = "Depth slice too small for Hi-Z pyramid build")]
+    fn test_build_pyramid_from_depths_slice_too_small() {
+        let mut hiz = HiZBuffer::new(10, 10);
+        let depths = vec![0.0; 100];
+        // Pass only a slice of 50, which is too small for a 10x10 buffer (expects 100).
+        hiz.build_pyramid_from_depths(10, 10, &depths[..50]);
+    }
+
+    #[test]
     #[should_panic(expected = "capacity overflow")]
     fn test_hiz_dimensions_overflow() {
         let _ = HiZBuffer::new(u32::MAX, u32::MAX);

@@ -51,3 +51,6 @@
 **[Validating Time/Tick Loop Logic Without Flakiness]**
 **Learning:** Testing frame-time loops using `std::thread::sleep` introduces severe flakiness because CI runners or test threads can delay execution unpredictably. Instead of testing "real" time elapsed, test the internal response to elapsed time by directly simulating it on the structure (e.g. `timer.last_time = Instant::now()`, `timer.accumulator += 50ms`).
 **Action:** Never use `std::thread::sleep` for unit testing timing systems. Always manipulate the simulated time state directly to test logic boundaries.
+**[Missing Slice Bounds Check Panic Test]**
+**Learning:** Defensive guards like `assert!(depths.len() >= expected_len, "Depth slice too small")` in methods operating on contiguous arrays or images are critical for preventing out-of-bounds reads/writes. However, if these guards lack corresponding `#[should_panic]` tests, regressions or incorrect calculations of `expected_len` might silently allow memory vulnerabilities.
+**Action:** When auditing array/slice bounds checks, explicitly verify that a `#[should_panic(expected = "...")]` test exists passing an intentionally undersized slice to trigger the guard.
