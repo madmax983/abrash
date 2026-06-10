@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [String Art Filter]
+**Concept:** A procedural renderer that simulates physical string art. It places pins on a perimeter and greedily selects lines between them to approximate a target image (like a photograph or gradient) by minimizing error.
+**Fate:** Implemented
+**Lesson:** Using a greedy error-minimization algorithm over an array of pixels allows robust image approximation. Penalizing re-use of pins and accumulating opacity using a custom Bresenham algorithm avoids over-concentration of lines and ensures visually pleasing "thread" distribution.
