@@ -89,11 +89,8 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         return;
     }
 
-    // Add a small epsilon to avoid division by zero if flat plane
+    // Fixed point math scale logic
     let range = (max_z - min_z).max(0.0001);
-    // Map [0.0, range] to [0, 1023] (4 segments of 256)
-    // Adding a slight bias to prevent floating point inaccuracy at the absolute top end
-    // from truncating 1024 to 1023 when scaling.
     let scale = 1024.0 / range;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -104,17 +101,35 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         return;
     }
 
-    for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
-        if depth == f32::INFINITY {
-            *pixel = 0xFF00_0010; // Very Dark Blue Background
-            continue;
+    // Best performing unrolled loop configuration identified.
+    let mut i = 0;
+    let len = pixels.len().min(depths.len());
+
+    // Explicit 8-way unrolling manually
+    while i + 8 <= len {
+        for j in 0..8 {
+            let depth = unsafe { *depths.get_unchecked(i + j) };
+            if depth == f32::INFINITY {
+                unsafe { *pixels.get_unchecked_mut(i + j) = 0xFF00_0010; }
+            } else {
+                let t = ((depth - min_z) * scale) as u32;
+                let t = t.min(1023);
+                unsafe { *pixels.get_unchecked_mut(i + j) = *LUT.get_unchecked(t as usize); }
+            }
         }
+        i += 8;
+    }
 
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023); // Clamp strictly to 1023
-
-        // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
-        *pixel = unsafe { *LUT.get_unchecked(t as usize) };
+    // Scalar tail
+    for j in i..len {
+        let depth = unsafe { *depths.get_unchecked(j) };
+        if depth == f32::INFINITY {
+            unsafe { *pixels.get_unchecked_mut(j) = 0xFF00_0010; }
+        } else {
+            let t = ((depth - min_z) * scale) as u32;
+            let t = t.min(1023);
+            unsafe { *pixels.get_unchecked_mut(j) = *LUT.get_unchecked(t as usize); }
+        }
     }
 }
 

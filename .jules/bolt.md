@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Heat Vision - Bounds Check Elimination Unrolling]**
+**Learning:** While safe iterator chunking methods like `chunks_exact_mut()` are fast for single slices, zipping multiple chunked iterators can introduce overhead the compiler fails to elide. In multi-slice hot loops, manual unrolling (e.g., `while i + 8 <= len`) with `unsafe { get_unchecked() }` often outperforms zipped chunk iterators.
+**Action:** Replaced `.iter_mut().zip()` with manual 8-way unrolling (`while i + 8 <= len`) and `get_unchecked` in `heat_vision.rs` for a ~15-20% speedup on large framebuffers.
