@@ -12,8 +12,8 @@ fn bench_culling(c: &mut Criterion) {
     let proj = Mat4::perspective(1.57, 1.0, 0.1, 100.0);
     let frustum = Frustum::from_matrix(view * proj);
 
-    let mut aabbs = Vec::new();
-    let mut spheres = Vec::new();
+    let mut aabbs = Vec::with_capacity(10000);
+    let mut spheres = Vec::with_capacity(10000);
 
     // Deterministic random generation for repeatable benchmarks
     let mut rng_seed = 12345u32;

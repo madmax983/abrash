@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimal String Sizing For Exponential Generation]**
+**Learning:** In L-Systems and other algorithms featuring exponential string growth, relying on `String::new()` and the allocator's natural doubling capacity creates severe initial overhead, while explicitly allocating extremely large strings (like `String::with_capacity(100_000_000)`) risks Out-Of-Memory conditions.
+**Action:** When initializing strings for iterative expansion algorithms, calculate the theoretical growth scale (e.g. `iterations.min(16)`) and dynamically allocate an upper-bounded capacity `String::with_capacity(initial_capacity.min(max_capacity))` to eliminate reallocation chaining while remaining within safe bounds.

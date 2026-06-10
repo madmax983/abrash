@@ -312,7 +312,7 @@ fn profile_rendering_pipeline() {
 
 /// Generate horizontal triangles of specific scanline length
 fn generate_horizontal_triangles(scanline_len: u32, count: usize) -> Vec<ProfilingTriangle> {
-    let mut triangles = Vec::new();
+    let mut triangles = Vec::with_capacity(count);
     let width = scanline_len as f32;
 
     for i in 0..count {
@@ -334,7 +334,7 @@ fn generate_horizontal_triangles(scanline_len: u32, count: usize) -> Vec<Profili
 
 /// Generate test scene with triangles
 fn generate_test_scene(count: usize, width: u32, height: u32) -> Vec<ProfilingTriangle> {
-    let mut triangles = Vec::new();
+    let mut triangles = Vec::with_capacity(count);
 
     for i in 0..count {
         let x = ((i % 20) as f32) * (width as f32 / 20.0);

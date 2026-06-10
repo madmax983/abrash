@@ -8,7 +8,7 @@ fn bench_cull_spheres(c: &mut Criterion) {
     let proj = Mat4::perspective(1.57, 1.0, 0.1, 100.0);
     let frustum = Frustum::from_matrix(proj);
 
-    let mut spheres = Vec::new();
+    let mut spheres = Vec::with_capacity(1000);
     for i in 0..1000 {
         spheres.push(BoundingSphere {
             center: Vec3::new(0.0, 0.0, i as f32),

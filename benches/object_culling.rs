@@ -23,7 +23,7 @@ fn object_culling_benchmark(c: &mut Criterion) {
 
     // Scene setup: 1000 objects arranged in a line
     // Camera looks at the first few.
-    let mut objects = Vec::new();
+    let mut objects = Vec::with_capacity(1000);
     for i in 0..1000 {
         // Place objects along Z axis. Camera is at origin looking down -Z.
         // Objects at -5, -10, -15...

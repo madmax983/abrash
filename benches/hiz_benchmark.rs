@@ -39,7 +39,7 @@ fn bench_hiz_query(c: &mut Criterion) {
     hiz.build_pyramid(&zb);
 
     // Generate some random AABBs
-    let mut aabbs = Vec::new();
+    let mut aabbs = Vec::with_capacity(1000);
     for _ in 0..1000 {
         let min_x = rng.gen_range(0..width as i32 - 100);
         let min_y = rng.gen_range(0..height as i32 - 100);

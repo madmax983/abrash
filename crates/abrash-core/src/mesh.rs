@@ -130,9 +130,9 @@ impl Mesh {
         ];
 
         // Cube doesn't have UVs by default
-        let uvs = Vec::new();
-        let normals = Vec::new();
-        let tangents = Vec::new();
+        let uvs = Vec::with_capacity(0);
+        let normals = Vec::with_capacity(0);
+        let tangents = Vec::with_capacity(0);
 
         Self {
             vertices,
@@ -208,7 +208,7 @@ impl Mesh {
             indices,
             uvs,
             normals,
-            tangents: Vec::new(),
+            tangents: Vec::with_capacity(num_vertices),
         }
     }
 
@@ -266,7 +266,7 @@ impl Mesh {
             indices,
             uvs,
             normals,
-            tangents: Vec::new(),
+            tangents: Vec::with_capacity(num_vertices),
         }
     }
 
@@ -378,7 +378,7 @@ impl Mesh {
             indices,
             uvs,
             normals,
-            tangents: Vec::new(),
+            tangents: Vec::with_capacity(num_vertices),
         }
     }
 
@@ -456,7 +456,7 @@ impl Mesh {
             indices,
             uvs,
             normals,
-            tangents: Vec::new(),
+            tangents: Vec::with_capacity(num_vertices),
         }
     }
 
