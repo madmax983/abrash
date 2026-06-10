@@ -25,6 +25,7 @@
 //! abrash = { version = "0.1", features = ["nova"] }
 //! ```
 
+pub mod error;
 pub mod anaglyph;
 pub mod arboretum;
 pub mod ascii_display;

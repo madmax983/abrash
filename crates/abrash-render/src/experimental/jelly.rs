@@ -162,13 +162,10 @@ impl SoftBody {
         index_a: usize,
         index_b: usize,
         rest_length: f32,
-    ) -> Result<(), String> {
+    ) -> Result<(), crate::experimental::error::Error> {
         let max_idx = self.mesh.vertices.len();
         if index_a >= max_idx || index_b >= max_idx {
-            return Err(format!(
-                "Spring indices out of bounds: {}, {}",
-                index_a, index_b
-            ));
+            return Err(crate::experimental::error::Error::MeshIndexOutOfBounds(std::cmp::max(index_a, index_b), max_idx));
         }
         self.spring_indices_a.push(index_a);
         self.spring_indices_b.push(index_b);
@@ -179,7 +176,7 @@ impl SoftBody {
     /// Creates a new `SoftBody` from a Mesh.
     ///
     /// Automatically generates springs from the mesh's unique edges.
-    pub fn new(mesh: Mesh, mass: f32, stiffness: f32, damping: f32) -> Result<Self, String> {
+    pub fn new(mesh: Mesh, mass: f32, stiffness: f32, damping: f32) -> Result<Self, crate::experimental::error::Error> {
         let vertex_count = mesh.vertices.len();
         let velocities = vec![Vec3::default(); vertex_count];
         let forces = vec![Vec3::default(); vertex_count];
@@ -188,10 +185,7 @@ impl SoftBody {
         for (tri_idx, tri) in mesh.indices.iter().enumerate() {
             for &v_idx in tri.iter() {
                 if v_idx >= vertex_count {
-                    return Err(format!(
-                        "Mesh index {} out of bounds (vertex count: {}) at triangle {}",
-                        v_idx, vertex_count, tri_idx
-                    ));
+                    return Err(crate::experimental::error::Error::MeshIndexOutOfBounds(v_idx, vertex_count));
                 }
             }
         }
