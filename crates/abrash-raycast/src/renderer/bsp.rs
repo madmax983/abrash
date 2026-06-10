@@ -280,7 +280,7 @@ pub fn render_bsp_view(
     let mut visplanes = VisplaneAllocator::with_capacity(128, w);
     let half_h = h as i32 / 2;
 
-    map.traverse_front_to_back(camera_pos, &mut |ssector_idx| {
+    map.traverse_front_to_back(camera_pos, |ssector_idx| {
         if clip.all_filled() {
             return;
         }
