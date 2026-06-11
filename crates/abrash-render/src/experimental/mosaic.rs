@@ -5,6 +5,27 @@
 
 use crate::framebuffer::Framebuffer;
 
+/// Configuration for the Hexagonal Mosaic effect.
+#[derive(Clone, Copy, Debug)]
+pub struct HexMosaicConfig {
+    /// The radius of the hexagons.
+    pub cell_size: f32,
+    /// The thickness of the border between hexagons.
+    pub border_size: f32,
+    /// The ARGB color of the border.
+    pub border_color: u32,
+}
+
+impl Default for HexMosaicConfig {
+    fn default() -> Self {
+        Self {
+            cell_size: 10.0,
+            border_size: 1.0,
+            border_color: 0xFF00_0000,
+        }
+    }
+}
+
 /// Applies a hexagonal mosaic effect to the framebuffer.
 ///
 /// Converts the image into a honeycomb grid. Each pixel takes the color of the
@@ -17,11 +38,9 @@ use crate::framebuffer::Framebuffer;
 /// # Arguments
 ///
 /// * `fb` - The framebuffer to modify in-place.
-/// * `cell_size` - The radius of the hexagons.
-/// * `border_size` - The thickness of the border between hexagons.
-/// * `border_color` - The ARGB color of the border.
-pub fn apply_hex_mosaic(fb: &mut Framebuffer, cell_size: f32, border_size: f32, border_color: u32) {
-    if cell_size <= 1.0 {
+/// * `config` - Configuration for the Hexagonal Mosaic effect.
+pub fn apply_hex_mosaic(fb: &mut Framebuffer, config: &HexMosaicConfig) {
+    if config.cell_size <= 1.0 {
         return;
     }
 
@@ -37,7 +56,7 @@ pub fn apply_hex_mosaic(fb: &mut Framebuffer, cell_size: f32, border_size: f32, 
     let src_pixels = src_fb.as_slice();
     let pixels = fb.as_mut_slice();
 
-    let r = cell_size;
+    let r = config.cell_size;
     let sqrt3 = 1.732_050_8f32;
     let grid_w = 3.0 * r;
     let grid_h = sqrt3 * r;
@@ -93,8 +112,8 @@ pub fn apply_hex_mosaic(fb: &mut Framebuffer, cell_size: f32, border_size: f32, 
                     // Distance to nearest hexagon edge
                     let hex_dist = abs_dy.max(abs_dx * (sqrt3 * 0.5) + abs_dy * 0.5);
 
-                    if hex_dist > inradius - border_size {
-                        row[x] = border_color;
+                    if hex_dist > inradius - config.border_size {
+                        row[x] = config.border_color;
                     } else {
                         row[x] = src_pixels[center_y * width + center_x];
                     }
@@ -147,8 +166,8 @@ pub fn apply_hex_mosaic(fb: &mut Framebuffer, cell_size: f32, border_size: f32, 
                 // Distance to nearest hexagon edge
                 let hex_dist = abs_dy.max(abs_dx * (sqrt3 * 0.5) + abs_dy * 0.5);
 
-                if hex_dist > inradius - border_size {
-                    pixels[y * width + x] = border_color;
+                if hex_dist > inradius - config.border_size {
+                    pixels[y * width + x] = config.border_color;
                 } else {
                     pixels[y * width + x] = src_pixels[center_y * width + center_x];
                 }
@@ -167,7 +186,7 @@ mod tests {
         let mut fb = Framebuffer::new(100, 100).unwrap();
         fb.clear(0xFFFF_FFFF);
 
-        apply_hex_mosaic(&mut fb, 10.0, 1.0, 0xFF00_0000);
+        apply_hex_mosaic(&mut fb, &HexMosaicConfig { cell_size: 10.0, border_size: 1.0, border_color: 0xFF00_0000 });
 
         // Ensure the border is drawn (some black pixels should exist)
         let has_black = fb.as_slice().iter().any(|&p| p == 0xFF00_0000);

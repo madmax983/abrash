@@ -16,14 +16,33 @@ use rayon::prelude::*;
 /// * `fb`: The Framebuffer to modify.
 /// * `dot_size`: The maximum radius of the halftone dots (e.g., 5.0).
 /// * `angle_radians`: The rotation angle of the dot grid (e.g., 45 degrees or PI/4).
-pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
+
+/// Configuration for the Halftone effect.
+#[derive(Clone, Copy, Debug)]
+pub struct HalftoneConfig {
+    /// The maximum radius of the halftone dots (e.g., 5.0).
+    pub dot_size: f32,
+    /// The rotation angle of the dot grid in radians (e.g., 45 degrees or PI/4).
+    pub angle_radians: f32,
+}
+
+impl Default for HalftoneConfig {
+    fn default() -> Self {
+        Self {
+            dot_size: 5.0,
+            angle_radians: 0.0,
+        }
+    }
+}
+
+pub fn apply_halftone(fb: &mut Framebuffer, config: &HalftoneConfig) {
     let width = fb.width() as usize;
 
     // We'll process each pixel independently.
     // To do this properly, we need to map screen coordinates to a rotated grid.
 
-    let (sin_a, cos_a) = angle_radians.sin_cos();
-    let max_dist_sq = (dot_size * dot_size) / 2.0;
+    let (sin_a, cos_a) = config.angle_radians.sin_cos();
+    let max_dist_sq = (config.dot_size * config.dot_size) / 2.0;
 
     let pixels = fb.as_mut_slice();
 
@@ -40,7 +59,7 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
         let mut rx = -y_sin_a;
         let mut ry = y_cos_a;
 
-        let inv_dot_size = 1.0 / dot_size;
+        let inv_dot_size = 1.0 / config.dot_size;
         let mut rx_scaled = rx * inv_dot_size;
         let mut ry_scaled = ry * inv_dot_size;
         let cos_scaled = cos_a * inv_dot_size;
@@ -62,8 +81,8 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
             // ⚡ Bolt: Replace f32::round() with fast integer casting
             // The coordinates are shifted by 16384.0 to ensure they are always positive
             // within any reasonable framebuffer dimensions, allowing a simple `+ 0.5` cast.
-            let cx = ((rx_scaled + 16384.5) as i32 as f32 - 16384.0) * dot_size;
-            let cy = ((ry_scaled + 16384.5) as i32 as f32 - 16384.0) * dot_size;
+            let cx = ((rx_scaled + 16384.5) as i32 as f32 - 16384.0) * config.dot_size;
+            let cy = ((ry_scaled + 16384.5) as i32 as f32 - 16384.0) * config.dot_size;
 
             let dx = rx - cx;
             let dy = ry - cy;
@@ -99,7 +118,7 @@ mod tests {
         // Clear with black
         fb.clear(0xFF_00_00_00);
 
-        apply_halftone(&mut fb, 5.0, 0.0);
+        apply_halftone(&mut fb, &HalftoneConfig { dot_size: 5.0, angle_radians: 0.0 });
 
         // A black image has luminance 0, so dot radius is maximum.
         // The nearest cell center will be at (0,0) for the top-left pixels.
@@ -115,7 +134,7 @@ mod tests {
         // Clear with white
         fb.clear(0xFF_FF_FF_FF);
 
-        apply_halftone(&mut fb, 5.0, 0.0);
+        apply_halftone(&mut fb, &HalftoneConfig { dot_size: 5.0, angle_radians: 0.0 });
 
         // A white image has luminance 1, so dot radius is 0.
         // Every pixel should become white because distance is always >= 0.

@@ -2,7 +2,7 @@ use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
-use abrash_render::experimental::halftone::apply_halftone;
+use abrash_render::experimental::halftone::{HalftoneConfig, apply_halftone};
 use std::f32::consts::PI;
 
 #[cfg(feature = "nova")]
@@ -150,7 +150,13 @@ impl WindowApp for HalftoneDemoApp {
         let dot_size = 4.0 + (self.time.sin() * 0.5 + 0.5) * 6.0;
         let angle = PI / 4.0 + self.time * 0.5;
 
-        apply_halftone(&mut self.framebuffer, dot_size, angle);
+        apply_halftone(
+            &mut self.framebuffer,
+            &HalftoneConfig {
+                dot_size,
+                angle_radians: angle,
+            },
+        );
         self.present()
     }
 }

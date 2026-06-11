@@ -19,7 +19,7 @@ use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
 
 #[cfg(feature = "nova")]
-use abrash_render::experimental::mosaic::apply_hex_mosaic;
+use abrash_render::experimental::mosaic::{HexMosaicConfig, apply_hex_mosaic};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
@@ -222,7 +222,14 @@ impl WindowApp for MosaicDemo {
         #[cfg(feature = "nova")]
         {
             let cell_size = 15.0 + (self.time * 2.0).sin() * 5.0; // Animate cell size
-            apply_hex_mosaic(&mut self.framebuffer, cell_size, 2.0, 0xFF_000000);
+            apply_hex_mosaic(
+                &mut self.framebuffer,
+                &HexMosaicConfig {
+                    cell_size,
+                    border_size: 2.0,
+                    border_color: 0xFF_000000,
+                },
+            );
         }
 
         let framebuffer = &self.framebuffer;

@@ -125,3 +125,11 @@
 1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
 2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors.
 3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
+
+## [Experimental Filters Parameterization Fix]
+**Tangle:** The `apply_radial_blur`, `apply_hex_mosaic`, and `apply_halftone` functions within the `experimental` module suffered from the "Argument Jungle" anti-pattern. They accepted multiple loose primitive parameters (e.g., `cx`, `cy`, `strength`, `samples`, `cell_size`, `dot_size`). This created a fragmented API alongside the other configured post-processing filters, making future extensions difficult.
+**Blueprint:**
+1.  **Introduce Configs:** Created `RadialBlurConfig`, `HexMosaicConfig`, and `HalftoneConfig` structs in their respective modules.
+2.  **Refactor Signatures:** Modified the `apply_*` functions to accept references to these new configuration structs.
+3.  **Update Callers:** Updated examples, benchmarks, tests, and fuzzers to instantiate the required configuration structs.
+**Stability:** Improved high cohesion by standardizing the experimental effect parameterization with the rest of the post-processing module. Lowered coupling between the caller and the specific internal parameters of the post-processing effects, making the public API cleaner and more extensible.

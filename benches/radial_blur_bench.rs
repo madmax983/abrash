@@ -1,5 +1,5 @@
 #[cfg(feature = "nova")]
-use abrash::experimental::radial_blur::apply_radial_blur;
+use abrash::experimental::radial_blur::{RadialBlurConfig, apply_radial_blur};
 #[cfg(feature = "nova")]
 use abrash::framebuffer::Framebuffer;
 #[cfg(feature = "nova")]
@@ -30,10 +30,12 @@ fn bench_radial_blur(c: &mut Criterion) {
         b.iter(|| {
             apply_radial_blur(
                 black_box(&mut fb),
-                black_box(512),
-                black_box(512),
-                black_box(0.5),
-                black_box(16),
+                black_box(&RadialBlurConfig {
+                    cx: 512,
+                    cy: 512,
+                    strength: 0.5,
+                    samples: 16,
+                }),
             );
         });
     });
@@ -43,10 +45,12 @@ fn bench_radial_blur(c: &mut Criterion) {
         b.iter(|| {
             apply_radial_blur(
                 black_box(&mut fb),
-                black_box(512),
-                black_box(512),
-                black_box(0.5),
-                black_box(257),
+                black_box(&RadialBlurConfig {
+                    cx: 512,
+                    cy: 512,
+                    strength: 0.5,
+                    samples: 257,
+                }),
             );
         });
     });

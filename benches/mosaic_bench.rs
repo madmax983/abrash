@@ -1,5 +1,5 @@
 use abrash_core::framebuffer::Framebuffer;
-use abrash_render::experimental::mosaic::apply_hex_mosaic;
+use abrash_render::experimental::mosaic::{HexMosaicConfig, apply_hex_mosaic};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_mosaic(c: &mut Criterion) {
@@ -18,9 +18,11 @@ fn bench_mosaic(c: &mut Criterion) {
         b.iter(|| {
             apply_hex_mosaic(
                 black_box(&mut fb),
-                black_box(10.0),
-                black_box(1.0),
-                black_box(0xFF00_0000),
+                black_box(&HexMosaicConfig {
+                    cell_size: 10.0,
+                    border_size: 1.0,
+                    border_color: 0xFF00_0000,
+                }),
             );
         });
     });

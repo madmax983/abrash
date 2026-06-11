@@ -1,6 +1,6 @@
 #![cfg(feature = "nova")]
 
-use abrash::experimental::radial_blur::apply_radial_blur;
+use abrash::experimental::radial_blur::{RadialBlurConfig, apply_radial_blur};
 use abrash::framebuffer::Framebuffer;
 
 #[test]
@@ -19,7 +19,15 @@ fn test_apply_radial_blur_basic() {
         }
     }
 
-    apply_radial_blur(&mut fb, 2, 2, 1.0, 4);
+    apply_radial_blur(
+        &mut fb,
+        &RadialBlurConfig {
+            cx: 2,
+            cy: 2,
+            strength: 1.0,
+            samples: 4,
+        },
+    );
 
     unsafe {
         // The center pixel shouldn't change (but it will have alpha set to 0xFF)
@@ -38,12 +46,28 @@ fn test_apply_radial_blur_no_effect() {
     fb.set_pixel(0, 0, 0xFFFF_0000);
 
     // Zero strength or zero samples should not modify the image
-    apply_radial_blur(&mut fb, 2, 2, 0.0, 4);
+    apply_radial_blur(
+        &mut fb,
+        &RadialBlurConfig {
+            cx: 2,
+            cy: 2,
+            strength: 0.0,
+            samples: 4,
+        },
+    );
     unsafe {
         assert_eq!(fb.get_pixel_unchecked(0, 0), 0xFFFF_0000);
     }
 
-    apply_radial_blur(&mut fb, 2, 2, 0.5, 0);
+    apply_radial_blur(
+        &mut fb,
+        &RadialBlurConfig {
+            cx: 2,
+            cy: 2,
+            strength: 0.5,
+            samples: 0,
+        },
+    );
     unsafe {
         assert_eq!(fb.get_pixel_unchecked(0, 0), 0xFFFF_0000);
     }
@@ -55,7 +79,15 @@ fn test_apply_radial_blur_fixed_point_rounding() {
     fb.set_pixel(0, 0, 0xFFFF_0000); // Red at corner
     fb.set_pixel(2, 2, 0xFF00_FF00); // Green at center
 
-    apply_radial_blur(&mut fb, 2, 2, 1.0, 5);
+    apply_radial_blur(
+        &mut fb,
+        &RadialBlurConfig {
+            cx: 2,
+            cy: 2,
+            strength: 1.0,
+            samples: 5,
+        },
+    );
 
     unsafe {
         let blurred = fb.get_pixel_unchecked(0, 0);
@@ -76,7 +108,15 @@ fn test_apply_radial_blur_oob_center() {
     fb.clear(0xFFFF_FFFF);
 
     // Apply with a center wildly out of bounds
-    apply_radial_blur(&mut fb, 100, 100, 1.0, 5);
+    apply_radial_blur(
+        &mut fb,
+        &RadialBlurConfig {
+            cx: 100,
+            cy: 100,
+            strength: 1.0,
+            samples: 5,
+        },
+    );
 
     unsafe {
         // Since the whole framebuffer was white, the blur from outside should still just sample white

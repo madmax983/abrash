@@ -6,6 +6,30 @@
 use crate::framebuffer::Framebuffer;
 use std::cell::RefCell;
 
+/// Configuration for the Radial Blur effect.
+#[derive(Clone, Copy, Debug)]
+pub struct RadialBlurConfig {
+    /// The X coordinate of the blur center.
+    pub cx: usize,
+    /// The Y coordinate of the blur center.
+    pub cy: usize,
+    /// The intensity of the blur. 0.0 means no blur.
+    pub strength: f32,
+    /// The number of samples to take along the blur vector. 0 or 1 means no blur.
+    pub samples: usize,
+}
+
+impl Default for RadialBlurConfig {
+    fn default() -> Self {
+        Self {
+            cx: 0,
+            cy: 0,
+            strength: 0.5,
+            samples: 16,
+        }
+    }
+}
+
 thread_local! {
     static RADIAL_BLUR_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
@@ -19,14 +43,8 @@ thread_local! {
 /// * `cy` - The Y coordinate of the blur center.
 /// * `strength` - The intensity of the blur. 0.0 means no blur.
 /// * `samples` - The number of samples to take along the blur vector. 0 or 1 means no blur.
-pub fn apply_radial_blur(
-    fb: &mut Framebuffer,
-    cx: usize,
-    cy: usize,
-    strength: f32,
-    samples: usize,
-) {
-    if strength == 0.0 || samples <= 1 {
+pub fn apply_radial_blur(fb: &mut Framebuffer, config: &RadialBlurConfig) {
+    if config.strength == 0.0 || config.samples <= 1 {
         return;
     }
 
@@ -52,18 +70,18 @@ pub fn apply_radial_blur(
 
         let dest_pixels = fb.as_mut_slice();
 
-        let cx_f32 = cx as f32;
-        let cy_f32 = cy as f32;
-        let sf_fixed = -(strength / (samples - 1) as f32) * 65536.0;
-        let inv_samples = samples as u32;
+        let cx_f32 = config.cx as f32;
+        let cy_f32 = config.cy as f32;
+        let sf_fixed = -(config.strength / (config.samples - 1) as f32) * 65536.0;
+        let inv_samples = config.samples as u32;
 
         let w_m1 = width as i32 - 1;
         let h_m1 = height as i32 - 1;
 
-        // If samples <= 256, we can accumulate R and B channels in a single u32 register (SWAR)
+        // If config.samples <= 256, we can accumulate R and B channels in a single u32 register (SWAR)
         // without the B channel (bits 0-7) overflowing into the R channel (bits 16-23)
         // because the gap (bits 8-15) can hold exactly 256 accumulations of the max 8-bit value (255).
-        let can_swar = samples <= 256;
+        let can_swar = config.samples <= 256;
 
         #[cfg(feature = "parallel")]
         {
@@ -87,7 +105,7 @@ pub fn apply_radial_blur(
                             let mut rb_acc = 0;
                             let mut g_acc = 0;
 
-                            for _ in 0..samples {
+                            for _ in 0..config.samples {
                                 let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
                                 let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 
@@ -112,7 +130,7 @@ pub fn apply_radial_blur(
                             let mut g_acc = 0;
                             let mut b_acc = 0;
 
-                            for _ in 0..samples {
+                            for _ in 0..config.samples {
                                 let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
                                 let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 
@@ -152,7 +170,7 @@ pub fn apply_radial_blur(
                         let mut rb_acc = 0;
                         let mut g_acc = 0;
 
-                        for _ in 0..samples {
+                        for _ in 0..config.samples {
                             let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
                             let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 
@@ -177,7 +195,7 @@ pub fn apply_radial_blur(
                         let mut g_acc = 0;
                         let mut b_acc = 0;
 
-                        for _ in 0..samples {
+                        for _ in 0..config.samples {
                             let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
                             let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 

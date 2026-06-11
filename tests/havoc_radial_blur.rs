@@ -1,6 +1,6 @@
 #![cfg(feature = "nova")]
 
-use abrash::experimental::radial_blur::apply_radial_blur;
+use abrash::experimental::radial_blur::{RadialBlurConfig, apply_radial_blur};
 use abrash::framebuffer::Framebuffer;
 
 #[test]
@@ -18,10 +18,26 @@ fn test_apply_radial_blur_swar_equivalence() {
     }
 
     // Apply with samples <= 256 (SWAR path)
-    apply_radial_blur(&mut fb_swar, 4, 4, 1.0, 64);
+    apply_radial_blur(
+        &mut fb_swar,
+        &RadialBlurConfig {
+            cx: 4,
+            cy: 4,
+            strength: 1.0,
+            samples: 64,
+        },
+    );
 
     // Apply with samples > 256 (Scalar path)
-    apply_radial_blur(&mut fb_scalar, 4, 4, 1.0, 257);
+    apply_radial_blur(
+        &mut fb_scalar,
+        &RadialBlurConfig {
+            cx: 4,
+            cy: 4,
+            strength: 1.0,
+            samples: 257,
+        },
+    );
 
     // Both should produce reasonably blurred results. We cannot compare them strictly for equality
     // because the number of samples differs, but we can verify that neither crashed and both produced
@@ -38,7 +54,15 @@ fn test_apply_radial_blur_extreme_samples() {
     fb.set_pixel(0, 0, 0xFFFF_FFFF);
 
     // This will trigger the fallback scalar path (> 256 samples)
-    apply_radial_blur(&mut fb, 2, 2, 1.0, 300);
+    apply_radial_blur(
+        &mut fb,
+        &RadialBlurConfig {
+            cx: 2,
+            cy: 2,
+            strength: 1.0,
+            samples: 300,
+        },
+    );
 
     unsafe {
         let blurred = fb.get_pixel_unchecked(0, 0);
