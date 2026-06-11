@@ -21,3 +21,7 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+## [Reduction]
+**Bloat:** Leftover stale comments referencing deleted traits (`Lerpable`, `BspTextures`, `BspMap`, `Evaluable`) and an empty zombie test file `src/tests.rs`
+**Cut:** Cleaned up documentation strings to remove invalid trait mentions and fully deleted `src/tests.rs` (along with removing `mod tests;` from `lib.rs`).
+**Saved:** Multiple lines of misleading documentation and 1 file.
