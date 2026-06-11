@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Eliding Bounds Checks on Environment Map Pixel Conversions]**
+**Learning:** In environment map uploads (`environment.rs`), building a `Vec` using `.extend_from_slice()` requires slice bounds checking and dynamic capacity management across thousands of pixels.
+**Action:** Replace `Vec::with_capacity` followed by `.extend_from_slice()` with pre-allocating an exact zeroed vector (`vec![0u8; len]`) and safely writing directly into chunks via `.chunks_exact_mut(4).zip(...)`. This allows LLVM to elide the bounds checking and vectorize the pixel extraction, significantly improving throughput for large cubemaps.
