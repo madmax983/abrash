@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimal Chunk Size for Parallel Matrix Transforms]**
+**Learning:** Rayon incurs significant thread dispatch and synchronization overhead when parallelizing workloads. In heavily vectorized, CPU-bound tasks like `Mat4::transform_points_parallel` using `AVX2` intrinsics, a small `CHUNK_SIZE` (like 4096) degrades performance on massive arrays (e.g. 100k points) due to chunking overhead dwarfing actual computation time.
+**Action:** Increase `CHUNK_SIZE` from 4096 to 32768 in parallel processing boundaries (like `Mat4::transform_points_uninit_parallel`) to amortize thread overhead and allow AVX2 pipelines to achieve sustained maximum throughput, yielding measurably faster transformations for large geometries.

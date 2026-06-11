@@ -1027,7 +1027,7 @@ impl Mat4 {
 
             // Chunk size of 4096 ensures we amortize task overhead and keep the AVX2
             // implementation fed with enough data to be efficient.
-            const CHUNK_SIZE: usize = 4096;
+            const CHUNK_SIZE: usize = 32768;
 
             // Fallback to scalar for small inputs to avoid Rayon overhead
             if points.len() < 1024 {
