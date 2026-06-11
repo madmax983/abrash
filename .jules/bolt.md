@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**Optimize bounds clipping with saturating_add_unsigned**
+**Learning:** Manual integer overflow clamping using conditionals and wider integer types (e.g. `i64`) inside boundary-clipping logic (like `clear_rect`) creates branches and casts.
+**Action:** Use `saturating_add_unsigned` (added in Rust 1.66) to natively handle signed-unsigned addition while safely and implicitly clamping results to the bounds of the signed type (e.g. `i32::MAX`). This is a true zero-cost abstraction that completely eliminates manual branch logic.
