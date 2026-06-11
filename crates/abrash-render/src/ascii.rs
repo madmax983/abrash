@@ -136,6 +136,11 @@ impl<'a> AsciiConverter<'a> {
                 buf[i] = b'0' + (n % 10);
                 n /= 10;
             }
+            // SAFETY: The `buf` array only contains ASCII digits ('0'-'9'), which are valid UTF-8.
+            // `i` is guaranteed to be within the bounds of `buf` (0 to 2) because `n` is a `u8`
+            // (maximum value 255), so the `while` loop executes at most 3 times.
+            // The characters written to `buf` are computed as `b'0' + (n % 10)`,
+            // which always results in a byte between `b'0'` (48) and `b'9'` (57).
             let s_slice = unsafe { std::str::from_utf8_unchecked(&buf[i..]) };
             s.push_str(s_slice);
         }

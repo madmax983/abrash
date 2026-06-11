@@ -63,6 +63,11 @@ unsafe fn load_vec3s_avx(
     (vx, vy, vz)
 }
 
+/// Helper function to store Vec3 components from AVX registers back into AoS layout.
+/// Used for saving updated positions/velocities/forces of SoftBody vertices.
+/// SAFETY: The caller must ensure that `ptr` points to a tightly packed array of `Vec3`
+/// structs (12 bytes each) and that there is at least enough space for 8 elements (96 bytes)
+/// starting from `ptr` to be written safely without going out of bounds.
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[target_feature(enable = "avx2")]
 unsafe fn store_vec3s_avx(
@@ -88,6 +93,9 @@ unsafe fn store_vec3s_avx(
 
 /// Helper function to gather Vec3 components from SoA indices.
 /// Used for fetching positions/velocities of spring endpoints.
+/// SAFETY: The caller must ensure that `base_ptr` points to a tightly packed array of `Vec3`
+/// structs (12 bytes each) and that all indices in `indices` are valid (i.e., `index * 3 + 2`
+/// must be strictly less than the length of the floating-point elements in the array).
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[target_feature(enable = "avx2")]
 unsafe fn gather_vec3s_avx(
@@ -278,6 +286,9 @@ impl SoftBody {
 
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
         if is_x86_feature_detected!("avx2") {
+            // SAFETY: We have just checked that the lengths of vertices, velocities, and forces match.
+            // We have also checked that all spring indices are within the valid range (`< self.mesh.vertices.len()`).
+            // The `dt` argument is a safe floating-point scalar value.
             unsafe {
                 self.update_simd(dt);
                 return;
@@ -356,6 +367,10 @@ impl SoftBody {
         self.recompute_normals();
     }
 
+    /// Updates the physics simulation by one time step (SIMD version).
+    /// SAFETY: The caller must ensure that `self.mesh.vertices.len()`, `self.velocities.len()`,
+    /// and `self.forces.len()` are identical. Additionally, all values in `self.spring_indices_a`
+    /// and `self.spring_indices_b` must be strictly less than `self.mesh.vertices.len()`.
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     #[target_feature(enable = "avx2")]
     unsafe fn update_simd(&mut self, dt: f32) {

@@ -64,20 +64,36 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
             struct SendPtr(*mut u32, usize);
 
             impl SendPtr {
+                /// SAFETY: The caller must ensure that `index` is less than the length (`self.1`)
+                /// of the slice from which the pointer `self.0` was derived.
                 unsafe fn read(&self, index: usize) -> u32 {
                     assert!(index < self.1, "Index out of bounds");
+                    // SAFETY: We just asserted that the `index` is less than `self.1`.
+                    // Since `self.0` was created from a valid slice of length `self.1`,
+                    // accessing the memory at `self.0.add(index)` is within bounds.
                     unsafe { *self.0.add(index) }
                 }
 
+                /// SAFETY: The caller must ensure that `index` is less than the length (`self.1`)
+                /// of the slice from which the pointer `self.0` was derived.
                 unsafe fn write(&self, index: usize, value: u32) {
                     assert!(index < self.1, "Index out of bounds");
+                    // SAFETY: We just asserted that the `index` is less than `self.1`.
+                    // Since `self.0` was created from a valid slice of length `self.1`,
+                    // modifying the memory at `self.0.add(index)` is within bounds.
                     unsafe {
                         *self.0.add(index) = value;
                     }
                 }
             }
 
+            // SAFETY: `SendPtr` holds a raw pointer to a slice of memory that is disjointly accessed
+            // across threads in the parallel iterator. Each column corresponds to unique indices
+            // based on `y * width + x`, preventing data races.
             unsafe impl Send for SendPtr {}
+            // SAFETY: `SendPtr` holds a raw pointer, and although `read` and `write` methods
+            // allow unsafe mutation and access, the concurrent environment limits access
+            // to distinct index ranges (columns).
             unsafe impl Sync for SendPtr {}
 
             let pixels_len = pixels.len();
@@ -103,6 +119,10 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
 
                     // Extract column
                     for (y, item) in col_slice.iter_mut().enumerate() {
+                        // SAFETY: We calculate the index as `y * width + x`.
+                        // `y` is in `0..height`, `x` is in `0..width`.
+                        // The max index is `(height - 1) * width + (width - 1)`, which is `height * width - 1`.
+                        // Since `pixels_len == width * height`, the index is strictly less than `pixels_len`.
                         unsafe {
                             *item = ptr.read(y * width + x);
                         }
@@ -113,6 +133,10 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
 
                     // Put column back
                     for (y, item) in col_slice.iter().enumerate() {
+                        // SAFETY: We calculate the index as `y * width + x`.
+                        // `y` is in `0..height`, `x` is in `0..width`.
+                        // The max index is `(height - 1) * width + (width - 1)`, which is `height * width - 1`.
+                        // Since `pixels_len == width * height`, the index is strictly less than `pixels_len`.
                         unsafe {
                             ptr.write(y * width + x, *item);
                         }

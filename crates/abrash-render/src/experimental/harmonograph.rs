@@ -166,7 +166,10 @@ fn draw_line_2d(fb: &mut Framebuffer, mut x0: i32, mut y0: i32, x1: i32, y1: i32
     loop {
         // Bounds checking is essential as lines might stray offscreen
         if x0 >= 0 && x0 < fb.width() as i32 && y0 >= 0 && y0 < fb.height() as i32 {
-            // SAFETY: We just did bounds checks
+            // SAFETY: We just verified that `x0 >= 0 && x0 < fb.width() as i32`
+            // and `y0 >= 0 && y0 < fb.height() as i32`, which ensures that
+            // `x0 as usize` and `y0 as usize` are within the valid framebuffer dimensions
+            // `(0..fb.width())` and `(0..fb.height())`, thus preventing any out-of-bounds access.
             unsafe {
                 fb.set_pixel_unchecked(x0 as usize, y0 as usize, color);
             }

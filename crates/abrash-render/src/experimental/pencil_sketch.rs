@@ -86,6 +86,12 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
 
             // --- 1. Edge Detection (Sobel) ---
             // Fetch 3x3 neighborhood luminance using unchecked indexing for speed
+            // SAFETY: The bounds check `x == 0 || y == 0 || x >= width - 1 || y >= height - 1`
+            // ensures that `x` is in `1..width - 1` and `y` is in `1..height - 1`.
+            // The index `idx = y * width + x` is guaranteed to be at least `width + 1`.
+            // The maximum index accessed is `idx + width + 1`, which is
+            // `(height - 2) * width + (width - 2) + width + 1 = (height - 1) * width - 1`,
+            // which is strictly less than `width * height`.
             let idx = y * width + x;
             let tl = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx - width - 1) });
             let tc = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx - width) });
@@ -114,6 +120,7 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
                 *pixel = config.stroke_color;
             } else {
                 // --- 2. Tonal Hatching ---
+                // SAFETY: We previously established `idx` is within the bounds of `source_buffer`.
                 let luminance = unsafe { pixel_luminance(*source_buffer.get_unchecked(idx)) };
 
                 // Simple procedural hatching pattern
