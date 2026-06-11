@@ -582,7 +582,6 @@ impl GpuRenderer {
     /// # Errors
     ///
     /// Returns an error if the frame references stale handles or readback fails.
-    #[allow(clippy::too_many_lines)]
     pub fn capture(
         &mut self,
         frame: &Frame,
@@ -604,58 +603,14 @@ impl GpuRenderer {
                     label: Some("Deferred Capture Encoder"),
                 });
 
-        let has_refractive = prepared_draws.iter().any(|d| d.is_refractive);
-
-        // Pass 1: Shadow depth (fallback, always runs)
-        self.encode_shadow_pass(&mut encoder, frame, &prepared_draws)?;
-
-        // Pass 2: G-Buffer geometry (opaque only — refractive draws are skipped inside)
-        self.ensure_gbuffer(w, h);
-        self.encode_gbuffer_pass(&mut encoder, &prepared_draws)?;
-
-        // Pass 2.5: RT shadows (replaces shadow map when RT available)
-        #[cfg(feature = "ray-tracing")]
-        self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws);
-
-        // Pass 2.6: Refraction surface pass (refractive geometry → slim G-buffer)
-        if has_refractive {
-            self.ensure_refraction_surface(w, h);
-            self.encode_refraction_surface_pass(&mut encoder, &prepared_draws)?;
-        }
-
-        // Pass 3: Deferred lighting → HDR
-        self.ensure_hdr_target(w, h);
-        self.encode_deferred_lighting(&mut encoder);
-
-        // Pass 3.5: Skybox (fills background pixels in HDR target)
-        self.encode_skybox(&mut encoder, frame);
-
-        // Pass 4: TAA (if enabled)
-        let hdr_view_for_tonemap = self.encode_taa_pass(&mut encoder, frame, w, h);
-
-        // Pass 4.5: Refraction Newton-method resolve → composite into scene
-        let refraction_view = if has_refractive {
-            self.ensure_refraction_output(w, h);
-            Some(self.encode_refraction_resolve_pass(
-                &mut encoder,
-                &hdr_view_for_tonemap,
-                frame,
-                w,
-                h,
-            ))
-        } else {
-            None
-        };
-
-        // Pass 5: Composition (debug visualization)
-        self.encode_composition(&mut encoder, &hdr_view_for_tonemap, w, h);
-
-        // Pass 6: Tone mapping → LDR capture target
-        self.encode_tone_map_final(&mut encoder, refraction_view.as_ref(), &target.color_view);
-
-        // Store current VP for next frame's TAA reprojection
-        let vp = frame.camera.view * frame.camera.projection;
-        self.prev_view_proj = bytemuck::cast(vp.m);
+        self.encode_render_passes(
+            &mut encoder,
+            frame,
+            &target.color_view,
+            &prepared_draws,
+            w,
+            h,
+        )?;
 
         // Readback
         encoder.copy_texture_to_buffer(
@@ -770,58 +725,7 @@ impl GpuRenderer {
                     label: Some("Deferred Surface Encoder"),
                 });
 
-        let has_refractive = prepared_draws.iter().any(|d| d.is_refractive);
-
-        // Pass 1: Shadow depth (fallback)
-        self.encode_shadow_pass(&mut encoder, frame, &prepared_draws)?;
-
-        // Pass 2: G-Buffer geometry (opaque only — refractive draws are skipped inside)
-        self.ensure_gbuffer(w, h);
-        self.encode_gbuffer_pass(&mut encoder, &prepared_draws)?;
-
-        // Pass 2.5: RT shadows (when RT available)
-        #[cfg(feature = "ray-tracing")]
-        self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws);
-
-        // Pass 2.6: Refraction surface pass (refractive geometry → slim G-buffer)
-        if has_refractive {
-            self.ensure_refraction_surface(w, h);
-            self.encode_refraction_surface_pass(&mut encoder, &prepared_draws)?;
-        }
-
-        // Pass 3: Deferred lighting → HDR
-        self.ensure_hdr_target(w, h);
-        self.encode_deferred_lighting(&mut encoder);
-
-        // Pass 3.5: Skybox
-        self.encode_skybox(&mut encoder, frame);
-
-        // Pass 4: TAA (if enabled)
-        let hdr_view_for_tonemap = self.encode_taa_pass(&mut encoder, frame, w, h);
-
-        // Pass 4.5: Refraction Newton-method resolve → composite into scene
-        let refraction_view = if has_refractive {
-            self.ensure_refraction_output(w, h);
-            Some(self.encode_refraction_resolve_pass(
-                &mut encoder,
-                &hdr_view_for_tonemap,
-                frame,
-                w,
-                h,
-            ))
-        } else {
-            None
-        };
-
-        // Pass 5: Composition (debug visualization)
-        self.encode_composition(&mut encoder, &hdr_view_for_tonemap, w, h);
-
-        // Pass 6: Tone mapping → surface
-        self.encode_tone_map_final(&mut encoder, refraction_view.as_ref(), &view);
-
-        // Store current VP for next frame's TAA reprojection
-        let vp = frame.camera.view * frame.camera.projection;
-        self.prev_view_proj = bytemuck::cast(vp.m);
+        self.encode_render_passes(&mut encoder, frame, &view, &prepared_draws, w, h)?;
 
         self.gpu.queue().submit(Some(encoder.finish()));
         if self.taa_enabled {
@@ -1735,5 +1639,66 @@ mod tests {
         assert!(color.g.abs() < f64::EPSILON);
         assert!(color.b.abs() < f64::EPSILON);
         assert!((color.a - 1.0).abs() < 0.01);
+    }
+}
+
+impl GpuRenderer {
+    fn encode_render_passes(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        frame: &Frame,
+        target_view: &wgpu::TextureView,
+        prepared_draws: &[PreparedDraw],
+        w: u32,
+        h: u32,
+    ) -> Result<(), String> {
+        let has_refractive = prepared_draws.iter().any(|d| d.is_refractive);
+
+        // Pass 1: Shadow depth (fallback, always runs)
+        self.encode_shadow_pass(encoder, frame, prepared_draws)?;
+
+        // Pass 2: G-Buffer geometry (opaque only — refractive draws are skipped inside)
+        self.ensure_gbuffer(w, h);
+        self.encode_gbuffer_pass(encoder, prepared_draws)?;
+
+        // Pass 2.5: RT shadows (replaces shadow map when RT available)
+        #[cfg(feature = "ray-tracing")]
+        self.encode_rt_shadow_pass(encoder, frame, prepared_draws);
+
+        // Pass 2.6: Refraction surface pass (refractive geometry → slim G-buffer)
+        if has_refractive {
+            self.ensure_refraction_surface(w, h);
+            self.encode_refraction_surface_pass(encoder, prepared_draws)?;
+        }
+
+        // Pass 3: Deferred lighting → HDR
+        self.ensure_hdr_target(w, h);
+        self.encode_deferred_lighting(encoder);
+
+        // Pass 3.5: Skybox (fills background pixels in HDR target)
+        self.encode_skybox(encoder, frame);
+
+        // Pass 4: TAA (if enabled)
+        let hdr_view_for_tonemap = self.encode_taa_pass(encoder, frame, w, h);
+
+        // Pass 4.5: Refraction Newton-method resolve → composite into scene
+        let refraction_view = if has_refractive {
+            self.ensure_refraction_output(w, h);
+            Some(self.encode_refraction_resolve_pass(encoder, &hdr_view_for_tonemap, frame, w, h))
+        } else {
+            None
+        };
+
+        // Pass 5: Composition (debug visualization)
+        self.encode_composition(encoder, &hdr_view_for_tonemap, w, h);
+
+        // Pass 6: Tone mapping → LDR target
+        self.encode_tone_map_final(encoder, refraction_view.as_ref(), target_view);
+
+        // Store current VP for next frame's TAA reprojection
+        let vp = frame.camera.view * frame.camera.projection;
+        self.prev_view_proj = bytemuck::cast(vp.m);
+
+        Ok(())
     }
 }
