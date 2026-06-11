@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Eliding Bound Checks when on-screen is mathematically proven]**
+**Learning:** In 2D drawing routines where boundaries are mathematically proven to be on-screen (e.g., via an `is_on_screen` check ensuring `right < fb.width()`), secondary internal `|| end_idx >= slice.len()` checks inside unchecked direct-draw helpers are redundant and can be removed safely, yielding performance improvements in the inner loop block.
+**Action:** Removed redundant `slice.len()` bounds checks in `draw_horizontal_line_unchecked` and `draw_vertical_line_unchecked`.

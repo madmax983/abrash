@@ -51,10 +51,6 @@ fn draw_horizontal_line_unchecked(fb: &mut Framebuffer, x0: i32, x1: i32, y: i32
     let start_idx = y as usize * w + x0 as usize;
     let end_idx = y as usize * w + x1 as usize;
 
-    if start_idx > end_idx || end_idx >= fb.as_mut_slice().len() {
-        return;
-    }
-
     // ⚡ Bolt: Elide bounds check with get_unchecked_mut in Fill
     unsafe {
         fb.as_mut_slice()
@@ -99,10 +95,6 @@ fn draw_vertical_line_unchecked(fb: &mut Framebuffer, x: i32, y0: i32, y1: i32, 
     let w = fb.width() as usize;
     let mut idx = y0 as usize * w + x as usize;
     let slice = fb.as_mut_slice();
-
-    if idx >= slice.len() || (y1 as usize * w + x as usize) >= slice.len() {
-        return;
-    }
 
     // ⚡ Bolt: Step exactly by framebuffer width, completely elide bounds checks
     for _ in y0..=y1 {
