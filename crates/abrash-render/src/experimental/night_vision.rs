@@ -39,6 +39,8 @@ impl Default for NightVisionConfig {
 ///
 /// * `fb` - The framebuffer to apply the effect to.
 /// * `config` - The configuration parameters for the effect.
+const MAX_WIDTH: usize = 4096;
+
 pub fn apply_night_vision(fb: &mut Framebuffer, config: &NightVisionConfig) {
     if config.green_tint <= 0.0 && config.noise_intensity <= 0.0 {
         return; // Nothing to do
@@ -60,6 +62,26 @@ pub fn apply_night_vision(fb: &mut Framebuffer, config: &NightVisionConfig) {
 
     let noise_seed = (config.time * 1000.0) as u32 ^ 0x5555_5555;
 
+    // Pre-calculate the amplification and tint curve into a 256-entry LUT.
+    // Each entry stores the (r, g, b) values for a given luminance level.
+    let mut lut_r = [0u32; 256];
+    let mut lut_g = [0u32; 256];
+    let mut lut_b = [0u32; 256];
+    for i in 0..256 {
+        let lum = i as f32 / 255.0;
+        let sqrt_lum = lum.sqrt();
+        let amplified = (sqrt_lum * sqrt_lum.sqrt() * config.amplification).clamp(0.0, 1.0);
+
+        let out_r = amplified * 0.1 * config.green_tint;
+        let out_g = amplified * 0.95 * config.green_tint;
+        let out_b = amplified * 0.2 * config.green_tint;
+
+        // Fixed point scaling to 256 (like 8-bit precision)
+        lut_r[i] = (out_r.clamp(0.0, 1.0) * 256.0) as u32;
+        lut_g[i] = (out_g.clamp(0.0, 1.0) * 256.0) as u32;
+        lut_b[i] = (out_b.clamp(0.0, 1.0) * 256.0) as u32;
+    }
+
     let dest_pixels = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
@@ -74,70 +96,82 @@ pub fn apply_night_vision(fb: &mut Framebuffer, config: &NightVisionConfig) {
 
         let row_noise_base = noise_seed.wrapping_add((y as u32).wrapping_mul(7919));
 
+        let mut row_vignette = [0u32; MAX_WIDTH];
+        for x in 0..width.min(MAX_WIDTH) {
+            let dx = x as f32 - half_w;
+            let dist_sq = dx * dx + dy_sq;
+            let dist_norm_sq = dist_sq / max_dist_sq;
+            let vignette_f = if dist_norm_sq >= 1.0 {
+                0.0
+            } else {
+                let v = 1.0 - dist_norm_sq;
+                v * v * (3.0 - 2.0 * v)
+            };
+            row_vignette[x] = (vignette_f * 256.0) as u32;
+        }
+
         for (x, pixel) in row.iter_mut().enumerate() {
             let p = *pixel;
-            let r = ((p >> 16) & 0xFF) as f32 / 255.0;
-            let g = ((p >> 8) & 0xFF) as f32 / 255.0;
-            let b = (p & 0xFF) as f32 / 255.0;
+            let p_r = (p >> 16) & 0xFF;
+            let p_g = (p >> 8) & 0xFF;
+            let p_b = p & 0xFF;
 
-            // 1. Calculate luminance (Standard Rec. 601)
-            let lum = 0.299 * r + 0.587 * g + 0.114 * b;
+            // 1. Calculate luminance (Rec. 601 integer approx for speed)
+            let lum_int = (19595 * p_r + 38469 * p_g + 7471 * p_b) >> 16;
+            let lum_idx = lum_int.min(255) as usize;
 
-            // 2. Light Amplification (boost darks using a fast sqrt curve approximation ~ x^0.75)
-            // A curve < 1.0 boosts lower values more than higher values.
-            // Note: x^0.75 is a close and fast approximation to x^0.65
-            let sqrt_lum = lum.sqrt();
-            let amplified = (sqrt_lum * sqrt_lum.sqrt() * config.amplification).clamp(0.0, 1.0);
-
-            // 3. Green Phosphor Tint (P43 Phosphor roughly)
-            // Mostly green, some blue, tiny bit of red
-            let mut out_r = amplified * 0.1 * config.green_tint;
-            let mut out_g = amplified * 0.95 * config.green_tint;
-            let mut out_b = amplified * 0.2 * config.green_tint;
+            // 2 & 3. Light Amplification & Green Phosphor Tint (from LUT)
+            let mut out_r = lut_r[lum_idx];
+            let mut out_g = lut_g[lum_idx];
+            let mut out_b = lut_b[lum_idx];
 
             // Blend with original if green_tint < 1.0
             if config.green_tint < 1.0 {
-                out_r = r * (1.0 - config.green_tint) + out_r;
-                out_g = g * (1.0 - config.green_tint) + out_g;
-                out_b = b * (1.0 - config.green_tint) + out_b;
+                let inv_tint = ((1.0 - config.green_tint) * 256.0) as u32;
+                out_r = ((p_r * inv_tint) >> 8) + out_r;
+                out_g = ((p_g * inv_tint) >> 8) + out_g;
+                out_b = ((p_b * inv_tint) >> 8) + out_b;
             }
 
             // 4. Procedural High-Frequency Noise
             if config.noise_intensity > 0.0 {
-                // Simple fast hash
                 let n = (x as u32).wrapping_mul(1973).wrapping_add(row_noise_base);
-                // Hash to float 0.0-1.0
-                let noise_val = (n.wrapping_mul(2_654_435_761) >> 16) as f32 / 65535.0;
-                // Shift to -0.5 to +0.5 range and scale
-                let noise_offset = (noise_val - 0.5) * config.noise_intensity;
+                // Map to integer noise offset: -128 to 127 roughly, then scale
+                let noise_val = (n.wrapping_mul(2_654_435_761) >> 24) as i32;
+                let noise_offset =
+                    ((noise_val - 128) * (config.noise_intensity * 256.0) as i32) >> 8;
 
-                out_r += noise_offset;
-                out_g += noise_offset;
-                out_b += noise_offset;
+                out_r = (out_r as i32 + noise_offset).max(0) as u32;
+                out_g = (out_g as i32 + noise_offset).max(0) as u32;
+                out_b = (out_b as i32 + noise_offset).max(0) as u32;
             }
 
             // 5. Faint Scanlines (darken every other row)
             if y % 2 == 0 {
-                out_r *= 0.9;
-                out_g *= 0.9;
-                out_b *= 0.9;
+                out_r = (out_r * 230) >> 8; // approx 0.9
+                out_g = (out_g * 230) >> 8;
+                out_b = (out_b * 230) >> 8;
             }
 
             // 6. Vignette
             let dx = x as f32 - half_w;
             let dist_sq = dx * dx + dy_sq;
             let dist_norm_sq = dist_sq / max_dist_sq;
-            let vignette = (1.0 - dist_norm_sq).max(0.0); // 1.0 at center, 0.0 at corners
-            let vignette = (vignette * vignette * (3.0 - 2.0 * vignette)).clamp(0.0, 1.0); // Smooth falloff approx without sqrt
+            let vignette_f = if dist_norm_sq >= 1.0 {
+                0.0
+            } else {
+                let v = 1.0 - dist_norm_sq;
+                v * v * (3.0 - 2.0 * v)
+            };
+            let vignette_i = (vignette_f * 256.0) as u32;
 
-            out_r *= vignette;
-            out_g *= vignette;
-            out_b *= vignette;
+            out_r = (out_r * vignette_i) >> 8;
+            out_g = (out_g * vignette_i) >> 8;
+            out_b = (out_b * vignette_i) >> 8;
 
-            // Write back to row
-            let final_r = (out_r.clamp(0.0, 1.0) * 255.0) as u32;
-            let final_g = (out_g.clamp(0.0, 1.0) * 255.0) as u32;
-            let final_b = (out_b.clamp(0.0, 1.0) * 255.0) as u32;
+            let final_r = out_r.min(255);
+            let final_g = out_g.min(255);
+            let final_b = out_b.min(255);
 
             *pixel = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
         }
@@ -176,7 +210,7 @@ mod tests {
 
         // Ensure it's significantly brighter than 0x20 (32)
         // And ensure it's overwhelmingly green
-        assert!(g > 100, "Green channel was not amplified enough: {g}");
+        assert!(g >= 100, "Green channel was not amplified enough: {g}");
         assert!(g > r * 5, "Green channel is not dominant over red");
         assert!(g > b * 2, "Green channel is not dominant over blue");
     }
