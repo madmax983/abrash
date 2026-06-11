@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[fill_rounded_rect Optimization]**
+**Learning:** In 2D drawing routines where boundaries are mathematically proven to be on-screen (like `fill_rounded_rect`), inline eliding array index boundaries using explicit pointer slice logic `unsafe { *buf.get_unchecked_mut(...) = color; }` paired with inline bounds resolution effectively removes iteration overhead.
+**Action:** Replace `draw_horizontal_line_unchecked` inside `fill_rounded_rect`'s `is_on_screen` inner loop with an inlined bounds manipulation leveraging direct `unsafe` mutability on slice indices.

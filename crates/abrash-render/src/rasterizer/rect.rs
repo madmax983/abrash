@@ -499,39 +499,44 @@ pub fn fill_rounded_rect(
     let mut d = 3i64 - 2i64 * i64::from(radius);
 
     if is_on_screen {
+        let w = fb.width() as usize;
+        let slice = fb.as_mut_slice();
+
         while cx <= cy {
             // Draw lines for corners, bypassing boundaries checks since we know it's on screen
-            draw_horizontal_line_unchecked(
-                fb,
-                (i64::from(cx_left) - cx) as i32,
-                (i64::from(cx_right) + cx) as i32,
-                (i64::from(cy_top) - cy) as i32,
-                color,
-            );
-            draw_horizontal_line_unchecked(
-                fb,
-                (i64::from(cx_left) - cx) as i32,
-                (i64::from(cx_right) + cx) as i32,
-                (i64::from(cy_bottom) + cy) as i32,
-                color,
-            );
+            // ⚡ Bolt: Inline draw_horizontal_line_unchecked and elide bounds checks for massive radii performance
+
+            let y1_top = ((i64::from(cy_top) - cy) as usize) * w;
+            let y2_bottom = ((i64::from(cy_bottom) + cy) as usize) * w;
+
+            let x1 = (i64::from(cx_left) - cx) as usize;
+            let x2 = (i64::from(cx_right) + cx) as usize;
+
+            unsafe {
+                slice
+                    .get_unchecked_mut(y1_top + x1..=y1_top + x2)
+                    .fill(color);
+                slice
+                    .get_unchecked_mut(y2_bottom + x1..=y2_bottom + x2)
+                    .fill(color);
+            }
 
             // To avoid overdraw on the middle portions if cx != cy
             if cx != cy {
-                draw_horizontal_line_unchecked(
-                    fb,
-                    (i64::from(cx_left) - cy) as i32,
-                    (i64::from(cx_right) + cy) as i32,
-                    (i64::from(cy_top) - cx) as i32,
-                    color,
-                );
-                draw_horizontal_line_unchecked(
-                    fb,
-                    (i64::from(cx_left) - cy) as i32,
-                    (i64::from(cx_right) + cy) as i32,
-                    (i64::from(cy_bottom) + cx) as i32,
-                    color,
-                );
+                let y1_top_inner = ((i64::from(cy_top) - cx) as usize) * w;
+                let y2_bottom_inner = ((i64::from(cy_bottom) + cx) as usize) * w;
+
+                let x1_inner = (i64::from(cx_left) - cy) as usize;
+                let x2_inner = (i64::from(cx_right) + cy) as usize;
+
+                unsafe {
+                    slice
+                        .get_unchecked_mut(y1_top_inner + x1_inner..=y1_top_inner + x2_inner)
+                        .fill(color);
+                    slice
+                        .get_unchecked_mut(y2_bottom_inner + x1_inner..=y2_bottom_inner + x2_inner)
+                        .fill(color);
+                }
             }
 
             if d < 0 {
