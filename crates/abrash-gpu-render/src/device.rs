@@ -93,8 +93,8 @@ impl GpuDevice {
             required_features: features,
             required_limits: wgpu::Limits::default(),
             memory_hints: wgpu::MemoryHints::default(),
-            #[allow(clippy::default_trait_access)]
-            experimental_features: Default::default(),
+
+            experimental_features: wgpu::ExperimentalFeatures::default(),
             trace: wgpu::Trace::Off,
         }))
         .map_err(|error| format!("Failed to create GPU device: {error}"))?;

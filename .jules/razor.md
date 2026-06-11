@@ -21,3 +21,7 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+## [Reduction]
+**Bloat:** Unused trait `Lerpable`, trailing comments and names referring to traits when they've been refactored into concrete structs or enums (`BspTextureCache`, `BspMapData`, `Evaluable`).
+**Cut:** Deleted the comments and documentation referring to `Lerpable`, `BspTextures`, `BspMap`, `Evaluable` traits and `clippy::default_trait_access`.
+**Saved:** Reduced cognitive overhead for future developers and kept documentation in sync with previous refactors.

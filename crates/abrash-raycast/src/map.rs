@@ -1,4 +1,4 @@
-//! Map traits and implementations for grid-based raycasting.
+//! Map implementation for grid-based raycasting.
 
 use crate::types::Cell;
 

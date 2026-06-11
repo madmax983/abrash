@@ -566,8 +566,8 @@ impl GpuMeshApp {
                 required_features: wgpu::Features::empty(),
                 required_limits: wgpu::Limits::default(),
                 memory_hints: wgpu::MemoryHints::default(),
-                #[allow(clippy::default_trait_access)]
-                experimental_features: Default::default(),
+
+                experimental_features: wgpu::ExperimentalFeatures::default(),
                 trace: wgpu::Trace::Off,
             })
             .await
@@ -1011,8 +1011,8 @@ impl GpuOffscreenBench {
             required_features: wgpu::Features::empty(),
             required_limits: wgpu::Limits::default(),
             memory_hints: wgpu::MemoryHints::default(),
-            #[allow(clippy::default_trait_access)]
-            experimental_features: Default::default(),
+
+            experimental_features: wgpu::ExperimentalFeatures::default(),
             trace: wgpu::Trace::Off,
         }))
         .map_err(|e| format!("Failed to create offscreen benchmark device: {e}"))?;

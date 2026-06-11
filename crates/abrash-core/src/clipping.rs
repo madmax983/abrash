@@ -20,7 +20,7 @@
 //! *   **Far Plane**: $z \le w$
 //!
 //! When an edge crosses a plane, we compute the exact intersection point using linear interpolation
-//! (see the `Lerp` trait) and insert a new vertex. This turns a single triangle into a convex polygon
+//! (using the `Vertex::lerp` method) and insert a new vertex. This turns a single triangle into a convex polygon
 //! with up to 9 vertices, which is then fan-triangulated back into a list of triangles.
 
 use std::mem::MaybeUninit;

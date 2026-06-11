@@ -123,7 +123,7 @@ impl<'a> AsciiConverter<'a> {
     #[must_use]
     pub fn to_colored_string(&self) -> String {
         // ⚡ Bolt: Custom allocation-free integer formatting to avoid the massive overhead
-        // of `write!` macro trait dispatch and formatting on hot per-pixel paths.
+        // of `write!` macro dynamic dispatch and formatting on hot per-pixel paths.
         fn push_u8(s: &mut String, mut n: u8) {
             if n == 0 {
                 s.push('0');

@@ -79,7 +79,7 @@ impl<T: Animatable + Send + Sync> Sequence<T> {
     }
 }
 
-// Safety: `Evaluable` trait requires `Send + Sync`, so all boxed segments are `Send + Sync`.
+// Safety: `Evaluable` enum bounds require `T: Send + Sync`.
 unsafe impl<T: Animatable + Send + Sync> Send for Sequence<T> {}
 unsafe impl<T: Animatable + Send + Sync> Sync for Sequence<T> {}
 

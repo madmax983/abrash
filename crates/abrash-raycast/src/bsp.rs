@@ -168,7 +168,7 @@ mod tests {
         );
     }
 
-    // ---- Task 2: MockBspMap + trait tests ----
+    // ---- Task 2: MockBspMap tests ----
 
     impl BspMapData {
         #[must_use]
