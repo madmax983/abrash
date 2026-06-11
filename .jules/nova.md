@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [String Art Generator]
+**Concept:** A mathematical renderer that simulates thread art (String Art). It approximates the luminance of an input image by weaving a single continuous virtual thread between a set of pins placed in a circle, using a greedy error-minimization algorithm to decide the next pin.
+**Fate:** Implemented
+**Lesson:** Accumulating opacity and penalizing the re-use of identical anchor pins avoids over-concentration of lines and ensures a visually pleasing, even distribution of threads. Implementing a custom Bresenham line drawer inside the loop reduces overhead, and running it directly over the continuous error map provides quick error checking to find the next best pin.

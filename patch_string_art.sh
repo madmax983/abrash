@@ -1,0 +1,1 @@
+sed -i 's/if diff < 10 || diff > num_pins as isize - 10 {/let min_dist = (num_pins \/ 10).max(1) as isize; if diff < min_dist || diff > num_pins as isize - min_dist {/g' crates/abrash-render/src/experimental/string_art.rs
