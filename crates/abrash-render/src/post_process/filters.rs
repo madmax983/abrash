@@ -1792,6 +1792,24 @@ mod tests {
     }
 
     #[test]
+    fn test_apply_invert_simd() {
+        let width = 16;
+        let mut fb = Framebuffer::new(width, 1).unwrap();
+        // Setup distinct colors to verify SIMD inversion chunks
+        for x in 0..width {
+            let color = 0xFF00_0000 | (x << 16) | (x << 8) | x;
+            fb.set_pixel(x as i32, 0, color);
+        }
+
+        apply_invert(&mut fb);
+
+        for x in 0..width {
+            let expected_color = 0xFF00_0000 | ((255 - x) << 16) | ((255 - x) << 8) | (255 - x);
+            assert_eq!(fb.get_pixel(x as i32, 0).unwrap(), expected_color, "Mismatch at pixel {x}");
+        }
+    }
+
+    #[test]
     fn test_apply_grayscale() {
         let mut fb = Framebuffer::new(1, 1).unwrap();
         fb.set_pixel(0, 0, 0xFFFF_0000); // Red

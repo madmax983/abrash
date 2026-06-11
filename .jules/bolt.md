@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[AVX2 Invert Filter Optimization]**
+**Learning:** When implementing raw AVX2 SIMD loops (e.g., using _mm256_xor_si256), calculate the safe SIMD iteration bounds using bitwise masking (e.g., len & !7 for 8-element chunks), iterate using raw pointer arithmetic (ptr.add(8)), and always include a scalar fallback loop afterward to safely process any remaining tail elements. Also, compiling with RUSTFLAGS="-C target-cpu=native" is crucial for revealing the true SIMD performance during cargo bench.
+**Action:** Replaced the unoptimized scalar loop inside apply_invert_avx2 with explicit AVX2 bitwise XOR operations, manually unrolled pointer chunking, and added a specific unit test (test_apply_invert_simd) to guarantee correctness.
