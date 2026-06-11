@@ -46,8 +46,8 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
         let cos_scaled = cos_a * inv_dot_size;
         let sin_scaled = sin_a * inv_dot_size;
 
-        for pixel in row.iter_mut() {
-            let p = *pixel;
+        for x in 0..width {
+            let p = unsafe { *row.get_unchecked(x) };
 
             // Fast integer luminance (0 to 255)
             // Rec. 709 luminance via fast integer math avoids floating-point overhead
@@ -75,11 +75,15 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
             let dot_radius_sq = (1.0 - lum) * max_dist_sq;
 
             // If the pixel is inside the dot radius, it's black. Otherwise, white.
-            *pixel = if dist_sq < dot_radius_sq {
+            let out_p = if dist_sq < dot_radius_sq {
                 0xFF00_0000
             } else {
                 0xFFFF_FFFF
             };
+
+            unsafe {
+                *row.get_unchecked_mut(x) = out_p;
+            }
 
             rx += cos_a;
             ry += sin_a;

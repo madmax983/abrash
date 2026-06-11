@@ -80,24 +80,18 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
         let curr_row = &src[row_offset..row_offset + width];
         let next_row = &src[next_row_offset..next_row_offset + width];
 
-        let dest_row = &mut row[1..width - 1];
-
-        dest_row
-            .iter_mut()
-            .zip(prev_row.windows(3))
-            .zip(curr_row.windows(3))
-            .zip(next_row.windows(3))
-            .for_each(|(((dest_pixel, prev_w), curr_w), next_w)| {
+        for x in 1..width - 1 {
+            unsafe {
                 // Read pixels
-                let tl = prev_w[0];
-                let t = prev_w[1];
+                let tl = *prev_row.get_unchecked(x - 1);
+                let t = *prev_row.get_unchecked(x);
 
-                let l = curr_w[0];
-                let c = curr_w[1];
-                let r = curr_w[2];
+                let l = *curr_row.get_unchecked(x - 1);
+                let c = *curr_row.get_unchecked(x);
+                let r = *curr_row.get_unchecked(x + 1);
 
-                let b = next_w[1];
-                let br = next_w[2];
+                let b = *next_row.get_unchecked(x);
+                let br = *next_row.get_unchecked(x + 1);
 
                 // ⚡ Bolt Performance Optimization:
                 // SIMD Within A Register (SWAR)
@@ -148,8 +142,9 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
                 // Preserve alpha from center
                 let a = c & 0xFF00_0000;
 
-                *dest_pixel = a | (out_r << 16) | (out_g << 8) | out_b;
-            });
+                *row.get_unchecked_mut(x) = a | (out_r << 16) | (out_g << 8) | out_b;
+            }
+        }
     });
 
     SOURCE_PIXELS.with(|source_pixels_cell| source_pixels_cell.replace(source_pixels));
