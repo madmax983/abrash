@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Apply CRT Bounds Check Optimization]**
+**Learning:** In the `apply_crt` filter loop, we map barrel-distorted coordinates `(src_x, src_y)` to a destination index `dest_idx`. Bypassing standard indexing bounds checks with `get_unchecked` for `pixels[src_idx]` and `new_pixels[dest_idx]` gives measurable performance gains since the values of `src_x` and `src_y` are strictly range-checked prior to access.
+**Action:** Replace `pixels[src_idx]` with `unsafe { *pixels.get_unchecked(src_idx) }` and `new_pixels[dest_idx] = ...` with `unsafe { *new_pixels.get_unchecked_mut(dest_idx) = ... }` after verifying bounds.
