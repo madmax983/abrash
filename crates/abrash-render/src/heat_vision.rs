@@ -6,8 +6,8 @@
 use crate::framebuffer::Framebuffer;
 use crate::zbuffer::ZBuffer;
 
-const fn generate_lut() -> [u32; 1024] {
-    let mut lut = [0u32; 1024];
+const fn generate_lut() -> [u32; 1025] {
+    let mut lut = [0u32; 1025];
     let mut t = 0;
     while t < 1024 {
         let (r, g, b) = if t < 256 {
@@ -31,6 +31,9 @@ const fn generate_lut() -> [u32; 1024] {
         lut[t as usize] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
         t += 1;
     }
+
+    // Background color mapped to index 1024 for f32::INFINITY
+    lut[1024] = 0xFF00_0010;
     lut
 }
 
@@ -55,7 +58,7 @@ const fn generate_lut() -> [u32; 1024] {
 /// apply_heat_vision(&mut fb, &zb);
 /// ```
 pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
-    const LUT: [u32; 1024] = generate_lut();
+    const LUT: [u32; 1025] = generate_lut();
 
     if fb.width() != zb.width() || fb.height() != zb.height() {
         return;
@@ -94,7 +97,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     // Map [0.0, range] to [0, 1023] (4 segments of 256)
     // Adding a slight bias to prevent floating point inaccuracy at the absolute top end
     // from truncating 1024 to 1023 when scaling.
-    let scale = 1024.0 / range;
+    let scale = 1023.999 / range;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::is_x86_feature_detected!("avx2") {
@@ -105,15 +108,10 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     }
 
     for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
-        if depth == f32::INFINITY {
-            *pixel = 0xFF00_0010; // Very Dark Blue Background
-            continue;
-        }
-
         let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023); // Clamp strictly to 1023
+        let t = t.min(1024); // Clamp strictly to 1024
 
-        // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
+        // SAFETY: t is strictly clamped to 1024 above, which is within the bounds of the 1025-element LUT.
         *pixel = unsafe { *LUT.get_unchecked(t as usize) };
     }
 }
@@ -125,7 +123,7 @@ unsafe fn apply_heat_vision_simd(
     depths: &[f32],
     min_z: f32,
     scale: f32,
-    lut: &[u32; 1024],
+    lut: &[u32; 1025],
 ) {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
@@ -185,13 +183,8 @@ unsafe fn apply_heat_vision_simd(
 
     // Scalar tail
     for (pixel, &depth) in pixels[i..len].iter_mut().zip(depths[i..len].iter()) {
-        if depth == f32::INFINITY {
-            *pixel = 0xFF00_0010;
-            continue;
-        }
-
         let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023);
+        let t = t.min(1024);
 
         *pixel = unsafe { *lut.get_unchecked(t as usize) };
     }
