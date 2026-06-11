@@ -2,6 +2,7 @@
 //!
 //! Usage: `cargo run --example gltf_viewer --features gltf -- path/to/model.glb`
 
+use clap::Parser;
 use std::f32::consts::PI;
 use std::path::Path;
 
@@ -304,29 +305,20 @@ fn show_error_and_exit(msg: &str) -> ! {
     std::process::exit(1);
 }
 
+#[derive(Parser, Debug)]
+#[command(author, version, about = "Loads a glTF 2.0 file and plays its first animation clip.\nThe camera orbits the model automatically.", long_about = None)]
+struct Args {
+    /// Path to the glTF file to load
+    #[arg(value_name = "FILE")]
+    input: String,
+}
+
 fn main() -> Result<(), HostError> {
     print_banner();
 
-    let args: Vec<String> = std::env::args().collect();
+    let args = Args::parse();
 
-    if args.len() < 2 {
-        let mut usage_table = Table::new();
-        usage_table
-            .load_preset(presets::UTF8_FULL)
-            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
-            .set_header(vec![
-                Cell::new("ℹ️  Usage").fg(Color::Cyan),
-                Cell::new("Description").fg(Color::Cyan),
-            ])
-            .add_row(vec![
-                Cell::new("gltf_viewer <path/to/model.glb>"),
-                Cell::new("Loads a glTF 2.0 file and plays its first animation clip.\nThe camera orbits the model automatically."),
-            ]);
-        eprintln!("\n{usage_table}");
-        std::process::exit(1);
-    }
-
-    let path = Path::new(&args[1]);
+    let path = Path::new(&args.input);
     if !path.exists() {
         show_error_and_exit(&format!("File not found: {}", path.display()));
     }

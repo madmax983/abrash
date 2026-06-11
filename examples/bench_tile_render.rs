@@ -4,8 +4,29 @@ use abrash::rasterizer::{ClipTriangle, TileRenderer};
 use abrash::zbuffer::ZBuffer;
 use std::time::Instant;
 
+use clap::Parser;
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about = "TileRenderer Benchmark", long_about = None)]
+struct Args {
+    /// Number of triangles
+    #[arg(short, long, default_value_t = 500)]
+    triangles: usize,
+
+    /// Framebuffer width
+    #[arg(long, default_value_t = 3840)]
+    width: u32,
+
+    /// Framebuffer height
+    #[arg(long, default_value_t = 2160)]
+    height: u32,
+
+    /// Number of iterations
+    #[arg(short, long, default_value_t = 20)]
+    iterations: usize,
+}
 
 fn generate_overlapping_triangles(count: usize) -> Vec<ClipTriangle> {
     let mut tris = Vec::with_capacity(count);
@@ -57,25 +78,15 @@ fn print_banner(width: u32, height: u32, triangle_count: usize) {
 }
 
 fn main() {
-    let width = 3840;
-    let height = 2160;
-    let triangle_count = 500;
+    let args = Args::parse();
 
-    // Check args for triangle count
-    let args: Vec<String> = std::env::args().collect();
-    let triangle_count = if args.len() > 1 {
-        args[1].parse().unwrap_or(triangle_count)
-    } else {
-        triangle_count
-    };
+    let mut fb = Framebuffer::new(args.width, args.height).unwrap();
+    let mut zb = ZBuffer::new(args.width, args.height).unwrap();
+    let mut tr = TileRenderer::new(args.width, args.height);
 
-    let mut fb = Framebuffer::new(width, height).unwrap();
-    let mut zb = ZBuffer::new(width, height).unwrap();
-    let mut tr = TileRenderer::new(width, height);
+    print_banner(args.width, args.height, args.triangles);
 
-    print_banner(width, height, triangle_count);
-
-    let triangles = generate_overlapping_triangles(triangle_count);
+    let triangles = generate_overlapping_triangles(args.triangles);
 
     println!("\n{}", "🔥 Warming up (10 frames)...".yellow());
     // Warmup
@@ -84,15 +95,14 @@ fn main() {
         tr.render_batch(&mut fb, &mut zb, &triangles);
     }
 
-    let iterations = 20;
-    println!("⏱️  Running benchmark ({iterations} frames)...");
+    println!("⏱️  Running benchmark ({} frames)...", args.iterations);
     let start = Instant::now();
-    for _ in 0..iterations {
+    for _ in 0..args.iterations {
         zb.clear();
         tr.render_batch(&mut fb, &mut zb, &triangles);
     }
     let duration = start.elapsed();
-    let avg_time = duration.as_secs_f64() * 1000.0 / f64::from(iterations);
+    let avg_time = duration.as_secs_f64() * 1000.0 / (args.iterations as f64);
 
     let mut results = Table::new();
     results

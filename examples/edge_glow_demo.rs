@@ -6,7 +6,7 @@ use abrash_render::experimental::edge_glow::{EdgeGlowConfig, apply_edge_glow};
 #[cfg(all(feature = "nova", feature = "backend-tui"))]
 use abrash::platform::tui::TuiWindow;
 #[cfg(feature = "nova")]
-use std::env;
+
 #[cfg(all(feature = "nova", feature = "backend-tui"))]
 use std::time::Duration;
 
@@ -171,13 +171,27 @@ mod winit_demo {
 }
 
 #[cfg(feature = "nova")]
+use clap::Parser;
+
+#[cfg(feature = "nova")]
+#[derive(Parser, Debug)]
+#[command(author, version, about = "Edge Glow Demo", long_about = None)]
+struct Args {
+    /// Use TUI mode
+    #[arg(long)]
+    tui: bool,
+}
+
+#[cfg(feature = "nova")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_banner();
+
+    let args = Args::parse();
 
     let width = 800;
     let height = 600;
 
-    let use_tui = env::args().any(|arg| arg == "--tui");
+    let use_tui = args.tui;
 
     let mut fb = Framebuffer::new(width, height)?;
 
