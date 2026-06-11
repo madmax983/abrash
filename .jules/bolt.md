@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Vectorizing loops via zip chunking]**
+**Learning:** Pixel assignment loops tracking coordinates inside bounds-checked scalar iterators (`for i in 0..len`) degrade performance.
+**Action:** When extracting data sequentially from arrays directly into arrays (like format conversions), utilize pre-allocated target bounds `pixels_mut()` and `chunks_exact().zip()` iterators, directly destructing elements instead of using scalar mathematical indexing and individual bounds checks per element.

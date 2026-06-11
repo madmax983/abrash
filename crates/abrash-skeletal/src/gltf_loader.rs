@@ -613,37 +613,25 @@ fn extract_textures(images: &[gltf::image::Data]) -> Result<Vec<Texture>, GltfEr
         })?;
         texture.filter_mode = FilterMode::Bilinear;
 
-        let w = img.width as usize;
-        let pixel_count = w * (img.height as usize);
-
         match img.format {
             gltf::image::Format::R8G8B8A8 => {
-                for i in 0..pixel_count {
-                    let base = i * 4;
-                    if base + 3 < img.pixels.len() {
-                        let color = rgba_to_argb(
-                            img.pixels[base],
-                            img.pixels[base + 1],
-                            img.pixels[base + 2],
-                            img.pixels[base + 3],
-                        );
-                        #[allow(clippy::cast_possible_truncation)]
-                        texture.set_pixel((i % w) as u32, (i / w) as u32, color);
-                    }
+                // ⚡ Bolt: Uses `zip` and `chunks_exact` to safely elide array bounds checks and coordinate tracking overhead (`i % w` / `i / w`) when extracting RGBA pixels.
+                for (dst, chunk) in texture
+                    .pixels_mut()
+                    .iter_mut()
+                    .zip(img.pixels.chunks_exact(4))
+                {
+                    *dst = rgba_to_argb(chunk[0], chunk[1], chunk[2], chunk[3]);
                 }
             }
             gltf::image::Format::R8G8B8 => {
-                for i in 0..pixel_count {
-                    let base = i * 3;
-                    if base + 2 < img.pixels.len() {
-                        let color = rgb_to_argb(
-                            img.pixels[base],
-                            img.pixels[base + 1],
-                            img.pixels[base + 2],
-                        );
-                        #[allow(clippy::cast_possible_truncation)]
-                        texture.set_pixel((i % w) as u32, (i / w) as u32, color);
-                    }
+                // ⚡ Bolt: Uses `zip` and `chunks_exact` to safely elide array bounds checks and coordinate tracking overhead (`i % w` / `i / w`) when extracting RGB pixels.
+                for (dst, chunk) in texture
+                    .pixels_mut()
+                    .iter_mut()
+                    .zip(img.pixels.chunks_exact(3))
+                {
+                    *dst = rgb_to_argb(chunk[0], chunk[1], chunk[2]);
                 }
             }
             other => {
