@@ -51,3 +51,7 @@
 **[Validating Time/Tick Loop Logic Without Flakiness]**
 **Learning:** Testing frame-time loops using `std::thread::sleep` introduces severe flakiness because CI runners or test threads can delay execution unpredictably. Instead of testing "real" time elapsed, test the internal response to elapsed time by directly simulating it on the structure (e.g. `timer.last_time = Instant::now()`, `timer.accumulator += 50ms`).
 **Action:** Never use `std::thread::sleep` for unit testing timing systems. Always manipulate the simulated time state directly to test logic boundaries.
+
+**[Flat Blended Rasterizer Coverage]**
+**Learning:** `draw_scanline_flat_blended` had no dedicated tests. Testing it revealed an important edge case regarding alpha blending with default framebuffer values (0 vs 0xFF00_0000). The `fill_triangle_textured` and `fill_triangle_reflection` methods are also complex and could benefit from bounds coverage.
+**Action:** Added dedicated integration tests for `draw_scanline_flat_blended`, checking bounds safety and transparency behavior.
