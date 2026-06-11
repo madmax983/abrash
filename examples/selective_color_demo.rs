@@ -145,12 +145,12 @@ impl WindowApp for SelectiveColorApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
+    fn init(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
+        self.presenter = Some(SoftwarePresenter::new(ctx.window.clone())?);
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         if self.timer.update() > 0 {
             self.rotation_y += 0.02;
             self.rotation_x += 0.015;
@@ -161,7 +161,7 @@ impl WindowApp for SelectiveColorApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         self.fb.clear(0xFF11_1111); // Dark grey background
         self.zb.clear();
 

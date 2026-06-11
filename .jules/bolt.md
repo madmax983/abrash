@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[WindowContext Ownership vs Borrowing]**
+**Learning:** In the `abrash` platform framework, the `WindowContext` struct wraps an `Arc<Window>`. Passing this context by value to `init`, `input`, `update`, and `render` lifecycle methods requires calling `.clone()` inside the framework's internal event loop, resulting in 4 atomic reference count increments and decrements per frame.
+**Action:** Change the `WindowApp` trait methods to accept `&WindowContext<'_>` instead of `WindowContext<'_>`. This avoids thousands of redundant Arc clone operations during the hot render loop.

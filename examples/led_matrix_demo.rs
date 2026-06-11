@@ -110,17 +110,17 @@ impl WindowApp for LedMatrixDemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
+    fn init(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
+        self.presenter = Some(SoftwarePresenter::new(ctx.window.clone())?);
         Ok(())
     }
 
-    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         self.time += ctx.dt_seconds.max(0.0);
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         // Redraw dynamic shapes into background
         for y in 0..HEIGHT {
             for x in 0..WIDTH {

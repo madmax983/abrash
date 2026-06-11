@@ -95,14 +95,14 @@ impl WindowApp for ConwayDemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
+    fn init(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
+        self.presenter = Some(SoftwarePresenter::new(ctx.window.clone())?);
         Ok(())
     }
 
     fn resize(
         &mut self,
-        _ctx: WindowContext<'_>,
+        _ctx: &WindowContext<'_>,
         width: u32,
         height: u32,
     ) -> Result<(), Self::Error> {
@@ -113,7 +113,7 @@ impl WindowApp for ConwayDemoApp {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         let steps = self.timestep.update();
         for _ in 0..steps {
             self.angle += 0.02;
@@ -121,7 +121,7 @@ impl WindowApp for ConwayDemoApp {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         let projection = Mat4::perspective(
             1.57, // PI/2
             self.framebuffer.width() as f32 / self.framebuffer.height() as f32,

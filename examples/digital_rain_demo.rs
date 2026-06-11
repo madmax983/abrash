@@ -90,17 +90,17 @@ impl WindowApp for DigitalRainDemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
+    fn init(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
+        self.presenter = Some(SoftwarePresenter::new(ctx.window.clone())?);
         self.framebuffer.clear(0xFF_00_00_00); // Start pure black
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         // dt capped to avoid huge jumps
         let dt = ctx.dt_seconds.clamp(0.001, 0.1);
         self.rain.apply(&mut self.framebuffer, dt);

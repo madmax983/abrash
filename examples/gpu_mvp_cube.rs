@@ -61,7 +61,7 @@ impl WindowApp for GpuMvpCubeApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn init(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         use comfy_table::{Cell, Color, Table, presets};
         use crossterm::style::Stylize;
 
@@ -102,7 +102,7 @@ impl WindowApp for GpuMvpCubeApp {
         println!("\n{}", "🎮 Controls".bold());
         println!("{controls}\n");
 
-        let (mut renderer, surface) = GpuRenderer::new_windowed(ctx.window)?;
+        let (mut renderer, surface) = GpuRenderer::new_windowed(ctx.window.clone())?;
         let mesh = renderer.create_mesh(&Mesh::cube(1.0))?;
         let material = renderer.create_material(Material::flat(0xFFFF_4444));
 
@@ -116,7 +116,7 @@ impl WindowApp for GpuMvpCubeApp {
 
     fn resize(
         &mut self,
-        _ctx: WindowContext<'_>,
+        _ctx: &WindowContext<'_>,
         width: u32,
         height: u32,
     ) -> Result<(), Self::Error> {
@@ -126,11 +126,11 @@ impl WindowApp for GpuMvpCubeApp {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         let renderer = self
             .renderer
             .as_mut()

@@ -299,26 +299,26 @@ mod winit_demo {
             }
         }
 
-        fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-            self.presenter = Some(SoftwarePresenter::new(ctx.window).map_err(io::Error::other)?);
+        fn init(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
+            self.presenter = Some(SoftwarePresenter::new(ctx.window.clone()).map_err(io::Error::other)?);
             Ok(())
         }
 
         fn resize(
             &mut self,
-            _ctx: WindowContext<'_>,
+            _ctx: &WindowContext<'_>,
             width: u32,
             height: u32,
         ) -> Result<(), Self::Error> {
             self.rebuild_buffers(width, height)
         }
 
-        fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn update(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
             self.angle_y += ctx.dt_seconds;
             Ok(())
         }
 
-        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
             self.render_frame();
             let presenter = self
                 .presenter

@@ -41,14 +41,14 @@ impl WindowApp for DemoApp {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
+    fn init(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
+        self.presenter = Some(SoftwarePresenter::new(ctx.window.clone())?);
         Ok(())
     }
 
     fn resize(
         &mut self,
-        _ctx: WindowContext<'_>,
+        _ctx: &WindowContext<'_>,
         width: u32,
         height: u32,
     ) -> Result<(), Self::Error> {
@@ -56,12 +56,12 @@ impl WindowApp for DemoApp {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         // State updates are handled inside update_and_render for this demo
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         self.metaballs.update_and_render(&mut self.fb);
 
         let fb = &self.fb;

@@ -51,14 +51,14 @@ impl WindowApp for MandelbrotDemo {
         }
     }
 
-    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
+    fn init(&mut self, ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
+        self.presenter = Some(SoftwarePresenter::new(ctx.window.clone())?);
         Ok(())
     }
 
     fn resize(
         &mut self,
-        _ctx: WindowContext<'_>,
+        _ctx: &WindowContext<'_>,
         width: u32,
         height: u32,
     ) -> Result<(), Self::Error> {
@@ -67,7 +67,7 @@ impl WindowApp for MandelbrotDemo {
         Ok(())
     }
 
-    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn update(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         // Here we would handle input for zooming/panning
         // To keep it simple for now, we'll auto-zoom
         #[cfg(feature = "nova")]
@@ -78,7 +78,7 @@ impl WindowApp for MandelbrotDemo {
         Ok(())
     }
 
-    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+    fn render(&mut self, _ctx: &WindowContext<'_>) -> Result<(), Self::Error> {
         #[cfg(feature = "nova")]
         render_mandelbrot(&mut self.framebuffer, &self.config);
 
