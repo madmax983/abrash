@@ -199,3 +199,77 @@ mod tests {
         draw_line_3d(&mut fb, &mut zb, v0, v1, 0x00FF_FFFFFF);
     }
 }
+
+/// Fills a 2D line onto the framebuffer using Bresenham's algorithm.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::rasterizer::draw_line;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+///
+/// draw_line(&mut fb, 10, 10, 90, 90, 0xFFFF_FFFF);
+/// ```
+///
+/// ## Parameters
+///
+/// * `fb` - Target framebuffer for pixel output.
+/// * `x0`, `y0` - Start coordinates.
+/// * `x1`, `y1` - End coordinates.
+/// * `color` - 0xAARRGGBB color value.
+pub fn draw_line(fb: &mut Framebuffer, mut x0: i32, mut y0: i32, x1: i32, y1: i32, color: u32) {
+    let dx = (x1 - x0).abs();
+    let sx = if x0 < x1 { 1 } else { -1 };
+    let dy = -(y1 - y0).abs();
+    let sy = if y0 < y1 { 1 } else { -1 };
+    let mut err = dx + dy;
+
+    // Fast path: fully on screen
+    let min_x = x0.min(x1);
+    let max_x = x0.max(x1);
+    let min_y = y0.min(y1);
+    let max_y = y0.max(y1);
+
+    if min_x >= 0 && max_x < fb.width() as i32 && min_y >= 0 && max_y < fb.height() as i32 {
+        let width = fb.width() as usize;
+        loop {
+            // SAFETY: Bounds checked before the loop.
+            unsafe {
+                let idx = (y0 as usize) * width + (x0 as usize);
+                let slice = fb.as_mut_slice();
+                *slice.get_unchecked_mut(idx) = color;
+            }
+            if x0 == x1 && y0 == y1 {
+                break;
+            }
+            let e2 = 2 * err;
+            if e2 >= dy {
+                err += dy;
+                x0 += sx;
+            }
+            if e2 <= dx {
+                err += dx;
+                y0 += sy;
+            }
+        }
+    } else {
+        // Safe path: bounds checking
+        loop {
+            fb.set_pixel(x0, y0, color);
+            if x0 == x1 && y0 == y1 {
+                break;
+            }
+            let e2 = 2 * err;
+            if e2 >= dy {
+                err += dy;
+                x0 += sx;
+            }
+            if e2 <= dx {
+                err += dx;
+                y0 += sy;
+            }
+        }
+    }
+}

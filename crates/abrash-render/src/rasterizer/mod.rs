@@ -79,7 +79,7 @@ pub use self::core::{FIXED_SCALE, color_to_u32};
 pub use self::ellipse::{draw_ellipse, fill_ellipse};
 pub use self::flat::{draw_scanline_flat, draw_scanline_flat_blended, fill_triangle_3d};
 pub use self::gouraud::{draw_scanline_gouraud, fill_triangle_gouraud};
-pub use self::line::{draw_line_3d, fill_triangle_wireframe};
+
 pub use self::pbr::fill_triangle_pbr;
 pub use self::phong::{
     fill_triangle_lit, fill_triangle_phong, fill_triangle_phong_shadowed, fill_triangle_point_lit,
@@ -108,3 +108,4 @@ mod gouraud_havoc_test;
 
 #[cfg(test)]
 mod havoc_proptests;
+pub use self::line::{draw_line, draw_line_3d, fill_triangle_wireframe};
