@@ -69,6 +69,21 @@ impl fmt::Display for HostError {
 impl Error for HostError {}
 
 /// Frame clock for deterministic `dt` updates.
+///
+/// This utility tracks the elapsed time between frames (the `dt`, or delta time).
+/// It is essential for ensuring that animations and physics calculations progress
+/// consistently, regardless of the host machine's performance or frame rate.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash::platform::winit::FrameClock;
+///
+/// let mut clock = FrameClock::new();
+/// // ... some operations happen ...
+/// let dt = clock.tick();
+/// assert!(dt >= 0.0);
+/// ```
 #[derive(Debug)]
 pub struct FrameClock {
     last_tick: Instant,
@@ -99,6 +114,21 @@ impl Default for FrameClock {
 }
 
 /// The contextual data passed to [`WindowApp`] callbacks.
+///
+/// This struct acts as a transient container providing applications with the
+/// active event loop control and window handle needed for rendering and
+/// input response during a given update/render tick.
+///
+/// ## Examples
+///
+/// ```no_run
+/// // Contexts are constructed by `run_windowed` and passed into your `WindowApp` methods.
+/// use abrash::platform::winit::{WindowContext, WindowHostConfig};
+/// fn my_update(ctx: WindowContext<'_>) {
+///    let dt = ctx.dt_seconds;
+///    println!("Delta time: {}", dt);
+/// }
+/// ```
 #[derive(Clone)]
 pub struct WindowContext<'a> {
     /// Event loop target for window lifecycle control.
@@ -110,6 +140,42 @@ pub struct WindowContext<'a> {
 }
 
 /// Trait implemented by callers that want to run inside the native host.
+///
+/// This trait isolates the application logic from the underlying windowing system
+/// (in this case, `winit`). By implementing this trait, your app can be driven
+/// by the [`run_windowed`] host loop.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash::platform::winit::{WindowApp, WindowContext, WindowHostConfig};
+/// use std::fmt;
+///
+/// #[derive(Debug)]
+/// struct MyError;
+/// impl fmt::Display for MyError { fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "MyError") } }
+/// impl std::error::Error for MyError {}
+///
+/// struct MyApp;
+///
+/// impl WindowApp for MyApp {
+///     type Error = MyError;
+///
+///     fn config(&self) -> WindowHostConfig {
+///         WindowHostConfig { title: "MyApp".into(), width: 640, height: 480, vsync: true }
+///     }
+///
+///     fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+///         // Logic updates go here...
+///         Ok(())
+///     }
+///
+///     fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+///         // Rendering goes here...
+///         Ok(())
+///     }
+/// }
+/// ```
 pub trait WindowApp {
     /// Concrete application error type.
     type Error: Error + Send + Sync + 'static;
@@ -186,6 +252,35 @@ fn print_host_error_and_exit(err: &HostError) -> ! {
 ///
 /// Handles initialization and main event loop. Prints a formatted
 /// error table and exits cleanly if any window or application error occurs.
+/// This method will block the current thread until the window is closed.
+///
+/// ## Examples
+///
+/// ```no_run
+/// use abrash::platform::winit::{WindowApp, WindowContext, WindowHostConfig, run_windowed};
+/// use std::fmt;
+///
+/// #[derive(Debug)]
+/// struct DummyError;
+/// impl fmt::Display for DummyError { fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "DummyError") } }
+/// impl std::error::Error for DummyError {}
+///
+/// struct DummyApp;
+///
+/// impl WindowApp for DummyApp {
+///     type Error = DummyError;
+///
+///     fn config(&self) -> WindowHostConfig {
+///         WindowHostConfig { title: "App".into(), width: 800, height: 600, vsync: true }
+///     }
+///
+///     fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> { Ok(()) }
+///     fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> { Ok(()) }
+/// }
+///
+/// // Start the loop:
+/// // run_windowed(DummyApp);
+/// ```
 pub fn run_windowed<A>(mut app: A)
 where
     A: WindowApp,
@@ -287,6 +382,23 @@ where
 }
 
 /// Cross-platform presenter for software-rendered framebuffers.
+///
+/// The `SoftwarePresenter` bridges a CPU-rendered [`Framebuffer`]
+/// to an OS window. It manages a [`softbuffer::Surface`] to blit the
+/// raw pixels efficiently onto the screen.
+///
+/// ## Examples
+///
+/// ```no_run
+/// use abrash::platform::winit::SoftwarePresenter;
+/// use abrash::framebuffer::Framebuffer;
+/// use std::sync::Arc;
+///
+/// // Inside your `WindowApp::render` method:
+/// // let mut presenter = SoftwarePresenter::new(ctx.window.clone()).unwrap();
+/// // let fb = Framebuffer::new(800, 600).unwrap();
+/// // presenter.present(&fb).unwrap();
+/// ```
 pub struct SoftwarePresenter {
     surface: SoftbufferSurface<Arc<Window>, Arc<Window>>,
 }

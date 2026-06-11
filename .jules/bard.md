@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2024-06-11 - [Winit Platform Documentation]
+**Confusion:** The `platform::winit` module had completely undocumented core structures (`WindowApp`, `run_windowed`, `FrameClock`, `SoftwarePresenter`), causing users to struggle when writing cross-platform application loops or embedding the CPU renderer into standard window setups.
+**Clarification:** Added comprehensive docstrings and executable doctests/examples for `WindowApp`, `run_windowed`, `FrameClock`, `WindowContext`, and `SoftwarePresenter` in `src/platform/winit.rs` to clearly illustrate the lifecycle and usage of the native window wrapper.
