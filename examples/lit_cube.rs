@@ -220,5 +220,8 @@ impl WindowApp for LitCubeApp {
 
 fn main() {
     print_banner();
-    run_windowed(LitCubeApp::new().unwrap());
+    match LitCubeApp::new() {
+        Ok(app) => run_windowed(app),
+        Err(e) => abrash::platform::print_error_and_exit(&e),
+    }
 }

@@ -190,5 +190,8 @@ impl WindowApp for Cube3dApp {
 
 fn main() {
     print_banner();
-    run_windowed(Cube3dApp::new().unwrap());
+    match Cube3dApp::new() {
+        Ok(app) => run_windowed(app),
+        Err(e) => abrash::platform::print_error_and_exit(&e),
+    }
 }

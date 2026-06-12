@@ -166,7 +166,7 @@ pub trait WindowApp {
 
 use comfy_table::{Cell, Color, Table, presets};
 
-fn print_host_error_and_exit(err: &HostError) -> ! {
+pub fn print_error_and_exit(err: &HostError) -> ! {
     let mut table = Table::new();
     table
         .load_preset(presets::UTF8_FULL)
@@ -177,6 +177,12 @@ fn print_host_error_and_exit(err: &HostError) -> ! {
                 .fg(Color::Red),
         ])
         .add_row(vec![Cell::new(format!("{err}")).fg(Color::Yellow)]);
+
+    let err_str = err.to_string();
+    if err_str.contains("WAYLAND_DISPLAY") || err_str.contains("X11") || err_str.contains("DISPLAY")
+    {
+        table.add_row(vec![Cell::new("💡 Hint: No display server found. Are you in a headless environment?\nTry running with a TUI backend: --features backend-tui").fg(Color::Cyan)]);
+    }
 
     eprintln!("\n{table}");
     std::process::exit(1);
@@ -192,7 +198,7 @@ where
 {
     let event_loop = match EventLoop::new() {
         Ok(el) => el,
-        Err(error) => print_host_error_and_exit(&HostError::EventLoop(error.to_string())),
+        Err(error) => print_error_and_exit(&HostError::EventLoop(error.to_string())),
     };
     let config = app.config();
     let window = Arc::new(
@@ -202,7 +208,7 @@ where
             .build(&event_loop)
         {
             Ok(w) => w,
-            Err(error) => print_host_error_and_exit(&HostError::Window(error.to_string())),
+            Err(error) => print_error_and_exit(&HostError::Window(error.to_string())),
         },
     );
 
@@ -211,7 +217,7 @@ where
         window: window.clone(),
         dt_seconds: 0.0,
     }) {
-        print_host_error_and_exit(&HostError::App(error.to_string()));
+        print_error_and_exit(&HostError::App(error.to_string()));
     }
 
     let last_error: Rc<RefCell<Option<HostError>>> = Rc::new(RefCell::new(None));
@@ -278,11 +284,11 @@ where
     });
 
     if let Err(error) = event_loop_result {
-        print_host_error_and_exit(&HostError::EventLoop(error.to_string()));
+        print_error_and_exit(&HostError::EventLoop(error.to_string()));
     }
 
     if let Some(err) = last_error.take() {
-        print_host_error_and_exit(&err);
+        print_error_and_exit(&err);
     }
 }
 

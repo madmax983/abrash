@@ -119,5 +119,8 @@ impl WindowApp for FractalDemoApp {
 
 fn main() {
     print_banner();
-    run_windowed(FractalDemoApp::new().unwrap());
+    match FractalDemoApp::new() {
+        Ok(app) => run_windowed(app),
+        Err(e) => abrash::platform::print_error_and_exit(&e),
+    }
 }

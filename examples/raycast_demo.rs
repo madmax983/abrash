@@ -268,5 +268,8 @@ impl WindowApp for RaycastDemoApp {
 
 fn main() {
     print_banner();
-    run_windowed(RaycastDemoApp::new().unwrap());
+    match RaycastDemoApp::new() {
+        Ok(app) => run_windowed(app),
+        Err(e) => abrash::platform::print_error_and_exit(&e),
+    }
 }

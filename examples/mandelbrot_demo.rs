@@ -164,5 +164,8 @@ fn print_banner() {
 #[cfg(feature = "nova")]
 fn main() {
     print_banner();
-    run_windowed(MandelbrotDemo::new().unwrap());
+    match MandelbrotDemo::new() {
+        Ok(app) => run_windowed(app),
+        Err(e) => abrash::platform::print_error_and_exit(&e),
+    }
 }
