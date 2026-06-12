@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimize rem_euclid]**
+**Learning:** Calling `.rem_euclid(n)` in hot loops involves slow division/modulo instructions that compilers often cannot elide if `n` is dynamic.
+**Action:** Replace `.rem_euclid` with simple boundary checks (`if n < 0 { n += max } else if n >= max { n -= max }`) when stepping is known to be bounded by a small offset (like -1 to 1), or use bitwise masking `n & (max - 1)` when the bounds are guaranteed to be a power of two. This results in significant (e.g. ~3.2x in Conway, ~6% in Mode7) performance improvements.

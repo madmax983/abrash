@@ -214,10 +214,31 @@ pub fn render_mode7(fb: &mut Framebuffer, texture: &Texture, config: &Mode7Confi
         } else {
             for pixel in row.iter_mut() {
                 // Wrap texture coordinates using euclidean remainder
-                let u = map_x.floor() as i32;
-                let u = u.rem_euclid(tex_w_i as i32) as usize;
-                let v = map_z.floor() as i32;
-                let v = v.rem_euclid(tex_h_i as i32) as usize;
+                // ⚡ Bolt: Replaced `.rem_euclid()` with bitwise AND for power-of-2 textures,
+                // falling back to an explicit bounds adjustment if textures are oddly sized.
+                let mut u = map_x.floor() as i32;
+                let mut v = map_z.floor() as i32;
+
+                // Fast path for power of two textures
+                let u = if tex_w_i.is_power_of_two() {
+                    (u & (tex_w_i as i32 - 1)) as usize
+                } else {
+                    u %= tex_w_i as i32;
+                    if u < 0 {
+                        u += tex_w_i as i32;
+                    }
+                    u as usize
+                };
+
+                let v = if tex_h_i.is_power_of_two() {
+                    (v & (tex_h_i as i32 - 1)) as usize
+                } else {
+                    v %= tex_h_i as i32;
+                    if v < 0 {
+                        v += tex_h_i as i32;
+                    }
+                    v as usize
+                };
 
                 let tx = u % tex_w_i;
                 let ty = v % tex_h_i;
