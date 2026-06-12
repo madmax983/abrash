@@ -69,15 +69,92 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     let mut max_z = f32::MIN;
     let mut has_content = false;
 
-    for &z in depths {
-        if z != f32::INFINITY {
-            if z < min_z {
-                min_z = z;
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::is_x86_feature_detected!("avx2") {
+        unsafe {
+            #[cfg(target_arch = "x86")]
+            use std::arch::x86::*;
+            #[cfg(target_arch = "x86_64")]
+            use std::arch::x86_64::{
+                _CMP_NEQ_OQ, _mm256_and_ps, _mm256_blendv_ps, _mm256_cmp_ps, _mm256_loadu_ps,
+                _mm256_max_ps, _mm256_min_ps, _mm256_movemask_ps, _mm256_set1_ps,
+            };
+
+            let inf_vec = _mm256_set1_ps(f32::INFINITY);
+            let mut min_vec = _mm256_set1_ps(f32::MAX);
+            let mut max_vec = _mm256_set1_ps(f32::MIN);
+
+            let mut i = 0;
+            let len = depths.len();
+
+            while i + 8 <= len {
+                let depth_val = _mm256_loadu_ps(depths.as_ptr().add(i));
+                let not_inf = _mm256_cmp_ps(depth_val, inf_vec, _CMP_NEQ_OQ);
+
+                if _mm256_movemask_ps(not_inf) != 0 {
+                    has_content = true;
+                    // For valid depths, take min/max; for inf, keep current min/max
+                    let new_min = _mm256_min_ps(min_vec, depth_val);
+                    min_vec = _mm256_blendv_ps(min_vec, new_min, not_inf);
+
+                    let new_max = _mm256_max_ps(max_vec, depth_val);
+                    max_vec = _mm256_blendv_ps(max_vec, new_max, not_inf);
+                }
+
+                i += 8;
             }
-            if z > max_z {
-                max_z = z;
+
+            // Extract from vector
+            let mut min_arr = [0.0f32; 8];
+            let mut max_arr = [0.0f32; 8];
+            std::ptr::copy_nonoverlapping(
+                (&raw const min_vec).cast::<f32>(),
+                min_arr.as_mut_ptr(),
+                8,
+            );
+            std::ptr::copy_nonoverlapping(
+                (&raw const max_vec).cast::<f32>(),
+                max_arr.as_mut_ptr(),
+                8,
+            );
+
+            for j in 0..8 {
+                if min_arr[j] < min_z {
+                    min_z = min_arr[j];
+                }
+                if max_arr[j] > max_z {
+                    max_z = max_arr[j];
+                }
             }
-            has_content = true;
+
+            // Tail
+            while i < len {
+                let z = *depths.get_unchecked(i);
+                if z != f32::INFINITY {
+                    if z < min_z {
+                        min_z = z;
+                    }
+                    if z > max_z {
+                        max_z = z;
+                    }
+                    has_content = true;
+                }
+                i += 1;
+            }
+        }
+    } else {
+        let len = depths.len();
+        for i in 0..len {
+            let z = unsafe { *depths.get_unchecked(i) };
+            if z != f32::INFINITY {
+                if z < min_z {
+                    min_z = z;
+                }
+                if z > max_z {
+                    max_z = z;
+                }
+                has_content = true;
+            }
         }
     }
 
@@ -104,17 +181,24 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         return;
     }
 
-    for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
+    let len = pixels.len().min(depths.len());
+    for i in 0..len {
+        let depth = unsafe { *depths.get_unchecked(i) };
         if depth == f32::INFINITY {
-            *pixel = 0xFF00_0010; // Very Dark Blue Background
+            unsafe {
+                *pixels.get_unchecked_mut(i) = 0xFF00_0010; // Very Dark Blue Background
+            }
             continue;
         }
 
         let t = ((depth - min_z) * scale) as u32;
         let t = t.min(1023); // Clamp strictly to 1023
 
-        // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
-        *pixel = unsafe { *LUT.get_unchecked(t as usize) };
+        unsafe {
+            // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
+            // i is bounded by len, which is the min length of pixels and depths.
+            *pixels.get_unchecked_mut(i) = *LUT.get_unchecked(t as usize);
+        }
     }
 }
 
@@ -184,16 +268,21 @@ unsafe fn apply_heat_vision_simd(
     }
 
     // Scalar tail
-    for (pixel, &depth) in pixels[i..len].iter_mut().zip(depths[i..len].iter()) {
+    while i < len {
+        let depth = unsafe { *depths.get_unchecked(i) };
         if depth == f32::INFINITY {
-            *pixel = 0xFF00_0010;
-            continue;
+            unsafe {
+                *pixels.get_unchecked_mut(i) = 0xFF00_0010;
+            }
+        } else {
+            let t = ((depth - min_z) * scale) as u32;
+            let t = t.min(1023);
+
+            unsafe {
+                *pixels.get_unchecked_mut(i) = *lut.get_unchecked(t as usize);
+            }
         }
-
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023);
-
-        *pixel = unsafe { *lut.get_unchecked(t as usize) };
+        i += 1;
     }
 }
 
