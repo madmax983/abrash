@@ -60,7 +60,7 @@ pub struct BspMapData {
 impl BspMapData {
     /// Walk the BSP tree from `pos`, calling `visitor` with each subsector
     /// index in front-to-back order.
-    pub fn traverse_front_to_back(&self, _pos: Vec2Fixed, visitor: &mut dyn FnMut(usize)) {
+    pub fn traverse_front_to_back<F: FnMut(usize)>(&self, _pos: Vec2Fixed, mut visitor: F) {
         // Single subsector — always visit index 0.
         visitor(0);
     }
@@ -309,7 +309,7 @@ mod tests {
     fn mock_traversal_visits_subsector() {
         let map = BspMapData::new_mock();
         let mut visited = Vec::new();
-        map.traverse_front_to_back(Vec2Fixed::from_ints(256, 256), &mut |idx| {
+        map.traverse_front_to_back(Vec2Fixed::from_ints(256, 256), |idx| {
             visited.push(idx);
         });
         assert_eq!(visited, vec![0], "traversal must visit subsector 0");
