@@ -1,0 +1,11 @@
+    Checking abrash-core v0.1.0 (/app/crates/abrash-core)
+ Documenting abrash-core v0.1.0 (/app/crates/abrash-core)
+    Checking abrash-anim v0.1.0 (/app/crates/abrash-anim)
+    Checking abrash-render v0.1.0 (/app/crates/abrash-render)
+    Checking abrash-raycast v0.1.0 (/app/crates/abrash-raycast)
+    Checking abrash-skeletal v0.1.0 (/app/crates/abrash-skeletal)
+ Documenting abrash-render v0.1.0 (/app/crates/abrash-render)
+    Checking abrash v0.1.0 (/app)
+ Documenting abrash v0.1.0 (/app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 12.27s
+   Generated /app/target/doc/abrash/index.html and 4 other files

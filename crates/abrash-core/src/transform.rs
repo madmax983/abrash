@@ -30,10 +30,13 @@ use crate::quat::Quat;
 /// assert_eq!(i.scale, Vec3::ONE);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
+
 pub struct Transform {
+    /// The translation component of the transform.
     pub position: Vec3,
+    /// The rotation component of the transform as a quaternion.
     pub rotation: Quat,
+    /// The scale component of the transform.
     pub scale: Vec3,
 }
 

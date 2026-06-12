@@ -18,8 +18,9 @@ use std::ops::{Add, Mul, Sub};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
+
 pub struct Mat3 {
+    /// The raw 3x3 array of matrix values in row-major order.
     pub m: [[f32; 3]; 3],
 }
 

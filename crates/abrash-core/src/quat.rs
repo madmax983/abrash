@@ -33,11 +33,15 @@ use crate::math::{Mat4, Vec3, fast_inv_sqrt};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
+
 pub struct Quat {
+    /// The X component of the quaternion's vector part.
     pub x: f32,
+    /// The Y component of the quaternion's vector part.
     pub y: f32,
+    /// The Z component of the quaternion's vector part.
     pub z: f32,
+    /// The W component (scalar part) of the quaternion.
     pub w: f32,
 }
 

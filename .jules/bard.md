@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2024-06-12 - [Core Math/Geometry Types Documentation]
+**Confusion:** Fundamental math and geometry types (`Vec2`, `Vec3`, `Vec4`, `Mat2`, `Mat3`, `Mat4`, `Quat`, `Transform`, `Texture`, `ScreenPoint`, `BoundingSphere`, `AABB`) were hiding missing documentation warnings using `#[allow(missing_docs)]`, leaving their fields and components unexplained in `cargo doc`.
+**Clarification:** Removed the `#[allow(missing_docs)]` attributes and added standard documentation comments to the fields of all core math and geometry primitives to provide complete API surface descriptions.

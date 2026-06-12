@@ -21,8 +21,9 @@ use std::ops::{Add, Mul, Sub};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
-#[allow(missing_docs)]
+
 pub struct Mat2 {
+    /// The raw 2x2 array of matrix values in row-major order.
     pub m: [[f32; 2]; 2],
 }
 
