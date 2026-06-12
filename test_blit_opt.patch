@@ -1,0 +1,48 @@
+<<<<<<< SEARCH
+pub unsafe fn blit_opaque_unchecked(
+    fb: &mut Framebuffer,
+    tex: &Texture,
+    src: SrcRect,
+    dst_x: u32,
+    dst_y: u32,
+) {
+    let fb_w = fb.width() as usize;
+    let tex_w = tex.width as usize;
+    let w = src.w as usize;
+    let fb_pixels = fb.as_mut_slice();
+
+    for row in 0..src.h as usize {
+        let src_offset = (src.y as usize + row) * tex_w + src.x as usize;
+        let dst_offset = (dst_y as usize + row) * fb_w + dst_x as usize;
+        fb_pixels[dst_offset..dst_offset + w]
+            .copy_from_slice(&tex.pixels[src_offset..src_offset + w]);
+    }
+}
+=======
+pub unsafe fn blit_opaque_unchecked(
+    fb: &mut Framebuffer,
+    tex: &Texture,
+    src: SrcRect,
+    dst_x: u32,
+    dst_y: u32,
+) {
+    let fb_w = fb.width() as usize;
+    let tex_w = tex.width as usize;
+    let w = src.w as usize;
+    let fb_pixels = fb.as_mut_slice();
+
+    let mut src_offset = src.y as usize * tex_w + src.x as usize;
+    let mut dst_offset = dst_y as usize * fb_w + dst_x as usize;
+
+    for _ in 0..src.h as usize {
+        // SAFETY: Caller guarantees bounds
+        unsafe {
+            let src_ptr = tex.pixels.as_ptr().add(src_offset);
+            let dst_ptr = fb_pixels.as_mut_ptr().add(dst_offset);
+            std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, w);
+        }
+        src_offset += tex_w;
+        dst_offset += fb_w;
+    }
+}
+>>>>>>> REPLACE

@@ -232,3 +232,10 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Blitter Check]
+**Learning:**  manual copy loops via  in texture copying outperform naive  operations and scalar  loops by >20% throughput. We must ensure slices are handled linearly without additional bounds-checking.
+**Action:** Use manual offset advances +  inside hot nested  loops.
+
+**[Blitter Check]**
+**Learning:** `unsafe` manual copy loops via `get_unchecked` in texture copying outperform naive `fb_pixels[...].copy_from_slice(...)` operations and scalar `for` loops by >20% throughput. We must ensure slices are handled linearly without additional bounds-checking.
+**Action:** Use manual offset advances + `get_unchecked` inside hot nested `for` loops.
