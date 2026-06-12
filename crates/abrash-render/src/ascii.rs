@@ -136,7 +136,13 @@ impl<'a> AsciiConverter<'a> {
                 buf[i] = b'0' + (n % 10);
                 n /= 10;
             }
-            let s_slice = unsafe { std::str::from_utf8_unchecked(&buf[i..]) };
+            // Use from_utf8 instead of from_utf8_unchecked to avoid UB.
+            // The buffer is guaranteed to contain valid ASCII digits, but
+            // using unsafe here is unnecessary risk for a marginal performance gain,
+            // and safe alternatives exist.
+            // Alternatively, we can use a lookup table or just simple match,
+            // but `from_utf8` will quickly optimize out in this tiny array.
+            let s_slice = std::str::from_utf8(&buf[i..]).unwrap();
             s.push_str(s_slice);
         }
 
