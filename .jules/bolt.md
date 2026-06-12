@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Heat Vision Fixed-Point Optimization Regression]**
+**Learning:** Re-mapping floating-point variables using `to_bits()` and applying fixed-point arithmetic (`(diff * inv_mult) >> 24`) in loops where AVX2 SIMD handles floating-point math very fast on x86_64, or where `f32` to `u32` casts via hardware truncation are faster than 64-bit integer division and shifts, actually regressed performance by up to 60%.
+**Action:** Reverted the fixed point integer optimization in `apply_heat_vision` as standard `((depth - min_z) * scale) as u32` is measurably faster. Always trust benchmark results over presumed mathematical optimizations.
