@@ -299,6 +299,24 @@ mod tests {
     }
 
     #[test]
+    fn test_coverage_percent_zero_pixels() {
+        let capture = GpuDebugCapture {
+            stats: FrameStats {
+                width: 0,
+                height: 0,
+                batch_count: 0,
+                total_triangles: 0,
+                render_time: Duration::ZERO,
+                batches: vec![],
+            },
+            pixels_rgba: vec![],
+            visible_pixel_count: 0,
+        };
+
+        assert!((capture.coverage_percent() - 0.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
     #[should_panic(expected = "capture width overflowed RGBA byte count")]
     fn test_capture_target_dimensions_overflow() {
         let _ = CaptureConfig::new(u32::MAX, 240);
