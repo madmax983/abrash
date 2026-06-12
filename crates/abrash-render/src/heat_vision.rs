@@ -69,15 +69,38 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     let mut max_z = f32::MIN;
     let mut has_content = false;
 
-    for &z in depths {
-        if z != f32::INFINITY {
-            if z < min_z {
-                min_z = z;
+    // Fast path: SIMD min/max scan
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::is_x86_feature_detected!("avx2") {
+        unsafe {
+            find_min_max_simd(depths, &mut min_z, &mut max_z, &mut has_content);
+        }
+    } else {
+        for &z in depths {
+            if z != f32::INFINITY {
+                if z < min_z {
+                    min_z = z;
+                }
+                if z > max_z {
+                    max_z = z;
+                }
+                has_content = true;
             }
-            if z > max_z {
-                max_z = z;
+        }
+    }
+
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+    {
+        for &z in depths {
+            if z != f32::INFINITY {
+                if z < min_z {
+                    min_z = z;
+                }
+                if z > max_z {
+                    max_z = z;
+                }
+                has_content = true;
             }
-            has_content = true;
         }
     }
 
@@ -115,6 +138,85 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
 
         // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
         *pixel = unsafe { *LUT.get_unchecked(t as usize) };
+    }
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+unsafe fn find_min_max_simd(
+    depths: &[f32],
+    min_z: &mut f32,
+    max_z: &mut f32,
+    has_content: &mut bool,
+) {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::*;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::{
+        _CMP_NEQ_OQ, _mm256_blendv_ps, _mm256_cmp_ps, _mm256_loadu_ps, _mm256_max_ps,
+        _mm256_min_ps, _mm256_or_ps, _mm256_set1_ps, _mm256_setzero_ps, _mm256_storeu_ps,
+    };
+
+    let mut i = 0;
+    let len = depths.len();
+
+    let inf_vec = _mm256_set1_ps(f32::INFINITY);
+    let mut min_vec = _mm256_set1_ps(f32::MAX);
+    let mut max_vec = _mm256_set1_ps(f32::MIN);
+    let mut found_content = _mm256_setzero_ps();
+
+    while i + 8 <= len {
+        let depth_ptr = depths.as_ptr().add(i);
+        let depth_val = _mm256_loadu_ps(depth_ptr);
+
+        let is_not_inf = _mm256_cmp_ps(depth_val, inf_vec, _CMP_NEQ_OQ);
+        found_content = _mm256_or_ps(found_content, is_not_inf);
+
+        // Replace infs with MAX so they don't affect min
+        let depth_for_min = _mm256_blendv_ps(_mm256_set1_ps(f32::MAX), depth_val, is_not_inf);
+        min_vec = _mm256_min_ps(min_vec, depth_for_min);
+
+        // Replace infs with MIN so they don't affect max
+        let depth_for_max = _mm256_blendv_ps(_mm256_set1_ps(f32::MIN), depth_val, is_not_inf);
+        max_vec = _mm256_max_ps(max_vec, depth_for_max);
+
+        i += 8;
+    }
+
+    // Extract SIMD results
+    let mut min_arr = [f32::MAX; 8];
+    let mut max_arr = [f32::MIN; 8];
+    let mut found_arr = [0u32; 8];
+
+    _mm256_storeu_ps(min_arr.as_mut_ptr(), min_vec);
+    _mm256_storeu_ps(max_arr.as_mut_ptr(), max_vec);
+    _mm256_storeu_ps(found_arr.as_mut_ptr().cast::<f32>(), found_content);
+
+    for j in 0..8 {
+        if found_arr[j] != 0 {
+            *has_content = true;
+            if min_arr[j] < *min_z {
+                *min_z = min_arr[j];
+            }
+            if max_arr[j] > *max_z {
+                *max_z = max_arr[j];
+            }
+        }
+    }
+
+    // Tail
+    while i < len {
+        let z = *depths.get_unchecked(i);
+        if z != f32::INFINITY {
+            if z < *min_z {
+                *min_z = z;
+            }
+            if z > *max_z {
+                *max_z = z;
+            }
+            *has_content = true;
+        }
+        i += 1;
     }
 }
 
