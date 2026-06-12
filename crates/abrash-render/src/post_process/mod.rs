@@ -83,3 +83,7 @@ pub use self::ssao::*;
 /// Depth of Field (`DoF`) implementation.
 pub mod dof;
 pub use self::dof::*;
+
+/// Median Filter implementation.
+pub mod median;
+pub use self::median::*;

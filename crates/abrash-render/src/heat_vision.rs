@@ -56,6 +56,8 @@ const fn generate_lut() -> [u32; 1024] {
 /// ```
 pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     const LUT: [u32; 1024] = generate_lut();
+    // 2^16 = 65536.0 (allows precision mapping)
+    const FIXED_SCALE: f32 = 65536.0;
 
     if fb.width() != zb.width() || fb.height() != zb.height() {
         return;
@@ -90,19 +92,24 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     }
 
     // Add a small epsilon to avoid division by zero if flat plane
-    let range = (max_z - min_z).max(0.0001);
-    // Map [0.0, range] to [0, 1023] (4 segments of 256)
-    // Adding a slight bias to prevent floating point inaccuracy at the absolute top end
-    // from truncating 1024 to 1023 when scaling.
-    let scale = 1024.0 / range;
+    let float_range = (max_z - min_z).max(0.0001);
+    let scale = 1024.0 / float_range;
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::is_x86_feature_detected!("avx2") {
         unsafe {
-            apply_heat_vision_simd(pixels, depths, min_z, scale, &LUT);
+            apply_heat_vision_simd(pixels, depths, min_z, max_z, scale, &LUT);
         }
         return;
     }
+
+    // Integer fixed-point representation preserves linear scaling.
+    // Instead of using floating-point `depth - min_z` operations inside the loop, we scale everything
+    // by a fixed factor and perform integer arithmetic in the scalar loop.
+    let min_z_fixed = (min_z * FIXED_SCALE) as i64;
+    let max_z_fixed = (max_z * FIXED_SCALE) as i64;
+    let range = max_z_fixed.saturating_sub(min_z_fixed).max(1);
+    let scale_mult = 1024;
 
     for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
         if depth == f32::INFINITY {
@@ -110,7 +117,10 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
+        let depth_fixed = (depth * FIXED_SCALE) as i64;
+        let diff = depth_fixed.saturating_sub(min_z_fixed);
+        let t = (diff.saturating_mul(scale_mult).checked_div(range).unwrap_or(0)) as u32;
+
         let t = t.min(1023); // Clamp strictly to 1023
 
         // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
@@ -124,6 +134,7 @@ unsafe fn apply_heat_vision_simd(
     pixels: &mut [u32],
     depths: &[f32],
     min_z: f32,
+    max_z: f32,
     scale: f32,
     lut: &[u32; 1024],
 ) {
@@ -184,13 +195,20 @@ unsafe fn apply_heat_vision_simd(
     }
 
     // Scalar tail
+    let min_z_fixed = (min_z * 65536.0) as i64;
+    let max_z_fixed = (max_z * 65536.0) as i64;
+    let range = max_z_fixed.saturating_sub(min_z_fixed).max(1);
+    let scale_mult = 1024;
+
     for (pixel, &depth) in pixels[i..len].iter_mut().zip(depths[i..len].iter()) {
         if depth == f32::INFINITY {
             *pixel = 0xFF00_0010;
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
+        let depth_fixed = (depth * 65536.0) as i64;
+        let diff = depth_fixed.saturating_sub(min_z_fixed);
+        let t = (diff.saturating_mul(scale_mult).checked_div(range).unwrap_or(0)) as u32;
         let t = t.min(1023);
 
         *pixel = unsafe { *lut.get_unchecked(t as usize) };
@@ -307,5 +325,32 @@ mod tests {
             p, 0x00FF_000000,
             "Should remain unchanged default Framebuffer color (Solid Black)"
         );
+    }
+}
+
+#[cfg(test)]
+mod additional_tests {
+    use super::*;
+
+    #[test]
+    fn test_heat_vision_extreme_depths() {
+        let mut fb = Framebuffer::new(5, 1).unwrap();
+        let mut zb = ZBuffer::new(5, 1).unwrap();
+
+        zb.test_and_set(0, 0, 100_000.0);
+        zb.test_and_set(1, 0, 100_001.0);
+        zb.test_and_set(2, 0, 150_000.0);
+        zb.test_and_set(3, 0, 200_000.0);
+        zb.test_and_set(4, 0, f32::INFINITY);
+
+        apply_heat_vision(&mut fb, &zb);
+
+        // Ensure no panics occurred.
+        // It should still process it correctly, albeit potentially with less precision
+        let p0 = fb.get_pixel(0, 0).unwrap();
+        let p4 = fb.get_pixel(4, 0).unwrap();
+
+        assert_eq!(p4, 0xFF00_0010, "Infinity should be background color");
+        assert_eq!(p0, 0xFFFF_0000, "Closest pixel should be Red");
     }
 }
