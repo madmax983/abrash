@@ -868,7 +868,7 @@ pub fn run_mesh_demo(
             .map_err(|e| format!("Failed to create window: {e}"))?,
     );
 
-    let mut app = pollster::block_on(GpuMeshApp::new(window.clone(), vertices, indices, config))?;
+    let mut app = pollster::block_on(GpuMeshApp::new(std::sync::Arc::clone(&window), vertices, indices, config))?;
 
     event_loop
         .run(move |event, elwt| match event {
