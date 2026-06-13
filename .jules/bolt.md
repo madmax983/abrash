@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Eliminating Redundant Pre-allocations on Reused Buffers]**
+**Learning:** In double-buffered or per-frame update loops where dynamic collections (like `Vec` in `DrawList` or `world_aabbs`) are reused and cleared frame-to-frame, explicitly calling `.reserve_exact(size)` or `.reserve(size)` on every iteration actively prevents amortized growth. If the required capacity fluctuates even slightly upward between frames, it triggers a full reallocation and copy each frame.
+**Action:** Remove explicit `.reserve()` or `.reserve_exact()` calls from hot update loops on persistent collections. Allow Rust's standard allocator to naturally manage capacity growth via amortized `.extend()` or `.push()` calls.

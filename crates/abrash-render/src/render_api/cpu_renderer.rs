@@ -156,12 +156,11 @@ impl CpuRenderer {
 
         let view_proj = frame.camera.view * frame.camera.projection;
 
+        let mut total_vertices = 0;
         #[cfg(feature = "parallel")]
         let mut ranges: smallvec::SmallVec<[(usize, usize); 128]> =
             smallvec::SmallVec::with_capacity(frame.commands.len());
 
-        // Pre-calculate total required vertices to avoid dynamic reallocations
-        let mut total_vertices = 0;
         for cmd in &frame.commands {
             let cpu_mesh = self
                 .meshes
@@ -184,9 +183,9 @@ impl CpuRenderer {
             total_vertices += len;
         }
 
-        draw_list.vertices.reserve_exact(total_vertices);
-        draw_list.batches.reserve_exact(frame.commands.len());
-        draw_list.lights.reserve_exact(frame.lights.len());
+        draw_list.vertices.reserve(total_vertices);
+        draw_list.batches.reserve(frame.commands.len());
+        draw_list.lights.reserve(frame.lights.len());
 
         draw_list.clear_color = frame.clear_color;
 
