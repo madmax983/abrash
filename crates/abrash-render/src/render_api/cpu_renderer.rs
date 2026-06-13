@@ -341,21 +341,7 @@ impl CpuRenderer {
     /// # Errors
     ///
     /// Returns [`RenderError::InvalidMesh`] if the mesh data is malformed.
-    pub fn create_mesh(&mut self, mesh: &Mesh) -> Result<MeshHandle, RenderError> {
-        validate_mesh_indices(mesh)?;
-        let shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
-        Ok(to_mesh_handle(self.meshes.insert(CpuMesh {
-            mesh: mesh.clone(),
-            shared_indices,
-        })))
-    }
-
-    /// Upload a mesh taking ownership of the data, preventing a `clone()`.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`RenderError::InvalidMesh`] if triangle indices point out of bounds.
-    pub fn create_mesh_owned(&mut self, mesh: Mesh) -> Result<MeshHandle, RenderError> {
+    pub fn create_mesh(&mut self, mesh: Mesh) -> Result<MeshHandle, RenderError> {
         validate_mesh_indices(&mesh)?;
         let shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
         Ok(to_mesh_handle(self.meshes.insert(CpuMesh {
@@ -419,16 +405,7 @@ impl CpuRenderer {
     /// # Errors
     ///
     /// Returns [`RenderError::InvalidTexture`] if the texture data is malformed.
-    pub fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, RenderError> {
-        Ok(to_texture_handle(self.textures.insert(texture.clone())))
-    }
-
-    /// Upload a texture taking ownership of the data, preventing a `clone()`.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`RenderError::InvalidTexture`] if the texture data is malformed.
-    pub fn create_texture_owned(&mut self, texture: Texture) -> Result<TextureHandle, RenderError> {
+    pub fn create_texture(&mut self, texture: Texture) -> Result<TextureHandle, RenderError> {
         Ok(to_texture_handle(self.textures.insert(texture)))
     }
 
@@ -521,7 +498,7 @@ mod tests {
         let mut renderer = CpuRenderer::new(800, 600);
         let mut target = RenderTarget::new(800, 600).unwrap();
 
-        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mesh_h = renderer.create_mesh(Mesh::cube(1.0)).unwrap();
         let mat_h = renderer
             .create_material(Material::flat(0xFFFF_0000))
             .unwrap();
@@ -539,7 +516,7 @@ mod tests {
         let mut renderer = CpuRenderer::new(100, 100);
         let mut target = RenderTarget::new(100, 100).unwrap();
 
-        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mesh_h = renderer.create_mesh(Mesh::cube(1.0)).unwrap();
         let mat_h = renderer
             .create_material(Material::flat(0xFFFF_0000))
             .unwrap();
@@ -562,7 +539,7 @@ mod tests {
         let mut renderer = CpuRenderer::new(100, 100);
         let mut target = RenderTarget::new(100, 100).unwrap();
 
-        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mesh_h = renderer.create_mesh(Mesh::cube(1.0)).unwrap();
         let mat_h = renderer
             .create_material(Material::flat(0xFFFF_0000))
             .unwrap();
@@ -588,7 +565,7 @@ mod tests {
         bad_mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
         bad_mesh.indices.push([0, 1, 2]); // indices 1, 2 are OOB
 
-        assert!(renderer.create_mesh(&bad_mesh).is_err());
+        assert!(renderer.create_mesh(bad_mesh).is_err());
     }
 
     #[test]
@@ -608,7 +585,7 @@ mod tests {
         let mut renderer = CpuRenderer::new(200, 200);
         let mut target = RenderTarget::new(200, 200).unwrap();
 
-        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mesh_h = renderer.create_mesh(Mesh::cube(1.0)).unwrap();
         let mat_h = renderer
             .create_material(Material::flat(0xFFFF_0000))
             .unwrap();
@@ -640,7 +617,7 @@ mod tests {
     #[test]
     fn test_extract_draw_list_batch_count() {
         let mut renderer = CpuRenderer::new(200, 200);
-        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mesh_h = renderer.create_mesh(Mesh::cube(1.0)).unwrap();
         let mat_h = renderer
             .create_material(Material::flat(0xFFFF_0000))
             .unwrap();
@@ -657,7 +634,7 @@ mod tests {
     #[test]
     fn test_extract_draw_list_stale_handle_error() {
         let mut renderer = CpuRenderer::new(100, 100);
-        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mesh_h = renderer.create_mesh(Mesh::cube(1.0)).unwrap();
         let mat_h = renderer
             .create_material(Material::flat(0xFFFF_0000))
             .unwrap();
@@ -678,7 +655,7 @@ mod tests {
     #[test]
     fn test_extract_draw_list_stale_material_handle_error() {
         let mut renderer = CpuRenderer::new(100, 100);
-        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mesh_h = renderer.create_mesh(Mesh::cube(1.0)).unwrap();
         let mat_h = renderer
             .create_material(Material::flat(0xFFFF_0000))
             .unwrap();
@@ -701,7 +678,7 @@ mod tests {
         let mut renderer = CpuRenderer::new(200, 200);
         let mut target = RenderTarget::new(200, 200).unwrap();
 
-        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mesh_h = renderer.create_mesh(Mesh::cube(1.0)).unwrap();
         let mat_h = renderer
             .create_material(Material::flat(0xFFFF_0000))
             .unwrap();
@@ -728,7 +705,7 @@ mod tests {
     fn test_update_mesh_stale_handle() {
         let mut renderer = CpuRenderer::new(100, 100);
 
-        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mesh_h = renderer.create_mesh(Mesh::cube(1.0)).unwrap();
         renderer.destroy_mesh(mesh_h);
 
         let updated = Mesh::cube(0.5);
@@ -744,7 +721,7 @@ mod tests {
     fn test_update_mesh_invalid_indices() {
         let mut renderer = CpuRenderer::new(100, 100);
 
-        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mesh_h = renderer.create_mesh(Mesh::cube(1.0)).unwrap();
 
         let mut bad_mesh = Mesh::new();
         bad_mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
@@ -759,11 +736,8 @@ mod tests {
         let mut renderer = CpuRenderer::new(100, 100);
         let tex = Texture::new(2, 2).unwrap();
 
-        let handle1 = renderer.create_texture(&tex);
+        let handle1 = renderer.create_texture(tex);
         assert!(handle1.is_ok());
-
-        let handle2 = renderer.create_texture_owned(tex);
-        assert!(handle2.is_ok());
     }
 
     #[test]
@@ -772,7 +746,7 @@ mod tests {
         let mut tex = Texture::new(2, 2).unwrap();
         tex.set_pixel(0, 0, 0xFFFF_0000);
 
-        let handle = renderer.create_texture(&tex).unwrap();
+        let handle = renderer.create_texture(tex.clone()).unwrap();
 
         // Update texture
         let mut updated = Texture::new(2, 2).unwrap();
@@ -786,7 +760,7 @@ mod tests {
     fn test_update_texture_stale_handle() {
         let mut renderer = CpuRenderer::new(100, 100);
         let tex = Texture::new(2, 2).unwrap();
-        let handle = renderer.create_texture(&tex).unwrap();
+        let handle = renderer.create_texture(tex.clone()).unwrap();
 
         renderer.destroy_texture(handle);
 
@@ -804,7 +778,7 @@ mod tests {
         let mut renderer = CpuRenderer::new(100, 100);
         let tex = Texture::new(2, 2).unwrap();
 
-        let handle = renderer.create_texture(&tex).unwrap();
+        let handle = renderer.create_texture(tex.clone()).unwrap();
 
         // Destroy the texture
         renderer.destroy_texture(handle);
@@ -819,7 +793,7 @@ mod tests {
 
     fn setup_renderer_and_frame(size: u32) -> (CpuRenderer, Frame) {
         let mut renderer = CpuRenderer::new(size, size);
-        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mesh_h = renderer.create_mesh(Mesh::cube(1.0)).unwrap();
         let mat_h = renderer
             .create_material(Material::flat(0xFFAA_BBCC))
             .unwrap();
@@ -887,7 +861,7 @@ mod tests {
         let mut t2 = RenderTarget::new(100, 100).unwrap();
 
         let setup = |r: &mut CpuRenderer| -> Frame {
-            let mesh_h = r.create_mesh(&Mesh::cube(1.0)).unwrap();
+            let mesh_h = r.create_mesh(Mesh::cube(1.0)).unwrap();
             let mat_h = r.create_material(Material::flat(0xFFAA_BBCC)).unwrap();
             let mut frame = Frame::new(FrameCamera::new(
                 Mat4::look_at(

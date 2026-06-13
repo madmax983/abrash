@@ -106,7 +106,7 @@ impl GltfViewerApp {
             if let Some(ref sm) = skinned_mesh {
                 // Upload the initial mesh
                 let mh = renderer
-                    .create_mesh(&sm.mesh)
+                    .create_mesh(sm.mesh.clone())
                     .map_err(|e| HostError::App(e.to_string()))?;
 
                 // Build material from glTF data or fall back to flat gray
@@ -196,7 +196,7 @@ impl WindowApp for GltfViewerApp {
         if let Some(ref sm) = self.skinned_mesh {
             self.mesh_handle = Some(
                 self.renderer
-                    .create_mesh(&sm.mesh)
+                    .create_mesh(sm.mesh.clone())
                     .map_err(|e| HostError::App(e.to_string()))?,
             );
             let mat = Material::flat(0xFFA0_A0A0);

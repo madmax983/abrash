@@ -17,7 +17,7 @@ fn bench_extract(c: &mut Criterion) {
         mesh.indices.extend(cloned.indices);
     }
 
-    let mesh_h = renderer.create_mesh(&mesh).unwrap();
+    let mesh_h = renderer.create_mesh(mesh.clone()).unwrap();
     let mat_h = renderer
         .create_material(Material::flat(0xFFFF_0000))
         .unwrap();
