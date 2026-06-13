@@ -7828,11 +7828,11 @@ pub fn blackman_window(n: usize, i: usize) -> f32 {
 /// window of total length `n`.  Pairs with `hann_window`, `hamming_window`, etc.
 pub fn apply_window(signal: &[f32], window_fn: impl Fn(usize, usize) -> f32) -> Vec<f32> {
     let n = signal.len();
-    signal
-        .iter()
-        .enumerate()
-        .map(|(i, &s)| s * window_fn(n, i))
-        .collect()
+    let mut result = Vec::with_capacity(signal.len());
+    for (i, &s) in signal.iter().enumerate() {
+        result.push(s * window_fn(n, i));
+    }
+    result
 }
 
 /// Root-mean-square amplitude of `signal`.
@@ -7858,16 +7858,17 @@ pub fn dct_ii(signal: &[f32]) -> Vec<f32> {
     if big_n == 0 {
         return Vec::new();
     }
+    let mut result = Vec::with_capacity(big_n);
     let scale = std::f32::consts::PI / (2 * big_n) as f32;
-    (0..big_n)
-        .map(|k| {
-            signal
-                .iter()
-                .enumerate()
-                .map(|(n, &x)| x * (scale * k as f32 * (2 * n + 1) as f32).cos())
-                .sum()
-        })
-        .collect()
+    for k in 0..big_n {
+        let sum: f32 = signal
+            .iter()
+            .enumerate()
+            .map(|(n, &x)| x * (scale * k as f32 * (2 * n + 1) as f32).cos())
+            .sum();
+        result.push(sum);
+    }
+    result
 }
 
 /// Inverse DCT-II (IDCT-II = scaled DCT-III), O(n²) naive implementation.
@@ -7879,20 +7880,20 @@ pub fn idct_ii(coeffs: &[f32]) -> Vec<f32> {
     if big_n == 0 {
         return Vec::new();
     }
+    let mut result = Vec::with_capacity(big_n);
     let inv_n = 1.0 / big_n as f32;
     let scale = std::f32::consts::PI / (2 * big_n) as f32;
-    (0..big_n)
-        .map(|n| {
-            let dc = coeffs[0] * inv_n;
-            let ac: f32 = coeffs[1..]
-                .iter()
-                .enumerate()
-                .map(|(k, &x)| x * (scale * (k + 1) as f32 * (2 * n + 1) as f32).cos())
-                .sum::<f32>()
-                * (2.0 * inv_n);
-            dc + ac
-        })
-        .collect()
+    for n in 0..big_n {
+        let dc = coeffs[0] * inv_n;
+        let ac: f32 = coeffs[1..]
+            .iter()
+            .enumerate()
+            .map(|(k, &x)| x * (scale * (k + 1) as f32 * (2 * n + 1) as f32).cos())
+            .sum::<f32>()
+            * (2.0 * inv_n);
+        result.push(dc + ac);
+    }
+    result
 }
 
 /// Estimate the surface normal at point `p` for an arbitrary SDF via central

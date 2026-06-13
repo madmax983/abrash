@@ -62,13 +62,14 @@ impl Mat2 {
         let m10 = self.m[1][0];
         let m11 = self.m[1][1];
 
-        vertices
-            .iter()
-            .map(|&v| Vec2 {
+        let mut result = Vec::with_capacity(vertices.len());
+        for &v in vertices {
+            result.push(Vec2 {
                 x: m00 * v.x + m01 * v.y,
                 y: m10 * v.x + m11 * v.y,
-            })
-            .collect()
+            });
+        }
+        result
     }
 
     /// Transform vertices in place.

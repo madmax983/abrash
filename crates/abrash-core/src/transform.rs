@@ -585,10 +585,10 @@ mod tests {
             Vec3::new(0.0, 0.0, 0.0),
         ];
 
-        let expected: Vec<Vec3> = vectors
-            .iter()
-            .map(|&v| transform.transform_vector(v))
-            .collect();
+        let mut expected = Vec::with_capacity(vectors.len());
+        for &v in &vectors {
+            expected.push(transform.transform_vector(v));
+        }
         let actual = transform.transform_vectors(&vectors);
 
         assert_eq!(actual.len(), expected.len());
@@ -610,10 +610,10 @@ mod tests {
             Vec3::new(0.0, 0.0, 0.0),
         ];
 
-        let expected: Vec<Vec3> = vectors
-            .iter()
-            .map(|&v| transform.transform_vector(v))
-            .collect();
+        let mut expected = Vec::with_capacity(vectors.len());
+        for &v in &vectors {
+            expected.push(transform.transform_vector(v));
+        }
         let mut actual = vec![];
         transform.transform_vectors_into(&vectors, &mut actual);
 
@@ -636,10 +636,10 @@ mod tests {
             Vec3::new(0.0, 0.0, 0.0),
         ];
 
-        let expected: Vec<Vec3> = vectors
-            .iter()
-            .map(|&v| transform.transform_vector(v))
-            .collect();
+        let mut expected = Vec::with_capacity(vectors.len());
+        for &v in &vectors {
+            expected.push(transform.transform_vector(v));
+        }
         let mut actual = vectors.clone();
         transform.transform_vectors_in_place(&mut actual);
 
@@ -662,10 +662,10 @@ mod tests {
             Vec3::new(0.0, 0.0, 0.0),
         ];
 
-        let expected: Vec<Vec3> = points
-            .iter()
-            .map(|&p| transform.transform_point(p))
-            .collect();
+        let mut expected = Vec::with_capacity(points.len());
+        for &p in &points {
+            expected.push(transform.transform_point(p));
+        }
         let actual = transform.transform_points(&points);
 
         assert_eq!(actual.len(), expected.len());
@@ -687,10 +687,10 @@ mod tests {
             Vec3::new(0.0, 0.0, 0.0),
         ];
 
-        let expected: Vec<Vec3> = points
-            .iter()
-            .map(|&p| transform.transform_point(p))
-            .collect();
+        let mut expected = Vec::with_capacity(points.len());
+        for &p in &points {
+            expected.push(transform.transform_point(p));
+        }
         let mut actual = vec![];
         transform.transform_points_into(&points, &mut actual);
 
@@ -713,10 +713,10 @@ mod tests {
             Vec3::new(0.0, 0.0, 0.0),
         ];
 
-        let expected: Vec<Vec3> = points
-            .iter()
-            .map(|&p| transform.transform_point(p))
-            .collect();
+        let mut expected = Vec::with_capacity(points.len());
+        for &p in &points {
+            expected.push(transform.transform_point(p));
+        }
         let mut actual = points.clone();
         transform.transform_points_in_place(&mut actual);
 

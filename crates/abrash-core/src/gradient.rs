@@ -67,10 +67,7 @@ impl Gradient {
     /// Panics if `stops` is empty.
     #[must_use]
     pub fn new(stops: impl IntoIterator<Item = (f32, Color)>) -> Self {
-        let mut v: Vec<ColorStop> = stops
-            .into_iter()
-            .map(|(p, c)| ColorStop::new(p, c))
-            .collect();
+        let mut v: Vec<ColorStop> = stops.into_iter().map(|(p, c)| ColorStop::new(p, c)).collect();
         assert!(!v.is_empty(), "Gradient requires at least one stop");
         v.sort_by(|a, b| a.position.total_cmp(&b.position));
         Self { stops: v }

@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Vec Initialization Preallocation]**
+**Learning:** `Vec::new()` and `.collect()` chained through iterators commonly fail to allocate exactly the required capacity when lengths can't be statically inferred by the Rust compiler, falling back to dynamic scaling which incurs measurable overhead in mathematical transform logic like DCT/IDCT and vector projections.
+**Action:** Replace `Vec::new` + `push`/`collect` combinations with explicit `Vec::with_capacity(len)` declarations followed by direct `.push` implementations in `math/funcs.rs` and `transform.rs` to entirely avoid intermediate capacity checks and re-allocations on math heavy routines.
