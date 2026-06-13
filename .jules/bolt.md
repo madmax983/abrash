@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Fix unsafe_op_in_unsafe_fn warnings in Rust 2024]**
+**Learning:** The workspace uses Rust 2024, where the `unsafe_op_in_unsafe_fn` lint is active by default. Unsafe operations (such as raw pointer arithmetic via `.add()`) must be explicitly wrapped in `unsafe { ... }` blocks, even if they are located inside a function already marked as `unsafe fn`.
+**Action:** Wrap unsafe operations inside `unsafe fn` with explicit `unsafe { ... }` blocks.

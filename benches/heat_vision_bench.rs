@@ -1,9 +1,8 @@
 use abrash_core::framebuffer::Framebuffer;
 use abrash_core::zbuffer::ZBuffer;
 use abrash_render::heat_vision::apply_heat_vision;
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use rand::Rng;
-use std::hint::black_box;
 
 fn bench_heat_vision(c: &mut Criterion) {
     let mut group = c.benchmark_group("Heat Vision");
