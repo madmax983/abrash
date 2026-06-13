@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**Eliminate intermediate allocation chains with `.collect()` over `ExactSizeIterator` in `abrash-skeletal/src/gltf_loader.rs`**
+**Learning:** Calling `.collect::<Vec<_>>()` on iterators composed of chained closures (like `.map()`) can sometimes prevent LLVM from accurately tracking `ExactSizeIterator` hints, causing the internal allocator to grow in small chunks (e.g. allocating memory in loops).
+**Action:** When creating a `Vec` from an `ExactSizeIterator` in a performance-sensitive scenario, use `let mut v = Vec::with_capacity(iter.size_hint().0); v.extend(iter);` instead of `iter.collect()` to force a single, exact pre-allocation.
