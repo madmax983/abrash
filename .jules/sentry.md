@@ -55,3 +55,7 @@
 **[Handles `get_mut` Vacant Entry Coverage]**
 **Learning:** Functions that return options based on internal state matching (like `ResourcePool::get_mut` checking for `PoolEntry::Occupied`) often lack coverage for the negative `Vacant` path if normal operations only query active handles.
 **Action:** When auditing resource pools or custom allocators, ensure explicit tests exist that insert, remove, and then immediately query (`get` or `get_mut`) the removed handle to verify the `None` path is safely triggered without panicking.
+
+**[Validating Unreachable Guards on BorrowedRenderTarget]**
+**Learning:** `RenderTarget::borrow_mut()` contains a protective `.expect("owned render target has matching color and depth buffers")` guard when converting its owned memory into a borrowed view. While theoretically impossible during normal usage, validating this explicit panic boundary requires artificially mutating internal slice boundaries (e.g. `target.framebuffer = Framebuffer::new(2, 2).unwrap()`) and then calling `borrow_mut()` to confirm it crashes correctly.
+**Action:** When a struct provides an explicit boundary or conversion guard utilizing `.expect()` or `unreachable!()`, always write a dedicated `#[should_panic]` test that intentionally breaks internal invariants to guarantee the crash occurs as intended.
