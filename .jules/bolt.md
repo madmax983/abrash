@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Eliminating Redundant String Overallocation]**
+**Learning:** `String::new()` followed by `.push_str(&string)` is less idiomatic and potentially slower than `string.clone()`. Also, for dynamic string expansions inside loops (like L-Systems), pre-allocating space using `String::with_capacity()` based on a heuristic of the initial string length prevents multiple O(N) heap reallocations during the first expansion loop.
+**Action:** Replace `String::new() + push_str` with `.clone()` for exact string copies, and use `String::with_capacity()` when generating progressively expanding strings.

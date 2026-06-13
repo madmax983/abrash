@@ -194,7 +194,10 @@ impl LSystem {
             }
         }
 
-        let mut next = String::new();
+        // ⚡ Bolt: Pre-allocate `next` capacity directly based on `current` to prevent multiple dynamic
+        // O(N) heap reallocations during the first expansion loop.
+        // Prevents multiple heap reallocations during initial expansion.
+        let mut next = String::with_capacity(current.len() * 2);
         for _ in 0..iterations {
             /// Moving the `next` String allocation out of the loop and reusing it via `swap`
             /// and `clear`/`reserve` eliminates continuous string re-allocations on every iteration.
