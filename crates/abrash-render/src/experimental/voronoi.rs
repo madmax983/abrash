@@ -82,22 +82,11 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
         }
     }
 
-    let dest = fb.as_mut_slice();
-
-    // 2. Process Pixels
-    // We iterate over the entire framebuffer. For each pixel, find the nearest seed.
     let metric = config.metric;
-
-    #[cfg(feature = "parallel")]
-    let chunk_iter = dest.par_chunks_exact_mut(width);
-    #[cfg(not(feature = "parallel"))]
-    let chunk_iter = dest.chunks_exact_mut(width);
-
     let is_euclidean = (metric - 2.0).abs() < f32::EPSILON;
     let is_manhattan = (metric - 1.0).abs() < f32::EPSILON;
     let is_cbrt = (metric - 3.0).abs() < f32::EPSILON;
     let is_sqrt = (metric - 4.0).abs() < f32::EPSILON;
-    let inv_metric = 1.0 / metric;
 
     // ⚡ Bolt: In distance-based algorithms like Voronoi diagrams, evaluating configuration
     // branches (e.g., determining which metric to use) inside nested per-pixel and per-seed
@@ -105,294 +94,382 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
     // loops and deferring expensive operations (like `sqrt()`) until after the loop by
     // comparing squared distances (`dx*dx + dy*dy`) yields massive performance improvements.
     if is_euclidean {
-        if config.border_thickness > 0.0 {
-            chunk_iter.enumerate().for_each(|(y, row)| {
-                let fy = y as f32;
-                for (x, pixel) in row.iter_mut().enumerate() {
-                    let fx = x as f32;
-                    let mut min_dist_sq = f32::MAX;
-                    let mut second_min_dist_sq = f32::MAX;
-                    let mut closest_idx = 0;
-
-                    for (i, seed) in seeds.iter().enumerate() {
-                        let dx = fx - seed.x;
-                        let dy = fy - seed.y;
-                        let dist_sq = dx * dx + dy * dy;
-                        if dist_sq < min_dist_sq {
-                            second_min_dist_sq = min_dist_sq;
-                            min_dist_sq = dist_sq;
-                            closest_idx = i;
-                        } else if dist_sq < second_min_dist_sq {
-                            second_min_dist_sq = dist_sq;
-                        }
-                    }
-
-                    let min_dist = min_dist_sq.sqrt();
-                    let second_min_dist = second_min_dist_sq.sqrt();
-                    let diff = (second_min_dist - min_dist).abs();
-                    if diff <= config.border_thickness {
-                        *pixel = config.border_color;
-                        continue;
-                    }
-                    *pixel = seed_colors[closest_idx];
-                }
-            });
-        } else {
-            chunk_iter.enumerate().for_each(|(y, row)| {
-                let fy = y as f32;
-                for (x, pixel) in row.iter_mut().enumerate() {
-                    let fx = x as f32;
-                    let mut min_dist_sq = f32::MAX;
-                    let mut closest_idx = 0;
-
-                    for (i, seed) in seeds.iter().enumerate() {
-                        let dx = fx - seed.x;
-                        let dy = fy - seed.y;
-                        let dist_sq = dx * dx + dy * dy;
-                        if dist_sq < min_dist_sq {
-                            min_dist_sq = dist_sq;
-                            closest_idx = i;
-                        }
-                    }
-
-                    *pixel = seed_colors[closest_idx];
-                }
-            });
-        }
+        apply_voronoi_euclidean(fb, config, &seeds, &seed_colors);
     } else if is_manhattan {
-        if config.border_thickness > 0.0 {
-            chunk_iter.enumerate().for_each(|(y, row)| {
-                let fy = y as f32;
-                for (x, pixel) in row.iter_mut().enumerate() {
-                    let fx = x as f32;
-                    let mut min_dist = f32::MAX;
-                    let mut second_min_dist = f32::MAX;
-                    let mut closest_idx = 0;
-
-                    for (i, seed) in seeds.iter().enumerate() {
-                        let dx = fx - seed.x;
-                        let dy = fy - seed.y;
-                        let dx = dx.abs();
-                        let dy = dy.abs();
-                        let dist = dx + dy;
-                        if dist < min_dist {
-                            second_min_dist = min_dist;
-                            min_dist = dist;
-                            closest_idx = i;
-                        } else if dist < second_min_dist {
-                            second_min_dist = dist;
-                        }
-                    }
-
-                    let diff = (second_min_dist - min_dist).abs();
-                    if diff <= config.border_thickness {
-                        *pixel = config.border_color;
-                        continue;
-                    }
-                    *pixel = seed_colors[closest_idx];
-                }
-            });
-        } else {
-            chunk_iter.enumerate().for_each(|(y, row)| {
-                let fy = y as f32;
-                for (x, pixel) in row.iter_mut().enumerate() {
-                    let fx = x as f32;
-                    let mut min_dist = f32::MAX;
-                    let mut closest_idx = 0;
-
-                    for (i, seed) in seeds.iter().enumerate() {
-                        let dx = fx - seed.x;
-                        let dy = fy - seed.y;
-                        let dx = dx.abs();
-                        let dy = dy.abs();
-                        let dist = dx + dy;
-                        if dist < min_dist {
-                            min_dist = dist;
-                            closest_idx = i;
-                        }
-                    }
-
-                    *pixel = seed_colors[closest_idx];
-                }
-            });
-        }
+        apply_voronoi_manhattan(fb, config, &seeds, &seed_colors);
     } else if is_cbrt {
-        if config.border_thickness > 0.0 {
-            chunk_iter.enumerate().for_each(|(y, row)| {
-                let fy = y as f32;
-                for (x, pixel) in row.iter_mut().enumerate() {
-                    let fx = x as f32;
-                    let mut min_dist = f32::MAX;
-                    let mut second_min_dist = f32::MAX;
-                    let mut closest_idx = 0;
-
-                    for (i, seed) in seeds.iter().enumerate() {
-                        let dx = fx - seed.x;
-                        let dy = fy - seed.y;
-                        let dx = dx.abs();
-                        let dy = dy.abs();
-                        let dist = (dx * dx * dx + dy * dy * dy).cbrt();
-                        if dist < min_dist {
-                            second_min_dist = min_dist;
-                            min_dist = dist;
-                            closest_idx = i;
-                        } else if dist < second_min_dist {
-                            second_min_dist = dist;
-                        }
-                    }
-
-                    let diff = (second_min_dist - min_dist).abs();
-                    if diff <= config.border_thickness {
-                        *pixel = config.border_color;
-                        continue;
-                    }
-                    *pixel = seed_colors[closest_idx];
-                }
-            });
-        } else {
-            chunk_iter.enumerate().for_each(|(y, row)| {
-                let fy = y as f32;
-                for (x, pixel) in row.iter_mut().enumerate() {
-                    let fx = x as f32;
-                    let mut min_dist = f32::MAX;
-                    let mut closest_idx = 0;
-
-                    for (i, seed) in seeds.iter().enumerate() {
-                        let dx = fx - seed.x;
-                        let dy = fy - seed.y;
-                        let dx = dx.abs();
-                        let dy = dy.abs();
-                        let dist = (dx * dx * dx + dy * dy * dy).cbrt();
-                        if dist < min_dist {
-                            min_dist = dist;
-                            closest_idx = i;
-                        }
-                    }
-
-                    *pixel = seed_colors[closest_idx];
-                }
-            });
-        }
+        apply_voronoi_cbrt(fb, config, &seeds, &seed_colors);
     } else if is_sqrt {
-        if config.border_thickness > 0.0 {
-            chunk_iter.enumerate().for_each(|(y, row)| {
-                let fy = y as f32;
-                for (x, pixel) in row.iter_mut().enumerate() {
-                    let fx = x as f32;
-                    let mut min_dist = f32::MAX;
-                    let mut second_min_dist = f32::MAX;
-                    let mut closest_idx = 0;
-
-                    for (i, seed) in seeds.iter().enumerate() {
-                        let dx = fx - seed.x;
-                        let dy = fy - seed.y;
-                        let dx = dx.abs();
-                        let dy = dy.abs();
-                        let x2 = dx * dx;
-                        let y2 = dy * dy;
-                        #[allow(clippy::imprecise_flops)]
-                        let dist = (x2 * x2 + y2 * y2).sqrt().sqrt();
-                        if dist < min_dist {
-                            second_min_dist = min_dist;
-                            min_dist = dist;
-                            closest_idx = i;
-                        } else if dist < second_min_dist {
-                            second_min_dist = dist;
-                        }
-                    }
-
-                    let diff = (second_min_dist - min_dist).abs();
-                    if diff <= config.border_thickness {
-                        *pixel = config.border_color;
-                        continue;
-                    }
-                    *pixel = seed_colors[closest_idx];
-                }
-            });
-        } else {
-            chunk_iter.enumerate().for_each(|(y, row)| {
-                let fy = y as f32;
-                for (x, pixel) in row.iter_mut().enumerate() {
-                    let fx = x as f32;
-                    let mut min_dist = f32::MAX;
-                    let mut closest_idx = 0;
-
-                    for (i, seed) in seeds.iter().enumerate() {
-                        let dx = fx - seed.x;
-                        let dy = fy - seed.y;
-                        let dx = dx.abs();
-                        let dy = dy.abs();
-                        let x2 = dx * dx;
-                        let y2 = dy * dy;
-                        #[allow(clippy::imprecise_flops)]
-                        let dist = (x2 * x2 + y2 * y2).sqrt().sqrt();
-                        if dist < min_dist {
-                            min_dist = dist;
-                            closest_idx = i;
-                        }
-                    }
-
-                    *pixel = seed_colors[closest_idx];
-                }
-            });
-        }
+        apply_voronoi_sqrt(fb, config, &seeds, &seed_colors);
     } else {
-        if config.border_thickness > 0.0 {
-            chunk_iter.enumerate().for_each(|(y, row)| {
-                let fy = y as f32;
-                for (x, pixel) in row.iter_mut().enumerate() {
-                    let fx = x as f32;
-                    let mut min_dist = f32::MAX;
-                    let mut second_min_dist = f32::MAX;
-                    let mut closest_idx = 0;
+        apply_voronoi_generic(fb, config, &seeds, &seed_colors);
+    }
+}
 
-                    for (i, seed) in seeds.iter().enumerate() {
-                        let dx = fx - seed.x;
-                        let dy = fy - seed.y;
-                        let dx = dx.abs();
-                        let dy = dy.abs();
-                        let dist = (dx.powf(metric) + dy.powf(metric)).powf(inv_metric);
-                        if dist < min_dist {
-                            second_min_dist = min_dist;
-                            min_dist = dist;
-                            closest_idx = i;
-                        } else if dist < second_min_dist {
-                            second_min_dist = dist;
-                        }
-                    }
+fn apply_voronoi_euclidean(
+    fb: &mut Framebuffer,
+    config: &VoronoiConfig,
+    seeds: &[Vec2],
+    seed_colors: &[u32],
+) {
+    let width = fb.width() as usize;
+    let dest = fb.as_mut_slice();
 
-                    let diff = (second_min_dist - min_dist).abs();
-                    if diff <= config.border_thickness {
-                        *pixel = config.border_color;
-                        continue;
+    #[cfg(feature = "parallel")]
+    let chunk_iter = dest.par_chunks_exact_mut(width);
+    #[cfg(not(feature = "parallel"))]
+    let chunk_iter = dest.chunks_exact_mut(width);
+
+    if config.border_thickness > 0.0 {
+        chunk_iter.enumerate().for_each(|(y, row)| {
+            let fy = y as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let fx = x as f32;
+                let mut min_dist_sq = f32::MAX;
+                let mut second_min_dist_sq = f32::MAX;
+                let mut closest_idx = 0;
+
+                for (i, seed) in seeds.iter().enumerate() {
+                    let dx = fx - seed.x;
+                    let dy = fy - seed.y;
+                    let dist_sq = dx * dx + dy * dy;
+                    if dist_sq < min_dist_sq {
+                        second_min_dist_sq = min_dist_sq;
+                        min_dist_sq = dist_sq;
+                        closest_idx = i;
+                    } else if dist_sq < second_min_dist_sq {
+                        second_min_dist_sq = dist_sq;
                     }
-                    *pixel = seed_colors[closest_idx];
                 }
-            });
-        } else {
-            chunk_iter.enumerate().for_each(|(y, row)| {
-                let fy = y as f32;
-                for (x, pixel) in row.iter_mut().enumerate() {
-                    let fx = x as f32;
-                    let mut min_dist = f32::MAX;
-                    let mut closest_idx = 0;
 
-                    for (i, seed) in seeds.iter().enumerate() {
-                        let dx = fx - seed.x;
-                        let dy = fy - seed.y;
-                        let dx = dx.abs();
-                        let dy = dy.abs();
-                        let dist = (dx.powf(metric) + dy.powf(metric)).powf(inv_metric);
-                        if dist < min_dist {
-                            min_dist = dist;
-                            closest_idx = i;
-                        }
-                    }
-
-                    *pixel = seed_colors[closest_idx];
+                let min_dist = min_dist_sq.sqrt();
+                let second_min_dist = second_min_dist_sq.sqrt();
+                let diff = (second_min_dist - min_dist).abs();
+                if diff <= config.border_thickness {
+                    *pixel = config.border_color;
+                    continue;
                 }
-            });
-        }
+                *pixel = seed_colors[closest_idx];
+            }
+        });
+    } else {
+        chunk_iter.enumerate().for_each(|(y, row)| {
+            let fy = y as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let fx = x as f32;
+                let mut min_dist_sq = f32::MAX;
+                let mut closest_idx = 0;
+
+                for (i, seed) in seeds.iter().enumerate() {
+                    let dx = fx - seed.x;
+                    let dy = fy - seed.y;
+                    let dist_sq = dx * dx + dy * dy;
+                    if dist_sq < min_dist_sq {
+                        min_dist_sq = dist_sq;
+                        closest_idx = i;
+                    }
+                }
+
+                *pixel = seed_colors[closest_idx];
+            }
+        });
+    }
+}
+
+fn apply_voronoi_manhattan(
+    fb: &mut Framebuffer,
+    config: &VoronoiConfig,
+    seeds: &[Vec2],
+    seed_colors: &[u32],
+) {
+    let width = fb.width() as usize;
+    let dest = fb.as_mut_slice();
+
+    #[cfg(feature = "parallel")]
+    let chunk_iter = dest.par_chunks_exact_mut(width);
+    #[cfg(not(feature = "parallel"))]
+    let chunk_iter = dest.chunks_exact_mut(width);
+
+    if config.border_thickness > 0.0 {
+        chunk_iter.enumerate().for_each(|(y, row)| {
+            let fy = y as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let fx = x as f32;
+                let mut min_dist = f32::MAX;
+                let mut second_min_dist = f32::MAX;
+                let mut closest_idx = 0;
+
+                for (i, seed) in seeds.iter().enumerate() {
+                    let dx = fx - seed.x;
+                    let dy = fy - seed.y;
+                    let dx = dx.abs();
+                    let dy = dy.abs();
+                    let dist = dx + dy;
+                    if dist < min_dist {
+                        second_min_dist = min_dist;
+                        min_dist = dist;
+                        closest_idx = i;
+                    } else if dist < second_min_dist {
+                        second_min_dist = dist;
+                    }
+                }
+
+                let diff = (second_min_dist - min_dist).abs();
+                if diff <= config.border_thickness {
+                    *pixel = config.border_color;
+                    continue;
+                }
+                *pixel = seed_colors[closest_idx];
+            }
+        });
+    } else {
+        chunk_iter.enumerate().for_each(|(y, row)| {
+            let fy = y as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let fx = x as f32;
+                let mut min_dist = f32::MAX;
+                let mut closest_idx = 0;
+
+                for (i, seed) in seeds.iter().enumerate() {
+                    let dx = fx - seed.x;
+                    let dy = fy - seed.y;
+                    let dx = dx.abs();
+                    let dy = dy.abs();
+                    let dist = dx + dy;
+                    if dist < min_dist {
+                        min_dist = dist;
+                        closest_idx = i;
+                    }
+                }
+
+                *pixel = seed_colors[closest_idx];
+            }
+        });
+    }
+}
+
+fn apply_voronoi_cbrt(
+    fb: &mut Framebuffer,
+    config: &VoronoiConfig,
+    seeds: &[Vec2],
+    seed_colors: &[u32],
+) {
+    let width = fb.width() as usize;
+    let dest = fb.as_mut_slice();
+
+    #[cfg(feature = "parallel")]
+    let chunk_iter = dest.par_chunks_exact_mut(width);
+    #[cfg(not(feature = "parallel"))]
+    let chunk_iter = dest.chunks_exact_mut(width);
+
+    if config.border_thickness > 0.0 {
+        chunk_iter.enumerate().for_each(|(y, row)| {
+            let fy = y as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let fx = x as f32;
+                let mut min_dist = f32::MAX;
+                let mut second_min_dist = f32::MAX;
+                let mut closest_idx = 0;
+
+                for (i, seed) in seeds.iter().enumerate() {
+                    let dx = fx - seed.x;
+                    let dy = fy - seed.y;
+                    let dx = dx.abs();
+                    let dy = dy.abs();
+                    let dist = (dx * dx * dx + dy * dy * dy).cbrt();
+                    if dist < min_dist {
+                        second_min_dist = min_dist;
+                        min_dist = dist;
+                        closest_idx = i;
+                    } else if dist < second_min_dist {
+                        second_min_dist = dist;
+                    }
+                }
+
+                let diff = (second_min_dist - min_dist).abs();
+                if diff <= config.border_thickness {
+                    *pixel = config.border_color;
+                    continue;
+                }
+                *pixel = seed_colors[closest_idx];
+            }
+        });
+    } else {
+        chunk_iter.enumerate().for_each(|(y, row)| {
+            let fy = y as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let fx = x as f32;
+                let mut min_dist = f32::MAX;
+                let mut closest_idx = 0;
+
+                for (i, seed) in seeds.iter().enumerate() {
+                    let dx = fx - seed.x;
+                    let dy = fy - seed.y;
+                    let dx = dx.abs();
+                    let dy = dy.abs();
+                    let dist = (dx * dx * dx + dy * dy * dy).cbrt();
+                    if dist < min_dist {
+                        min_dist = dist;
+                        closest_idx = i;
+                    }
+                }
+
+                *pixel = seed_colors[closest_idx];
+            }
+        });
+    }
+}
+
+fn apply_voronoi_sqrt(
+    fb: &mut Framebuffer,
+    config: &VoronoiConfig,
+    seeds: &[Vec2],
+    seed_colors: &[u32],
+) {
+    let width = fb.width() as usize;
+    let dest = fb.as_mut_slice();
+
+    #[cfg(feature = "parallel")]
+    let chunk_iter = dest.par_chunks_exact_mut(width);
+    #[cfg(not(feature = "parallel"))]
+    let chunk_iter = dest.chunks_exact_mut(width);
+
+    if config.border_thickness > 0.0 {
+        chunk_iter.enumerate().for_each(|(y, row)| {
+            let fy = y as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let fx = x as f32;
+                let mut min_dist = f32::MAX;
+                let mut second_min_dist = f32::MAX;
+                let mut closest_idx = 0;
+
+                for (i, seed) in seeds.iter().enumerate() {
+                    let dx = fx - seed.x;
+                    let dy = fy - seed.y;
+                    let dx = dx.abs();
+                    let dy = dy.abs();
+                    let x2 = dx * dx;
+                    let y2 = dy * dy;
+                    #[allow(clippy::imprecise_flops)]
+                    let dist = (x2 * x2 + y2 * y2).sqrt().sqrt();
+                    if dist < min_dist {
+                        second_min_dist = min_dist;
+                        min_dist = dist;
+                        closest_idx = i;
+                    } else if dist < second_min_dist {
+                        second_min_dist = dist;
+                    }
+                }
+
+                let diff = (second_min_dist - min_dist).abs();
+                if diff <= config.border_thickness {
+                    *pixel = config.border_color;
+                    continue;
+                }
+                *pixel = seed_colors[closest_idx];
+            }
+        });
+    } else {
+        chunk_iter.enumerate().for_each(|(y, row)| {
+            let fy = y as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let fx = x as f32;
+                let mut min_dist = f32::MAX;
+                let mut closest_idx = 0;
+
+                for (i, seed) in seeds.iter().enumerate() {
+                    let dx = fx - seed.x;
+                    let dy = fy - seed.y;
+                    let dx = dx.abs();
+                    let dy = dy.abs();
+                    let x2 = dx * dx;
+                    let y2 = dy * dy;
+                    #[allow(clippy::imprecise_flops)]
+                    let dist = (x2 * x2 + y2 * y2).sqrt().sqrt();
+                    if dist < min_dist {
+                        min_dist = dist;
+                        closest_idx = i;
+                    }
+                }
+
+                *pixel = seed_colors[closest_idx];
+            }
+        });
+    }
+}
+
+fn apply_voronoi_generic(
+    fb: &mut Framebuffer,
+    config: &VoronoiConfig,
+    seeds: &[Vec2],
+    seed_colors: &[u32],
+) {
+    let width = fb.width() as usize;
+    let dest = fb.as_mut_slice();
+
+    #[cfg(feature = "parallel")]
+    let chunk_iter = dest.par_chunks_exact_mut(width);
+    #[cfg(not(feature = "parallel"))]
+    let chunk_iter = dest.chunks_exact_mut(width);
+
+    let metric = config.metric;
+    let inv_metric = 1.0 / metric;
+
+    if config.border_thickness > 0.0 {
+        chunk_iter.enumerate().for_each(|(y, row)| {
+            let fy = y as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let fx = x as f32;
+                let mut min_dist = f32::MAX;
+                let mut second_min_dist = f32::MAX;
+                let mut closest_idx = 0;
+
+                for (i, seed) in seeds.iter().enumerate() {
+                    let dx = fx - seed.x;
+                    let dy = fy - seed.y;
+                    let dx = dx.abs();
+                    let dy = dy.abs();
+                    let dist = (dx.powf(metric) + dy.powf(metric)).powf(inv_metric);
+                    if dist < min_dist {
+                        second_min_dist = min_dist;
+                        min_dist = dist;
+                        closest_idx = i;
+                    } else if dist < second_min_dist {
+                        second_min_dist = dist;
+                    }
+                }
+
+                let diff = (second_min_dist - min_dist).abs();
+                if diff <= config.border_thickness {
+                    *pixel = config.border_color;
+                    continue;
+                }
+                *pixel = seed_colors[closest_idx];
+            }
+        });
+    } else {
+        chunk_iter.enumerate().for_each(|(y, row)| {
+            let fy = y as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let fx = x as f32;
+                let mut min_dist = f32::MAX;
+                let mut closest_idx = 0;
+
+                for (i, seed) in seeds.iter().enumerate() {
+                    let dx = fx - seed.x;
+                    let dy = fy - seed.y;
+                    let dx = dx.abs();
+                    let dy = dy.abs();
+                    let dist = (dx.powf(metric) + dy.powf(metric)).powf(inv_metric);
+                    if dist < min_dist {
+                        min_dist = dist;
+                        closest_idx = i;
+                    }
+                }
+
+                *pixel = seed_colors[closest_idx];
+            }
+        });
     }
 }
 
