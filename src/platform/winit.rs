@@ -176,7 +176,12 @@ fn print_host_error_and_exit(err: &HostError) -> ! {
                 .add_attribute(comfy_table::Attribute::Bold)
                 .fg(Color::Red),
         ])
-        .add_row(vec![Cell::new(format!("{err}")).fg(Color::Yellow)]);
+        .add_row(vec![
+            Cell::new("The application encountered an unexpected platform error.")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(Color::White),
+        ])
+        .add_row(vec![Cell::new(format!("Technical Details:\n{err}")).fg(Color::DarkGrey)]);
 
     eprintln!("\n{table}");
     std::process::exit(1);

@@ -513,7 +513,12 @@ fn run_tui_dashboard() -> Result<(), Box<dyn Error>> {
                     .fg(ComfyColor::Red),
             ])
             .add_row(vec![
-                ComfyCell::new(format!("{err}")).fg(ComfyColor::Yellow),
+                ComfyCell::new("The application dashboard encountered an unexpected error.")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(ComfyColor::White),
+            ])
+            .add_row(vec![
+                ComfyCell::new(format!("Technical Details:\n{err}")).fg(ComfyColor::DarkGrey),
             ]);
 
         println!("\n{error_table}");
@@ -863,7 +868,13 @@ fn print_launch_error(status: std::process::ExitStatus) {
                 .fg(ComfyColor::Red),
         ])
         .add_row(vec![
-            ComfyCell::new(format!("Exit Status: {status}")).fg(ComfyColor::Yellow),
+            ComfyCell::new("The launched demo process terminated unexpectedly.")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(ComfyColor::White),
+        ])
+        .add_row(vec![
+            ComfyCell::new(format!("Technical Details:\nExit Status: {status}"))
+                .fg(ComfyColor::DarkGrey),
         ]);
 
     println!("\n{error_table}");
