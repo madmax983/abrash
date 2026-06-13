@@ -136,7 +136,7 @@ impl<'a> AsciiConverter<'a> {
                 buf[i] = b'0' + (n % 10);
                 n /= 10;
             }
-            let s_slice = unsafe { std::str::from_utf8_unchecked(&buf[i..]) };
+            let s_slice = std::str::from_utf8(&buf[i..]).expect("ASCII digits are valid UTF-8");
             s.push_str(s_slice);
         }
 
