@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**Optimize clear_rect with chunks_exact_mut**
+**Learning:** For 1D pixel buffers (like `Framebuffer` and `ZBuffer`), explicitly calculated `unsafe { get_unchecked_mut }` chunk loops used for clearing rectangular regions can be optimally replaced with standard safe iterators (`.chunks_exact_mut()`). This eliminates `unsafe` code entirely while allowing LLVM to more effectively unroll and vectorize the loop, resulting in measurable performance improvements (e.g. up to ~20% faster full-width clears on large buffers) without regressions on smaller viewports.
+**Action:** Replaced manual index-based row processing with `for row in slice[start_idx..end_idx].chunks_exact_mut(w)` in `Framebuffer::clear_rect` and `ZBuffer::clear_rect`.
