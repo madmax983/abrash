@@ -121,7 +121,56 @@ fn apply_night_vision(fb: &mut Framebuffer, config: &VisionConfig) {
     }
 }
 
+const fn generate_thermal_lut() -> [u32; 1024] {
+    // We must avoid floating-point math in const fn on stable Rust.
+    // We do the equivalent logic using integer math and scaling.
+    // t varies from 0 to 1023.
+    // 0.2 * 1023 = 204
+    // 0.5 * 1023 = 511
+    // 0.8 * 1023 = 818
+    let mut lut = [0u32; 1024];
+    let mut t = 0;
+    while t < 1024 {
+        let (r, g, b) = if t <= 204 {
+            // Black to Blue
+            // t goes from 0 to 204
+            let b = (t * 255) / 204;
+            (0, 0, b)
+        } else if t <= 511 {
+            // Blue to Purple (Blue + Red)
+            // t goes from 205 to 511 (range 307)
+            let r = ((t - 204) * 255) / 307;
+            (r, 0, 255)
+        } else if t <= 818 {
+            // Purple to Red
+            // t goes from 512 to 818 (range 307)
+            let b = 255 - ((t - 511) * 255) / 307;
+            (255, 0, b)
+        } else {
+            // Red to Yellow (add Green) to White (add Blue)
+            // t goes from 819 to 1023 (range 205)
+            // local_t is in [0, 205]
+            let local_t = t - 818;
+            if local_t <= 102 {
+                // Red to Yellow
+                let g = (local_t * 255) / 102;
+                (255, g, 0)
+            } else {
+                // Yellow to White
+                let b = ((local_t - 102) * 255) / 103;
+                (255, 255, b)
+            }
+        };
+
+        lut[t as usize] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+        t += 1;
+    }
+    lut
+}
+
 fn apply_thermal_vision(fb: &mut Framebuffer, zb: &ZBuffer, _config: &VisionConfig) {
+    const LUT: [u32; 1024] = generate_thermal_lut();
+
     let _width = fb.width() as usize;
     let _height = fb.height() as usize;
     let pixels = fb.as_mut_slice();
@@ -140,49 +189,22 @@ fn apply_thermal_vision(fb: &mut Framebuffer, zb: &ZBuffer, _config: &VisionConf
         // t = (depth - (-1.0)) / 2.0 = (depth + 1.0) / 2.0.
         // Invert for Hot->Cold mapping: 1.0 - t
 
-        let t = ((depth + 1.0) * 0.5).clamp(0.0, 1.0);
+        // Adding 1.0 and dividing by 2.0 maps to [0.0, 1.0] range
+        let t = (depth + 1.0) * 0.5;
         let heat = 1.0 - t;
 
-        pixels[i] = get_thermal_color(heat);
-    }
-}
-
-fn get_thermal_color(t: f32) -> u32 {
-    // t: 0.0 (Cold) -> 1.0 (Hot)
-    // 0.0 - 0.2: Black -> Blue
-    // 0.2 - 0.5: Blue -> Purple
-    // 0.5 - 0.8: Purple -> Red
-    // 0.8 - 1.0: Red -> Yellow -> White
-
-    let (r, g, b) = if t < 0.2 {
-        // Black to Blue
-        let local_t = t / 0.2;
-        (0.0, 0.0, local_t)
-    } else if t < 0.5 {
-        // Blue to Purple (Blue + Red)
-        let local_t = (t - 0.2) / 0.3;
-        (local_t, 0.0, 1.0) // B=1, R goes 0->1
-    } else if t < 0.8 {
-        // Purple to Red
-        let local_t = (t - 0.5) / 0.3;
-        (1.0, 0.0, 1.0 - local_t) // R=1, B goes 1->0
-    } else {
-        // Red to Yellow (add Green) to White (add Blue)
-        let local_t = (t - 0.8) / 0.2;
-        if local_t < 0.5 {
-            // Red to Yellow
-            (1.0, local_t * 2.0, 0.0)
+        // Fast clamp and integer cast
+        let index = if heat <= 0.0 {
+            0
+        } else if heat >= 1.0 {
+            1023
         } else {
-            // Yellow to White
-            (1.0, 1.0, (local_t - 0.5) * 2.0)
-        }
-    };
+            (heat * 1023.0) as usize
+        };
 
-    let r_byte = (r * 255.0) as u32;
-    let g_byte = (g * 255.0) as u32;
-    let b_byte = (b * 255.0) as u32;
-
-    0xFF00_0000 | (r_byte << 16) | (g_byte << 8) | b_byte
+        // SAFETY: The index is strictly clamped between 0 and 1023 above.
+        pixels[i] = unsafe { *LUT.get_unchecked(index) };
+    }
 }
 
 fn apply_sonar_vision(fb: &mut Framebuffer, zb: &ZBuffer, config: &VisionConfig) {

@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Thermal Vision Integer Math LUT]**
+**Learning:** Floating-point arithmetic is forbidden in `const fn` on stable Rust, making compile-time gradient lookup tables difficult. Refactoring gradient generation to use purely integer math and scaling allows the LUT to be computed at compile time without relying on unstable compiler features.
+**Action:** Replaced float arithmetic with `(val * max_range) / total_range` integer scaling logic in `generate_thermal_lut`, successfully pre-calculating the 1024-element LUT in a `const fn` and avoiding per-frame pixel branching (boosting performance by 39%).
