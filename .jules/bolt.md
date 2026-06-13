@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**2024-06-12 - Linear Offset Loop Unrolling in Blitters**
+**Learning:** For per-pixel 2D texture compositing (like alpha blitting or colorkey), replacing scalar 2D indexing with manual 1D linear offset advancements and `slice.get_unchecked(...)` massively outperforms bounds-checked loops. However, for opaque row copies, the standard library's `slice::copy_from_slice()` is optimal and slightly outperforms manual `std::ptr::copy_nonoverlapping` due to superior compiler inlining.
+**Action:** When writing dense loops for framebuffers, compute a linear offset outside the row loop, manually advance it by `1` per pixel and by the `stride` remainder at the end of the row, and index using `unsafe { get_unchecked(...) }` instead of bounds-checked 2D math.

@@ -229,11 +229,19 @@ pub unsafe fn blit_opaque_unchecked(
     let w = src.w as usize;
     let fb_pixels = fb.as_mut_slice();
 
-    for row in 0..src.h as usize {
-        let src_offset = (src.y as usize + row) * tex_w + src.x as usize;
-        let dst_offset = (dst_y as usize + row) * fb_w + dst_x as usize;
-        fb_pixels[dst_offset..dst_offset + w]
-            .copy_from_slice(&tex.pixels[src_offset..src_offset + w]);
+    let mut src_offset = src.y as usize * tex_w + src.x as usize;
+    let mut dst_offset = dst_y as usize * fb_w + dst_x as usize;
+
+    for _ in 0..src.h as usize {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                tex.pixels.as_ptr().add(src_offset),
+                fb_pixels.as_mut_ptr().add(dst_offset),
+                w,
+            );
+        }
+        src_offset += tex_w;
+        dst_offset += fb_w;
     }
 }
 
@@ -318,17 +326,26 @@ pub unsafe fn blit_colorkey_unchecked(
     let fb_w = fb.width() as usize;
     let tex_w = tex.width as usize;
     let w = src.w as usize;
+    let h = src.h as usize;
     let fb_pixels = fb.as_mut_slice();
 
-    for row in 0..src.h as usize {
-        let src_row_start = (src.y as usize + row) * tex_w + src.x as usize;
-        let dst_row_start = (dst_y as usize + row) * fb_w + dst_x as usize;
-        for col in 0..w {
-            let src_px = tex.pixels[src_row_start + col];
+    let mut src_offset = src.y as usize * tex_w + src.x as usize;
+    let mut dst_offset = dst_y as usize * fb_w + dst_x as usize;
+
+    let src_stride = tex_w - w;
+    let dst_stride = fb_w - w;
+
+    for _ in 0..h {
+        for _ in 0..w {
+            let src_px = *tex.pixels.get_unchecked(src_offset);
             if src_px != key {
-                fb_pixels[dst_row_start + col] = src_px;
+                *fb_pixels.get_unchecked_mut(dst_offset) = src_px;
             }
+            src_offset += 1;
+            dst_offset += 1;
         }
+        src_offset += src_stride;
+        dst_offset += dst_stride;
     }
 }
 
@@ -430,22 +447,32 @@ pub unsafe fn blit_alpha_unchecked(
     let fb_w = fb.width() as usize;
     let tex_w = tex.width as usize;
     let w = src.w as usize;
+    let h = src.h as usize;
     let fb_pixels = fb.as_mut_slice();
 
-    for row in 0..src.h as usize {
-        let src_row_start = (src.y as usize + row) * tex_w + src.x as usize;
-        let dst_row_start = (dst_y as usize + row) * fb_w + dst_x as usize;
-        for col in 0..w {
-            let src_px = tex.pixels[src_row_start + col];
+    let mut src_offset = src.y as usize * tex_w + src.x as usize;
+    let mut dst_offset = dst_y as usize * fb_w + dst_x as usize;
+
+    let src_stride = tex_w - w;
+    let dst_stride = fb_w - w;
+
+    for _ in 0..h {
+        for _ in 0..w {
+            let src_px = *tex.pixels.get_unchecked(src_offset);
             let alpha = src_px >> 24;
             if alpha == 0xFF {
-                fb_pixels[dst_row_start + col] = src_px; // fully opaque
+                *fb_pixels.get_unchecked_mut(dst_offset) = src_px; // fully opaque
             } else if alpha > 0 {
-                fb_pixels[dst_row_start + col] =
-                    alpha_blend_pixel(src_px, fb_pixels[dst_row_start + col]);
+                let dst_px = *fb_pixels.get_unchecked(dst_offset);
+                *fb_pixels.get_unchecked_mut(dst_offset) = alpha_blend_pixel(src_px, dst_px);
             }
             // alpha == 0 → skip
+
+            src_offset += 1;
+            dst_offset += 1;
         }
+        src_offset += src_stride;
+        dst_offset += dst_stride;
     }
 }
 
@@ -523,19 +550,25 @@ pub fn fill_rect_alpha(fb: &mut Framebuffer, x: i32, y: i32, w: u32, h: u32, col
     let src_g_a = src_g * alpha;
     let inv_alpha = 255 - alpha;
 
-    for row in y0..y1 {
-        let row_start = row as usize * stride;
-        for col in x0..x1 {
-            let idx = row_start + col as usize;
-            let dst = fb_pixels[idx];
-            let dst_rb = dst & 0x00FF_00FF;
-            let dst_g = (dst >> 8) & 0x00FF_00FF;
+    let w_len = (x1 - x0) as usize;
+    let dst_stride = stride - w_len;
+    let mut offset = (y0 as usize) * stride + (x0 as usize);
 
-            let rb = ((src_rb_a + dst_rb * inv_alpha) >> 8) & 0x00FF_00FF;
-            let g = ((src_g_a + dst_g * inv_alpha) >> 8) & 0x00FF_00FF;
+    for _ in y0..y1 {
+        for _ in 0..w_len {
+            unsafe {
+                let dst = *fb_pixels.get_unchecked(offset);
+                let dst_rb = dst & 0x00FF_00FF;
+                let dst_g = (dst >> 8) & 0x00FF_00FF;
 
-            fb_pixels[idx] = rb | (g << 8) | 0xFF00_0000;
+                let rb = ((src_rb_a + dst_rb * inv_alpha) >> 8) & 0x00FF_00FF;
+                let g = ((src_g_a + dst_g * inv_alpha) >> 8) & 0x00FF_00FF;
+
+                *fb_pixels.get_unchecked_mut(offset) = rb | (g << 8) | 0xFF00_0000;
+            }
+            offset += 1;
         }
+        offset += dst_stride;
     }
 }
 
