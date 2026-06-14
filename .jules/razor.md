@@ -21,3 +21,8 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+
+## [Reduction]
+**Bloat:** Extreme deep nesting ("Pyramids of Doom") caused by closures inside `RefCell` borrows and `rayon` parallel iterators (reaching up to 10+ levels of indentation).
+**Cut:** Flattened the logic by extracting the heavy closure bodies into independent, top-level helper functions (e.g., `process_physarum_simulation` in `physarum.rs`, and `process_tile_parallel_flat`, `process_tile_parallel_textured`, `process_tile_parallel_gouraud` in `rasterizer/tile.rs`).
+**Saved:** Brought maximum indentation levels down from 10 to 3, significantly improving code readability and maintainability without altering functionality or parallel performance.
