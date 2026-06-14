@@ -60,4 +60,10 @@ mod tests {
         assert!(zb_result.is_err(), "ZBuffer should reject size > u32::MAX");
         assert_eq!(zb_result.err(), Some("Buffer size overflow"));
     }
+
+    #[test]
+    #[should_panic(expected = "capacity overflow")]
+    fn test_hiz_buffer_capacity_overflow() {
+        let _hiz = abrash_core::hiz_buffer::HiZBuffer::new(u32::MAX, u32::MAX);
+    }
 }
