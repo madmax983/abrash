@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimize heat vision scalar loop iterator overhead]**
+**Learning:** In hot rendering loops, utilizing `.zip()` (e.g., `pixels.iter_mut().zip(depths.iter())`) incurs iterator overhead. A benchmark comparing this against a manual loop (`0..len`) utilizing `unsafe { slice.get_unchecked(...) }` and `unsafe { slice.get_unchecked_mut(...) }` demonstrated that manual indexing yields a consistent performance advantage while preserving safety guarantees. However, it is essential to write specific, isolated benchmarks to prove the optimization instead of relying blindly on heuristics or mutating existing test suites.
+**Action:** Replaced `.zip()` iterators in `heat_vision.rs` scalar loops with manual bounds-checked indexing, and added a specific benchmark (`benches/heat_vision_scalar_bench.rs`) to track the performance delta.

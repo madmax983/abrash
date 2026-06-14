@@ -104,7 +104,11 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         return;
     }
 
-    for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
+    let len = pixels.len().min(depths.len());
+    for i in 0..len {
+        let depth = unsafe { *depths.get_unchecked(i) };
+        let pixel = unsafe { pixels.get_unchecked_mut(i) };
+
         if depth == f32::INFINITY {
             *pixel = 0xFF00_0010; // Very Dark Blue Background
             continue;
@@ -184,7 +188,10 @@ unsafe fn apply_heat_vision_simd(
     }
 
     // Scalar tail
-    for (pixel, &depth) in pixels[i..len].iter_mut().zip(depths[i..len].iter()) {
+    for idx in i..len {
+        let depth = unsafe { *depths.get_unchecked(idx) };
+        let pixel = unsafe { pixels.get_unchecked_mut(idx) };
+
         if depth == f32::INFINITY {
             *pixel = 0xFF00_0010;
             continue;
