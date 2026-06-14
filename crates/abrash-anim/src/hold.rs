@@ -8,7 +8,9 @@ use crate::evaluable::Sample;
 ///
 /// Always returns `Sample::at_rest(value)` — zero velocity.
 pub struct Hold<T: Animatable> {
+    /// The constant value to hold.
     pub value: T,
+    /// The real-time duration of the hold segment in seconds.
     pub duration: f32,
 }
 

@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2024-06-14 - [Animation Primitives Documentation]
+**Confusion:** The core structures of the animation system (`Sample`, `Hold`, `Keyframe`, `Evaluable`, and `ClockEvent`) had missing documentation on their fields and enum variants, causing warnings and lacking clarity in `cargo doc`.
+**Clarification:** Added inline `///` documentation to the missing fields and variants in `abrash-anim` (specifically `clock.rs`, `easing.rs`, `evaluable.rs`, `hold.rs`, and `keyframe.rs`), resolving `clippy::missing_docs` and clearly defining the purpose of each structural component.

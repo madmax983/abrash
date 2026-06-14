@@ -9,9 +9,13 @@ use crate::evaluable::Sample;
 ///
 /// Velocity is derived analytically from the easing function's derivative.
 pub struct Keyframe<T: Animatable> {
+    /// The starting value of the tween.
     pub from: T,
+    /// The target value of the tween.
     pub to: T,
+    /// The easing function to apply to the interpolation.
     pub easing: Easing,
+    /// The real-time duration of the tween in seconds.
     pub duration: f32,
 }
 
