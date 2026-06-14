@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Optimal 1D-to-2D Pixel Buffer Conversion]**
+**Learning:** When loading textures (e.g., from glTF), using a 1D loop that converts flat pixel data and inserts it into a 2D texture using `set_pixel(x % width, y / width)` introduces severe overhead due to modulo/division arithmetic and continuous bounds-checking.
+**Action:** Always fetch the underlying mutable 1D slice of the texture (`pixels_mut()`) and use `.iter_mut().zip(src.chunks_exact(channels))` to bypass bounds checks and arithmetic completely, allowing LLVM to vectorize the operation.
