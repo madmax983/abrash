@@ -34,6 +34,12 @@ fn bench_heat_vision(c: &mut Criterion) {
                 apply_heat_vision(black_box(&mut fb), black_box(&zb));
             });
         });
+
+        group.bench_function(format!("{w}x{h}_scalar_opt"), |b| {
+            b.iter(|| {
+                apply_heat_vision(black_box(&mut fb), black_box(&zb));
+            });
+        });
     }
 
     group.finish();

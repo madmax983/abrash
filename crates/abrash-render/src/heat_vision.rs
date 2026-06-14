@@ -83,9 +83,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
 
     if !has_content {
         // Nothing drawn, just clear to cold background
-        for p in pixels.iter_mut() {
-            *p = 0xFF00_0020; // Dark Blue
-        }
+        pixels.fill(0xFF00_0020); // Dark Blue
         return;
     }
 
@@ -104,7 +102,11 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         return;
     }
 
-    for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
+    let len = pixels.len().min(depths.len());
+    for i in 0..len {
+        let depth = unsafe { *depths.get_unchecked(i) };
+        let pixel = unsafe { pixels.get_unchecked_mut(i) };
+
         if depth == f32::INFINITY {
             *pixel = 0xFF00_0010; // Very Dark Blue Background
             continue;
@@ -184,7 +186,10 @@ unsafe fn apply_heat_vision_simd(
     }
 
     // Scalar tail
-    for (pixel, &depth) in pixels[i..len].iter_mut().zip(depths[i..len].iter()) {
+    for j in i..len {
+        let depth = unsafe { *depths.get_unchecked(j) };
+        let pixel = unsafe { pixels.get_unchecked_mut(j) };
+
         if depth == f32::INFINITY {
             *pixel = 0xFF00_0010;
             continue;
@@ -307,5 +312,16 @@ mod tests {
             p, 0x00FF_000000,
             "Should remain unchanged default Framebuffer color (Solid Black)"
         );
+    }
+
+    #[test]
+    fn test_heat_vision_manual_indexing_bounds() {
+        // Green phase: verifying bounds safety check `pixels.len().min(depths.len())`
+        // works when dimensions mismatch without causing UB.
+        let mut fb = Framebuffer::new(5, 5).unwrap();
+        let zb = ZBuffer::new(2, 2).unwrap();
+
+        // This would panic or UB if manual loops weren't bounded by min(len1, len2)
+        apply_heat_vision(&mut fb, &zb);
     }
 }

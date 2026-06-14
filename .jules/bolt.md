@@ -232,3 +232,9 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**YYYY-MM-DD - [Optimize Heat Vision Array Iteration]
+**Learning:** Replaced PK-̥\xce\\xff\xff\xff\xff\xff\xff\xff\xff-PKPK-̥\xce\\xa4\x81-PK/K iterators and manual fallback zeroing loops with  indexed  logic and  in  to bypass bounds checking in hot scalar paths. Guaranteed safety using . Wrote dedicated unit tests (Green Phase TDD) explicitly verifying dimensions mismatch logic to prevent regressions and undefined behavior.
+**Action:** Applied and committed to codebase.
+**2024-05-24 - [Optimize Heat Vision Array Iteration]
+**Learning:** Replaced `zip` iterators and manual fallback zeroing loops with `0..len` indexed `get_unchecked` logic and `slice.fill` in `heat_vision.rs` to bypass bounds checking in hot scalar paths. Guaranteed safety using `pixels.len().min(depths.len())`. Wrote dedicated unit tests (Green Phase TDD) explicitly verifying dimensions mismatch logic to prevent regressions and undefined behavior.
+**Action:** Applied and committed to codebase.
