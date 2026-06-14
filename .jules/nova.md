@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Glass Refraction Filter]
+**Concept:** A post-processing effect that simulates viewing the scene through uneven, refractive glass. It computes screen-space normals from the Z-Buffer and distorts the underlying image, adding chromatic aberration and specular highlights on steep edges.
+**Fate:** Implemented
+**Lesson:** Using the Z-Buffer to calculate depth gradients (`dz/dx`, `dz/dy`) provides a cheap and effective way to approximate screen-space normals for post-processing effects like refraction and edge highlighting. Using saturating arithmetic avoids out-of-bounds panics when sampling.

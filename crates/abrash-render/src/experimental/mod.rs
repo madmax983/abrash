@@ -57,6 +57,7 @@ pub mod falling_sand;
 pub mod fire;
 pub mod fisheye;
 pub mod frosted_glass;
+pub mod glass_refraction;
 pub mod glitch;
 pub mod halftone;
 pub mod harmonograph;
