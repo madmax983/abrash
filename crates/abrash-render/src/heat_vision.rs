@@ -65,21 +65,17 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     let depths = zb.as_slice();
 
     // 1. Find min and max depth (excluding Infinity)
-    let mut min_z = f32::MAX;
-    let mut max_z = f32::MIN;
-    let mut has_content = false;
-
-    for &z in depths {
-        if z != f32::INFINITY {
-            if z < min_z {
-                min_z = z;
-            }
-            if z > max_z {
-                max_z = z;
-            }
-            has_content = true;
+    let (min_z, max_z, has_content) = {
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe { find_min_max_depth_simd(depths) }
+        } else {
+            find_min_max_depth_scalar(depths)
         }
-    }
+
+        #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+        find_min_max_depth_scalar(depths)
+    };
 
     if !has_content {
         // Nothing drawn, just clear to cold background
@@ -308,4 +304,97 @@ mod tests {
             "Should remain unchanged default Framebuffer color (Solid Black)"
         );
     }
+}
+
+#[inline(always)]
+fn find_min_max_depth_scalar(depths: &[f32]) -> (f32, f32, bool) {
+    let mut min_z = f32::MAX;
+    let mut max_z = f32::MIN;
+    let mut has_content = false;
+
+    for &z in depths {
+        if z != f32::INFINITY {
+            if z < min_z {
+                min_z = z;
+            }
+            if z > max_z {
+                max_z = z;
+            }
+            has_content = true;
+        }
+    }
+    (min_z, max_z, has_content)
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+unsafe fn find_min_max_depth_simd(depths: &[f32]) -> (f32, f32, bool) {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::*;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::{
+        _CMP_NEQ_OQ, _mm256_blendv_ps, _mm256_cmp_ps, _mm256_loadu_ps, _mm256_max_ps,
+        _mm256_min_ps, _mm256_movemask_ps, _mm256_set1_ps, _mm256_storeu_ps,
+    };
+
+    let mut min_z_vec = _mm256_set1_ps(f32::MAX);
+    let mut max_z_vec = _mm256_set1_ps(f32::MIN);
+    let inf_vec = _mm256_set1_ps(f32::INFINITY);
+    let max_float_vec = _mm256_set1_ps(f32::MAX);
+    let min_float_vec = _mm256_set1_ps(f32::MIN);
+
+    let mut has_content = false;
+    let len = depths.len();
+    let mut i = 0;
+
+    while i + 8 <= len {
+        let depth_ptr = depths.as_ptr().add(i);
+        let depth_val = _mm256_loadu_ps(depth_ptr);
+
+        let is_not_inf = _mm256_cmp_ps(depth_val, inf_vec, _CMP_NEQ_OQ);
+
+        let mask = _mm256_movemask_ps(is_not_inf);
+        if mask != 0 {
+            has_content = true;
+        }
+
+        let depth_for_min = _mm256_blendv_ps(max_float_vec, depth_val, is_not_inf);
+        let depth_for_max = _mm256_blendv_ps(min_float_vec, depth_val, is_not_inf);
+
+        min_z_vec = _mm256_min_ps(min_z_vec, depth_for_min);
+        max_z_vec = _mm256_max_ps(max_z_vec, depth_for_max);
+
+        i += 8;
+    }
+
+    let mut min_arr = [0.0f32; 8];
+    let mut max_arr = [0.0f32; 8];
+    _mm256_storeu_ps(min_arr.as_mut_ptr(), min_z_vec);
+    _mm256_storeu_ps(max_arr.as_mut_ptr(), max_z_vec);
+
+    let mut min_z = f32::MAX;
+    let mut max_z = f32::MIN;
+
+    for j in 0..8 {
+        if min_arr[j] < min_z {
+            min_z = min_arr[j];
+        }
+        if max_arr[j] > max_z {
+            max_z = max_arr[j];
+        }
+    }
+
+    for &z in &depths[i..len] {
+        if z != f32::INFINITY {
+            if z < min_z {
+                min_z = z;
+            }
+            if z > max_z {
+                max_z = z;
+            }
+            has_content = true;
+        }
+    }
+
+    (min_z, max_z, has_content)
 }

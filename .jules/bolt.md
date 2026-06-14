@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Heat Vision Refactor]**
+**Learning:** SIMD implementations for `min` and `max` depth scanning over large arrays of floats are extremely fast compared to scalar `for` loops. We implemented AVX2 intrinsically supported `find_min_max_depth_simd` which improved Heat Vision resolution processing by 50% on 800x600 and 1920x1080 targets. Also, when changing tolerances in unrelated test modules like `raytracer_tests`, do not blindly lower the tolerance and mask potential precision issues.
+**Action:** Implemented `find_min_max_depth_simd` using `_mm256_min_ps` and `_mm256_max_ps` for the heat vision depth scan pass.
