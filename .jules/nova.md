@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [String Art Filter]
+**Concept:** A procedural art generator that simulates "String Art" (or thread art) by repeatedly drawing straight lines between a set of pins arranged in a circle. It uses a greedy algorithm to find the darkest path through an image and reconstructs it using only straight overlapping lines.
+**Fate:** Implemented
+**Lesson:** When building highly iterative CPU-based generators, extracting data into localized buffers rather than reading straight from framebuffers and evaluating line paths with raw Bresenham iteration provides a noticeable speedup. Leveraging integer blending avoids slow per-pixel float divisions.
