@@ -54,19 +54,17 @@ const fn generate_lut() -> [u32; 1024] {
 ///
 /// apply_heat_vision(&mut fb, &zb);
 /// ```
-pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
-    const LUT: [u32; 1024] = generate_lut();
 
-    if fb.width() != zb.width() || fb.height() != zb.height() {
-        return;
+
+pub fn find_min_max_depth(depths: &[f32]) -> Option<(f32, f32)> {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::is_x86_feature_detected!("avx2") {
+        return unsafe { find_min_max_depth_simd(depths) };
     }
 
-    let pixels = fb.as_mut_slice();
-    let depths = zb.as_slice();
-
-    // 1. Find min and max depth (excluding Infinity)
     let mut min_z = f32::MAX;
     let mut max_z = f32::MIN;
+
     let mut has_content = false;
 
     for &z in depths {
@@ -81,13 +79,116 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         }
     }
 
-    if !has_content {
+    if has_content {
+        Some((min_z, max_z))
+    } else {
+        None
+    }
+}
+
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+unsafe fn find_min_max_depth_simd(depths: &[f32]) -> Option<(f32, f32)> {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::*;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::*;
+
+    let len = depths.len();
+    let mut i = 0;
+
+    let inf_vec = _mm256_set1_ps(f32::INFINITY);
+    let mut min_vec = _mm256_set1_ps(f32::MAX);
+    let mut max_vec = _mm256_set1_ps(f32::MIN);
+    let mut has_content_vec = _mm256_setzero_ps();
+
+    while i + 8 <= len {
+        let depth_ptr = depths.as_ptr().add(i);
+        let depth_val = _mm256_loadu_ps(depth_ptr);
+
+        // Mask of valid depths (depth != INF)
+        let valid_mask = _mm256_cmp_ps(depth_val, inf_vec, _CMP_NEQ_OQ);
+
+        // Update has_content_vec
+        has_content_vec = _mm256_or_ps(has_content_vec, valid_mask);
+
+        // For min: blend f32::MAX if not valid, so it doesn't affect min
+        let blend_min = _mm256_blendv_ps(_mm256_set1_ps(f32::MAX), depth_val, valid_mask);
+        min_vec = _mm256_min_ps(min_vec, blend_min);
+
+        // For max: blend f32::MIN if not valid, so it doesn't affect max
+        let blend_max = _mm256_blendv_ps(_mm256_set1_ps(f32::MIN), depth_val, valid_mask);
+        max_vec = _mm256_max_ps(max_vec, blend_max);
+
+        i += 8;
+    }
+
+    // Horizontal reduction
+    let mut min_arr = [f32::MAX; 8];
+    let mut max_arr = [f32::MIN; 8];
+    let mut has_content_arr = [0.0; 8];
+
+    _mm256_storeu_ps(min_arr.as_mut_ptr(), min_vec);
+    _mm256_storeu_ps(max_arr.as_mut_ptr(), max_vec);
+    _mm256_storeu_ps(has_content_arr.as_mut_ptr(), has_content_vec);
+
+    let mut min_z = f32::MAX;
+    let mut max_z = f32::MIN;
+    let mut has_content = false;
+
+    // Check if any valid pixel was found in SIMD
+    for j in 0..8 {
+        if has_content_arr[j].to_bits() != 0 {
+            has_content = true;
+            if min_arr[j] < min_z {
+                min_z = min_arr[j];
+            }
+            if max_arr[j] > max_z {
+                max_z = max_arr[j];
+            }
+        }
+    }
+
+    // Scalar tail
+    for &z in &depths[i..len] {
+        if z != f32::INFINITY {
+            if z < min_z {
+                min_z = z;
+            }
+            if z > max_z {
+                max_z = z;
+            }
+            has_content = true;
+        }
+    }
+
+    if has_content {
+        Some((min_z, max_z))
+    } else {
+        None
+    }
+}
+
+
+pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
+    const LUT: [u32; 1024] = generate_lut();
+
+    if fb.width() != zb.width() || fb.height() != zb.height() {
+        return;
+    }
+
+    let pixels = fb.as_mut_slice();
+    let depths = zb.as_slice();
+
+    // 1. Find min and max depth (excluding Infinity)
+    let Some((min_z, max_z)) = find_min_max_depth(depths) else {
         // Nothing drawn, just clear to cold background
         for p in pixels.iter_mut() {
             *p = 0xFF00_0020; // Dark Blue
         }
         return;
-    }
+    };
 
     // Add a small epsilon to avoid division by zero if flat plane
     let range = (max_z - min_z).max(0.0001);
@@ -200,6 +301,26 @@ unsafe fn apply_heat_vision_simd(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+
+    #[test]
+    fn test_find_min_max_depth() {
+        // Empty should be None
+        let depths = vec![];
+        assert_eq!(find_min_max_depth(&depths), None);
+
+        // All infinity should be None
+        let depths = vec![f32::INFINITY, f32::INFINITY];
+        assert_eq!(find_min_max_depth(&depths), None);
+
+        // Mix of values
+        let depths = vec![10.0, f32::INFINITY, 5.0, 20.0, f32::INFINITY];
+        assert_eq!(find_min_max_depth(&depths), Some((5.0, 20.0)));
+
+        // Extreme values
+        let depths = vec![f32::MIN, f32::MAX, 0.0];
+        assert_eq!(find_min_max_depth(&depths), Some((f32::MIN, f32::MAX)));
+    }
 
     #[test]
     fn test_heat_vision_gradient() {
