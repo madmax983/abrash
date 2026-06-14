@@ -324,7 +324,10 @@ pub(crate) fn draw_span_nearest(
 
     macro_rules! process_span_nearest {
         ($fetch_block:block) => {
-            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+            let len = fb_slice.len();
+            for idx in 0..len {
+                let pixel = unsafe { fb_slice.get_unchecked_mut(idx) };
+                let depth_val = unsafe { zb_slice.get_unchecked_mut(idx) };
                 if z < *depth_val {
                     let color = $fetch_block;
 
@@ -460,7 +463,10 @@ pub(crate) fn draw_span_bilinear(
             let mut c01 = 0;
             let mut c11 = 0;
 
-            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+            let len = fb_slice.len();
+            for idx in 0..len {
+                let pixel = unsafe { fb_slice.get_unchecked_mut(idx) };
+                let depth_val = unsafe { zb_slice.get_unchecked_mut(idx) };
                 if z < *depth_val {
                     let u_img_fixed = u_fix >> 8;
                     let v_img_fixed = v_fix >> 8;
@@ -923,7 +929,10 @@ pub(crate) fn draw_span_trilinear(
     dv_fix: i32,
     lod: f32,
 ) {
-    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+    let len = fb_slice.len();
+    for idx in 0..len {
+        let pixel = unsafe { fb_slice.get_unchecked_mut(idx) };
+        let depth_val = unsafe { zb_slice.get_unchecked_mut(idx) };
         if z < *depth_val {
             let color = texture.get_pixel_trilinear_fixed(u_fix, v_fix, lod);
             let alpha = (color >> 24) & 0xFF;
@@ -3189,7 +3198,10 @@ fn draw_scanline_normal_mapped(
         return;
     }
 
-    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+    let len = fb_slice.len();
+    for idx in 0..len {
+        let pixel = unsafe { fb_slice.get_unchecked_mut(idx) };
+        let depth_val = unsafe { zb_slice.get_unchecked_mut(idx) };
         if z < *depth_val {
             *depth_val = z;
 
@@ -4262,7 +4274,10 @@ fn draw_span_textured_gouraud_scalar(
     let shift = texture.width_shift;
     let is_pot = shift < 32;
 
-    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+    let len = fb_slice.len();
+    for idx in 0..len {
+        let pixel = unsafe { fb_slice.get_unchecked_mut(idx) };
+        let depth_val = unsafe { zb_slice.get_unchecked_mut(idx) };
         if z < *depth_val {
             let u = u_fix >> 16;
             let v = v_fix >> 16;

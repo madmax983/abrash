@@ -68,7 +68,9 @@ unsafe fn draw_scanline_flat_simd(
 
     // Scalar tail
     let mut z = z_start + (i as f32) * dz_dx;
-    for (depth_val, pixel) in zb_slice[i..len].iter_mut().zip(fb_slice[i..len].iter_mut()) {
+    for idx in i..len {
+        let depth_val = unsafe { zb_slice.get_unchecked_mut(idx) };
+        let pixel = unsafe { fb_slice.get_unchecked_mut(idx) };
         if z < *depth_val {
             *depth_val = z;
             *pixel = color;
@@ -101,7 +103,10 @@ pub fn draw_scanline_flat(
             return;
         }
 
-        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+        let len = fb_slice.len();
+        for idx in 0..len {
+            let pixel = unsafe { fb_slice.get_unchecked_mut(idx) };
+            let depth_val = unsafe { zb_slice.get_unchecked_mut(idx) };
             if z < *depth_val {
                 *depth_val = z;
                 *pixel = color;
@@ -213,7 +218,9 @@ unsafe fn draw_scanline_flat_blended_simd(
     let rb_src_scaled_u32 = rb_src_scaled;
     let ag_src_scaled_u32 = ag_src_scaled;
 
-    for (depth_val, pixel) in zb_slice[i..len].iter_mut().zip(fb_slice[i..len].iter_mut()) {
+    for idx in i..len {
+        let depth_val = unsafe { zb_slice.get_unchecked_mut(idx) };
+        let pixel = unsafe { fb_slice.get_unchecked_mut(idx) };
         if z < *depth_val {
             let dest = *pixel;
 
@@ -268,7 +275,10 @@ pub fn draw_scanline_flat_blended(
         let rb_src_scaled = rb_src * alpha;
         let ag_src_scaled = ag_src * alpha;
 
-        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+        let len = fb_slice.len();
+        for idx in 0..len {
+            let pixel = unsafe { fb_slice.get_unchecked_mut(idx) };
+            let depth_val = unsafe { zb_slice.get_unchecked_mut(idx) };
             // Test Z but do not write Z for transparent pixels
             if z < *depth_val {
                 let dest = *pixel;

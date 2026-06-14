@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimal Zipping Iterators Replacement]**
+**Learning:** In hot rendering loops, replacing `.zip()` on slices with explicit `get_unchecked` indexing inside `for idx in 0..len` massively improves performance and removes iterator overhead, but only when carefully implemented for the exact slices without bounds checks. Reverting some of these changes confirmed that manual slice length calculation and exact bounds circumvention is needed.
+**Action:** Replace `zip()` with `unsafe { ...get_unchecked(...) }` for parallel slices in scanline/rendering hot paths, as validated by benchmarks.

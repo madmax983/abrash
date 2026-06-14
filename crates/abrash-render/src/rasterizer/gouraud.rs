@@ -126,7 +126,9 @@ pub(crate) unsafe fn draw_scanline_gouraud_simd_fast(
     let dg = dc_dx.1;
     let db = dc_dx.2;
 
-    for (depth_val, pixel) in zb_slice[i..len].iter_mut().zip(fb_slice[i..len].iter_mut()) {
+    for idx in i..len {
+        let depth_val = unsafe { zb_slice.get_unchecked_mut(idx) };
+        let pixel = unsafe { fb_slice.get_unchecked_mut(idx) };
         if z < *depth_val {
             *depth_val = z;
             // Fast path: direct shift, no clamp/mask (assuming valid input range)
@@ -266,7 +268,9 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
     let dg = dc_dx.1;
     let db = dc_dx.2;
 
-    for (depth_val, pixel) in zb_slice[i..len].iter_mut().zip(fb_slice[i..len].iter_mut()) {
+    for idx in i..len {
+        let depth_val = unsafe { zb_slice.get_unchecked_mut(idx) };
+        let pixel = unsafe { fb_slice.get_unchecked_mut(idx) };
         if z < *depth_val {
             *depth_val = z;
 
