@@ -104,7 +104,12 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         return;
     }
 
-    for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
+    assert_eq!(pixels.len(), depths.len(), "Framebuffer and ZBuffer sizes must match");
+    let len = pixels.len();
+    for idx in 0..len {
+        let depth = unsafe { *depths.get_unchecked(idx) };
+        let pixel = unsafe { pixels.get_unchecked_mut(idx) };
+
         if depth == f32::INFINITY {
             *pixel = 0xFF00_0010; // Very Dark Blue Background
             continue;
@@ -184,7 +189,10 @@ unsafe fn apply_heat_vision_simd(
     }
 
     // Scalar tail
-    for (pixel, &depth) in pixels[i..len].iter_mut().zip(depths[i..len].iter()) {
+    for idx in i..len {
+        let depth = unsafe { *depths.get_unchecked(idx) };
+        let pixel = unsafe { pixels.get_unchecked_mut(idx) };
+
         if depth == f32::INFINITY {
             *pixel = 0xFF00_0010;
             continue;
@@ -237,6 +245,29 @@ mod tests {
         // normalized = (3.0 - 1.0) / (5.0 - 1.0) = 0.5
         // At 0.5 -> Green (0, 255, 0)
         assert_eq!(p2, 0xFF00_FF00, "Middle pixel should be Green");
+    }
+
+
+    #[test]
+    fn test_heat_vision_simd_tail() {
+        let width = 15; // 8 (SIMD chunk) + 7 (tail)
+        let height = 1;
+        let mut fb = Framebuffer::new(width, height).unwrap();
+        let mut zb = ZBuffer::new(width, height).unwrap();
+
+        // 1 to 15 depth
+        for i in 0..15 {
+            zb.test_and_set(i, 0, (i + 1) as f32);
+        }
+
+        apply_heat_vision(&mut fb, &zb);
+
+        // Spot check the first element (SIMD path) and last element (tail path)
+        let p0 = fb.get_pixel(0, 0).unwrap();
+        let p14 = fb.get_pixel(14, 0).unwrap();
+
+        assert_eq!(p0, 0xFFFF_0000, "Closest pixel should be Red");
+        assert_eq!(p14, 0xFF00_00FF, "Furthest pixel should be Blue");
     }
 
     #[test]

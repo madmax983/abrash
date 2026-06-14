@@ -39,5 +39,94 @@ fn bench_heat_vision(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_heat_vision);
+
+fn bench_heat_vision_scalar_fallback(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Heat Vision Scalar Fallback");
+
+    let w = 1920;
+    let h = 1080;
+
+    let mut fb = Framebuffer::new(w, h).unwrap();
+    let mut zb = ZBuffer::new(w, h).unwrap();
+
+    let mut rng = rand::thread_rng();
+    for y in 0..h {
+        for x in 0..w {
+            let depth = if rng.gen_bool(0.1) {
+                f32::INFINITY
+            } else {
+                rng.gen_range(0.1..100.0)
+            };
+            unsafe {
+                zb.test_and_set_unchecked(x as usize, y as usize, depth);
+            }
+        }
+    }
+
+    // Isolate the scalar fallback code block from heat_vision.rs
+    // This allows us to benchmark the exact index loop optimization.
+    let pixels = fb.as_mut_slice();
+    let depths = zb.as_slice();
+
+    let mut min_z = f32::MAX;
+    let mut max_z = f32::MIN;
+
+    for &z in depths {
+        if z != f32::INFINITY {
+            if z < min_z {
+                min_z = z;
+            }
+            if z > max_z {
+                max_z = z;
+            }
+        }
+    }
+
+    let range = (max_z - min_z).max(0.0001);
+    let scale = 1024.0 / range;
+    let len = pixels.len();
+
+    // Create a dummy LUT to use
+    let mut lut = [0u32; 1024];
+    for (i, v) in lut.iter_mut().enumerate() {
+        *v = i as u32;
+    }
+
+    group.bench_function("scalar_zip", |b| {
+        b.iter(|| {
+            for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
+                if depth == f32::INFINITY {
+                    *pixel = 0xFF00_0010;
+                    continue;
+                }
+
+                let t = ((depth - min_z) * scale) as u32;
+                let t = t.min(1023);
+                *pixel = unsafe { *lut.get_unchecked(t as usize) };
+            }
+        });
+    });
+
+    group.bench_function("scalar_index", |b| {
+        b.iter(|| {
+            for idx in 0..len {
+                let depth = unsafe { *depths.get_unchecked(idx) };
+                let pixel = unsafe { pixels.get_unchecked_mut(idx) };
+
+                if depth == f32::INFINITY {
+                    *pixel = 0xFF00_0010;
+                    continue;
+                }
+
+                let t = ((depth - min_z) * scale) as u32;
+                let t = t.min(1023);
+                *pixel = unsafe { *lut.get_unchecked(t as usize) };
+            }
+        });
+    });
+
+    group.finish();
+}
+
+criterion_group!(benches, bench_heat_vision, bench_heat_vision_scalar_fallback);
 criterion_main!(benches);
