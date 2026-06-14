@@ -24,3 +24,6 @@
 ## 2026-04-18 - [Heap Buffer Overflow in Pixel Sort via Unchecked SendPtr]
 **Threat:** The `SendPtr` wrapper inside `crates/abrash-render/src/experimental/pixel_sort.rs` lacked a length parameter and blindly added indices to the raw pointer via `*ptr.0.add(...)`. If a framebuffer lied about its dimensions or if sorting logic failed, it would lead to a catastrophic out-of-bounds heap read/write.
 **Defense:** Rewrote `SendPtr` to capture and store the length of the slice at instantiation. Replaced direct raw pointer dereferencing with safe `read()` and `write()` methods containing an `assert!(index < self.1, "Index out of bounds")` guard before evaluating the `unsafe` block.
+**2024-06-14 - Fix Undefined Behavior risk in Ascii string conversion**
+**Threat:** The `unsafe { std::str::from_utf8_unchecked(&buf[i..]) }` block in `crates/abrash-render/src/ascii.rs` allowed potential Undefined Behavior (UB) when converting from byte buffers to strings, violating safe string handling practices.
+**Defense:** Replaced the unsafe block with safe, robust string conversion `std::str::from_utf8(&buf[i..]).expect("valid ASCII")`, completely eliminating the UB vector.

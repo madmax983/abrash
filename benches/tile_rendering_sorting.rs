@@ -5,7 +5,7 @@ use abrash::texture::Texture;
 use abrash::zbuffer::ZBuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use rand::seq::SliceRandom;
-use rand::thread_rng;
+use rand::rng;
 
 /// Generate N overlapping textured triangles at varying depths.
 /// They are all centered roughly in the middle of the screen to ensure heavy overdraw.
@@ -56,7 +56,7 @@ fn bench_sorting_impact(c: &mut Criterion) {
 
     // 3. Random Shuffle (Typical case)
     let mut tris_random = raw_tris;
-    let mut rng = thread_rng();
+    let mut rng = rng();
     tris_random.shuffle(&mut rng);
 
     let texture = Texture::new(64, 64).unwrap();
