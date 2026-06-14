@@ -244,7 +244,7 @@ impl Scene {
 
             let num_objects = self.objects.len();
             world_aabbs.clear();
-            world_aabbs.reserve_exact(num_objects);
+
             cull_results.clear();
             cull_results.resize(num_objects, false);
 
@@ -269,9 +269,6 @@ impl Scene {
                 .fold((0, 0), |(count, verts), (obj, _)| {
                     (count + 1, verts + obj.mesh.vertices.len())
                 });
-
-            draw_list.vertices.reserve(total_vertices);
-            draw_list.batches.reserve(visible_count);
 
             // ⚡ Bolt: Eliminate implicit bounds-checks during push by pre-allocating exact capacities for dynamic vectors
             draw_list.batches.reserve_exact(visible_count);

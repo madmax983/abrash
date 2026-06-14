@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Thread-Local Buffer Redundant Reserve_Exact]**
+**Learning:** In double-buffered loops where dynamic collections like `Vec` are repeatedly reused and cleared, explicitly calling `.reserve(len)` or `.reserve_exact(len)` on every iteration can severely degrade performance by introducing repeated reallocation checks. Allowing the allocator to naturally manage capacity growth is measurably faster as it avoids continuous capacity checks when object counts remain relatively stable or fluctuate slightly between frames.
+**Action:** When implementing thread-local or double-buffering patterns for repetitive allocations that reach a steady state (e.g. `world_aabbs`), explicitly avoid calling `.reserve()` or `.reserve_exact()` in the hot loop. Let the `Vec` naturally manage its own capacity.

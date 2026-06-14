@@ -307,7 +307,7 @@ impl RayTracer {
         AABB_BUFFER.with(|buffer| {
             let mut world_aabbs = buffer.borrow_mut();
             world_aabbs.clear();
-            world_aabbs.reserve(scene.objects.len());
+
             for obj in &scene.objects {
                 world_aabbs.push(obj.calculate_world_aabb());
             }
