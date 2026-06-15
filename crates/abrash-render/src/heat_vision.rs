@@ -6,34 +6,6 @@
 use crate::framebuffer::Framebuffer;
 use crate::zbuffer::ZBuffer;
 
-const fn generate_lut() -> [u32; 1024] {
-    let mut lut = [0u32; 1024];
-    let mut t = 0;
-    while t < 1024 {
-        let (r, g, b) = if t < 256 {
-            // Red -> Yellow
-            (255, t, 0)
-        } else if t < 512 {
-            // Yellow -> Green
-            let local_t = t - 256;
-            (255 - local_t, 255, 0)
-        } else if t < 768 {
-            // Green -> Cyan
-            let local_t = t - 512;
-            (0, 255, local_t)
-        } else {
-            // Cyan -> Blue
-            let local_t = t - 768;
-            (0, 255 - local_t, 255)
-        };
-
-        // Combine into ARGB
-        lut[t as usize] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
-        t += 1;
-    }
-    lut
-}
-
 /// Applies a heat vision effect to the framebuffer based on the depth buffer.
 ///
 /// *   **Close objects** (small Z) are rendered as "Hot" (Red/Yellow).
@@ -55,8 +27,6 @@ const fn generate_lut() -> [u32; 1024] {
 /// apply_heat_vision(&mut fb, &zb);
 /// ```
 pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
-    const LUT: [u32; 1024] = generate_lut();
-
     if fb.width() != zb.width() || fb.height() != zb.height() {
         return;
     }
@@ -99,7 +69,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if std::is_x86_feature_detected!("avx2") {
         unsafe {
-            apply_heat_vision_simd(pixels, depths, min_z, scale, &LUT);
+            apply_heat_vision_simd(pixels, depths, min_z, scale);
         }
         return;
     }
@@ -113,28 +83,32 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         let t = ((depth - min_z) * scale) as u32;
         let t = t.min(1023); // Clamp strictly to 1023
 
-        // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
-        *pixel = unsafe { *LUT.get_unchecked(t as usize) };
+        let (r, g, b) = if t < 256 {
+            (255, t, 0)
+        } else if t < 512 {
+            (511 - t, 255, 0)
+        } else if t < 768 {
+            (0, 255, t - 512)
+        } else {
+            (0, 1023 - t, 255)
+        };
+
+        *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
     }
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
-unsafe fn apply_heat_vision_simd(
-    pixels: &mut [u32],
-    depths: &[f32],
-    min_z: f32,
-    scale: f32,
-    lut: &[u32; 1024],
-) {
+unsafe fn apply_heat_vision_simd(pixels: &mut [u32], depths: &[f32], min_z: f32, scale: f32) {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::{
         __m256i, _CMP_EQ_OQ, _mm256_blendv_epi8, _mm256_castps_si256, _mm256_cmp_ps,
-        _mm256_cvttps_epi32, _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32,
-        _mm256_min_epi32, _mm256_mul_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256,
-        _mm256_storeu_si256, _mm256_sub_ps,
+        _mm256_cmpgt_epi32, _mm256_cvttps_epi32, _mm256_loadu_ps, _mm256_max_epi32,
+        _mm256_min_epi32, _mm256_mul_ps, _mm256_or_si256, _mm256_set1_epi32, _mm256_set1_ps,
+        _mm256_setzero_si256, _mm256_slli_epi32, _mm256_storeu_si256, _mm256_sub_epi32,
+        _mm256_sub_ps,
     };
 
     let len = pixels.len().min(depths.len());
@@ -145,7 +119,14 @@ unsafe fn apply_heat_vision_simd(
     let inf_vec = _mm256_set1_ps(f32::INFINITY);
     let max_t_vec = _mm256_set1_epi32(1023);
     let bg_color = _mm256_set1_epi32(0xFF00_0010_u32 as i32);
-    let lut_ptr = lut.as_ptr().cast::<i32>();
+    let c0 = _mm256_setzero_si256();
+    let c255 = _mm256_set1_epi32(255);
+    let c256 = _mm256_set1_epi32(256);
+    let c511 = _mm256_set1_epi32(511);
+    let c512 = _mm256_set1_epi32(512);
+    let c768 = _mm256_set1_epi32(768);
+    let c1023 = _mm256_set1_epi32(1023);
+    let c_alpha = _mm256_set1_epi32(0xFF00_0000_u32 as i32);
 
     while i + 8 <= len {
         let depth_ptr = depths.as_ptr().add(i);
@@ -162,18 +143,41 @@ unsafe fn apply_heat_vision_simd(
         let t_i32 = _mm256_cvttps_epi32(t_f32);
 
         // Ensure not negative
-        let zero_vec = _mm256_setzero_si256();
-        let t_clamped_low = _mm256_max_epi32(t_i32, zero_vec);
+        let t_clamped_low = _mm256_max_epi32(t_i32, c0);
 
         // Clamp to 1023
-        let t_clamped = _mm256_min_epi32(t_clamped_low, max_t_vec);
+        let t = _mm256_min_epi32(t_clamped_low, max_t_vec);
 
-        // Gather from LUT
-        // SAFETY: t_clamped is strictly between 0 and 1023, lut is 1024 elements
-        let gathered = _mm256_i32gather_epi32::<4>(lut_ptr, t_clamped);
+        // Masks for segment conditions
+        let mask1 = _mm256_cmpgt_epi32(c256, t); // 256 > t
+        let mask2 = _mm256_cmpgt_epi32(c512, t); // 512 > t
+        let mask3 = _mm256_cmpgt_epi32(c768, t); // 768 > t
 
-        // Blend: if is_inf, use bg_color, else use gathered color
-        let final_color = _mm256_blendv_epi8(gathered, bg_color, is_inf_int);
+        // r = mask2 ? (mask1 ? 255 : 511 - t) : 0
+        let r_seg1 = _mm256_sub_epi32(c511, t);
+        let r_seg01 = _mm256_blendv_epi8(r_seg1, c255, mask1);
+        let r = _mm256_blendv_epi8(c0, r_seg01, mask2);
+
+        // g = mask3 ? (mask1 ? t : 255) : 1023 - t
+        let g_seg3 = _mm256_sub_epi32(c1023, t);
+        let g_mid = _mm256_blendv_epi8(c255, t, mask1);
+        let g = _mm256_blendv_epi8(g_seg3, g_mid, mask3);
+
+        // b = mask3 ? (mask2 ? 0 : t - 512) : 255
+        let b_seg2 = _mm256_sub_epi32(t, c512);
+        let b_mid = _mm256_blendv_epi8(b_seg2, c0, mask2);
+        let b = _mm256_blendv_epi8(c255, b_mid, mask3);
+
+        let r_shifted = _mm256_slli_epi32(r, 16);
+        let g_shifted = _mm256_slli_epi32(g, 8);
+
+        let argb = _mm256_or_si256(
+            _mm256_or_si256(c_alpha, r_shifted),
+            _mm256_or_si256(g_shifted, b),
+        );
+
+        // Blend: if is_inf, use bg_color, else use calculated color
+        let final_color = _mm256_blendv_epi8(argb, bg_color, is_inf_int);
 
         // Store to framebuffer
         #[allow(clippy::cast_ptr_alignment)]
@@ -193,7 +197,17 @@ unsafe fn apply_heat_vision_simd(
         let t = ((depth - min_z) * scale) as u32;
         let t = t.min(1023);
 
-        *pixel = unsafe { *lut.get_unchecked(t as usize) };
+        let (r, g, b) = if t < 256 {
+            (255, t, 0)
+        } else if t < 512 {
+            (511 - t, 255, 0)
+        } else if t < 768 {
+            (0, 255, t - 512)
+        } else {
+            (0, 1023 - t, 255)
+        };
+
+        *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
     }
 }
 
