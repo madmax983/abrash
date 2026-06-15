@@ -1206,4 +1206,13 @@ mod tests {
         // Should be visible (conservative: equal depth treated as visible)
         assert!(hiz.is_coarse_bin_visible(bin_aabb));
     }
+
+    #[test]
+    #[should_panic(expected = "Hi-Z dimensions overflow: capacity exceeded")]
+    fn test_build_pyramid_capacity_exceeded() {
+        let mut hiz = HiZBuffer::new(2, 2);
+        hiz.width = 4294967295;
+        hiz.height = 4294967295;
+        hiz.build_pyramid_from_depths(hiz.width, hiz.height, &[]);
+    }
 }

@@ -3692,6 +3692,12 @@ impl TileRenderer {
         let expected_len = (self.width as usize)
             .checked_mul(self.height as usize)
             .expect("TileRenderer dimensions overflow");
+
+        // WARDEN DEFENSE: Prevent capacity overflow panics
+        assert!(
+            expected_len <= (isize::MAX as usize) / 4,
+            "TileRenderer dimensions overflow: capacity exceeded"
+        );
         assert!(pixels.len() >= expected_len, "Framebuffer slice too small");
         assert!(depths.len() >= expected_len, "ZBuffer slice too small");
     }
@@ -5146,5 +5152,17 @@ mod tile_bins_tests {
         bins.push(0, 10);
         let items: Vec<usize> = bins.iter(0).collect();
         assert_eq!(items, vec![10]);
+    }
+
+    #[test]
+    #[should_panic(expected = "TileRenderer dimensions overflow: capacity exceeded")]
+    fn test_merge_tiles_dimensions_overflow() {
+        let mut tr = TileRenderer::new(100, 100);
+        tr.width = u32::MAX;
+        tr.height = u32::MAX;
+
+        let mut pixels = vec![];
+        let mut depths = vec![];
+        tr.validate_target_slices(u32::MAX, u32::MAX, &mut pixels, &mut depths);
     }
 }

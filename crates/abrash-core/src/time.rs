@@ -95,4 +95,23 @@ mod tests {
         // So it should be almost exactly 0 or slightly more/less depending on float precision.
         assert!(timer.accumulator.as_secs_f64() < 0.001);
     }
+    #[test]
+    fn test_fixed_timestep_update_fractional() {
+        let mut timer = FixedTimestep::new(60);
+        timer.last_time = Instant::now();
+        timer.accumulator += Duration::from_millis(25);
+        let steps = timer.update();
+        assert_eq!(steps, 1);
+        assert!((timer.accumulator.as_millis() as f64 - 8.333).abs() < 2.0);
+    }
+
+    #[test]
+    fn test_fixed_timestep_update_zero_steps() {
+        let mut timer = FixedTimestep::new(60);
+        timer.last_time = Instant::now();
+        timer.accumulator += Duration::from_millis(10);
+        let steps = timer.update();
+        assert_eq!(steps, 0);
+        assert!((timer.accumulator.as_millis() as f64 - 10.0).abs() < 1.0);
+    }
 }

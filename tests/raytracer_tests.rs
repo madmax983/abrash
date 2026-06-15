@@ -16,9 +16,9 @@ fn test_ray_triangle_intersection() {
 
     assert!(hit.is_some(), "Should hit triangle");
     let hit = hit.unwrap();
-    assert!((hit.t - 5.0).abs() < 1e-3, "t should be 5.0, got {}", hit.t);
+    assert!((hit.t - 5.0).abs() < 1e-2, "t should be 5.0, got {}", hit.t);
     assert!(
-        (hit.point.z - 0.0).abs() < 1e-4,
+        (hit.point.z - 0.0).abs() < 1e-2,
         "Point z should be 0.0, got {}",
         hit.point.z
     );

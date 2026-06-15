@@ -1737,3 +1737,59 @@ mod tests {
         assert!((color.a - 1.0).abs() < 0.01);
     }
 }
+
+#[cfg(test)]
+mod stale_tests {
+    use super::*;
+    use crate::capture::GpuCaptureTarget;
+    use abrash_core::math::Mat4;
+    use abrash_core::mesh::Mesh;
+    use abrash_render::render_api::Material;
+    use abrash_render::render_api::{Frame, FrameCamera};
+
+    fn test_camera() -> FrameCamera {
+        FrameCamera::new(Mat4::identity(), Mat4::identity())
+    }
+
+    #[test]
+    fn test_gpu_renderer_stale_mesh_handle() {
+        let mut renderer = GpuRenderer::new_headless().unwrap();
+        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mat_h = renderer.create_material(Material::flat(0xFFFFFFFF));
+
+        renderer.destroy_mesh(mesh_h);
+
+        let mut frame = Frame::new(test_camera());
+        frame.draw(mesh_h, mat_h, Mat4::identity());
+
+        let mut target = GpuCaptureTarget::new(renderer.gpu.device(), 100, 100);
+        let result = renderer.capture(&frame, &mut target);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .contains("stale mesh handle at command 0")
+        );
+    }
+
+    #[test]
+    fn test_gpu_renderer_stale_material_handle() {
+        let mut renderer = GpuRenderer::new_headless().unwrap();
+        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mat_h = renderer.create_material(Material::flat(0xFFFFFFFF));
+
+        renderer.destroy_material(mat_h);
+
+        let mut frame = Frame::new(test_camera());
+        frame.draw(mesh_h, mat_h, Mat4::identity());
+
+        let mut target = GpuCaptureTarget::new(renderer.gpu.device(), 100, 100);
+        let result = renderer.capture(&frame, &mut target);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .contains("stale material handle at command 0")
+        );
+    }
+}
