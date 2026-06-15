@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Seam Carving Filter]
+**Concept:** A post-processing effect that dynamically recalculates energy based on dual-gradient luminance and uses dynamic programming to find the lowest energy vertical paths, performing Content-Aware Scaling natively.
+**Fate:** Implemented
+**Lesson:** Iterating and applying dynamic programming purely on 1D vectors avoids heap allocations per row, while allowing continuous non-uniform scaling effects on-the-fly.

@@ -92,6 +92,7 @@ pub mod radial_blur;
 pub mod raytracer;
 pub mod reaction_diffusion;
 pub mod sdf;
+pub mod seam_carving;
 pub mod selective_color;
 pub mod sharpen;
 pub mod slitscan;

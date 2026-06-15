@@ -984,3 +984,8 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[example]]
+name = "seam_carving_demo"
+path = "examples/seam_carving_demo.rs"
+required-features = ["nova"]
