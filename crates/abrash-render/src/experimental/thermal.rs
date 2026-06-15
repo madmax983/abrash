@@ -36,7 +36,6 @@ impl Default for ThermalConfig {
 ///
 /// * `fb` - The framebuffer to modify in-place.
 /// * `config` - Configuration for the thermal effect.
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 pub fn apply_thermal(fb: &mut Framebuffer, config: &ThermalConfig) {
     if config.intensity <= 0.0 {
         return;

@@ -40,9 +40,6 @@ impl Default for EdgeGlowConfig {
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 pub fn apply_edge_glow(fb: &mut Framebuffer, config: &EdgeGlowConfig) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;

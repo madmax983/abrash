@@ -13,8 +13,6 @@ use crate::utils::pixel_luminance;
 ///
 /// * `fb` - The framebuffer to modify in-place.
 /// * `spacing` - The base distance between hatching lines.
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 pub fn apply_crosshatch(fb: &mut Framebuffer, spacing: usize) {
     if spacing == 0 {
         return;

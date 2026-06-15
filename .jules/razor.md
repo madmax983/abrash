@@ -21,3 +21,12 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+## [Reduction]
+**Bloat:** Identical memory alignment logic in SIMD loops repeated verbatim.
+**Cut:** Extracted the buffer alignment logic into `get_simd_alignment_offset` in `texture.rs`.
+**Saved:** Removed ~40 lines of boilerplate duplicate logic in tight loop setups.
+
+## [Reduction]
+**Bloat:** Deeply nested exact code duplication inside `apply_radial_blur` for parallel vs serial logic blocks.
+**Cut:** Extracted the per-pixel radial blur accumulation loop into a shared `process_radial_blur_pixel` inline helper.
+**Saved:** Removed 120 lines of redundant code and eliminated the 'Pyramid of Doom' inside the iterator.

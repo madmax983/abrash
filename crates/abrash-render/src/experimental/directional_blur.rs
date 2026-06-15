@@ -38,9 +38,6 @@ thread_local! {
     static SOURCE_PIXELS: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &DirectionalBlurConfig) {
     if config.num_samples <= 1 {
         return;

@@ -48,7 +48,7 @@ pub fn apply_hex_mosaic(fb: &mut Framebuffer, cell_size: f32, border_size: f32, 
     {
         use rayon::prelude::*;
         pixels
-            .par_chunks_mut(width)
+            .par_chunks_exact_mut(width)
             .enumerate()
             .for_each(|(y, row)| {
                 let py = y as f32;

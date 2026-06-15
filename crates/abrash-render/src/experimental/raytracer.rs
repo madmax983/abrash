@@ -245,10 +245,6 @@ impl RayTracer {
     ///
     /// If the `parallel` feature is enabled, this method uses `rayon` to trace rays
     /// in parallel across multiple threads.
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
     pub fn render(&self, scene: &Scene, fb: &mut Framebuffer) {
         let width = fb.width();
         let height = fb.height();

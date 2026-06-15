@@ -39,9 +39,6 @@ impl Default for PixelSortConfig {
     }
 }
 
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;

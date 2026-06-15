@@ -29,6 +29,18 @@
 //! *   **Multiple Filtering Modes**: Nearest Neighbor, Bilinear, and Trilinear (Mipmapping).
 //! *   **Simd Optimization**: AVX2 accelerated rasterization for high performance.
 
+#[inline(always)]
+fn get_simd_alignment_offset(ptr: *const u32, len: usize) -> usize {
+    let align_mask = 0x1F;
+    let addr = ptr as usize;
+    let misalign = addr & align_mask;
+    if misalign == 0 {
+        0
+    } else {
+        ((32 - misalign) / 4).min(len)
+    }
+}
+
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{
@@ -586,16 +598,7 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
     let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
-    // Align pixels buffer
-    let align_mask = 0x1F;
-    let addr = fb_slice.as_ptr() as usize;
-    let misalign = addr & align_mask;
-    let pre_simd_count = if misalign == 0 {
-        0
-    } else {
-        (32 - misalign) / 4
-    };
-    let pre_simd_count = pre_simd_count.min(len);
+    let pre_simd_count = get_simd_alignment_offset(fb_slice.as_ptr(), len);
 
     let mut z_curr = z_start;
     let mut u_curr = u_fix_start;
@@ -964,16 +967,7 @@ pub(crate) unsafe fn draw_span_nearest_simd(
     let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
-    // Align buffer
-    let align_mask = 0x1F;
-    let addr = fb_slice.as_ptr() as usize;
-    let misalign = addr & align_mask;
-    let pre_simd_count = if misalign == 0 {
-        0
-    } else {
-        (32 - misalign) / 4
-    };
-    let pre_simd_count = pre_simd_count.min(len);
+    let pre_simd_count = get_simd_alignment_offset(fb_slice.as_ptr(), len);
 
     let mut z_curr = z_start;
     let mut u_curr = u_fix_start;
@@ -2879,16 +2873,7 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
     let len = fb_slice.len().min(zb_slice.len());
     let mut i = 0;
 
-    // Align buffer
-    let align_mask = 0x1F;
-    let addr = fb_slice.as_ptr() as usize;
-    let misalign = addr & align_mask;
-    let pre_simd_count = if misalign == 0 {
-        0
-    } else {
-        (32 - misalign) / 4
-    };
-    let pre_simd_count = pre_simd_count.min(len);
+    let pre_simd_count = get_simd_alignment_offset(fb_slice.as_ptr(), len);
 
     let mut z_curr = z_start;
     let mut u_curr = u_fix_start;

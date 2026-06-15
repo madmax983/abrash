@@ -24,8 +24,6 @@ thread_local! {
 ///
 /// * `fb` - The framebuffer to modify in-place.
 /// * `radius` - The radius of the Kuwahara kernel (e.g., 2 means 5x5 total window size).
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 #[allow(clippy::too_many_arguments)]
 fn process_kuwahara_region(
     src_fb: &[u32],

@@ -138,7 +138,6 @@ impl Palette {
 /// // ... render scene ...
 /// apply_palette(&mut fb, &Palette::gameboy());
 /// ```
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 pub fn apply_palette(fb: &mut Framebuffer, palette: &Palette) {
     if palette.colors.is_empty() {
         return;

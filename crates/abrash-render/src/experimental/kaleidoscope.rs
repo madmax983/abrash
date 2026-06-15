@@ -20,8 +20,6 @@ thread_local! {
 ///
 /// * `fb` - The framebuffer to modify in-place.
 /// * `segments` - The number of mirror segments (e.g. 6). Must be > 1 to have an effect.
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 #[inline(always)]
 #[must_use]
 pub fn fast_atan2(y: f32, x: f32) -> f32 {

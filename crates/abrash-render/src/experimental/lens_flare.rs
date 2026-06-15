@@ -81,9 +81,7 @@ struct RenderableGhost {
     max_x: i32,
 }
 
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlareConfig) {
     let width = fb.width() as i32;
     let height = fb.height() as i32;

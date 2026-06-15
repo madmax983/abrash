@@ -29,7 +29,6 @@ impl Default for AnaglyphConfig {
 /// Modifies the framebuffer in place by shifting the red channel horizontally
 /// based on the corresponding pixel depth in the `ZBuffer`.
 ///
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 pub fn apply_anaglyph(fb: &mut Framebuffer, zb: &ZBuffer, config: AnaglyphConfig) {
     if config.max_offset == 0 {
         return;

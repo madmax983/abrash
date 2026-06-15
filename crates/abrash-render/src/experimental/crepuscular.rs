@@ -48,7 +48,6 @@ pub struct GodRaysConfig {
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 pub fn apply_god_rays(fb: &mut Framebuffer, config: &GodRaysConfig) {
     if config.num_samples == 0 || config.weight <= 0.0 || config.exposure <= 0.0 {
         return;
