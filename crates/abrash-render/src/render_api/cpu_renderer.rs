@@ -157,8 +157,7 @@ impl CpuRenderer {
         let view_proj = frame.camera.view * frame.camera.projection;
 
         #[cfg(feature = "parallel")]
-        let mut ranges: smallvec::SmallVec<[(usize, usize); 128]> =
-            smallvec::SmallVec::with_capacity(frame.commands.len());
+        let mut ranges: smallvec::SmallVec<[(usize, usize); 128]> = smallvec::SmallVec::new();
 
         // Pre-calculate total required vertices to avoid dynamic reallocations
         let mut total_vertices = 0;

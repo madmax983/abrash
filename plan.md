@@ -1,11 +1,9 @@
-1.  **Refactor Heat Vision to Fixed Point Math**
-    - The current `heat_vision.rs` uses floating-point math (`(normalized - 0.25) * 4.0`, etc.) inside a hot pixel loop to map depths to colors.
-    - We will follow the `[Posterize Float to Integer Math Optimization]` learning from `.jules/bolt.md` to map `0.0..1.0` depth range into integer `0..255`, and calculate RGB entirely using integer math (`t * 255 / scale`, etc.).
-    - We will pre-calculate `min_z` and `max_z` like before, calculate a `z_range` integer mapping multiplier, and use simple `(depth - min_z) * scale` to avoid floats in the main loop.
-2.  **Ensure Correctness**
-    - Ensure all existing tests in `heat_vision.rs` pass.
-3.  **Run Benchmark**
-    - Ensure `cargo bench --bench heat_vision_bench` runs successfully and shows performance improvements.
-4.  **Complete pre commit steps**
-    - Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done.
-5.  **Submit PR**
+1. **Optimize `transform.rs` tests:**
+   - In `crates/abrash-core/src/transform.rs`, at line 643 and line 720, replace the `points.clone()` and `vectors.clone()` calls (which implicitly allocate) with `.to_vec()` to remove the use of `.clone()`. While this doesn't directly improve the main render path, it aligns with Bolt's core focus of avoiding unnecessary `clone()` usage.
+2. **Optimize `CpuRenderer` `extract_draw_list_into`:**
+   - In `crates/abrash-render/src/render_api/cpu_renderer.rs`, update the initialization of `ranges` within `extract_draw_list_into`. Change `smallvec::SmallVec::with_capacity(frame.commands.len())` to `smallvec::SmallVec::new()` and increase the inline array size to `512` (or similar). This prevents smallvec from automatically falling back to a heap allocation when `frame.commands.len()` exceeds the initial inline capacity of 128 elements.
+3. **Complete pre-commit steps:**
+   - Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
+4. **Create PR:**
+   - Run `cargo fmt`, `cargo clippy`, and `cargo test`.
+   - Submit the PR with the title '⚡ Bolt: [performance improvement]' and details of the optimizations.

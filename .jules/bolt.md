@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[SmallVec Allocation Overhead]
+**Learning:** `smallvec::SmallVec::with_capacity(n)` behaves like a standard `Vec` by forcing an immediate heap allocation if `n` exceeds the inline capacity limit, bypassing the stack entirely.
+**Action:** Use `smallvec::SmallVec::new()` and increase the inline capacity constraint (e.g. `smallvec::SmallVec<[T; 512]>`) when dealing with moderate, predictable bursts to ensure the buffer remains on the stack and avoids heap allocations.
