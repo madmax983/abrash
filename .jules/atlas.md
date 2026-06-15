@@ -125,3 +125,12 @@
 1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
 2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors.
 3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
+
+## [Heat Vision Module Repositioning]
+**Tangle:** The `heat_vision.rs` module lived as a top-level module in the `abrash-render` crate alongside core architecture pieces. Structurally, it is a screen-space effect operating on the frame and z-buffer, essentially identical in responsibility to existing modules located inside the `post_process` directory. This decreased module cohesion and bloated the top-level API surface.
+**Blueprint:**
+1.  **Relocate:** Moved `crates/abrash-render/src/heat_vision.rs` to `crates/abrash-render/src/post_process/heat_vision.rs`.
+2.  **Refactor Exports:** Removed the top-level `pub mod heat_vision;` from `abrash-render/src/lib.rs`. Re-exported it inside `post_process/mod.rs` via `pub mod heat_vision; pub use self::heat_vision::*;`.
+3.  **Clean Facade:** Removed explicit `heat_vision` re-export from the root workspace `src/lib.rs`, resolving to access it organically through the existing `post_process` re-export.
+**Stability:** High cohesion is restored. All post-processing effects are now centralized under a single module structure, keeping the top-level rendering pipeline cleaner.
+**Verification:** Ran all test suites and examples successfully, confirming the API change didn't break external consumers while repairing the domain boundaries.

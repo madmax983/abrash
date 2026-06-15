@@ -45,7 +45,7 @@ const fn generate_lut() -> [u32; 1024] {
 /// ```
 /// use abrash_core::framebuffer::Framebuffer;
 /// use abrash_core::zbuffer::ZBuffer;
-/// use abrash_render::heat_vision::apply_heat_vision;
+/// use abrash_render::post_process::apply_heat_vision;
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// let mut zb = ZBuffer::new(100, 100).unwrap();

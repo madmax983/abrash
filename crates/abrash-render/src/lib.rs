@@ -27,7 +27,6 @@ pub use abrash_core::utils;
 pub use abrash_core::zbuffer;
 
 pub mod ascii;
-pub mod heat_vision;
 pub mod particles;
 pub mod post_process;
 pub mod procedural;

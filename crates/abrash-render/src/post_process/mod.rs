@@ -83,3 +83,6 @@ pub use self::ssao::*;
 /// Depth of Field (`DoF`) implementation.
 pub mod dof;
 pub use self::dof::*;
+/// Heat vision post-processing effect.
+pub mod heat_vision;
+pub use self::heat_vision::*;

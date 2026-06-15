@@ -1,6 +1,6 @@
 use abrash_core::framebuffer::Framebuffer;
 use abrash_core::zbuffer::ZBuffer;
-use abrash_render::heat_vision::apply_heat_vision;
+use abrash_render::post_process::apply_heat_vision;
 use criterion::{Criterion, criterion_group, criterion_main};
 use rand::Rng;
 use std::hint::black_box;
