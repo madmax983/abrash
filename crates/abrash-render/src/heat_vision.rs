@@ -104,17 +104,22 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         return;
     }
 
-    for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
-        if depth == f32::INFINITY {
-            *pixel = 0xFF00_0010; // Very Dark Blue Background
-            continue;
+    let len = pixels.len().min(depths.len());
+    for i in 0..len {
+        unsafe {
+            let depth = *depths.get_unchecked(i);
+            let pixel = pixels.get_unchecked_mut(i);
+            if depth == f32::INFINITY {
+                *pixel = 0xFF00_0010; // Very Dark Blue Background
+                continue;
+            }
+
+            let t = ((depth - min_z) * scale) as u32;
+            let t = t.min(1023); // Clamp strictly to 1023
+
+            // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
+            *pixel = *LUT.get_unchecked(t as usize);
         }
-
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023); // Clamp strictly to 1023
-
-        // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
-        *pixel = unsafe { *LUT.get_unchecked(t as usize) };
     }
 }
 
@@ -184,16 +189,20 @@ unsafe fn apply_heat_vision_simd(
     }
 
     // Scalar tail
-    for (pixel, &depth) in pixels[i..len].iter_mut().zip(depths[i..len].iter()) {
-        if depth == f32::INFINITY {
-            *pixel = 0xFF00_0010;
-            continue;
+    for j in i..len {
+        unsafe {
+            let depth = *depths.get_unchecked(j);
+            let pixel = pixels.get_unchecked_mut(j);
+            if depth == f32::INFINITY {
+                *pixel = 0xFF00_0010;
+                continue;
+            }
+
+            let t = ((depth - min_z) * scale) as u32;
+            let t = t.min(1023);
+
+            *pixel = *lut.get_unchecked(t as usize);
         }
-
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023);
-
-        *pixel = unsafe { *lut.get_unchecked(t as usize) };
     }
 }
 

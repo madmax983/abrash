@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Iterator overhead in heat vision pass]**
+**Learning:** For rendering hot loops over slices (e.g. `apply_heat_vision`), using `.iter_mut().zip()` over matching length slices creates overhead over simple index-based `.get_unchecked()` loops.
+**Action:** Replaced `.iter_mut().zip()` with `for i in 0..len { let x = get_unchecked(i) }`.
