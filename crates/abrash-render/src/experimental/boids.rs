@@ -115,7 +115,7 @@ impl Flock {
                 let dz = boid.position.z - other_boid.position.z;
 
                 // Bolt Performance Optimization:
-                // Replace `dx.hypot(dy).hypot(dz)` distance calculation with squared distance.
+                // Replace `(dx * dx + dy * dy + dz * dz).sqrt()` distance calculation with squared distance.
                 // This avoids expensive square root operations for entities that fall entirely
                 // outside the relevant interaction radiuses.
                 let distance_sq = dx * dx + dy * dy + dz * dz;

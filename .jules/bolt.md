@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Eliding Sqrt in Boids/Vec2 distance]**
+**Learning:** In tight inner loops like distance checking for interaction in boids or checking length of vectors, calculating exact Euclidean distances using `sqrt` or `hypot` adds floating point checks and arithmetic that's often unnecessary.
+**Action:** When comparing distances or calculating vector lengths for comparison, prefer operating on squared distances `(dx*dx + dy*dy + dz*dz)`. When `hypot` is used, replace it with `(x*x + y*y).sqrt()` and use `#[allow(clippy::imprecise_flops)]` to bypass `hypot`'s internal underflow/overflow bounds checking when bounds are known to be safe.
