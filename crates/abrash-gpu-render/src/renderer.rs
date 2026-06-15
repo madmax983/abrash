@@ -132,6 +132,9 @@ pub struct GpuRenderer {
     // Resources
     meshes: Vec<Option<GpuMeshBuffer>>,
     materials: Vec<Option<GpuMaterial>>,
+    // Pre-allocated buffers to prevent per-frame heap allocations
+    prepared_draws_buffer: Vec<PreparedDraw>,
+    draw_bytes_buffer: Vec<u8>,
 }
 
 impl GpuRenderer {
@@ -283,6 +286,8 @@ impl GpuRenderer {
             mesh_blas: Vec::with_capacity(128),
             meshes: Vec::with_capacity(128),
             materials: Vec::with_capacity(128),
+            prepared_draws_buffer: Vec::with_capacity(128),
+            draw_bytes_buffer: Vec::with_capacity(128 * 256),
         }
     }
 
@@ -591,7 +596,19 @@ impl GpuRenderer {
         let start = Instant::now();
         let w = target.config.width;
         let h = target.config.height;
-        let (prepared_draws, draw_uniform_bytes, total_triangles) = self.prepare_draws(frame)?;
+
+        let mut prepared_draws = std::mem::take(&mut self.prepared_draws_buffer);
+        let mut draw_uniform_bytes = std::mem::take(&mut self.draw_bytes_buffer);
+
+        let total_triangles =
+            match self.prepare_draws(frame, &mut prepared_draws, &mut draw_uniform_bytes) {
+                Ok(triangles) => triangles,
+                Err(e) => {
+                    self.prepared_draws_buffer = prepared_draws;
+                    self.draw_bytes_buffer = draw_uniform_bytes;
+                    return Err(e);
+                }
+            };
 
         self.upload_uniforms(frame, &draw_uniform_bytes, prepared_draws.len());
 
@@ -725,11 +742,14 @@ impl GpuRenderer {
             })
             .collect();
 
+        self.prepared_draws_buffer = prepared_draws;
+        self.draw_bytes_buffer = draw_uniform_bytes;
+
         Ok(GpuDebugCapture {
             stats: FrameStats {
                 width: w,
                 height: h,
-                batch_count: prepared_draws.len(),
+                batch_count: self.prepared_draws_buffer.len(),
                 total_triangles,
                 render_time: start.elapsed(),
                 batches,
@@ -760,7 +780,16 @@ impl GpuRenderer {
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         let (w, h) = (surface.width, surface.height);
-        let (prepared_draws, draw_uniform_bytes, _) = self.prepare_draws(frame)?;
+
+        let mut prepared_draws = std::mem::take(&mut self.prepared_draws_buffer);
+        let mut draw_uniform_bytes = std::mem::take(&mut self.draw_bytes_buffer);
+
+        if let Err(e) = self.prepare_draws(frame, &mut prepared_draws, &mut draw_uniform_bytes) {
+            self.prepared_draws_buffer = prepared_draws;
+            self.draw_bytes_buffer = draw_uniform_bytes;
+            return Err(e);
+        }
+
         self.upload_uniforms(frame, &draw_uniform_bytes, prepared_draws.len());
 
         let mut encoder =
@@ -828,6 +857,10 @@ impl GpuRenderer {
             self.taa_pass.advance_frame();
         }
         output.present();
+
+        self.prepared_draws_buffer = prepared_draws;
+        self.draw_bytes_buffer = draw_uniform_bytes;
+
         Ok(())
     }
 
@@ -1129,11 +1162,20 @@ impl GpuRenderer {
         (frame_uniforms, gpu_lights)
     }
 
-    fn prepare_draws(&self, frame: &Frame) -> Result<(Vec<PreparedDraw>, Vec<u8>, u32), String> {
+    fn prepare_draws(
+        &self,
+        frame: &Frame,
+        prepared_draws: &mut Vec<PreparedDraw>,
+        draw_bytes: &mut Vec<u8>,
+    ) -> Result<u32, String> {
         let draw_uniform_size = std::mem::size_of::<DrawUniforms>();
-        let mut prepared_draws = Vec::with_capacity(frame.commands.len());
-        let mut draw_bytes =
-            vec![0u8; (self.draw_uniform_stride * frame.commands.len().max(1) as u64) as usize];
+
+        prepared_draws.clear();
+        let required_bytes =
+            (self.draw_uniform_stride * frame.commands.len().max(1) as u64) as usize;
+        draw_bytes.clear();
+        draw_bytes.resize(required_bytes, 0u8);
+
         let mut total_triangles = 0u32;
 
         for (command_index, command) in frame.commands.iter().enumerate() {
@@ -1181,7 +1223,7 @@ impl GpuRenderer {
             draw_bytes.clear();
         }
 
-        Ok((prepared_draws, draw_bytes, total_triangles))
+        Ok(total_triangles)
     }
 
     // -----------------------------------------------------------------------

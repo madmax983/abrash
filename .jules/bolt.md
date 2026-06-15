@@ -232,3 +232,8 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+## Bolt Memory\n**Learning:** To avoid dynamic heap allocations per frame by reusing struct-level  buffers, you may encounter borrow checker conflicts if a method needs  access to the buffers and  access to other fields.\n**Action:** Use  to temporarily extract the buffers, pass them explicitly to the method, and restore them after the call to safely decouple lifetimes.
+
+## std::mem::take Trick
+**Learning:** To avoid dynamic heap allocations per frame by reusing struct-level `Vec` buffers, you may encounter borrow checker conflicts if a method needs `&mut` access to the buffers and `&self` access to other fields.
+**Action:** Use `std::mem::take(&mut self.buffer)` to temporarily extract the buffers, pass them explicitly to the method, and restore them after the call to safely decouple lifetimes.
