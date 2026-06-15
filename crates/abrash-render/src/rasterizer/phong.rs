@@ -1107,18 +1107,40 @@ fn draw_scanline_phong_shadowed(
                     let mut shadow_sum = 0.0;
                     let mut samples = 0.0;
 
-                    for y_off in -1..=1 {
-                        for x_off in -1..=1 {
-                            if let Some(closest_depth) =
-                                shadow_map.get_depth(sm_x + x_off, sm_y + y_off)
-                            {
-                                if ndc_z > closest_depth + bias {
-                                    // In shadow
-                                } else {
-                                    // Lit
+                    let sm_width = shadow_map.width() as i32;
+                    let sm_height = shadow_map.height() as i32;
+
+                    // Fast path: if the 3x3 kernel is fully inside the shadow map
+                    if sm_x >= 1 && sm_y >= 1 && sm_x < sm_width - 1 && sm_y < sm_height - 1 {
+                        let depths = shadow_map.as_slice();
+                        let sm_width_usize = sm_width as usize;
+                        let base_idx = (sm_y as usize) * sm_width_usize + (sm_x as usize);
+
+                        for y_off in -1..=1 {
+                            let row_idx =
+                                (base_idx as isize + (y_off * sm_width_usize as isize)) as usize;
+                            for x_off in -1..=1 {
+                                let idx = (row_idx as isize + x_off) as usize;
+                                // SAFETY: The bounds check above guarantees we are within the slice.
+                                let closest_depth = unsafe { *depths.get_unchecked(idx) };
+                                if ndc_z <= closest_depth + bias {
                                     shadow_sum += 1.0;
                                 }
                                 samples += 1.0;
+                            }
+                        }
+                    } else {
+                        // Slow path: near the edges
+                        for y_off in -1..=1 {
+                            for x_off in -1..=1 {
+                                if let Some(closest_depth) =
+                                    shadow_map.get_depth(sm_x + x_off, sm_y + y_off)
+                                {
+                                    if ndc_z <= closest_depth + bias {
+                                        shadow_sum += 1.0;
+                                    }
+                                    samples += 1.0;
+                                }
                             }
                         }
                     }
