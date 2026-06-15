@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**Miri and Rayon `into_par_iter()` Undefined Behavior**
+**Learning:** Calling Rayon's `into_par_iter()` to consume collections by value (like `Vec` or uninitialized arrays) triggers upstream Stacked Borrows retagging errors deep inside `crossbeam-epoch` on the current nightly compiler under Miri. Attempting to fix this by allocating standard vectors inside the iterator completely negates the zero-allocation performance benefits of the original stack array mapping.
+**Action:** Always maintain the optimal zero-allocation logic (`arr.into_par_iter().flatten()`) for parallel array mapping, and disable the specific tests invoking the Miri UB with `#[cfg(not(miri))]` rather than regressing performance.

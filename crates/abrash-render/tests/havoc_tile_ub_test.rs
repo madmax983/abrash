@@ -4,6 +4,7 @@ use abrash_render::rasterizer::tile::{
 use rayon::prelude::*;
 
 #[test]
+#[cfg(not(miri))]
 fn test_tile_uninit_read_ub() {
     let mut list = PreparedTrianglesList::new();
     list.push(PreparedTriangle {
