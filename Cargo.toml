@@ -984,3 +984,13 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[example]]
+name = "cctv_demo"
+path = "examples/cctv_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "cctv_bench"
+harness = false
+required-features = ["nova"]
