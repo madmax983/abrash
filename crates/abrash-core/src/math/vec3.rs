@@ -15,10 +15,12 @@ use std::ops::{Add, Mul, Sub};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
-#[allow(missing_docs)]
 pub struct Vec3 {
+    /// The X component.
     pub x: f32,
+    /// The Y component.
     pub y: f32,
+    /// The Z component.
     pub z: f32,
 }
 
@@ -63,13 +65,13 @@ impl Vec3 {
         (a * w0) + (b * w1)
     }
 
-    #[allow(missing_docs)]
+    /// A vector with all components set to `0.0`.
     pub const ZERO: Self = Self {
         x: 0.0,
         y: 0.0,
         z: 0.0,
     };
-    #[allow(missing_docs)]
+    /// A vector with all components set to `1.0`.
     pub const ONE: Self = Self {
         x: 1.0,
         y: 1.0,

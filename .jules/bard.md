@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2024-06-15 - [Core Structures Documentation]
+**Confusion:** Many core math and geometry structures (like `Vec3`, `Mat4`, `Quat`, `AABB`, `Texture`, etc.) had missing documentation for their fields, causing developers to be confused about exactly what each component represents or what layout matrices are in (row-major vs column-major). There were many `#[allow(missing_docs)]` suppressing warnings.
+**Clarification:** Removed `#[allow(missing_docs)]` from the core structures and explicitly documented every public field across the `abrash-core` crate to resolve ambiguity and clean up the API reference.

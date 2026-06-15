@@ -44,8 +44,8 @@ use std::ops::{Add, Mul, Sub};
 /// ```
 #[repr(C, align(16))]
 #[derive(Debug, Clone, Copy)]
-#[allow(missing_docs)]
 pub struct Mat4 {
+    /// The matrix elements stored in row-major order: `m[row][column]`.
     pub m: [[f32; 4]; 4],
 }
 
