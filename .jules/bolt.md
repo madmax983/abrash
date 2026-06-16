@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Vec Init Optimization in CLI args builder]**
+**Learning:** Constructing a `Vec` using the `vec![...]` macro creates an exact-sized array initially, but when dynamically adding more elements conditionally (like pushing features in `build_demo_command_args`), it forces multiple dynamic heap reallocations as the capacity needs to grow. Pre-allocating the maximum expected capacity upfront via `Vec::with_capacity(9)` and using `.push()` avoids these hidden reallocations entirely.
+**Action:** Replace `vec![...]` with `Vec::with_capacity(n)` and sequential `.push()` calls when the vector is known to receive additional conditional elements later in the function.

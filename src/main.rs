@@ -416,14 +416,12 @@ fn is_nova_example(example_name: &str) -> bool {
 }
 
 fn build_demo_command_args(example_name: &str, use_tui_backend: bool) -> Vec<String> {
-    let mut args = vec![
-        "cargo".to_string(),
-        "run".to_string(),
-        "--release".to_string(),
-        "--example".to_string(),
-        example_name.to_string(),
-    ];
-
+    let mut args = Vec::with_capacity(9);
+    args.push("cargo".to_string());
+    args.push("run".to_string());
+    args.push("--release".to_string());
+    args.push("--example".to_string());
+    args.push(example_name.to_string());
     if is_gpu_render_example(example_name) {
         args.push("--features".to_string());
         args.push("gpu-render".to_string());
