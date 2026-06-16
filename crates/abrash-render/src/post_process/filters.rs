@@ -1200,7 +1200,7 @@ mod simd {
                     }
 
                     // 2. SIMD Loop
-                    if offset.saturating_add(32) <= width {
+                    if offset + 32 <= width {
                         let simd_limit_unrolled = width - offset - 32;
                         while x <= simd_limit_unrolled {
                             // Unroll 4x
@@ -1228,7 +1228,7 @@ mod simd {
                         }
                     }
 
-                    if offset.saturating_add(8) <= width {
+                    if offset + 8 <= width {
                         let simd_limit = width - offset - 8;
                         while x <= simd_limit {
                             let v_center = _mm256_loadu_si256(src_ptr.add(x).cast());
@@ -1244,6 +1244,18 @@ mod simd {
                             _mm256_storeu_si256(dst_ptr.add(x).cast(), res);
                             x += 8;
                         }
+                    }
+
+                    // 3. Middle Scalar Edge (x < width - offset)
+                    let middle_limit = width.saturating_sub(offset);
+                    while x < middle_limit {
+                        let p_center = *src_ptr.add(x);
+                        let g = (p_center >> 8) & 0xFF;
+                        let a = (p_center >> 24) & 0xFF;
+                        let r = (*src_ptr.add(x - offset) >> 16) & 0xFF;
+                        let b = *src_ptr.add(x + offset) & 0xFF;
+                        *dst_ptr.add(x) = (a << 24) | (r << 16) | (g << 8) | b;
+                        x += 1;
                     }
 
                     // 3. Right Edge (Scalar)
@@ -1971,7 +1983,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Known failing test"]
     fn test_apply_chromatic_aberration() {
         let width = 5;
         let height = 1;
