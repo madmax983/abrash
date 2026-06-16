@@ -227,6 +227,8 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
+        // ⚡ Bolt: Reserve capacity explicitly before extend loop to avoid capacity checks per element
+        out.reserve(points.len());
         // We iterate by value (using `&p`) to avoid dereferencing inside the closure.
         out.extend(points.iter().map(|&p| {
             Vec3::new(
@@ -284,6 +286,8 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
+        // ⚡ Bolt: Reserve capacity explicitly before extend loop to avoid capacity checks per element
+        out.reserve(vectors.len());
         // We iterate by value (using `&v`) to avoid dereferencing inside the closure.
         out.extend(vectors.iter().map(|&v| {
             Vec3::new(
@@ -876,5 +880,25 @@ mod tests {
         assert_vec3_close(t.position, i.position);
         assert_eq!(t.rotation, i.rotation);
         assert_vec3_close(t.scale, i.scale);
+    }
+
+    #[test]
+    fn test_transform_vectors_into_reserves_capacity() {
+        let transform = Transform::new(Vec3::new(1.0, 2.0, 3.0), crate::quat::Quat::identity(), Vec3::new(2.0, 2.0, 2.0));
+        let vectors = vec![Vec3::new(1.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0)];
+        let mut out = Vec::new();
+        transform.transform_vectors_into(&vectors, &mut out);
+        assert!(out.capacity() >= vectors.len());
+        assert_eq!(out.len(), 2);
+    }
+
+    #[test]
+    fn test_transform_points_into_reserves_capacity() {
+        let transform = Transform::new(Vec3::new(1.0, 2.0, 3.0), crate::quat::Quat::identity(), Vec3::new(2.0, 2.0, 2.0));
+        let points = vec![Vec3::new(1.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0)];
+        let mut out = Vec::new();
+        transform.transform_points_into(&points, &mut out);
+        assert!(out.capacity() >= points.len());
+        assert_eq!(out.len(), 2);
     }
 }

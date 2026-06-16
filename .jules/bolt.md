@@ -232,3 +232,27 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Eliding collect for TrustedLen iterators]
+**Learning:** Replacing `.collect::<Vec<_>>()` with `.with_capacity()` and `.extend()` for iterators that implement `TrustedLen` (like `Range` or `Map` over ranges) provides zero performance benefit and is less idiomatic, as `.collect()` already perfectly pre-allocates the exact capacity.
+**Action:** Leave `.collect()` alone for trusted-length iterators unless there's a specific need to append to an existing buffer.
+
+**[Sorting via Index Arrays for Small Types]
+**Learning:** When sorting arrays of small `Copy` types (e.g., `Vec2` which is 8 bytes), creating an intermediate `Vec<usize>` index array to sort by indices does not save memory (as `usize` is also 8 bytes on 64-bit systems) and actually degrades performance due to added pointer indirection.
+**Action:** Sort small `Copy` types directly instead of using index arrays.
+
+**[Pre-reserving Capacity before Extend Loops]
+**Learning:** Iterators mapped from slices via `.iter().map()` do not guarantee exact size hints to `.extend()` in all compiler versions, resulting in slow reallocation loops or capacity checks during vector extension. Explicitly calling `.reserve()` before `.extend()` entirely avoids implicit allocation checks on hot paths.
+**Action:** Add explicit `.reserve()` calls before `.extend()` blocks on  structures during batch math operations like geometry transforms.
+
+**[Eliding collect for TrustedLen iterators]
+**Learning:** Replacing `.collect::<Vec<_>>()` with `.with_capacity()` and `.extend()` for iterators that implement `TrustedLen` (like `Range` or `Map` over ranges) provides zero performance benefit and is less idiomatic, as `.collect()` already perfectly pre-allocates the exact capacity.
+**Action:** Leave `.collect()` alone for trusted-length iterators unless there's a specific need to append to an existing buffer.
+
+**[Sorting via Index Arrays for Small Types]
+**Learning:** When sorting arrays of small `Copy` types (e.g., `Vec2` which is 8 bytes), creating an intermediate `Vec<usize>` index array to sort by indices does not save memory (as `usize` is also 8 bytes on 64-bit systems) and actually degrades performance due to added pointer indirection.
+**Action:** Sort small `Copy` types directly instead of using index arrays.
+
+**[Pre-reserving Capacity before Extend Loops]
+**Learning:** Iterators mapped from slices via `.iter().map()` do not guarantee exact size hints to `.extend()` in all compiler versions, resulting in slow reallocation loops or capacity checks during vector extension. Explicitly calling `.reserve()` before `.extend()` entirely avoids implicit allocation checks on hot paths.
+**Action:** Add explicit `.reserve()` calls before `.extend()` blocks on vectors during batch math operations like geometry transforms.
