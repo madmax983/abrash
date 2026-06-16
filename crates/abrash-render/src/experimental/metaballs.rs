@@ -16,6 +16,7 @@ pub struct MetaballsConfig {
     /// Number of metaballs to simulate.
     pub num_balls: usize,
     /// Threshold for the iso-surface (e.g., 1.0).
+    /// Threshold value for isosurface generation (Marching Squares).
     pub threshold: f32,
     /// Color of the "goo".
     pub blob_color: u32,
@@ -43,14 +44,19 @@ impl Default for MetaballsConfig {
 /// A single metaball entity.
 #[derive(Debug, Clone)]
 pub struct Metaball {
+    /// The 2D center position of the metaball.
     pub position: Vec2,
+    /// The 2D velocity vector.
     pub velocity: Vec2,
+    /// Visual scaling size.
     pub size: f32,
 }
 
 /// State for the Metaballs simulation.
 pub struct Metaballs {
+    /// Rendering and threshold configuration.
     pub config: MetaballsConfig,
+    /// The collection of interacting metaballs.
     pub balls: Vec<Metaball>,
     initialized: bool,
 }
@@ -63,6 +69,7 @@ impl Default for Metaballs {
 
 impl Metaballs {
     #[must_use]
+    /// Creates an empty collection of metaballs.
     pub const fn new(config: MetaballsConfig) -> Self {
         Self {
             config,

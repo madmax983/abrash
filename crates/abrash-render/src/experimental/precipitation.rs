@@ -12,35 +12,55 @@ use std::cell::RefCell;
 /// The state of a single precipitation drop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DropState {
+    /// Drop is currently falling.
     Falling,
+    /// Drop hit the ground and is splashing.
     Splashing,
 }
 
 /// A single drop of precipitation.
 #[derive(Debug, Clone, Copy)]
 pub struct Drop {
+    /// X coordinate of the drop.
     pub x: f32,
+    /// Y coordinate of the drop.
     pub y: f32,
+    /// Z coordinate (depth) for parallax scrolling.
     pub z: f32,
+    /// Horizontal moving speed.
     pub velocity_x: f32,
+    /// Vertical falling speed.
     pub velocity_y: f32,
+    /// Current state of the drop (falling or splashing).
     pub state: DropState,
-    pub life: f32, // Frames remaining for splash
+    /// Frames remaining for splash.
+    pub life: f32,
+    /// Base ARGB color for drops.
     pub color: u32,
 }
 
 /// Configuration for the precipitation effect.
 #[derive(Debug, Clone, Copy)]
 pub struct PrecipitationConfig {
+    /// Max active drops.
     pub max_drops: usize,
+    /// Color of the drops.
     pub drop_color: u32,
+    /// Color of the splash.
     pub splash_color: u32,
+    /// Base downward acceleration.
     pub gravity: f32,
+    /// Wind effect.
     pub wind: f32,
+    /// Min falling speed.
     pub drop_speed_min: f32,
+    /// Max falling speed.
     pub drop_speed_max: f32,
+    /// Min depth.
     pub z_min: f32,
+    /// Max depth.
     pub z_max: f32,
+    /// Duration of the splash in frames.
     pub splash_duration: f32,
 }
 
@@ -63,7 +83,9 @@ impl Default for PrecipitationConfig {
 
 /// The state of the precipitation simulation.
 pub struct PrecipitationState {
+    /// The active precipitation particles.
     pub drops: Vec<Drop>,
+    /// Random number generator.
     pub rng: XorShift32,
 }
 

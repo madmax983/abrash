@@ -16,14 +16,23 @@ use rayon::prelude::*;
 /// Configuration parameters for the Boids simulation.
 #[derive(Clone, Debug)]
 pub struct FlockConfig {
+    /// The weight applied to the separation rule (avoiding collisions).
     pub separation_weight: f32,
+    /// The weight applied to the alignment rule (matching velocity with neighbors).
     pub alignment_weight: f32,
+    /// The weight applied to the cohesion rule (moving towards the center of mass).
     pub cohesion_weight: f32,
+    /// The weight applied to the bounding box rule (staying within limits).
     pub bound_weight: f32,
+    /// The distance within which a boid considers others as its flockmates.
     pub perception_radius: f32,
+    /// The distance within which a boid actively avoids others to prevent overlap.
     pub separation_radius: f32,
+    /// Maximum allowed speed for a boid.
     pub max_speed: f32,
+    /// Minimum allowed speed for a boid.
     pub min_speed: f32,
+    /// The spatial bounds (X, Y, Z) defining the simulation area.
     pub bounds: Vec3,
 }
 
@@ -46,12 +55,15 @@ impl Default for FlockConfig {
 /// A single simulated entity.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Boid {
+    /// The current position in 3D space.
     pub position: Vec3,
+    /// The current velocity vector.
     pub velocity: Vec3,
 }
 
 impl Boid {
     #[must_use]
+    /// Creates a new Boid with a given position and velocity.
     pub const fn new(position: Vec3, velocity: Vec3) -> Self {
         Self { position, velocity }
     }
@@ -59,14 +71,17 @@ impl Boid {
 
 /// A manager for a collection of Boids.
 pub struct Flock {
+    /// The active boids in the simulation.
     pub boids: Vec<Boid>,
     /// Pre-allocated buffer to store the previous state of the flock without per-frame allocations.
     pub old_boids: Vec<Boid>,
+    /// The configuration and weights governing the flock behavior.
     pub config: FlockConfig,
 }
 
 impl Flock {
     #[must_use]
+    /// Creates an empty flock with the specified configuration.
     pub const fn new(config: FlockConfig) -> Self {
         Self {
             boids: Vec::new(),
@@ -75,6 +90,7 @@ impl Flock {
         }
     }
 
+    /// Add a single boid to the flock.
     pub fn add_boid(&mut self, boid: Boid) {
         self.boids.push(boid);
     }

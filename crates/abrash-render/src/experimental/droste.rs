@@ -21,6 +21,7 @@ pub struct DrosteConfig {
     pub scale: f32,
     /// Offset of the inner picture relative to the center, normalized (e.g., (0.0, 0.0) is centered).
     pub offset_x: f32,
+    /// Vertical offset in the spiral.
     pub offset_y: f32,
 }
 
@@ -43,6 +44,9 @@ impl Default for DrosteConfig {
 ///
 /// * `fb` - The framebuffer to modify in-place.
 /// * `config` - Configuration for the droste effect.
+/// Apply a Droste effect (recursive picture-in-picture) to the framebuffer.
+///
+/// Scales and maps coordinates logarithmically to repeat the image inside itself.
 pub fn apply_droste(fb: &mut Framebuffer, config: &DrosteConfig) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;

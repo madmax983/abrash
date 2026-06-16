@@ -27,7 +27,10 @@ pub enum ClockEvent {
     /// Normal phase advance within a cycle.
     Normal,
     /// One or more cycles completed this tick.
-    CycleBoundary { completed: u64 },
+    CycleBoundary {
+        /// The number of whole cycles completed during this tick.
+        completed: u64,
+    },
 }
 
 /// A drift-free animation clock.
@@ -36,7 +39,9 @@ pub enum ClockEvent {
 /// accumulation errors in looping animations.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AnimationClock {
+    /// The whole-number count of completed cycles.
     cycle: u64,
+    /// The fractional phase within the current cycle (0.0 to 1.0).
     phase: f32,
 }
 

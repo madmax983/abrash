@@ -8,6 +8,7 @@ use crate::framebuffer::Framebuffer;
 /// A struct holding an arbitrary set of ARGB colors.
 #[derive(Debug, Clone)]
 pub struct Palette {
+    /// The list of ARGB colors in this palette.
     pub colors: Vec<u32>,
 }
 
@@ -20,6 +21,7 @@ impl Palette {
 
     /// The classic 4-color Nintendo Gameboy palette.
     #[must_use]
+    /// Creates a classic 4-color Gameboy-style green palette.
     pub fn gameboy() -> Self {
         Self {
             colors: vec![
@@ -33,6 +35,7 @@ impl Palette {
 
     /// The classic 16-color IBM CGA palette.
     #[must_use]
+    /// Creates a standard 16-color IBM CGA palette.
     pub fn cga() -> Self {
         Self {
             colors: vec![
@@ -58,6 +61,7 @@ impl Palette {
 
     /// A stylized synthwave/vaporwave aesthetic palette.
     #[must_use]
+    /// Creates a Vaporwave aesthetic palette (neon pinks and blues).
     pub fn vaporwave() -> Self {
         Self {
             colors: vec![
@@ -75,6 +79,7 @@ impl Palette {
 
     /// A stylized 1-bit monochrome (Black and White) palette.
     #[must_use]
+    /// Creates a simple 2-color black and white palette.
     pub fn monochrome() -> Self {
         Self {
             colors: vec![0xFF_000000, 0xFF_FFFFFF],
@@ -84,6 +89,7 @@ impl Palette {
     /// Returns the closest ARGB color in the palette to the given ARGB color.
     /// Finds the nearest color using squared Euclidean distance in RGB space.
     #[must_use]
+    /// Finds the closest color in the palette to the given target ARGB color using Euclidean distance.
     pub fn closest_color(&self, target_color: u32) -> u32 {
         if self.colors.is_empty() {
             return target_color;
@@ -139,6 +145,7 @@ impl Palette {
 /// apply_palette(&mut fb, &Palette::gameboy());
 /// ```
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// Quantizes every pixel in the framebuffer to its closest match in the provided palette.
 pub fn apply_palette(fb: &mut Framebuffer, palette: &Palette) {
     if palette.colors.is_empty() {
         return;

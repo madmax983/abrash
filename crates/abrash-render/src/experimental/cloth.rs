@@ -8,26 +8,38 @@ use crate::mesh::Mesh;
 /// A single particle in the cloth grid.
 #[derive(Clone, Copy, Debug)]
 pub struct Particle {
+    /// The current 3D position of the particle.
     pub pos: Vec3,
+    /// The position of the particle in the previous time step (used for Verlet integration).
     pub old_pos: Vec3,
+    /// Accumulated acceleration acting on the particle.
     pub acc: Vec3,
+    /// Whether the particle is fixed in space.
     pub pinned: bool,
+    /// Texture coordinates for rendering.
     pub uv: Vec2,
 }
 
 /// A structural constraint between two particles.
 #[derive(Clone, Copy, Debug)]
 pub struct Constraint {
+    /// Index of the first connected particle.
     pub p1: usize,
+    /// Index of the second connected particle.
     pub p2: usize,
+    /// The resting distance the constraint attempts to maintain.
     pub rest_length: f32,
 }
 
 /// A simulatable cloth object.
 pub struct Cloth {
+    /// The vertices representing the cloth mass points.
     pub particles: Vec<Particle>,
+    /// The structural and shear links holding the particles together.
     pub constraints: Vec<Constraint>,
+    /// The number of particles across the width of the cloth.
     pub width: usize,
+    /// The number of particles across the height of the cloth.
     pub height: usize,
     /// Pre-calculated triangle indices for mesh generation.
     pub indices: Vec<[usize; 3]>,

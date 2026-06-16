@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use abrash_core::framebuffer::Framebuffer;
 use abrash_core::math::Vec3;
 use abrash_render::rasterizer::line::draw_line_3d;

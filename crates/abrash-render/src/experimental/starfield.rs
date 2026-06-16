@@ -10,8 +10,11 @@ use abrash_core::utils::XorShift32;
 
 /// A classic 3D starfield simulator.
 pub struct Starfield {
+    /// Positions of the stars in 3D space.
     pub stars: Vec<Vec3>,
+    /// The forward movement speed through the starfield.
     pub speed: f32,
+    /// Max depth for stars before respawning.
     pub max_depth: f32,
     prng: XorShift32,
 }

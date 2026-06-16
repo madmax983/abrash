@@ -8,22 +8,27 @@ use crate::evaluable::Sample;
 ///
 /// Always returns `Sample::at_rest(value)` — zero velocity.
 pub struct Hold<T: Animatable> {
+    /// The constant value to maintain.
     pub value: T,
+    /// The natural duration of the hold in seconds.
     pub duration: f32,
 }
 
 impl<T: Animatable> Hold<T> {
     #[must_use]
+    /// Create a new hold segment.
     pub const fn new(value: T, duration: f32) -> Self {
         Self { value, duration }
     }
 }
 
 impl<T: Animatable + Send + Sync> Hold<T> {
+    /// Evaluate the hold at a given phase. Always returns `Sample::at_rest(value)`.
     pub fn evaluate(&self, _phase: f32) -> Sample<T> {
         Sample::at_rest(self.value.clone())
     }
 
+    /// Return the natural duration of the hold segment.
     pub const fn natural_duration(&self) -> f32 {
         self.duration
     }

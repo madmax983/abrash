@@ -21,6 +21,7 @@ pub struct ReactionDiffusionConfig {
     /// Kill rate at which chemical B is removed.
     pub kill: f32,
     /// Time step size.
+    /// Time step per iteration.
     pub dt: f32,
 }
 
@@ -46,10 +47,13 @@ struct Cell {
 
 /// A 2D grid for the reaction-diffusion simulation.
 pub struct ReactionDiffusion {
+    /// Grid width.
     pub width: usize,
+    /// Grid height.
     pub height: usize,
     grid: Vec<Cell>,
     next_grid: Vec<Cell>,
+    /// System parameters determining the resulting patterns (e.g. spots, stripes).
     pub config: ReactionDiffusionConfig,
 }
 

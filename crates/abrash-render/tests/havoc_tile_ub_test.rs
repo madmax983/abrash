@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use abrash_render::rasterizer::tile::{
     CompactScreenPoint, PreparedTriangle, PreparedTrianglesList,
 };

@@ -6,9 +6,13 @@ use rayon::prelude::*;
 
 /// Configuration for rendering the Mandelbrot set.
 pub struct MandelbrotConfig {
+    /// The X coordinate of the viewport center in the complex plane.
     pub center_x: f64,
+    /// The Y coordinate of the viewport center in the complex plane.
     pub center_y: f64,
+    /// The magnification level. Higher values zoom in.
     pub zoom: f64,
+    /// Maximum number of iterations before assuming a point is inside the set.
     pub max_iterations: u32,
 }
 

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use abrash_core::math::{Mat4, Vec3};
 use abrash_render::scene::{Camera, Scene};
 

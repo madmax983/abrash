@@ -53,7 +53,9 @@ pub struct BspSector {
 /// The raycaster calls [`traverse_front_to_back`](BspMapData::traverse_front_to_back)
 /// to visit subsectors in painter's-algorithm order.
 pub struct BspMapData {
+    /// The single root sector of this map.
     pub sector: BspSector,
+    /// The list of wall segments that make up the map.
     pub segs: Vec<BspSeg>,
 }
 
@@ -172,6 +174,7 @@ mod tests {
 
     impl BspMapData {
         #[must_use]
+        /// Mock map
         pub fn new_mock() -> Self {
             let sector = BspSector {
                 floor_height: 0,
@@ -241,6 +244,7 @@ mod tests {
         }
 
         #[must_use]
+        /// Integration map
         pub fn new_integration() -> Self {
             let sector = BspSector {
                 floor_height: 0,

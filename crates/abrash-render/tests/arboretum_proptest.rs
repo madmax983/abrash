@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 #![cfg(feature = "nova")]
 use abrash_render::experimental::arboretum::LSystem;
 use proptest::prelude::*;

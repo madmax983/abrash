@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use abrash_core::framebuffer::Framebuffer;
 use abrash_render::post_process::filters;
 use proptest::prelude::*;

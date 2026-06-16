@@ -191,13 +191,20 @@ struct TurtleState {
 /// A stateful 3D Turtle for interpreting strings into meshes.
 #[derive(Debug, Clone)]
 pub struct Turtle {
+    /// Current spatial position.
     pub position: Vec3,
+    /// Current forward direction.
     pub direction: Vec3,
+    /// Current up direction.
     pub up: Vec3,
+    /// Current right direction.
     pub right: Vec3,
+    /// The distance to move forward for drawing operations.
     pub segment_length: f32,
+    /// The radius of the drawn segments (for mesh generation).
     pub segment_radius: f32,
-    pub turn_angle: f32, // in radians
+    /// The angle (in radians) applied by rotation commands.
+    pub turn_angle: f32,
     stack: Vec<TurtleState>,
 }
 

@@ -21,6 +21,7 @@ pub struct BspTextureCache {
 
 impl BspTextureCache {
     #[must_use]
+    /// Create a new `BspTextureCache` with default mock textures.
     pub fn new() -> Self {
         // Wall column: 128 texels, all palette index 1
         let wall_column_data = vec![1u8; 128];

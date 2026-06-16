@@ -133,6 +133,9 @@ fn process_kuwahara_region(
     }
 }
 
+/// Apply a Kuwahara filter to the given framebuffer with the given search radius.
+///
+/// The Kuwahara filter is an edge-preserving smoothing filter.
 pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
     if radius <= 0 {
         return;

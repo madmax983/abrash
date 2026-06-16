@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use abrash_core::framebuffer::Framebuffer;
 use abrash_render::rasterizer::rect::{draw_rounded_rect, fill_rounded_rect};
 use std::time::Instant;

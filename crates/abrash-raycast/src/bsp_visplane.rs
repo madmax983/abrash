@@ -20,10 +20,15 @@ const UNUSED_BOTTOM: i32 = i32::MIN;
 /// `i32::MIN` for bottom).
 #[derive(Clone, Debug)]
 pub struct Visplane {
+    /// The height of the plane in world units.
     pub height: i16,
+    /// The flat texture index applied to this plane.
     pub texture: u16,
+    /// The ambient light level of the sector this plane belongs to.
     pub light_level: u16,
+    /// The minimum screen column this plane is visible on.
     pub min_x: i32,
+    /// The maximum screen column this plane is visible on.
     pub max_x: i32,
     top: Vec<i32>,
     bottom: Vec<i32>,
