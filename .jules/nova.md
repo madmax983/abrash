@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [Film Halation Filter]
+**Concept:** A post-processing effect that simulates "Halation" - the red-orange glow around bright light sources typical of analog film. It occurs when bright light reflects off the back of the film base and exposes the adjacent red emulsion layer.
+**Fate:** Implemented
+**Lesson:** Separating a 2D box blur into a horizontal and a vertical pass (O(R) instead of O(R²)), isolating bright pixels first, and using flat slice manipulation (`chunks_exact`, `get_unchecked`) without allocating multiple `vec!` instances in the hot loops dramatically improves post-processing performance on high-resolution targets while avoiding float math entirely via fixed-point bit shifts.

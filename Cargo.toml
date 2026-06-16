@@ -984,3 +984,12 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+[[bench]]
+name = "halation_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "halation_demo"
+path = "examples/halation_demo.rs"
+required-features = ["nova"]
