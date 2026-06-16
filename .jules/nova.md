@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Vectorscope Filter]
+**Concept:** A post-processing effect that visualizes the color chrominance (U/V representation) as a vectorscope trace overlaid on the screen, useful for analyzing color distributions in a scene or creating a retro instrumentation aesthetic.
+**Fate:** Implemented
+**Lesson:** Iterating across the framebuffer, calculating U/V, and incrementing a thread-local density buffer provides a very performant scatter plot implementation that can be alpha-blended over the image without massive intermediate allocations.

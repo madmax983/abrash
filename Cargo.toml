@@ -984,3 +984,13 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[example]]
+name = "vectorscope_demo"
+path = "examples/vectorscope_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "vectorscope_bench"
+harness = false
+required-features = ["nova"]

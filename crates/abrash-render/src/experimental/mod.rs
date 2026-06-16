@@ -104,6 +104,7 @@ pub mod thermal;
 pub mod tilt_shift;
 pub mod topography;
 pub mod tunnel;
+pub mod vectorscope;
 pub mod vhs;
 pub mod vision;
 pub mod volume;
