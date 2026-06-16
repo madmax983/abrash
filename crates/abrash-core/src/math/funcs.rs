@@ -7853,27 +7853,31 @@ pub fn rms(signal: &[f32]) -> f32 {
 ///
 /// This is the transform used in JPEG block coding.  For an efficient O(n log n)
 /// version, compose with the FFT.
+/// ⚡ Bolt: Pre-allocates the vector capacity instead of chaining `collect`
+/// to ensure a single, exact-sized allocation for signal transforms.
 pub fn dct_ii(signal: &[f32]) -> Vec<f32> {
     let big_n = signal.len();
     if big_n == 0 {
         return Vec::new();
     }
     let scale = std::f32::consts::PI / (2 * big_n) as f32;
-    (0..big_n)
-        .map(|k| {
-            signal
-                .iter()
-                .enumerate()
-                .map(|(n, &x)| x * (scale * k as f32 * (2 * n + 1) as f32).cos())
-                .sum()
-        })
-        .collect()
+    let mut vec = Vec::with_capacity(big_n);
+    vec.extend((0..big_n).map(|k| {
+        signal
+            .iter()
+            .enumerate()
+            .map(|(n, &x)| x * (scale * k as f32 * (2 * n + 1) as f32).cos())
+            .sum::<f32>()
+    }));
+    vec
 }
 
 /// Inverse DCT-II (IDCT-II = scaled DCT-III), O(n²) naive implementation.
 ///
 /// Recovers `x` from DCT-II coefficients `X`:
 /// `x[n] = (1/N)·X[0] + (2/N)·Σ_{k=1}^{N-1} X[k]·cos(π·k·(2n+1)/(2N))`
+/// ⚡ Bolt: Pre-allocates the vector capacity instead of chaining `collect`
+/// to ensure a single, exact-sized allocation for signal transforms.
 pub fn idct_ii(coeffs: &[f32]) -> Vec<f32> {
     let big_n = coeffs.len();
     if big_n == 0 {
@@ -7881,18 +7885,18 @@ pub fn idct_ii(coeffs: &[f32]) -> Vec<f32> {
     }
     let inv_n = 1.0 / big_n as f32;
     let scale = std::f32::consts::PI / (2 * big_n) as f32;
-    (0..big_n)
-        .map(|n| {
-            let dc = coeffs[0] * inv_n;
-            let ac: f32 = coeffs[1..]
-                .iter()
-                .enumerate()
-                .map(|(k, &x)| x * (scale * (k + 1) as f32 * (2 * n + 1) as f32).cos())
-                .sum::<f32>()
-                * (2.0 * inv_n);
-            dc + ac
-        })
-        .collect()
+    let mut vec = Vec::with_capacity(big_n);
+    vec.extend((0..big_n).map(|n| {
+        let dc = coeffs[0] * inv_n;
+        let ac: f32 = coeffs[1..]
+            .iter()
+            .enumerate()
+            .map(|(k, &x)| x * (scale * (k + 1) as f32 * (2 * n + 1) as f32).cos())
+            .sum::<f32>()
+            * (2.0 * inv_n);
+        dc + ac
+    }));
+    vec
 }
 
 /// Estimate the surface normal at point `p` for an arbitrary SDF via central
