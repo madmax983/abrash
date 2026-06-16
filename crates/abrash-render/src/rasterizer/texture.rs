@@ -231,8 +231,8 @@ impl PerspectiveTextureEdgeWalker {
     }
 }
 
-#[derive(Clone, Copy)]
 /// Start of a perspective correct texture span.
+#[derive(Clone, Copy)]
 pub struct PerspectiveSpanStart {
     /// Z coordinate.
     pub z: f32,
