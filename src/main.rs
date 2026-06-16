@@ -456,7 +456,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     if let Some(demo_name) = args.demo {
-        run_demo(&demo_name, false)?;
+        run_demo(&demo_name, false, false)?;
         return Ok(());
     }
 
@@ -678,7 +678,7 @@ fn handle_input(
                 )?;
                 terminal.show_cursor()?;
 
-                let _ = run_demo(demo.example_name, true);
+                let _ = run_demo(demo.example_name, true, true);
 
                 // Re-enable TUI
                 enable_raw_mode()?;
@@ -837,7 +837,7 @@ fn print_launch_header(name: &str) {
     println!("\n{table}");
 }
 
-fn print_launch_success() {
+fn print_launch_success(is_tui_context: bool) {
     let mut success_table = ComfyTable::new();
     success_table
         .load_preset(ComfyPresets::UTF8_FULL)
@@ -848,11 +848,13 @@ fn print_launch_success() {
                 .fg(ComfyColor::Green),
         ]);
     println!("\n{success_table}");
-    println!("\n{}", "Press Enter to return to dashboard...".grey());
-    let _ = std::io::stdin().read_line(&mut String::new());
+    if is_tui_context {
+        println!("\n{}", "Press Enter to return to dashboard...".grey());
+        let _ = std::io::stdin().read_line(&mut String::new());
+    }
 }
 
-fn print_launch_error(status: std::process::ExitStatus) {
+fn print_launch_error(status: std::process::ExitStatus, is_tui_context: bool) {
     let mut error_table = ComfyTable::new();
     error_table
         .load_preset(ComfyPresets::UTF8_FULL)
@@ -868,12 +870,14 @@ fn print_launch_error(status: std::process::ExitStatus) {
 
     println!("\n{error_table}");
 
-    // Give user a chance to read the error
-    println!("\n{}", "Press Enter to return to dashboard...".grey());
-    let _ = std::io::stdin().read_line(&mut String::new());
+    if is_tui_context {
+        // Give user a chance to read the error
+        println!("\n{}", "Press Enter to return to dashboard...".grey());
+        let _ = std::io::stdin().read_line(&mut String::new());
+    }
 }
 
-fn run_demo(name: &str, use_tui_backend: bool) -> Result<(), Box<dyn Error>> {
+fn run_demo(name: &str, use_tui_backend: bool, is_tui_context: bool) -> Result<(), Box<dyn Error>> {
     print_launch_header(name);
 
     let args = build_demo_command_args(name, use_tui_backend);
@@ -887,9 +891,9 @@ fn run_demo(name: &str, use_tui_backend: bool) -> Result<(), Box<dyn Error>> {
     let status = child.wait()?;
 
     if status.success() {
-        print_launch_success();
+        print_launch_success(is_tui_context);
     } else {
-        print_launch_error(status);
+        print_launch_error(status, is_tui_context);
     }
 
     Ok(())
