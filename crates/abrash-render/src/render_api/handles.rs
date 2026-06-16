@@ -207,26 +207,30 @@ impl<T> ResourcePool<T> {
     /// Look up a resource by handle. Returns `None` if handle is stale or invalid.
     #[must_use]
     pub fn get(&self, handle: Handle<T>) -> Option<&T> {
-        self.entries
-            .get(handle.index as usize)
-            .and_then(|entry| match entry {
-                PoolEntry::Occupied { value, generation } if *generation == handle.generation => {
-                    Some(value)
-                }
-                _ => None,
-            })
+        let entry = self.entries.get(handle.index as usize)?;
+        let PoolEntry::Occupied { value, generation } = entry else {
+            return None;
+        };
+
+        if *generation == handle.generation {
+            Some(value)
+        } else {
+            None
+        }
     }
 
     /// Mutable lookup by handle.
     pub fn get_mut(&mut self, handle: Handle<T>) -> Option<&mut T> {
-        self.entries
-            .get_mut(handle.index as usize)
-            .and_then(|entry| match entry {
-                PoolEntry::Occupied { value, generation } if *generation == handle.generation => {
-                    Some(value)
-                }
-                _ => None,
-            })
+        let entry = self.entries.get_mut(handle.index as usize)?;
+        let PoolEntry::Occupied { value, generation } = entry else {
+            return None;
+        };
+
+        if *generation == handle.generation {
+            Some(value)
+        } else {
+            None
+        }
     }
 
     /// Remove a resource and return it. Increments generation to invalidate old handles.
