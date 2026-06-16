@@ -688,6 +688,8 @@ pub struct TileBins {
     pub nexts: Vec<u32>,
     /// The triangle indices for each node.
     pub tris: Vec<u32>,
+    /// ⚡ Bolt: Tracks active tiles to avoid O(N) clearing overhead.
+    pub active_tiles: Vec<usize>,
 }
 
 impl TileBins {
@@ -703,13 +705,19 @@ impl TileBins {
             tails: vec![u32::MAX; num_tiles],
             nexts: Vec::with_capacity(capacity),
             tris: Vec::with_capacity(capacity),
+            active_tiles: Vec::with_capacity(num_tiles),
         }
     }
 
     /// Clears the bin structure for the next frame.
     pub fn clear(&mut self) {
-        self.heads.fill(u32::MAX);
-        self.tails.fill(u32::MAX);
+        // ⚡ Bolt: Only clear active bins instead of using slice.fill() across the entire grid.
+        // This reduces clearing overhead from O(N) to O(K) where K is the number of dirtied bins.
+        for &idx in &self.active_tiles {
+            self.heads[idx] = u32::MAX;
+            self.tails[idx] = u32::MAX;
+        }
+        self.active_tiles.clear();
         self.nexts.clear();
         self.tris.clear();
     }
@@ -723,6 +731,7 @@ impl TileBins {
 
         let head = self.heads[tile_idx];
         if head == u32::MAX {
+            self.active_tiles.push(tile_idx);
             self.heads[tile_idx] = node_idx;
         } else {
             let tail = self.tails[tile_idx];
