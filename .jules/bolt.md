@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+## [ExactSizeIterator .collect() Anti-Pattern]
+**Learning:** Replacing `.collect::<Vec<_>>()` with `.with_capacity()` and `.extend()` for iterators that implement `ExactSizeIterator` or `TrustedLen` (like mapping over slices or vectors) provides zero performance benefit and is less idiomatic. The standard library's `.collect()` internally uses `size_hint()` and `TrustedLen` to perfectly pre-allocate the required capacity before iterating, making the manual expansion redundant and unnecessarily verbose.
+**Action:** When seeking to eliminate allocations in iterator chains, focus on reusing existing mutable buffers via `.clear()` and `.extend()`, rather than trying to manually re-implement `.collect()`'s internal pre-allocation logic.

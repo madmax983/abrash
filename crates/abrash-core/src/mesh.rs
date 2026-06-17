@@ -543,75 +543,94 @@ impl Mesh {
     ///
     /// Requires `vertices`, `uvs`, and `normals` to be populated.
     /// Populates `self.tangents`.
+    /// Compute vertex tangents for normal mapping.
+    ///
+    /// ⚡ Bolt: Uses `thread_local!` scratchpads for intermediate `tan1` and `tan2` arrays
+    /// to eliminate two `O(N)` heap allocations per mesh. Also replaces `.resize(..., default)`
+    /// with `.reserve_exact()` and `.push()` to prevent `O(N)` zero-initialization overhead.
     pub fn compute_tangents(&mut self) {
         if self.uvs.is_empty() || self.normals.is_empty() {
             return;
         }
 
-        let mut tan1 = vec![Vec3::default(); self.vertices.len()];
-
-        let mut tan2 = vec![Vec3::default(); self.vertices.len()];
-
-        for &[i0, i1, i2] in &self.indices {
-            let v0 = self.vertices[i0];
-            let v1 = self.vertices[i1];
-            let v2 = self.vertices[i2];
-
-            let w0 = self.uvs[i0];
-            let w1 = self.uvs[i1];
-            let w2 = self.uvs[i2];
-
-            let x1 = v1.x - v0.x;
-            let x2 = v2.x - v0.x;
-            let y1 = v1.y - v0.y;
-            let y2 = v2.y - v0.y;
-            let z1 = v1.z - v0.z;
-            let z2 = v2.z - v0.z;
-
-            let s1 = w1.x - w0.x;
-            let s2 = w2.x - w0.x;
-            let t1 = w1.y - w0.y;
-            let t2 = w2.y - w0.y;
-
-            let r = 1.0 / (s1 * t2 - s2 * t1);
-            let sdir = Vec3::new(
-                (t2 * x1 - t1 * x2) * r,
-                (t2 * y1 - t1 * y2) * r,
-                (t2 * z1 - t1 * z2) * r,
-            );
-            let tdir = Vec3::new(
-                (s1 * x2 - s2 * x1) * r,
-                (s1 * y2 - s2 * y1) * r,
-                (s1 * z2 - s2 * z1) * r,
-            );
-
-            tan1[i0] = tan1[i0] + sdir;
-            tan1[i1] = tan1[i1] + sdir;
-            tan1[i2] = tan1[i2] + sdir;
-
-            tan2[i0] = tan2[i0] + tdir;
-            tan2[i1] = tan2[i1] + tdir;
-            tan2[i2] = tan2[i2] + tdir;
+        thread_local! {
+            static TAN1: std::cell::RefCell<Vec<Vec3>> = const { std::cell::RefCell::new(Vec::new()) };
+            static TAN2: std::cell::RefCell<Vec<Vec3>> = const { std::cell::RefCell::new(Vec::new()) };
         }
 
-        self.tangents.clear();
-        self.tangents.resize(self.vertices.len(), Vec4::default());
-        for i in 0..self.vertices.len() {
-            let n = self.normals[i];
-            let t = tan1[i];
+        TAN1.with(|tan1_cell| {
+            TAN2.with(|tan2_cell| {
+                let mut tan1 = tan1_cell.borrow_mut();
+                let mut tan2 = tan2_cell.borrow_mut();
 
-            // Gram-Schmidt orthogonalize
-            let tangent_xyz = (t - n * n.dot(t)).normalize();
+                tan1.clear();
+                tan1.resize(self.vertices.len(), Vec3::default());
+                tan2.clear();
+                tan2.resize(self.vertices.len(), Vec3::default());
 
-            // Calculate handedness
-            let w = if n.cross(t).dot(tan2[i]) < 0.0 {
-                -1.0
-            } else {
-                1.0
-            };
+                for &[i0, i1, i2] in &self.indices {
+                    let v0 = self.vertices[i0];
+                    let v1 = self.vertices[i1];
+                    let v2 = self.vertices[i2];
 
-            self.tangents[i] = Vec4::new(tangent_xyz.x, tangent_xyz.y, tangent_xyz.z, w);
-        }
+                    let w0 = self.uvs[i0];
+                    let w1 = self.uvs[i1];
+                    let w2 = self.uvs[i2];
+
+                    let x1 = v1.x - v0.x;
+                    let x2 = v2.x - v0.x;
+                    let y1 = v1.y - v0.y;
+                    let y2 = v2.y - v0.y;
+                    let z1 = v1.z - v0.z;
+                    let z2 = v2.z - v0.z;
+
+                    let s1 = w1.x - w0.x;
+                    let s2 = w2.x - w0.x;
+                    let t1 = w1.y - w0.y;
+                    let t2 = w2.y - w0.y;
+
+                    let r = 1.0 / (s1 * t2 - s2 * t1);
+                    let sdir = Vec3::new(
+                        (t2 * x1 - t1 * x2) * r,
+                        (t2 * y1 - t1 * y2) * r,
+                        (t2 * z1 - t1 * z2) * r,
+                    );
+                    let tdir = Vec3::new(
+                        (s1 * x2 - s2 * x1) * r,
+                        (s1 * y2 - s2 * y1) * r,
+                        (s1 * z2 - s2 * z1) * r,
+                    );
+
+                    tan1[i0] = tan1[i0] + sdir;
+                    tan1[i1] = tan1[i1] + sdir;
+                    tan1[i2] = tan1[i2] + sdir;
+
+                    tan2[i0] = tan2[i0] + tdir;
+                    tan2[i1] = tan2[i1] + tdir;
+                    tan2[i2] = tan2[i2] + tdir;
+                }
+
+                self.tangents.clear();
+                self.tangents.reserve_exact(self.vertices.len());
+                for i in 0..self.vertices.len() {
+                    let n = self.normals[i];
+                    let t = tan1[i];
+
+                    // Gram-Schmidt orthogonalize
+                    let tangent_xyz = (t - n * n.dot(t)).normalize();
+
+                    // Calculate handedness
+                    let w = if n.cross(t).dot(tan2[i]) < 0.0 {
+                        -1.0
+                    } else {
+                        1.0
+                    };
+
+                    self.tangents
+                        .push(Vec4::new(tangent_xyz.x, tangent_xyz.y, tangent_xyz.z, w));
+                }
+            });
+        });
     }
 }
 
