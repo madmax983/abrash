@@ -132,9 +132,10 @@ unsafe fn apply_heat_vision_simd(
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::{
         __m256i, _CMP_EQ_OQ, _mm256_blendv_epi8, _mm256_castps_si256, _mm256_cmp_ps,
-        _mm256_cvttps_epi32, _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32,
-        _mm256_min_epi32, _mm256_mul_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256,
-        _mm256_storeu_si256, _mm256_sub_ps,
+        _mm256_cmpgt_epi32, _mm256_cvttps_epi32, _mm256_loadu_ps, _mm256_max_epi32,
+        _mm256_min_epi32, _mm256_mul_ps, _mm256_or_si256, _mm256_set1_epi32, _mm256_set1_ps,
+        _mm256_setzero_si256, _mm256_slli_epi32, _mm256_storeu_si256, _mm256_sub_epi32,
+        _mm256_sub_ps,
     };
 
     let len = pixels.len().min(depths.len());
@@ -146,6 +147,7 @@ unsafe fn apply_heat_vision_simd(
     let max_t_vec = _mm256_set1_epi32(1023);
     let bg_color = _mm256_set1_epi32(0xFF00_0010_u32 as i32);
     let lut_ptr = lut.as_ptr().cast::<i32>();
+    let _ = lut_ptr;
 
     while i + 8 <= len {
         let depth_ptr = depths.as_ptr().add(i);
@@ -168,9 +170,57 @@ unsafe fn apply_heat_vision_simd(
         // Clamp to 1023
         let t_clamped = _mm256_min_epi32(t_clamped_low, max_t_vec);
 
-        // Gather from LUT
-        // SAFETY: t_clamped is strictly between 0 and 1023, lut is 1024 elements
-        let gathered = _mm256_i32gather_epi32::<4>(lut_ptr, t_clamped);
+        let c256 = _mm256_set1_epi32(256);
+        let c512 = _mm256_set1_epi32(512);
+        let c768 = _mm256_set1_epi32(768);
+        let c255 = _mm256_set1_epi32(255);
+        let alpha_mask = _mm256_set1_epi32(0xFF00_0000_u32 as i32);
+
+        let mask_256 = _mm256_cmpgt_epi32(c256, t_clamped);
+        let mask_512 = _mm256_cmpgt_epi32(c512, t_clamped);
+        let mask_768 = _mm256_cmpgt_epi32(c768, t_clamped);
+
+        // Segment 1 (t < 256): R=255, G=t, B=0
+        let r1 = c255;
+        let g1 = t_clamped;
+        let b1 = zero_vec;
+
+        // Segment 2 (t < 512): R=255-(t-256), G=255, B=0
+        let r2 = _mm256_sub_epi32(c255, _mm256_sub_epi32(t_clamped, c256));
+        let g2 = c255;
+        let b2 = zero_vec;
+
+        // Segment 3 (t < 768): R=0, G=255, B=t-512
+        let r3 = zero_vec;
+        let g3 = c255;
+        let b3 = _mm256_sub_epi32(t_clamped, c512);
+
+        // Segment 4 (t >= 768): R=0, G=255-(t-768), B=255
+        let r4 = zero_vec;
+        let g4 = _mm256_sub_epi32(c255, _mm256_sub_epi32(t_clamped, c768));
+        let b4 = c255;
+
+        // Blend segments in reverse
+        let r_34 = _mm256_blendv_epi8(r4, r3, mask_768);
+        let g_34 = _mm256_blendv_epi8(g4, g3, mask_768);
+        let b_34 = _mm256_blendv_epi8(b4, b3, mask_768);
+
+        let r_234 = _mm256_blendv_epi8(r_34, r2, mask_512);
+        let g_234 = _mm256_blendv_epi8(g_34, g2, mask_512);
+        let b_234 = _mm256_blendv_epi8(b_34, b2, mask_512);
+
+        let r_final = _mm256_blendv_epi8(r_234, r1, mask_256);
+        let g_final = _mm256_blendv_epi8(g_234, g1, mask_256);
+        let b_final = _mm256_blendv_epi8(b_234, b1, mask_256);
+
+        // Pack ARGB
+        let gathered = _mm256_or_si256(
+            alpha_mask,
+            _mm256_or_si256(
+                _mm256_slli_epi32(r_final, 16),
+                _mm256_or_si256(_mm256_slli_epi32(g_final, 8), b_final),
+            ),
+        );
 
         // Blend: if is_inf, use bg_color, else use gathered color
         let final_color = _mm256_blendv_epi8(gathered, bg_color, is_inf_int);
