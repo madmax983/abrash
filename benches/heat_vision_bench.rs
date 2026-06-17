@@ -34,6 +34,13 @@ fn bench_heat_vision(c: &mut Criterion) {
                 apply_heat_vision(black_box(&mut fb), black_box(&zb));
             });
         });
+
+        group.bench_function(format!("Range_Only_{w}x{h}"), |b| {
+            let depths = zb.as_slice();
+            b.iter(|| {
+                abrash_render::heat_vision::find_depth_range(black_box(depths));
+            });
+        });
     }
 
     group.finish();
