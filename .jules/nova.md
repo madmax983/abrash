@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Strange Attractor]
+**Concept:** A mathematical point generator using numerical integration to trace 3D paths for continuous chaotic systems like the Lorenz and Roessler strange attractors. It iteratively solves differential equations using the Euler method to produce a sequence of 3D coordinates.
+**Fate:** Implemented
+**Lesson:** Iterating simple differential equations using small timesteps creates complex, chaotic geometry suitable for interesting visualizations and procedural path generation, with minimal performance overhead.
