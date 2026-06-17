@@ -91,7 +91,7 @@ fn box_blur_f32_horizontal_scalar(
 
             for (x, dest_val) in dest_row.iter_mut().enumerate() {
                 *dest_val = acc * scale;
-                let out_idx = (x as isize - radius as isize).max(0) as usize;
+                let out_idx = x.saturating_sub(radius);
                 let in_idx = (x + radius + 1).min(width - 1);
                 acc -= src_row[out_idx];
                 acc += src_row[in_idx];
@@ -179,7 +179,7 @@ fn box_blur_f32_vertical_scalar(
         let dest_row_start = y * width;
         let dest_row = &mut dest[dest_row_start..dest_row_start + width];
 
-        let out_y = (y as isize - radius as isize).max(0) as usize;
+        let out_y = y.saturating_sub(radius);
         let in_y = (y + radius + 1).min(height - 1);
 
         let out_row = &src[out_y * width..(out_y + 1) * width];
@@ -219,10 +219,7 @@ unsafe fn box_blur_f32_vertical_avx2(
         // We could SIMD this too but it runs once per frame.
         let row0 = &src[0..width];
         for x in 0..width {
-            let val = row0[x];
-            for _ in 0..=radius {
-                acc[x] += val;
-            }
+            acc[x] += row0[x] * (radius as f32 + 1.0);
         }
         for y in 1..=radius {
             let row_idx = y.min(height - 1);
@@ -236,7 +233,7 @@ unsafe fn box_blur_f32_vertical_avx2(
             let dest_row_start = y * width;
             let dest_row = &mut dest[dest_row_start..dest_row_start + width];
 
-            let out_y = (y as isize - radius as isize).max(0) as usize;
+            let out_y = y.saturating_sub(radius);
             let in_y = (y + radius + 1).min(height - 1);
 
             let out_row = &src[out_y * width..(out_y + 1) * width];
@@ -408,20 +405,15 @@ fn process_row_horizontal(
     // Body: Unclamped loop
     let body_end = width.saturating_sub(radius + 1);
     if body_end > radius + 1 {
-        // `incoming_iter` iterates from `2 * radius + 2` to `width`
-        let incoming_iter = src_row.iter().skip(2 * radius + 2);
-        // `outgoing_iter` iterates from `1`
-        let outgoing_iter = src_row.iter().skip(1);
-        let dst_iter = dst_row
-            .iter_mut()
-            .skip(radius + 1)
-            .take(body_end - (radius + 1));
+        let mut x = radius + 1;
+        while x < body_end {
+            let p_out = src_row[x - radius];
+            let p_in = src_row[x + radius + 1];
 
-        for ((dst_pixel, &p_out), &p_in) in dst_iter.zip(outgoing_iter).zip(incoming_iter) {
             let r_avg = ((u64::from(r_acc) * scale + bias) >> 24) as u32;
             let g_avg = ((u64::from(g_acc) * scale + bias) >> 24) as u32;
             let b_avg = ((u64::from(b_acc) * scale + bias) >> 24) as u32;
-            *dst_pixel = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
+            dst_row[x] = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
 
             r_acc -= (p_out >> 16) & 0xFF;
             g_acc -= (p_out >> 8) & 0xFF;
@@ -430,6 +422,8 @@ fn process_row_horizontal(
             r_acc += (p_in >> 16) & 0xFF;
             g_acc += (p_in >> 8) & 0xFF;
             b_acc += p_in & 0xFF;
+
+            x += 1;
         }
     }
 
@@ -589,7 +583,7 @@ fn box_blur_vertical_scalar(
 
         // Update accumulators for next row
         // Outgoing: y - radius
-        let out_y = (y as isize - radius as isize).max(0) as usize;
+        let out_y = y.saturating_sub(radius);
         let out_row = &src[out_y * width..(out_y + 1) * width];
 
         // Incoming: y + radius + 1
@@ -771,7 +765,7 @@ unsafe fn box_blur_vertical_avx2(
         for y in 0..height {
             let dst_ptr = dest.as_mut_ptr().add(y * width);
 
-            let out_y = (y as isize - radius as isize).max(0) as usize;
+            let out_y = y.saturating_sub(radius);
             let in_y = (y + radius + 1).min(height - 1);
 
             let out_ptr = src.as_ptr().add(out_y * width);

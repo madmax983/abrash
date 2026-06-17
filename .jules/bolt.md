@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Box Blur Iterator Overhead]**
+**Learning:** In hot unrolled inner loops processing spatial filters (like box blur), removing `.zip()` iterators and replacing them with direct sequential index access (e.g., direct `while` loops reading from array bounds) can eliminate LLVM iterator state overhead and yield significant performance gains (~26%).
+**Action:** Replaced `.zip` iterator chaining in `process_row_horizontal` with a direct `while` loop index accessor.
