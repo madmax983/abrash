@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[PCF Kernel Loop Safe Bounds Fast Path]
+**Learning:** Replaced the 3x3 shadow kernel sampling's safe bound checker inside the inner loop with a pre-validated safe fast-path mapping out safe kernel centers and relying on `unsafe { get_unchecked(idx) }`.
+**Action:** Fast path bypasses index bounds validation for safe kernel centers and yielded a ~8.6-11% performance gain for the `phong_shadowed_pcf` shadowing benchmark.
