@@ -316,6 +316,12 @@ pub(crate) fn draw_span_nearest(
             && v_min_64 >= 0
             && (v_max_64 >> 16) < i64::from(tex_h)
             && v_max_64 <= i64::from(i32::MAX)
+            // Ensure no intermediate values overflow wrapping_add
+            // ⚡ Warden: Protect unsafe fast path from inner loop overflow
+            && (u_start_64 + du_64 * i64::from(len)) < i64::from(i32::MAX)
+            && (u_start_64 + du_64 * i64::from(len)) > i64::from(i32::MIN)
+            && (v_start_64 + dv_64 * i64::from(len)) < i64::from(i32::MAX)
+            && (v_start_64 + dv_64 * i64::from(len)) > i64::from(i32::MIN)
     } else {
         false
     };
@@ -447,6 +453,12 @@ pub(crate) fn draw_span_bilinear(
             && v_min_64 >= 0
             && (v_max_64 >> 16) < i64::from(h_i32)
             && v_max_64 <= i64::from(i32::MAX)
+            // Ensure no intermediate values overflow wrapping_add
+            // ⚡ Warden: Protect unsafe fast path from inner loop overflow
+            && (u_start_64 + du_64 * i64::from(len)) < i64::from(i32::MAX)
+            && (u_start_64 + du_64 * i64::from(len)) > i64::from(i32::MIN)
+            && (v_start_64 + dv_64 * i64::from(len)) < i64::from(i32::MAX)
+            && (v_start_64 + dv_64 * i64::from(len)) > i64::from(i32::MIN)
     } else {
         false
     };

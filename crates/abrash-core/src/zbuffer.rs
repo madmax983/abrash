@@ -162,7 +162,12 @@ impl ZBuffer {
     #[must_use]
     pub unsafe fn get_depth_unchecked(&self, x: usize, y: usize) -> f32 {
         let idx = y * self.width as usize + x;
-        // SAFETY: Caller guarantees bounds
+        // ⚡ Warden: Protect unsafe block from out of bounds access despite caller bounds guarantee
+        // to prevent catastrophic memory corruption.
+        if idx >= self.depths.len() {
+            return f32::INFINITY;
+        }
+        // SAFETY: Caller guarantees bounds (and we verify)
         unsafe { *self.depths.get_unchecked(idx) }
     }
 
@@ -195,7 +200,12 @@ impl ZBuffer {
     /// Caller must ensure `x < width` and `y < height`.
     pub unsafe fn test_and_set_unchecked(&mut self, x: usize, y: usize, depth: f32) -> bool {
         let idx = y * self.width as usize + x;
-        // SAFETY: Caller guarantees bounds
+        // ⚡ Warden: Protect unsafe block from out of bounds access despite caller bounds guarantee
+        // to prevent catastrophic memory corruption.
+        if idx >= self.depths.len() {
+            return false;
+        }
+        // SAFETY: Caller guarantees bounds (and we verify)
         let d = unsafe { self.depths.get_unchecked_mut(idx) };
         if depth < *d {
             *d = depth;

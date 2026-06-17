@@ -29,7 +29,7 @@ where
     F: FnMut(&mut Framebuffer, &mut ZBuffer, &[Event]) + 'static,
 {
     let backend = DomBackend::new().expect("failed to create DomBackend");
-    let terminal = Terminal::new(backend).expect("failed to create Terminal");
+    let mut terminal = Terminal::new(backend).expect("failed to create Terminal");
 
     let framebuffer = Rc::new(RefCell::new(
         Framebuffer::new(width, height).expect("failed to create Framebuffer"),
@@ -40,7 +40,7 @@ where
     let events: Rc<RefCell<Vec<Event>>> = Rc::new(RefCell::new(Vec::new()));
 
     // Wire up key events
-    terminal.on_key_event({
+    let () = terminal.on_key_event({
         let events = Rc::clone(&events);
         move |key_event| match key_event.code {
             KeyCode::Char('q') | KeyCode::Esc => {
