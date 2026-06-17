@@ -182,6 +182,56 @@ fn print_host_error_and_exit(err: &HostError) -> ! {
     std::process::exit(1);
 }
 
+fn handle_window_event<A: WindowApp>(
+    app: &mut A,
+    event: WindowEvent,
+    window: Arc<Window>,
+    event_loop: &EventLoopWindowTarget<()>,
+    clock: &mut FrameClock,
+) -> Result<(), HostError> {
+    match event {
+        WindowEvent::CloseRequested => {
+            event_loop.exit();
+        }
+        WindowEvent::Resized(size) => {
+            if size.width != 0 && size.height != 0 {
+                app.resize(
+                    WindowContext {
+                        event_loop,
+                        window,
+                        dt_seconds: 0.0,
+                    },
+                    size.width,
+                    size.height,
+                )
+                .map_err(|e| HostError::App(e.to_string()))?;
+            }
+        }
+        WindowEvent::RedrawRequested => {
+            let dt_seconds = clock.tick();
+            let redraw_context = WindowContext {
+                event_loop,
+                window,
+                dt_seconds,
+            };
+            app.update(redraw_context.clone())
+                .map_err(|e| HostError::App(e.to_string()))?;
+            app.render(redraw_context)
+                .map_err(|e| HostError::App(e.to_string()))?;
+        }
+        other => {
+            let context = WindowContext {
+                event_loop,
+                window,
+                dt_seconds: 0.0,
+            };
+            app.input(context, &other)
+                .map_err(|e| HostError::App(e.to_string()))?;
+        }
+    }
+    Ok(())
+}
+
 /// Run an app inside a native desktop `winit` event loop.
 ///
 /// Handles initialization and main event loop. Prints a formatted
@@ -224,50 +274,15 @@ where
 
         match event {
             Event::WindowEvent { event, window_id } if window_id == window_for_loop.id() => {
-                match event {
-                    WindowEvent::CloseRequested => event_loop_target.exit(),
-                    WindowEvent::Resized(size) => {
-                        if size.width != 0 && size.height != 0 {
-                            if let Err(error) = app.resize(
-                                WindowContext {
-                                    event_loop: event_loop_target,
-                                    window: window_for_loop.clone(),
-                                    dt_seconds: 0.0,
-                                },
-                                size.width,
-                                size.height,
-                            ) {
-                                *error_slot.borrow_mut() = Some(HostError::App(error.to_string()));
-                                event_loop_target.exit();
-                            }
-                        }
-                    }
-                    WindowEvent::RedrawRequested => {
-                        let dt_seconds = clock.tick();
-                        let redraw_context = WindowContext {
-                            event_loop: event_loop_target,
-                            window: window_for_loop.clone(),
-                            dt_seconds,
-                        };
-                        if let Err(error) = app.update(redraw_context.clone()) {
-                            *error_slot.borrow_mut() = Some(HostError::App(error.to_string()));
-                            event_loop_target.exit();
-                        } else if let Err(error) = app.render(redraw_context) {
-                            *error_slot.borrow_mut() = Some(HostError::App(error.to_string()));
-                            event_loop_target.exit();
-                        }
-                    }
-                    other => {
-                        let context = WindowContext {
-                            event_loop: event_loop_target,
-                            window: window_for_loop.clone(),
-                            dt_seconds: 0.0,
-                        };
-                        if let Err(error) = app.input(context, &other) {
-                            *error_slot.borrow_mut() = Some(HostError::App(error.to_string()));
-                            event_loop_target.exit();
-                        }
-                    }
+                if let Err(err) = handle_window_event(
+                    &mut app,
+                    event,
+                    window_for_loop.clone(),
+                    event_loop_target,
+                    &mut clock,
+                ) {
+                    *error_slot.borrow_mut() = Some(err);
+                    event_loop_target.exit();
                 }
             }
             Event::AboutToWait => {
