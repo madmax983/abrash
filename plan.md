@@ -1,11 +1,14 @@
-1.  **Refactor Heat Vision to Fixed Point Math**
-    - The current `heat_vision.rs` uses floating-point math (`(normalized - 0.25) * 4.0`, etc.) inside a hot pixel loop to map depths to colors.
-    - We will follow the `[Posterize Float to Integer Math Optimization]` learning from `.jules/bolt.md` to map `0.0..1.0` depth range into integer `0..255`, and calculate RGB entirely using integer math (`t * 255 / scale`, etc.).
-    - We will pre-calculate `min_z` and `max_z` like before, calculate a `z_range` integer mapping multiplier, and use simple `(depth - min_z) * scale` to avoid floats in the main loop.
-2.  **Ensure Correctness**
-    - Ensure all existing tests in `heat_vision.rs` pass.
-3.  **Run Benchmark**
-    - Ensure `cargo bench --bench heat_vision_bench` runs successfully and shows performance improvements.
-4.  **Complete pre commit steps**
-    - Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done.
-5.  **Submit PR**
+1. **Refactor `Framebuffer::clear_rect` in `crates/abrash-core/src/framebuffer.rs`:**
+   - Update the `else` block (the partial screen clear path).
+   - Currently, it calculates offsets manually and uses a `for` loop with `get_unchecked_mut`.
+   - Change it to use safe iterator chunking `.chunks_exact_mut(w)` along with `get_unchecked_mut` to elide bounds checks, matching the latest `new_1080p` benchmark that showed a minor performance improvement and significantly improves code readability and reduces explicit offset management.
+
+2. **Refactor `ZBuffer::clear_rect` in `crates/abrash-core/src/zbuffer.rs`:**
+   - Similarly update the scalar path of `ZBuffer::clear_rect` to use the same `.chunks_exact_mut(w)` combined with `.get_unchecked_mut(sx..ex)` pattern.
+   - This optimizes the scalar Z-buffer clear.
+
+3. **Complete Pre Commit Steps:**
+   - Use `pre_commit_instructions` tool to run required checks.
+
+4. **Submit:**
+   - Commit and submit the code as "⚡ Bolt: [performance improvement]".
