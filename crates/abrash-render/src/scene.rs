@@ -270,10 +270,8 @@ impl Scene {
                     (count + 1, verts + obj.mesh.vertices.len())
                 });
 
-            draw_list.vertices.reserve(total_vertices);
-            draw_list.batches.reserve(visible_count);
-
-            // ⚡ Bolt: Eliminate implicit bounds-checks during push by pre-allocating exact capacities for dynamic vectors
+            // ⚡ Bolt: Eliminate implicit bounds-checks during push by pre-allocating exact capacities for dynamic vectors.
+            // Using reserve_exact without an initial reserve avoids redundant capacity checks/allocations.
             draw_list.batches.reserve_exact(visible_count);
             draw_list.vertices.reserve_exact(total_vertices);
 

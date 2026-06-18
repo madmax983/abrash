@@ -307,10 +307,10 @@ impl RayTracer {
         AABB_BUFFER.with(|buffer| {
             let mut world_aabbs = buffer.borrow_mut();
             world_aabbs.clear();
-            world_aabbs.reserve(scene.objects.len());
-            for obj in &scene.objects {
-                world_aabbs.push(obj.calculate_world_aabb());
-            }
+            // ⚡ Bolt: Eliminate implicit bounds-checks during push by pre-allocating exact capacities for dynamic vectors.
+            // Additionally, replace the manual loop with `extend` to further reduce bounds checking overhead.
+            world_aabbs.reserve_exact(scene.objects.len());
+            world_aabbs.extend(scene.objects.iter().map(crate::scene::SceneObject::calculate_world_aabb));
         });
 
         AABB_BUFFER.with(|buffer| {
