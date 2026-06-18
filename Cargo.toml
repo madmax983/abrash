@@ -589,6 +589,11 @@ name = "vignette_bench"
 harness = false
 required-features = ["nova"]
 
+[[bench]]
+name = "strange_attractors_bench"
+harness = false
+required-features = ["nova"]
+
 [[example]]
 name = "vignette_demo"
 path = "examples/vignette_demo.rs"

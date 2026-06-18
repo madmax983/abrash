@@ -99,6 +99,7 @@ pub mod sonar;
 pub mod speed_lines;
 pub mod starfield;
 pub mod steganography;
+pub mod strange_attractors;
 pub mod swirl;
 pub mod thermal;
 pub mod tilt_shift;
