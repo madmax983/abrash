@@ -8,6 +8,41 @@ use abrash_core::math::fast_sin_cos;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
+const fn generate_plasma_lut() -> [u32; 1024] {
+    let mut lut = [0u32; 1024];
+    let mut i = 0;
+    while i < 1024 {
+        let c = i as f32 / 1023.0;
+
+        // Using simple int math instead of float modulo in const fn context.
+        // ((c * 255.0) as u32).min(255)
+        let r = (c * 255.0) as u32;
+        let r = if r > 255 { 255 } else { r };
+
+        // (((c + 0.33) % 1.0 * 255.0) as u32).min(255)
+        let mut c_g = c + 0.33;
+        if c_g >= 1.0 {
+            c_g -= 1.0;
+        }
+        let g = (c_g * 255.0) as u32;
+        let g = if g > 255 { 255 } else { g };
+
+        // (((c + 0.66) % 1.0 * 255.0) as u32).min(255)
+        let mut c_b = c + 0.66;
+        if c_b >= 1.0 {
+            c_b -= 1.0;
+        }
+        let b = (c_b * 255.0) as u32;
+        let b = if b > 255 { 255 } else { b };
+
+        lut[i] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+        i += 1;
+    }
+    lut
+}
+
+const PLASMA_LUT: [u32; 1024] = generate_plasma_lut();
+
 /// Applies a Plasma stylization filter to the framebuffer.
 ///
 /// This filter converts the image into a shifting, colorful pattern based on
@@ -26,6 +61,14 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
         return;
     }
 
+    // Pre-calculate x sine values
+    let mut x_sin_cache = vec![0.0; width];
+    for (x, sin_val) in x_sin_cache.iter_mut().enumerate() {
+        let x_scaled_time = (x as f32 * scale + time) % std::f32::consts::TAU;
+        let (x_sin, _) = fast_sin_cos(x_scaled_time);
+        *sin_val = x_sin;
+    }
+
     let pixels = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
@@ -39,9 +82,7 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
         let (y_sin, y_cos) = fast_sin_cos(y_scaled_time);
 
         for (x, pixel) in row.iter_mut().enumerate().take(width) {
-            let x_f32 = x as f32;
-            let x_scaled_time = (x_f32 * scale + time) % std::f32::consts::TAU;
-            let (x_sin, _) = fast_sin_cos(x_scaled_time);
+            let x_sin = unsafe { *x_sin_cache.get_unchecked(x) };
 
             // Calculate plasma value using multiple sine waves
             let mut v = 0.0;
@@ -55,13 +96,8 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
             let (c_sin, _) = fast_sin_cos(v * std::f32::consts::PI);
             let c = c_sin * 0.5 + 0.5;
 
-            // Map the normalized value to RGB colors
-            // Simple color palette generation based on the phase
-            let r = ((c * 255.0) as u32).min(255);
-            let g = (((c + 0.33) % 1.0 * 255.0) as u32).min(255);
-            let b = (((c + 0.66) % 1.0 * 255.0) as u32).min(255);
-
-            *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+            let lut_idx = ((c * 1023.0) as usize).min(1023);
+            *pixel = unsafe { *PLASMA_LUT.get_unchecked(lut_idx) };
         }
     });
 }
