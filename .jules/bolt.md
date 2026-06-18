@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[DrawList CPU Renderer Tuple Allocation]**
+**Learning:** `CpuRenderer::extract_draw_list_into` parallel path allocated an unnecessary tuple vector of `(start, end)` vertices ranges when calculating draw batch subsets. `end` vertices can be derived in the map step via `start + mesh.vertices.len()`.
+**Action:** Replace `SmallVec<[(usize, usize); 128]>` with `SmallVec<[usize; 128]>` and compute `end` dynamically inside the inner parallel map logic.

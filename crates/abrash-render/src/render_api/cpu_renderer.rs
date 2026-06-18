@@ -157,7 +157,7 @@ impl CpuRenderer {
         let view_proj = frame.camera.view * frame.camera.projection;
 
         #[cfg(feature = "parallel")]
-        let mut ranges: smallvec::SmallVec<[(usize, usize); 128]> =
+        let mut ranges: smallvec::SmallVec<[usize; 128]> =
             smallvec::SmallVec::with_capacity(frame.commands.len());
 
         // Pre-calculate total required vertices to avoid dynamic reallocations
@@ -179,7 +179,7 @@ impl CpuRenderer {
 
             let len = cpu_mesh.mesh.vertices.len();
             #[cfg(feature = "parallel")]
-            ranges.push((total_vertices, total_vertices + len));
+            ranges.push(total_vertices);
 
             total_vertices += len;
         }
@@ -206,7 +206,7 @@ impl CpuRenderer {
             draw_list
                 .batches
                 .par_extend(frame.commands.par_iter().zip(ranges.as_slice()).map(
-                    |(cmd, &(start, end))| {
+                    |(cmd, &start)| {
                         let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
                         let material = self
                             .materials
@@ -229,6 +229,7 @@ impl CpuRenderer {
                             mvp.transform_points_uninit(&mesh.vertices, slice);
                         }
 
+                        let end = start + mesh.vertices.len();
                         DrawBatch::new(
                             start..end,
                             std::sync::Arc::clone(&cpu_mesh.shared_indices),
