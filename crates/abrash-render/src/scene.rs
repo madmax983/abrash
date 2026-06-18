@@ -62,7 +62,7 @@
 //! scene.render(&mut renderer, &mut fb, &mut zb);
 //! ```
 
-use crate::culling::Frustum;
+use crate::geometry::Frustum;
 use crate::framebuffer::Framebuffer;
 use crate::geometry::AABB;
 use crate::math::{Mat4, Vec3};
@@ -140,7 +140,7 @@ impl Camera {
     #[must_use]
     pub fn new(view: Mat4, proj: Mat4) -> Self {
         let view_proj = view * proj;
-        let frustum = Frustum::from_matrix(view_proj);
+        let frustum = Frustum::from_view_projection(&view_proj);
         Self {
             view,
             proj,
@@ -153,7 +153,7 @@ impl Camera {
         self.view = view;
         self.proj = proj;
         let view_proj = view * proj;
-        self.frustum = Frustum::from_matrix(view_proj);
+        self.frustum = Frustum::from_view_projection(&view_proj);
     }
 }
 

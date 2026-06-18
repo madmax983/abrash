@@ -1,4 +1,4 @@
-use abrash::culling::Frustum;
+use abrash_core::geometry::Frustum;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 
@@ -23,11 +23,11 @@ fn test_frustum_culling_inside() {
     // Yes.
 
     // Extract frustum
-    let frustum = Frustum::from_matrix(vp);
+    let frustum = Frustum::from_view_projection(&vp);
 
     // Check visibility
     assert!(
-        frustum.intersects(&sphere),
+        frustum.intersects_sphere(sphere.center, sphere.radius),
         "Mesh at origin should be visible"
     );
 }
@@ -51,10 +51,10 @@ fn test_frustum_culling_outside() {
     let proj = Mat4::perspective(1.57, 1.0, 0.1, 100.0);
     let vp = view * proj;
 
-    let frustum = Frustum::from_matrix(vp);
+    let frustum = Frustum::from_view_projection(&vp);
 
     assert!(
-        !frustum.intersects(&sphere),
+        !frustum.intersects_sphere(sphere.center, sphere.radius),
         "Mesh at (100,0,0) should be culled"
     );
 }

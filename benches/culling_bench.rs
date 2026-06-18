@@ -1,4 +1,4 @@
-use abrash::culling::Frustum;
+use abrash_core::geometry::Frustum;
 use abrash::geometry::BoundingSphere;
 use abrash::math::Mat4;
 use abrash::math::Vec3;
@@ -6,7 +6,7 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_cull_spheres(c: &mut Criterion) {
     let proj = Mat4::perspective(1.57, 1.0, 0.1, 100.0);
-    let frustum = Frustum::from_matrix(proj);
+    let frustum = Frustum::from_view_projection(&proj);
 
     let mut spheres = Vec::new();
     for i in 0..1000 {

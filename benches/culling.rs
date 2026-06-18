@@ -1,4 +1,4 @@
-use abrash::culling::Frustum;
+use abrash_core::geometry::Frustum;
 use abrash::geometry::{AABB, BoundingSphere};
 use abrash::math::{Mat4, Vec3};
 use criterion::{Criterion, criterion_group, criterion_main};
@@ -10,7 +10,7 @@ fn bench_culling(c: &mut Criterion) {
         Vec3::new(0.0, 1.0, 0.0),
     );
     let proj = Mat4::perspective(1.57, 1.0, 0.1, 100.0);
-    let frustum = Frustum::from_matrix(view * proj);
+    let frustum = Frustum::from_view_projection(&(view * proj));
 
     let mut aabbs = Vec::new();
     let mut spheres = Vec::new();
@@ -63,7 +63,7 @@ fn bench_culling(c: &mut Criterion) {
     group.bench_function("frustum_cull_10k_spheres_scalar", |b| {
         b.iter(|| {
             for (i, sphere) in spheres.iter().enumerate() {
-                results[i] = frustum.intersects(sphere);
+                results[i] = frustum.intersects_sphere(sphere.center, sphere.radius);
             }
         });
     });
