@@ -984,3 +984,8 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[example]]
+name = "interactive_paper_cutout"
+path = "examples/interactive_paper_cutout.rs"
+required-features = ["nova"]
