@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**Refactoring `reserve_exact` to `reserve` for dynamic render lists**
+**Learning:** When vectors are cleared and repopulated every frame (like render lists), `reserve_exact` can trigger frequent O(N) reallocations if the required capacity marginally exceeds the previous frame. Using `reserve` instead allows the vector to leverage amortized O(1) growth, drastically reducing memory allocator overhead.
+**Action:** Use `reserve` instead of `reserve_exact` for vectors that are populated frame-by-frame and undergo dynamic fluctuations in required capacity.
