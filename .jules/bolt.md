@@ -232,3 +232,10 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Heat Vision Float to Fixed-Point Bounds Checking Optimization]**
+**Learning:** Replacing floating-point equality checks (e.g., `depth == f32::INFINITY`) with bitwise integer comparisons (e.g., `depth.to_bits() == 0x7F80_0000`) inside hot per-pixel rendering loops bypasses float evaluation overhead and can yield measurable performance improvements.
+**Action:** When validating specific exact float states like infinity in a hot loop, use `to_bits()` equality instead of standard floating-point equality checks.
+
+**[Zip Iterator vs Manual Indexing in Hot Loops]**
+**Learning:** In simple linear rendering loops (like sequential 1-to-1 array mappings), replacing safe `.zip()` iterators with manual `while` loops and `get_unchecked` can actually regress performance by breaking LLVM's auto-vectorization patterns for standard iterator constructs.
+**Action:** Retain `.zip()` for simple paired array iterations unless benchmarks explicitly prove that manual loop structures are faster for that specific workload.
