@@ -743,6 +743,11 @@ name = "night_vision_demo"
 path = "examples/night_vision_demo.rs"
 required-features = ["nova"]
 
+[[example]]
+name = "strange_attractor_demo"
+path = "examples/strange_attractor_demo.rs"
+required-features = ["nova"]
+
 [[bench]]
 name = "night_vision_bench"
 harness = false
@@ -984,3 +989,8 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[bench]]
+name = "strange_attractor_bench"
+harness = false
+required-features = ["nova"]
