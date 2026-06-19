@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[TileBins Initial Allocations]**
+**Learning:** While pre-allocating memory with `Vec::with_capacity()` is generally best practice when capacities are well-known, blindly pre-allocating large blocks (e.g., 1024 elements) for structs that are frequently instantiated but often remain small or empty degrades performance. Using `Vec::new()` defers heap allocation and is demonstrably faster in these specific cases.
+**Action:** Replace `Vec::with_capacity(capacity)` with `Vec::new()` in `TileBins::new` to eliminate redundant initial allocations.
