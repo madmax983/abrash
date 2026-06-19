@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Eliding Bounds Checks on Image Loading]**
+**Learning:** In the `gltf_loader.rs` texture extraction loop, using raw manual pixel array indexing (`pixels[base + 0]`, etc.) paired with `Texture::set_pixel` using modulo/division for coordinates is extremely slow due to the bounds check and integer division costs on millions of pixels.
+**Action:** Replace the 1D loop and `set_pixel` calls with `Texture::pixels_mut()` and `pixels.chunks_exact(4).zip(tex_pixels.iter_mut())` to allow LLVM to elide bounds checks and remove math calculations, matching the optimal `from_slice` memory layout directly.
