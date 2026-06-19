@@ -345,60 +345,61 @@ impl HiZBuffer {
             dest_height
         };
 
-        for y in 0..safe_height {
-            let src_y = (y * 2) as usize;
+        let safe_w_usize = safe_width as usize;
+
+        // Grouping into chunks of two rows for simpler bounds analysis by LLVM
+        for (y, dst_row_chunk) in dest
+            .chunks_exact_mut(dest_width as usize)
+            .take(safe_height as usize)
+            .enumerate()
+        {
+            let src_y = y * 2;
             let row0_start = src_y * sw;
-            let row1_start = (src_y + 1) * sw;
+            let row1_start = row0_start + sw;
 
-            // Slice rows to avoid bounds checks in inner loop
-            let row0 = &source[row0_start..];
-            let row1 = &source[row1_start..];
-            let dst_row = &mut dest[(y * dest_width) as usize..];
+            let row0 = &source[row0_start..row0_start + sw];
+            let row1 = &source[row1_start..row1_start + sw];
 
-            for x in 0..safe_width {
-                let sx = (x * 2) as usize;
+            let r0_chunks = row0.chunks_exact(2);
+            let r1_chunks = row1.chunks_exact(2);
 
-                // Direct access: we know sx+1 is valid because x < safe_width
-                let d00 = row0[sx];
-                let d10 = row0[sx + 1];
-                let d01 = row1[sx];
-                let d11 = row1[sx + 1];
-
-                dst_row[x as usize] = d00.min(d10).min(d01).min(d11);
+            for ((dst, r0), r1) in dst_row_chunk
+                .iter_mut()
+                .zip(r0_chunks)
+                .zip(r1_chunks)
+                .take(safe_w_usize)
+            {
+                *dst = r0[0].min(r0[1]).min(r1[0]).min(r1[1]);
             }
 
-            // Handle last column if odd width
             if odd_width {
-                let x = safe_width;
-                let sx = (x * 2) as usize;
+                let x = safe_w_usize;
+                let sx = x * 2;
                 let d00 = row0[sx];
                 let d01 = row1[sx];
-                // Clamp to left column
-                dst_row[x as usize] = d00.min(d01);
+                dst_row_chunk[x] = d00.min(d01);
             }
         }
 
         // Handle last row if odd height
         if odd_height {
-            let y = safe_height;
-            let src_y = (y * 2) as usize;
+            let y = safe_height as usize;
+            let src_y = y * 2;
             let row0_start = src_y * sw;
-            let row0 = &source[row0_start..];
-            let dst_row = &mut dest[(y * dest_width) as usize..];
+            let row0 = &source[row0_start..row0_start + sw];
+            let dst_row = &mut dest[y * dest_width as usize..];
 
-            for x in 0..safe_width {
-                let sx = (x * 2) as usize;
-                let d00 = row0[sx];
-                let d10 = row0[sx + 1];
-                // Clamp to top row
-                dst_row[x as usize] = d00.min(d10);
+            let r0_chunks = row0.chunks_exact(2);
+
+            for (dst, r0) in dst_row.iter_mut().zip(r0_chunks).take(safe_w_usize) {
+                *dst = r0[0].min(r0[1]);
             }
 
             if odd_width {
-                let x = safe_width;
-                let sx = (x * 2) as usize;
+                let x = safe_w_usize;
+                let sx = x * 2;
                 let d00 = row0[sx];
-                dst_row[x as usize] = d00;
+                dst_row[x] = d00;
             }
         }
     }
@@ -1205,5 +1206,39 @@ mod tests {
 
         // Should be visible (conservative: equal depth treated as visible)
         assert!(hiz.is_coarse_bin_visible(bin_aabb));
+    }
+}
+
+#[cfg(test)]
+mod test_hiz_buffer {
+    use super::*;
+
+    #[test]
+    fn test_min_reduce_2x2_sanity() {
+        let mut source = vec![
+            1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0,
+        ];
+        let mut dest = vec![0.0; 4];
+
+        HiZBuffer::min_reduce_2x2(&mut dest, 2, 2, &source, 4);
+
+        assert_eq!(dest[0], 1.0); // min(1, 2, 5, 6)
+        assert_eq!(dest[1], 3.0); // min(3, 4, 7, 8)
+        assert_eq!(dest[2], 9.0); // min(9, 10, 13, 14)
+        assert_eq!(dest[3], 11.0); // min(11, 12, 15, 16)
+    }
+
+    #[test]
+    fn test_min_reduce_2x2_odd_dimensions() {
+        let mut source = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0];
+        // 3x3 downsamples to 2x2
+        let mut dest = vec![0.0; 4];
+
+        HiZBuffer::min_reduce_2x2(&mut dest, 2, 2, &source, 3);
+
+        assert_eq!(dest[0], 1.0); // min(1, 2, 4, 5)
+        assert_eq!(dest[1], 3.0); // min(3, 6)
+        assert_eq!(dest[2], 7.0); // min(7, 8)
+        assert_eq!(dest[3], 9.0); // min(9)
     }
 }

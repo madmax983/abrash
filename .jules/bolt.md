@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**2025-05-18 - Optimize HiZ min_reduce_2x2 bounds checks**
+**Learning:** When writing 2x2 reduction algorithms over 2D data arrays, manual row slicing and 1D element indexing (`d00 = row0[sx];`) requires bounds checking. Replacing this with an iterator composition of `chunks_exact_mut(dest_width)` for the destination coupled with `.zip()` on `.chunks_exact(2)` for the source arrays allows LLVM to auto-vectorize the loop and elide bounds checks completely, leading to a massive speedup (e.g. ~77% faster build).
+**Action:** Replaced manual 1D indexing loops with zipped iterators over `chunks_exact(2)` in `HiZBuffer::min_reduce_2x2`.
