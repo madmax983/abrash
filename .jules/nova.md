@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Strange Attractor Generator]
+**Concept:** A procedural generator that simulates chaotic systems, specifically Strange Attractors (like Clifford and Peter de Jong attractors) using mathematical equations. It iterates equations millions of times, building a density grid and then mapping it into vibrant colors using logarithmic tonemapping.
+**Fate:** Implemented
+**Lesson:** Iterating differential equations sequentially doesn't lend itself to simple Rayon parallelism without batching different coordinate seeds. Using an intermediate 2D density grid (histogram) and separating the "accumulation" pass from the "rendering/tonemapping" pass ensures that overlapping points enhance brightness smoothly. Logarithmic tonemapping is essential to prevent the core from blowing out to solid white while keeping the faint wispy trails visible.
