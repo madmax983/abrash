@@ -313,9 +313,11 @@ pub(crate) fn draw_span_nearest(
         u_min_64 >= 0
             && (u_max_64 >> 16) < i64::from(tex_w)
             && u_max_64 <= i64::from(i32::MAX)
+            && (u_max_64 - u_min_64) <= i64::from(i32::MAX)
             && v_min_64 >= 0
             && (v_max_64 >> 16) < i64::from(tex_h)
             && v_max_64 <= i64::from(i32::MAX)
+            && (v_max_64 - v_min_64) <= i64::from(i32::MAX)
     } else {
         false
     };
@@ -444,9 +446,11 @@ pub(crate) fn draw_span_bilinear(
         u_min_64 >= 0
             && (u_max_64 >> 16) < i64::from(w_i32)
             && u_max_64 <= i64::from(i32::MAX)
+            && (u_max_64 - u_min_64) <= i64::from(i32::MAX)
             && v_min_64 >= 0
             && (v_max_64 >> 16) < i64::from(h_i32)
             && v_max_64 <= i64::from(i32::MAX)
+            && (v_max_64 - v_min_64) <= i64::from(i32::MAX)
     } else {
         false
     };

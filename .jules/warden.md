@@ -24,3 +24,14 @@
 ## 2026-04-18 - [Heap Buffer Overflow in Pixel Sort via Unchecked SendPtr]
 **Threat:** The `SendPtr` wrapper inside `crates/abrash-render/src/experimental/pixel_sort.rs` lacked a length parameter and blindly added indices to the raw pointer via `*ptr.0.add(...)`. If a framebuffer lied about its dimensions or if sorting logic failed, it would lead to a catastrophic out-of-bounds heap read/write.
 **Defense:** Rewrote `SendPtr` to capture and store the length of the slice at instantiation. Replaced direct raw pointer dereferencing with safe `read()` and `write()` methods containing an `assert!(index < self.1, "Index out of bounds")` guard before evaluating the `unsafe` block.
+**2023-10-27 - [Dependency Vulnerabilities in imageproc and rand]
+**Threat:** Fragile bounds checks in `imageproc` (RUSTSEC-2026-0115, etc.) allowed out of bounds reads/writes when sampling images. Unsound custom logger behavior in `rand` (RUSTSEC-2026-0097).
+**Defense:** Updated `imageproc` from 0.25.0 to 0.25.1 and `rand` 0.8.5 and 0.9.2 to their patched versions via `Cargo.lock` updates.
+
+**2023-10-27 - [Fastpath Bounds Check Bypass in texture.rs]
+**Threat:** The fastpath `can_use_fast_path` optimization in `draw_span_nearest` and `draw_span_bilinear` computed bounds correctly in `i64`, but failed to ensure the span width (`u_max_64 - u_min_64`) did not exceed `i32::MAX`. This allowed `u_fix` to undergo integer wrap-around (via `wrapping_add`) into negative ranges, which when shifted and cast to `usize` resulted in massive index values bypassing bounds checks and causing Out-Of-Bounds (OOB) memory access.
+**Defense:** Added `(u_max_64 - u_min_64) <= i64::from(i32::MAX)` and `(v_max_64 - v_min_64) <= i64::from(i32::MAX)` checks to ensure `wrapping_add` sequences never cross `i32` boundaries during fastpath rendering.
+
+**2023-10-27 - [Framebuffer/ZBuffer Allocation Overflow panic]
+**Threat:** `Framebuffer::new` and `ZBuffer::new` allowed dimensions like `0x8000_0001` (2^31 + 1) which passed `width > i32::MAX as u32` checks when inadvertently wrapping, or bypassed them, leading to allocations that exceeded the documented `i32::MAX` total size limits and causing subsequent panics or OOM. The `.filter(|&s| u32::try_from(s).is_ok())` allowed sizes up to `u32::MAX`, contradicting the `i32::MAX` design limit.
+**Defense:** Updated the filter in `new` functions to `.filter(|&s| usize::try_from(s).is_ok() && s <= i32::MAX as u64)` to strictly enforce the maximum pixel count, safely returning a `Result::Err` instead of panicking.
