@@ -1,0 +1,585 @@
+   Compiling abrash-render v0.1.0 (/app/crates/abrash-render)
+   Compiling abrash-gpu-render v0.1.0 (/app/crates/abrash-gpu-render)
+   Compiling embed-demo v0.1.0 (/app/crates/embed-demo)
+   Compiling abrash v0.1.0 (/app)
+warning: function `contains_rgba` is never used
+  --> crates/abrash-gpu-render/tests/capture_test.rs:26:4
+   |
+26 | fn contains_rgba(pixels: &[u8], rgba: [u8; 4]) -> bool {
+   |    ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `abrash-gpu-render` (test "capture_test") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 42s
+     Running unittests src/lib.rs (target/debug/deps/abrash-a2830a05439f2222)
+
+running 12 tests
+test platform::framebuffer_widget::tests::color_unpacking_arbitrary_value ... ok
+test platform::framebuffer_widget::tests::color_unpacking_pure_green ... ok
+test platform::framebuffer_widget::tests::color_unpacking_pure_blue ... ok
+test platform::framebuffer_widget::tests::color_unpacking_pure_red ... ok
+test platform::framebuffer_widget::tests::renders_known_color_pattern ... ok
+test platform::framebuffer_widget::tests::single_pixel_framebuffer ... ok
+test platform::framebuffer_widget::tests::zero_size_area_is_noop ... ok
+test platform::framebuffer_widget::tests::scaling_large_framebuffer_to_small_area ... ok
+test platform::winit::tests::test_argb_to_softbuffer_ignores_alpha ... ok
+test platform::winit::tests::test_argb_to_softbuffer_pixel ... ok
+test platform::winit::tests::test_frame_clock_dt_is_non_negative ... ok
+test platform::winit::tests::test_window_host_config_default ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/abrash-a25901789d344d75)
+
+running 5 tests
+test tests::test_demo_command_preserves_nova_feature_in_tui_mode ... ok
+test tests::test_demo_command_uses_backend_tui_when_requested_for_cpu ... ok
+test tests::test_demo_command_keeps_gpu_render_feature_in_tui_mode ... ok
+test tests::test_demo_command_uses_default_features_for_cpu ... ok
+test tests::test_args_accepts_tui_flag ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests benches/run_film_grain.rs (target/debug/deps/run_film_grain-4bf433e9d6773a1d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests benches/simd_profiling.rs (target/debug/deps/simd_profiling-5a62e93964280af5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/alpha_discontinuity.rs (target/debug/deps/alpha_discontinuity-9e17482ff83ebda3)
+
+running 1 test
+test test_alpha_discontinuity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bilinear_simd_test.rs (target/debug/deps/bilinear_simd_test-b3c623b2be2d0b63)
+
+running 1 test
+test test_bilinear_scanline_output ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bloom_test.rs (target/debug/deps/bloom_test-7db1033b4df8a4da)
+
+running 1 test
+test test_apply_bloom_effect ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/chromatic_aberration.rs (target/debug/deps/chromatic_aberration-6a80533f392f2eca)
+
+running 2 tests
+test test_chromatic_aberration_boundary ... ok
+test test_chromatic_aberration_shift ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/clipping_3d_tests.rs (target/debug/deps/clipping_3d_tests-7ebde68052b3830b)
+
+running 2 tests
+test test_triangle_fully_behind_camera ... ok
+test test_triangle_straddling_near_plane ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/color_util_tests.rs (target/debug/deps/color_util_tests-d540680ba25e7c47)
+
+running 1 test
+test test_color_to_u32 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/crosshatch_tests.rs (target/debug/deps/crosshatch_tests-09a10166253594c8)
+
+running 1 test
+test test_apply_crosshatch_basic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/crt_test.rs (target/debug/deps/crt_test-1027bc74c48400e9)
+
+running 1 test
+test test_apply_crt_distortion ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/emboss_tests.rs (target/debug/deps/emboss_tests-4622084c784bf42b)
+
+running 1 test
+test test_apply_emboss ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/framebuffer_tests.rs (target/debug/deps/framebuffer_tests-e896dbfcf08eb002)
+
+running 7 tests
+test test_framebuffer_clear ... ok
+test test_framebuffer_bounds_checking ... ok
+test test_framebuffer_initialized_to_black ... ok
+test test_framebuffer_clear_rect ... ok
+test test_framebuffer_set_pixel ... ok
+test test_framebuffer_set_pixel_unchecked ... ok
+test test_framebuffer_new ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/frustum_culling_test.rs (target/debug/deps/frustum_culling_test-836e0c54fe240e3b)
+
+running 2 tests
+test test_frustum_culling_outside ... ok
+test test_frustum_culling_inside ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fuzz_target.rs (target/debug/deps/fuzz_target-058e776cfc10b820)
+
+running 1 test
+test does_not_crash ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.53s
+
+     Running tests/gamma_tests.rs (target/debug/deps/gamma_tests-53161960fe14177a)
+
+running 2 tests
+test test_gamma_correction_identity ... ok
+test test_gamma_correction_srgb ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/god_rays.rs (target/debug/deps/god_rays-c109723891cbdd02)
+
+running 1 test
+test test_apply_god_rays ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gouraud_interp.rs (target/debug/deps/gouraud_interp-a059272c294700c0)
+
+running 1 test
+test test_draw_scanline_textured_gouraud_correctness ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gouraud_quad_test.rs (target/debug/deps/gouraud_quad_test-1c88d101d981b38a)
+
+running 1 test
+test test_gouraud_quad_rendering ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gouraud_tile.rs (target/debug/deps/gouraud_tile-c4e2846c0ffa9f12)
+
+running 1 test
+test test_tile_renderer_gouraud_render ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gpu_engine_compare_feature.rs (target/debug/deps/gpu_engine_compare_feature-64697ff314aeb30e)
+
+running 1 test
+test bevy_and_fyrox_dependencies_are_available ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gpu_render_api.rs (target/debug/deps/gpu_render_api-6556fca028c9d26f)
+
+running 10 tests
+test interaction_controller_clamps_distance ... ok
+test offscreen_benchmark_config_exposes_draw_repeats ... ok
+test interaction_controller_updates_yaw_from_keyboard ... ok
+test run_mesh_demo_is_exposed ... ok
+test validate_demo_config_rejects_zero_dimensions ... ok
+test offscreen_benchmark_types_are_exposed ... ok
+test validate_demo_config_rejects_invalid_distance_range ... ok
+test validate_mesh_accepts_unit_cube ... ok
+test validate_mesh_rejects_non_triangle_index_count ... ok
+test validate_mesh_rejects_out_of_bounds_index ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gpu_render_crate_extraction.rs (target/debug/deps/gpu_render_crate_extraction-af8685def5bc3d6d)
+
+running 1 test
+test gpu_render_crate_is_available_and_reexported ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gpu_render_feature.rs (target/debug/deps/gpu_render_feature-d8006d0e53c5fb4b)
+
+running 1 test
+test gpu_render_module_is_exposed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/graphics_math_loop.rs (target/debug/deps/graphics_math_loop-a4f858b96d0c3d11)
+
+running 32 tests
+test aabb_from_center_extents_roundtrips ... ok
+test aabb_ray_and_sphere_queries_hit_expected_ranges ... ok
+test aabb_queries_cover_common_overlap_cases ... ok
+test aabb_transform_matches_corner_sweep ... ok
+test fast_atan2_matches_std_within_tolerance ... ok
+test frustum_culls_objects_outside ... ok
+test aabb_union_and_include_point_expand_bounds ... ok
+test inverse_transform_in_place_roundtrips_world_points ... ok
+test inverse_transform_batch_roundtrips_points ... ok
+test lerp_interpolates_correctly ... ok
+test mat3_inverse_cancels_rotation ... ok
+test mat3_normal_transform_matches_mat4_for_rotation ... ok
+test quat_nlerp_uses_shortest_arc ... ok
+test plane_signed_distance_is_correct ... ok
+test quat_from_mat4_roundtrips_rotation ... ok
+test ray_at_returns_correct_point ... ok
+test quat_inverse_undoes_rotation ... ok
+test ray_triangle_hit_at_origin ... ok
+test ray_sphere_hit_nearest_root ... ok
+test ray_aabb_intersection_roundtrips ... ok
+test remap_maps_range_correctly ... ok
+test transform_batch_path_matches_scalar_path ... ok
+test transform_in_place_paths_match_allocating_paths ... ok
+test transform_inverse_transform_point_roundtrips_points ... ok
+test smoothstep_is_smooth_and_bounded ... ok
+test transform_then_matches_matrix_composition ... ok
+test transform_lerp_blends_all_components ... ok
+test transform_vector_batch_matches_scalar_path ... ok
+test vec4_dot_and_length ... ok
+test vec4_normalize_produces_unit_vector ... ok
+test transform_transform_point_matches_matrix_path ... ok
+test vec4_xyz_extracts_vec3 ... ok
+
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/halftone_tests.rs (target/debug/deps/halftone_tests-45b59eb33d23af75)
+
+running 1 test
+test test_halftone_filter ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc.rs (target/debug/deps/havoc-1178812397db5b5f)
+
+running 4 tests
+test fuzz_texture_sampling ... ok
+test fuzz_clipping_extremes ... ok
+test fuzz_obj_loader ... ok
+test fuzz_mat4_transform_points ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests/havoc_api_validation.rs (target/debug/deps/havoc_api_validation-187069144fac7c5c)
+
+running 1 test
+test test_box_blur_api_validation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_arboretum.rs (target/debug/deps/havoc_arboretum-9f0e470b1b0923b3)
+
+running 1 test
+test test_arboretum_panic_bytes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_arboretum_oom.rs (target/debug/deps/havoc_arboretum_oom-82972195aca3ac24)
+
+running 1 test
+test test_havoc_arboretum_oom ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.06s
+
+     Running tests/havoc_ascii_overflow.rs (target/debug/deps/havoc_ascii_overflow-d0f5aeb38a9d9456)
+
+running 1 test
+test havoc_ascii_converter_integer_overflow ... ignored, 👺 Havoc: Intentionally tests an Integer Overflow vulnerability leading to OOM/panic. Will SIGKILL runner if run.
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur.rs (target/debug/deps/havoc_box_blur-5bffaed5510bfd04)
+
+running 1 test
+test test_box_blur_horizontal_large_radius_dos ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_f32.rs (target/debug/deps/havoc_box_blur_f32-9ee45d0cee87728a)
+
+running 1 test
+test test_box_blur_f32_vertical_scalar_oob ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_fuzz.rs (target/debug/deps/havoc_box_blur_fuzz-c38abb8809dfdeb1)
+
+running 1 test
+test fuzz_box_blur_horizontal ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/havoc_box_blur_fuzz2.rs (target/debug/deps/havoc_box_blur_fuzz2-1a0b800e3bccdf07)
+
+running 1 test
+test fuzz_box_blur_vertical ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/havoc_box_blur_int_overflow.rs (target/debug/deps/havoc_box_blur_int_overflow-fe276ff3ad25efce)
+
+running 1 test
+test test_box_blur_int_overflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_int_overflow2.rs (target/debug/deps/havoc_box_blur_int_overflow2-1be6a7750e05911a)
+
+running 1 test
+test test_box_blur_int_overflow2 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_int_overflow3.rs (target/debug/deps/havoc_box_blur_int_overflow3-dc90b63863037a98)
+
+running 1 test
+test test_box_blur_vertical_int_overflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_int_overflow4.rs (target/debug/deps/havoc_box_blur_int_overflow4-cec992d6ef8d1f41)
+
+running 1 test
+test test_box_blur_vertical_avx2_int_overflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_loop.rs (target/debug/deps/havoc_box_blur_loop-d36e583a2b5baed4)
+
+running 2 tests
+test test_box_blur_vertical_large_radius ... ok
+test test_box_blur_horizontal_large_radius ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_oom.rs (target/debug/deps/havoc_box_blur_oom-690a18cbe0a70434)
+
+running 1 test
+test test_box_blur_oom ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_panic.rs (target/debug/deps/havoc_box_blur_panic-66ae401e48a7e0d8)
+
+running 1 test
+test test_box_blur_zero_width_height ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_panic2.rs (target/debug/deps/havoc_box_blur_panic2-2ceb96696e540a1e)
+
+running 1 test
+test test_box_blur_zero_width ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_chromatic.rs (target/debug/deps/havoc_chromatic-4c81e6bfccc7aef1)
+
+running 1 test
+test test_chromatic_aberration_out_of_bounds ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_chromatic_avx.rs (target/debug/deps/havoc_chromatic_avx-be886852a568ef86)
+
+running 1 test
+test test_chromatic_aberration_simd_bounds ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_circle_overflow.rs (target/debug/deps/havoc_circle_overflow-151afa27eeee564c)
+
+running 2 tests
+test test_draw_circle_overflow ... ok
+test test_fill_circle_overflow ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_clipping_torture.rs (target/debug/deps/havoc_clipping_torture-0c3efe5a647a983c)
+
+running 4 tests
+test test_clip_triangle_inf_panic ... ok
+test test_clip_triangle_nan_panic ... ok
+test test_clip_triangle_torture ... ok
+test test_clip_triangle_tricky_values ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/havoc_clock_exploit.rs (target/debug/deps/havoc_clock_exploit-48156e2db8ab2e85)
+
+running 2 tests
+test havoc_clock_trigger ... ok
+test fuzz_clock_extreme_durations ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/havoc_draw_line_3d.rs (target/debug/deps/havoc_draw_line_3d-fe8ff2a411495461)
+
+running 1 test
+test havoc_test_draw_line_3d_zbuffer_oob - should panic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_exploit.rs (target/debug/deps/havoc_exploit-0bcf175477a5f1e4)
+
+running 3 tests
+test unsound_tile_renderer_parallel - should panic ... ok
+test exploit_tile_renderer_integer_overflow - should panic ... ok
+test fuzz_obj_loader ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/havoc_flat_raster.rs (target/debug/deps/havoc_flat_raster-e29cd714b2854380)
+
+running 1 test
+test test_triangle_torture ... ignored, 👹 Havoc: Triggering panics in flat triangle rasterizer via f32 extremes
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_jelly_stress_panic.rs (target/debug/deps/havoc_jelly_stress_panic-7e8a806a3fc567e6)
+
+running 1 test
+test test_havoc_jelly_stress_panic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_lsystem.rs (target/debug/deps/havoc_lsystem-8d548b929221f4fb)
+
+running 1 test
+test test_lsystem_utf8_corruption ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/havoc_lsystem_oom.rs (target/debug/deps/havoc_lsystem_oom-b30b4893dac20de1)
+
+running 1 test
+test havoc_lsystem_oom ... ignored, 👺 Havoc: Intentionally tests an OOM vulnerability. Will SIGKILL runner if run.
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_math_extreme.rs (target/debug/deps/havoc_math_extreme-4791df902bb6c44d)
+
+running 4 tests
+test test_project_to_screen_extreme ... ok
+test test_project_triangle_to_screen_extreme ... ok
+test test_transform_point_extreme ... ok
+test test_transform_points_batch_extreme ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.27s
+
+     Running tests/havoc_math_props.rs (target/debug/deps/havoc_math_props-2a6f6d8e52fe0467)
+
+running 3 tests
+test test_vec3_normalize_no_panic ... ok
+test test_project_to_screen_clamping ... ok
+test test_mat4_transform_no_panic ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/havoc_obj.rs (target/debug/deps/havoc_obj-c6cbbd9ef197dd37)
+
+running 1 test
+test fuzz_load_obj ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/havoc_obj_dos.rs (target/debug/deps/havoc_obj_dos-ebe4370aa2e22a91)
+
+running 1 test
+test test_obj_dos_quadratic_blowup ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/havoc_obj_fuzz.rs (target/debug/deps/havoc_obj_fuzz-698d5367dd125e71)
+
+running 3 tests
+test fuzz_obj_loader_huge_integers ... ok
+test fuzz_obj_loader_proptest ... ok
+test fuzz_obj_loader_structure ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.81s
+
+     Running tests/havoc_obj_load.rs (target/debug/deps/havoc_obj_load-1fe624f08081aee2)
+
+running 1 test
+test test_obj_load_dos ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_obj_load2.rs (target/debug/deps/havoc_obj_load2-2b6fd874151f27a0)
+
+running 1 test
+test test_obj_load_dos_2 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_obj_load3.rs (target/debug/deps/havoc_obj_load3-e47acff2c32811cc)
+
+running 1 test
+test test_obj_load_dos_3 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/havoc_obj_load4.rs (target/debug/deps/havoc_obj_load4-76cbcca824031e44)
+
+running 1 test
+test test_obj_load_dos_4 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.81s
+
+     Running tests/havoc_obj_oom.rs (target/debug/deps/havoc_obj_oom-5914f519aa4bb028)
+
+running 1 test
+test test_obj_deduplication_memory_explosion ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/havoc_obj_repro.rs (target/debug/deps/havoc_obj_repro-1f21800976b5a344)
+
+running 3 tests
+test test_havoc_obj_huge_face ... ok
+test test_havoc_obj_huge_input ... ok
+test test_havoc_obj_huge_line ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.84s
+
+     Running tests/havoc_overflow.rs (target/debug/deps/havoc_overflow-709843a28a1402aa)
+
+running 2 tests
+test havoc_framebuffer_overflow ... ok
+test havoc_zbuffer_overflow ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_pbr_simd.rs (target/debug/deps/havoc_pbr_simd-c47a8a62d3165333)
+
+running 1 test
+test test_pbr_simd_fuzz ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/havoc_pixel_sort_proptest.rs (target/debug/deps/havoc_pixel_sort_proptest-84b6caee6263ddbb)
+
+running 1 test
+test test_pixel_sort_no_panic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/havoc_post_process.rs (target/debug/deps/havoc_post_process-08cff07e9b45e233)
+
+running 2 tests
+test test_box_blur_horizontal_fuzz ... ok

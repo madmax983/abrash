@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**Optimize render list allocations**
+**Learning:** `reserve_exact` forces dynamic vectors that are repeatedly cleared and populated (like rendering lists in hot paths) to continually reallocate if the exact required capacity fluctuates around an average frame-to-frame size.
+**Action:** Changed `reserve_exact` to `reserve` for vector capacities in the core render loop (`crates/abrash-render/src/scene.rs`, `crates/abrash-render/src/render_api/cpu_renderer.rs`). This allows vectors to leverage standard amortized O(1) growth and retain underlying capacities slightly larger than the immediate frame requirement, severely reducing the overhead of global memory allocator interactions.
