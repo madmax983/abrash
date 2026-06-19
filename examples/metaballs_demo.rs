@@ -1,5 +1,7 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::platform::{HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed};
+use abrash::platform::{
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+};
 use abrash_render::experimental::metaballs::{Metaballs, MetaballsConfig};
 
 const WIDTH: u32 = 800;
@@ -16,7 +18,8 @@ impl DemoApp {
     fn new() -> Result<Self, HostError> {
         Ok(Self {
             presenter: None,
-            fb: Framebuffer::new(WIDTH, HEIGHT).map_err(|error| HostError::App(error.to_string()))?,
+            fb: Framebuffer::new(WIDTH, HEIGHT)
+                .map_err(|error| HostError::App(error.to_string()))?,
             metaballs: Metaballs::new(MetaballsConfig {
                 num_balls: 10,
                 threshold: 1.0,
@@ -52,7 +55,8 @@ impl WindowApp for DemoApp {
         width: u32,
         height: u32,
     ) -> Result<(), Self::Error> {
-        self.fb = Framebuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
+        self.fb =
+            Framebuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
         Ok(())
     }
 
@@ -75,5 +79,23 @@ impl WindowApp for DemoApp {
 }
 
 fn main() {
-    run_windowed(DemoApp::new().unwrap());
+    match DemoApp::new() {
+        Ok(app) => run_windowed(app),
+        Err(e) => {
+            let mut error_table = comfy_table::Table::new();
+            error_table
+                .load_preset(comfy_table::presets::UTF8_FULL)
+                .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+                .set_header(vec![
+                    comfy_table::Cell::new("❌ Initialization Error")
+                        .add_attribute(comfy_table::Attribute::Bold)
+                        .fg(comfy_table::Color::Red),
+                ])
+                .add_row(vec![
+                    comfy_table::Cell::new(format!("{e}")).fg(comfy_table::Color::Yellow),
+                ]);
+            eprintln!("\n{error_table}");
+            std::process::exit(1);
+        }
+    }
 }
