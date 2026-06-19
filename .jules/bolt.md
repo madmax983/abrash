@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Precomputed Procedural Plasma LUT]**
+**Learning:** In hot procedural loops (e.g. plasma effects), repeatedly evaluating trig functions and float-to-int modulo operations causes severe overhead. Precomputing the colors to a `const LUT`, and evaluating the spatial logic on separate passes to map to integer indices, drastically reduces per-pixel cost. Additionally, precalculating common math like `sqrt` in 2D to a 1D mapping array outside the innermost bounds helps when spatial resolution isn't enormous but high framerate is required.
+**Action:** Replaced repetitive per-pixel trig and modulo mapping inside the plasma generator with a compile-time static `const LUT` alongside separated distance mapping.
