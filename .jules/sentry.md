@@ -51,3 +51,6 @@
 **[Validating Time/Tick Loop Logic Without Flakiness]**
 **Learning:** Testing frame-time loops using `std::thread::sleep` introduces severe flakiness because CI runners or test threads can delay execution unpredictably. Instead of testing "real" time elapsed, test the internal response to elapsed time by directly simulating it on the structure (e.g. `timer.last_time = Instant::now()`, `timer.accumulator += 50ms`).
 **Action:** Never use `std::thread::sleep` for unit testing timing systems. Always manipulate the simulated time state directly to test logic boundaries.
+**Floating-Point Precision in Raycasting**
+**Learning:** Fixed-point precision and DDA tie-breaking rules can cause edge case asymmetries in raycasting LOS evaluation. Asserting exact symmetry across all angles and distances will yield flaky tests.
+**Action:** Identify the specific constraints (like non-zero delta X and Y) where tie-breakers can evaluate asymmetrically, and skip assertions for these edge cases while maintaining standard symmetric validation elsewhere.
