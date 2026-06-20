@@ -23,7 +23,7 @@ fn bench_draw_scanline_textured_gouraud_nearest(c: &mut Criterion) {
             tex.set_pixel(x, y, color);
         }
     }
-    tex.filter_mode = FilterMode::Nearest;
+    tex.set_filter_mode(FilterMode::Nearest);
 
     let y = 50;
     let x_start = 10;
@@ -98,7 +98,7 @@ fn bench_draw_scanline_textured_gouraud_bilinear(c: &mut Criterion) {
             tex.set_pixel(x, y, color);
         }
     }
-    tex.filter_mode = FilterMode::Bilinear;
+    tex.set_filter_mode(FilterMode::Bilinear);
 
     let y = 50;
     let x_start = 10;

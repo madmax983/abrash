@@ -24,3 +24,7 @@
 ## 2026-04-18 - [Heap Buffer Overflow in Pixel Sort via Unchecked SendPtr]
 **Threat:** The `SendPtr` wrapper inside `crates/abrash-render/src/experimental/pixel_sort.rs` lacked a length parameter and blindly added indices to the raw pointer via `*ptr.0.add(...)`. If a framebuffer lied about its dimensions or if sorting logic failed, it would lead to a catastrophic out-of-bounds heap read/write.
 **Defense:** Rewrote `SendPtr` to capture and store the length of the slice at instantiation. Replaced direct raw pointer dereferencing with safe `read()` and `write()` methods containing an `assert!(index < self.1, "Index out of bounds")` guard before evaluating the `unsafe` block.
+
+## 2026-05-18 - [Memory Safety: Texture Dimension Tampering]
+**Threat:** The `Texture` struct exposed its fields (`width`, `height`, `width_shift`, `pixels`, etc.) as `pub`. This allowed safe code to arbitrarily mutate `width_shift` or `width` and `height` without changing the backing pixel buffer. A malicious modification could trick safe accessor functions like `get_pixel_texel` into reading wildly out-of-bounds heap memory by evaluating the unsafe fast-path indexing block `*self.pixels.get_unchecked(self.row_offset(y) + x)`.
+**Defense:** Made the vulnerable fields private (`width`, `height`, `width_shift`, `pixels`, `mips`, `filter_mode`) and exposed safe public getters and setters. This encapsulates the layout invariants of `Texture`, preventing dimension spoofing from triggering undefined behavior in fast-path slice indexing.

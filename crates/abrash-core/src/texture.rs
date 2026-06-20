@@ -104,17 +104,17 @@ const fn average_4_colors(c00: u32, c10: u32, c01: u32, c11: u32) -> u32 {
 #[derive(Clone)]
 #[allow(missing_docs)]
 pub struct Texture {
-    pub width: u32,
-    pub height: u32,
+    width: u32,
+    height: u32,
     /// Shift amount for power-of-two textures (log2(width)).
     /// Used to replace multiplication with shifting for index calculation.
     /// Value is `0xFF` if width is not a power of two.
-    pub width_shift: u8,
-    pub pixels: Vec<u32>,
+    width_shift: u8,
+    pixels: Vec<u32>,
     /// Mipmap levels. Level 0 is implicit in `pixels`. `mips[0]` is Level 1, etc.
-    pub mips: Vec<Vec<u32>>,
+    mips: Vec<Vec<u32>>,
     /// The filtering mode to use when sampling the texture.
-    pub filter_mode: FilterMode,
+    filter_mode: FilterMode,
 }
 
 impl Texture {
@@ -595,6 +595,34 @@ impl Texture {
     #[must_use]
     pub fn pixels_mut(&mut self) -> &mut [u32] {
         &mut self.pixels
+    }
+
+    /// Returns a reference to the mipmap levels.
+    #[inline]
+    #[must_use]
+    pub fn mips(&self) -> &[Vec<u32>] {
+        &self.mips
+    }
+
+    #[must_use]
+
+    /// Returns the filtering mode.
+    #[inline]
+    pub const fn filter_mode(&self) -> FilterMode {
+        self.filter_mode
+    }
+
+    /// Sets the filtering mode.
+    #[inline]
+    pub const fn set_filter_mode(&mut self, mode: FilterMode) {
+        self.filter_mode = mode;
+    }
+
+    /// Returns the width shift (used for power-of-two optimizations).
+    #[inline]
+    #[must_use]
+    pub const fn width_shift(&self) -> u8 {
+        self.width_shift
     }
 
     /// Create a checkerboard texture.

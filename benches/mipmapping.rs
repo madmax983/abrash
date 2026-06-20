@@ -35,7 +35,7 @@ fn bench_trilinear_filter(c: &mut Criterion) {
 
     // Create a texture and enable Trilinear filtering (this should fail to compile initially)
     let mut texture = Texture::new(64, 64).unwrap();
-    texture.filter_mode = FilterMode::Trilinear;
+    texture.set_filter_mode(FilterMode::Trilinear);
 
     // Fill with pattern
     for y in 0..64 {
@@ -76,7 +76,7 @@ fn bench_trilinear_filter(c: &mut Criterion) {
     });
 
     // Also bench Bilinear for comparison
-    texture.filter_mode = FilterMode::Bilinear;
+    texture.set_filter_mode(FilterMode::Bilinear);
     group.bench_function("bilinear", |b| {
         b.iter(|| {
             zb.clear();

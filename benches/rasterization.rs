@@ -232,7 +232,7 @@ fn bench_fill_triangle_textured_bilinear(c: &mut Criterion) {
         let mut fb = Framebuffer::new(800, 600).unwrap();
         let mut zb = ZBuffer::new(800, 600).unwrap();
         let mut tex = Texture::checkered(256, 256, 0xFFFF_FFFF, 0xFF00_0000).unwrap();
-        tex.filter_mode = FilterMode::Bilinear;
+        tex.set_filter_mode(FilterMode::Bilinear);
 
         let v0 = ((Vec3::new(0.0, 0.9, 0.5), 1.0), Vec2::new(0.5, 0.0));
         let v1 = ((Vec3::new(-0.9, -0.9, 0.5), 1.0), Vec2::new(0.0, 1.0));

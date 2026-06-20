@@ -1128,7 +1128,7 @@ fn process_tile_scanline_textured(
                 let w = 1.0 / q_left;
                 let u_tex = u_left * w;
                 let v_tex = v_left * w;
-                ctx.pixels[tile_idx] = match texture.filter_mode {
+                ctx.pixels[tile_idx] = match texture.filter_mode() {
                     FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
                     FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
                     FilterMode::Trilinear => {
@@ -1228,7 +1228,7 @@ fn rasterize_scanline_textured(
         let pixels_slice = &mut pixels[i..i + count];
         let depths_slice = &mut depths[i..i + count];
 
-        match texture.filter_mode {
+        match texture.filter_mode() {
             FilterMode::Nearest => {
                 let u_fix = (u_tex_start * 65536.0) as i32;
                 let v_fix = (v_tex_start * 65536.0) as i32;
@@ -2339,8 +2339,8 @@ impl TileRenderer {
         self.prepared_textured.clear();
         self.tile_bins.clear();
 
-        let tex_w = texture.width as f32;
-        let tex_h = texture.height as f32;
+        let tex_w = texture.width() as f32;
+        let tex_h = texture.height() as f32;
 
         #[cfg(feature = "parallel")]
         {
@@ -4777,10 +4777,10 @@ mod tests {
 
     fn test_texture() -> Texture {
         let mut texture = Texture::new(2, 2).expect("valid test texture");
-        texture.pixels[0] = 0xFFFF_0000;
-        texture.pixels[1] = 0xFF00_FF00;
-        texture.pixels[2] = 0xFF00_00FF;
-        texture.pixels[3] = 0xFFFF_FFFF;
+        texture.pixels_mut()[0] = 0xFFFF_0000;
+        texture.pixels_mut()[1] = 0xFF00_FF00;
+        texture.pixels_mut()[2] = 0xFF00_00FF;
+        texture.pixels_mut()[3] = 0xFFFF_FFFF;
         texture
     }
 

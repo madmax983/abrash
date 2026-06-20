@@ -277,9 +277,9 @@ pub(crate) fn draw_span_nearest(
     du_fix: i32,
     dv_fix: i32,
 ) {
-    let tex_pixels = &texture.pixels;
-    let tex_w = texture.width;
-    let tex_h = texture.height;
+    let tex_pixels = &texture.pixels();
+    let tex_w = texture.width();
+    let tex_h = texture.height();
     let tex_w_usize = tex_w as usize;
 
     assert!(tex_pixels.len() >= (tex_w as usize) * (tex_h as usize));
@@ -320,7 +320,7 @@ pub(crate) fn draw_span_nearest(
         false
     };
 
-    let shift = texture.width_shift;
+    let shift = texture.width_shift();
 
     macro_rules! process_span_nearest {
         ($fetch_block:block) => {
@@ -405,10 +405,10 @@ pub(crate) fn draw_span_bilinear(
     du_fix: i32,
     dv_fix: i32,
 ) {
-    let tex_pixels = &texture.pixels;
-    let tex_w = texture.width;
-    let tex_h = texture.height;
-    let shift = texture.width_shift;
+    let tex_pixels = &texture.pixels();
+    let tex_w = texture.width();
+    let tex_h = texture.height();
+    let shift = texture.width_shift();
 
     let w_i32 = (tex_w as i32).wrapping_sub(1);
     let h_i32 = (tex_h as i32).wrapping_sub(1);
@@ -612,8 +612,8 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
                 let x0_raw = u_img_fixed >> 8;
                 let y0_raw = v_img_fixed >> 8;
 
-                let tex_w = texture.width;
-                let tex_h = texture.height;
+                let tex_w = texture.width();
+                let tex_h = texture.height();
                 let w_i32 = (tex_w as i32).wrapping_sub(1);
                 let h_i32 = (tex_h as i32).wrapping_sub(1);
                 let tex_w_usize = tex_w as usize;
@@ -622,17 +622,17 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
                     if (x0_raw as u32) < (w_i32 as u32) && (y0_raw as u32) < (h_i32 as u32) {
                         let x0 = x0_raw as usize;
                         let y0 = y0_raw as usize;
-                        let row0 = if texture.width_shift < 32 {
-                            y0 << texture.width_shift
+                        let row0 = if texture.width_shift() < 32 {
+                            y0 << texture.width_shift()
                         } else {
                             y0 * tex_w_usize
                         };
                         let row1 = row0 + tex_w_usize;
                         (
-                            *texture.pixels.get_unchecked(row0 + x0),
-                            *texture.pixels.get_unchecked(row0 + x0 + 1),
-                            *texture.pixels.get_unchecked(row1 + x0),
-                            *texture.pixels.get_unchecked(row1 + x0 + 1),
+                            *texture.pixels().get_unchecked(row0 + x0),
+                            *texture.pixels().get_unchecked(row0 + x0 + 1),
+                            *texture.pixels().get_unchecked(row1 + x0),
+                            *texture.pixels().get_unchecked(row1 + x0 + 1),
                         )
                     } else {
                         let x0 = x0_raw.max(0).min(w_i32) as usize;
@@ -640,22 +640,22 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
                         let x1 = (x0_raw + 1).max(0).min(w_i32) as usize;
                         let y1 = (y0_raw + 1).max(0).min(h_i32) as usize;
 
-                        let row0 = if texture.width_shift < 32 {
-                            y0 << texture.width_shift
+                        let row0 = if texture.width_shift() < 32 {
+                            y0 << texture.width_shift()
                         } else {
                             y0 * tex_w_usize
                         };
-                        let row1 = if texture.width_shift < 32 {
-                            y1 << texture.width_shift
+                        let row1 = if texture.width_shift() < 32 {
+                            y1 << texture.width_shift()
                         } else {
                             y1 * tex_w_usize
                         };
 
                         (
-                            *texture.pixels.get_unchecked(row0 + x0),
-                            *texture.pixels.get_unchecked(row0 + x1),
-                            *texture.pixels.get_unchecked(row1 + x0),
-                            *texture.pixels.get_unchecked(row1 + x1),
+                            *texture.pixels().get_unchecked(row0 + x0),
+                            *texture.pixels().get_unchecked(row0 + x1),
+                            *texture.pixels().get_unchecked(row1 + x0),
+                            *texture.pixels().get_unchecked(row1 + x1),
                         )
                     };
 
@@ -702,14 +702,14 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
         let du_step = _mm256_slli_epi32(du_fix_vec, 3);
         let dv_step = _mm256_slli_epi32(dv_fix_vec, 3);
 
-        let w_vec = _mm256_set1_epi32(texture.width as i32);
-        let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
-        let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
+        let w_vec = _mm256_set1_epi32(texture.width() as i32);
+        let max_x = _mm256_set1_epi32((texture.width() - 1) as i32);
+        let max_y = _mm256_set1_epi32((texture.height() - 1) as i32);
         let zero_i = _mm256_setzero_si256();
         let one_i = _mm256_set1_epi32(1);
 
-        let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift));
-        let is_pot = texture.width_shift < 32;
+        let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift()));
+        let is_pot = texture.width_shift() < 32;
 
         let mask_ff = _mm256_set1_epi32(0xFF);
 
@@ -781,7 +781,7 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
                         };
 
                         // Gather
-                        let pixels_ptr = texture.pixels.as_ptr() as *const i32;
+                        let pixels_ptr = texture.pixels().as_ptr() as *const i32;
                         let c00 = _mm256_i32gather_epi32(pixels_ptr, idx00, 4);
                         let c10 = _mm256_i32gather_epi32(pixels_ptr, idx10, 4);
                         let c01 = _mm256_i32gather_epi32(pixels_ptr, idx01, 4);
@@ -986,16 +986,16 @@ pub(crate) unsafe fn draw_span_nearest_simd(
             if z_curr < *depth_val {
                 let u = u_curr >> 16;
                 let v = v_curr >> 16;
-                let tex_w = texture.width;
-                let tex_h = texture.height;
+                let tex_w = texture.width();
+                let tex_h = texture.height();
                 let color = if (u as u32) < tex_w && (v as u32) < tex_h {
-                    let shift = texture.width_shift;
+                    let shift = texture.width_shift();
                     let idx = if shift < 32 {
                         ((v as usize) << shift) + (u as usize)
                     } else {
                         (v as usize) * (tex_w as usize) + (u as usize)
                     };
-                    *texture.pixels.get_unchecked(idx)
+                    *texture.pixels().get_unchecked(idx)
                 } else {
                     texture.get_pixel_texel(u, v)
                 };
@@ -1038,13 +1038,13 @@ pub(crate) unsafe fn draw_span_nearest_simd(
 
         let ff_mask_shifted = _mm256_set1_epi32(0xFF00_0000u32 as i32);
 
-        let w_vec = _mm256_set1_epi32(texture.width as i32);
-        let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
-        let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
+        let w_vec = _mm256_set1_epi32(texture.width() as i32);
+        let max_x = _mm256_set1_epi32((texture.width() - 1) as i32);
+        let max_y = _mm256_set1_epi32((texture.height() - 1) as i32);
         let zero_i = _mm256_setzero_si256();
-        let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift));
+        let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift()));
 
-        let is_pot = texture.width_shift < 32;
+        let is_pot = texture.width_shift() < 32;
 
         while i + 8 <= len {
             // Z-Test
@@ -1078,7 +1078,7 @@ pub(crate) unsafe fn draw_span_nearest_simd(
 
                     // Gather
                     let pixel_vals =
-                        _mm256_i32gather_epi32(texture.pixels.as_ptr() as *const i32, idx, 4);
+                        _mm256_i32gather_epi32(texture.pixels().as_ptr() as *const i32, idx, 4);
 
                     // Check Alpha
                     let alphas_shifted = _mm256_and_si256(pixel_vals, ff_mask_shifted);
@@ -1145,17 +1145,17 @@ pub(crate) unsafe fn draw_span_nearest_simd(
                 let u = u_curr >> 16;
                 let v = v_curr >> 16;
 
-                let tex_w = texture.width;
-                let tex_h = texture.height;
+                let tex_w = texture.width();
+                let tex_h = texture.height();
 
                 let color = if (u as u32) < tex_w && (v as u32) < tex_h {
-                    let shift = texture.width_shift;
+                    let shift = texture.width_shift();
                     let idx = if shift < 32 {
                         ((v as usize) << shift) + (u as usize)
                     } else {
                         (v as usize) * (tex_w as usize) + (u as usize)
                     };
-                    *texture.pixels.get_unchecked(idx)
+                    *texture.pixels().get_unchecked(idx)
                 } else {
                     texture.get_pixel_texel(u, v)
                 };
@@ -1223,9 +1223,9 @@ unsafe fn draw_scanline_textured_perspective_simd(
         let scale_256 = _mm256_set1_ps(256.0);
         let offset_neg_0_5 = _mm256_set1_ps(-128.0); // -0.5 * 256
 
-        let w_vec = _mm256_set1_epi32(texture.width as i32);
-        let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
-        let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
+        let w_vec = _mm256_set1_epi32(texture.width() as i32);
+        let max_x = _mm256_set1_epi32((texture.width() - 1) as i32);
+        let max_y = _mm256_set1_epi32((texture.height() - 1) as i32);
         let zero_i = _mm256_setzero_si256();
         let one_i = _mm256_set1_epi32(1);
         let const_256_i = _mm256_set1_epi32(256);
@@ -1288,7 +1288,7 @@ unsafe fn draw_scanline_textured_perspective_simd(
                 let idx01 = _mm256_add_epi32(y1_w, x0);
                 let idx11 = _mm256_add_epi32(y1_w, x1);
 
-                let pixels_ptr = texture.pixels.as_ptr() as *const i32;
+                let pixels_ptr = texture.pixels().as_ptr() as *const i32;
                 let c00 = _mm256_i32gather_epi32(pixels_ptr, idx00, 4);
                 let c10 = _mm256_i32gather_epi32(pixels_ptr, idx10, 4);
                 let c01 = _mm256_i32gather_epi32(pixels_ptr, idx01, 4);
@@ -1420,7 +1420,7 @@ pub fn draw_scanline_textured_perspective(
     }
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if texture.filter_mode == FilterMode::Bilinear
+    if texture.filter_mode() == FilterMode::Bilinear
         && (xe - xs + 1) >= 32
         && is_x86_feature_detected!("avx2")
     {
@@ -1480,7 +1480,7 @@ pub fn draw_scanline_textured_perspective(
         let fb_slice = &mut fb.as_mut_slice()[start_idx..=end_idx];
         let zb_slice = &mut zb.as_mut_slice()[start_idx..=end_idx];
 
-        match texture.filter_mode {
+        match texture.filter_mode() {
             FilterMode::Nearest => {
                 // Fixed point optimization for Nearest Neighbor
                 let u_fix = (u_tex_start * 65536.0) as i32;
@@ -1749,14 +1749,14 @@ pub fn fill_triangle_textured(
         let inv_w1 = p1_orig.inv_w;
         let inv_w2 = p2_orig.inv_w;
 
-        let u0 = v0.1.x * texture.width as f32 * inv_w0;
-        let v0_val = v0.1.y * texture.height as f32 * inv_w0;
+        let u0 = v0.1.x * texture.width() as f32 * inv_w0;
+        let v0_val = v0.1.y * texture.height() as f32 * inv_w0;
 
-        let u1 = v1.1.x * texture.width as f32 * inv_w1;
-        let v1_val = v1.1.y * texture.height as f32 * inv_w1;
+        let u1 = v1.1.x * texture.width() as f32 * inv_w1;
+        let v1_val = v1.1.y * texture.height() as f32 * inv_w1;
 
-        let u2 = v2.1.x * texture.width as f32 * inv_w2;
-        let v2_val = v2.1.y * texture.height as f32 * inv_w2;
+        let u2 = v2.1.x * texture.width() as f32 * inv_w2;
+        let v2_val = v2.1.y * texture.height() as f32 * inv_w2;
 
         fill_projected_triangle_textured(
             fb, zb, p0_orig, p1_orig, p2_orig, u0, v0_val, u1, v1_val, u2, v2_val, texture,
@@ -1868,8 +1868,8 @@ pub fn fill_quad_textured_gouraud(
             half_height,
         );
 
-        let tex_w = texture.width as f32;
-        let tex_h = texture.height as f32;
+        let tex_w = texture.width() as f32;
+        let tex_h = texture.height() as f32;
 
         let u0 = v0.2.x * tex_w * p0.inv_w;
         let v0_val = v0.2.y * tex_h * p0.inv_w;
@@ -2073,7 +2073,7 @@ fn fill_projected_triangle_textured_with_gradients(
                         let w = 1.0 / q_left;
                         let u_tex = u_left * w;
                         let v_tex = v_left * w;
-                        let color = match texture.filter_mode {
+                        let color = match texture.filter_mode() {
                             FilterMode::Nearest => {
                                 texture.get_pixel_texel(u_tex as i32, v_tex as i32)
                             }
@@ -2244,8 +2244,8 @@ pub fn fill_quad_textured(
         );
 
         // Precompute UVs
-        let tex_w = texture.width as f32;
-        let tex_h = texture.height as f32;
+        let tex_w = texture.width() as f32;
+        let tex_h = texture.height() as f32;
 
         let u0 = v0.1.x * tex_w * p0.inv_w;
         let v0_val = v0.1.y * tex_h * p0.inv_w;
@@ -2594,10 +2594,10 @@ unsafe fn draw_scanline_normal_mapped_simd(
 
                 // Calculate texture indices (Vectorized)
                 // Optimization: Specialized path for Power-of-Two textures using bitwise masking
-                let idx = if texture.width_shift < 32 {
-                    let mask_x = _mm256_set1_epi32((texture.width - 1) as i32);
-                    let mask_y = _mm256_set1_epi32((texture.height - 1) as i32);
-                    let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift));
+                let idx = if texture.width_shift() < 32 {
+                    let mask_x = _mm256_set1_epi32((texture.width() - 1) as i32);
+                    let mask_y = _mm256_set1_epi32((texture.height() - 1) as i32);
+                    let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift()));
 
                     // wrap: u & (w-1)
                     let u_masked = _mm256_and_si256(u_i, mask_x);
@@ -2607,9 +2607,9 @@ unsafe fn draw_scanline_normal_mapped_simd(
                     _mm256_or_si256(_mm256_sllv_epi32(v_masked, shift_vec), u_masked)
                 } else {
                     // Generic path with clamping
-                    let w_vec = _mm256_set1_epi32(texture.width as i32);
-                    let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
-                    let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
+                    let w_vec = _mm256_set1_epi32(texture.width() as i32);
+                    let max_x = _mm256_set1_epi32((texture.width() - 1) as i32);
+                    let max_y = _mm256_set1_epi32((texture.height() - 1) as i32);
                     let zero_i = _mm256_setzero_si256();
 
                     // clamp(val, 0, max)
@@ -2621,34 +2621,35 @@ unsafe fn draw_scanline_normal_mapped_simd(
                 };
 
                 // Gather Diffuse
-                let diff_base = texture.pixels.as_ptr() as *const i32;
+                let diff_base = texture.pixels().as_ptr() as *const i32;
                 let diff_packed = _mm256_i32gather_epi32(diff_base, idx, 4);
 
                 // Gather Normal Map
-                let nm_packed =
-                    if normal_map.width == texture.width && normal_map.height == texture.height {
-                        let nm_base = normal_map.pixels.as_ptr() as *const i32;
-                        _mm256_i32gather_epi32(nm_base, idx, 4)
+                let nm_packed = if normal_map.width() == texture.width()
+                    && normal_map.height() == texture.height()
+                {
+                    let nm_base = normal_map.pixels().as_ptr() as *const i32;
+                    _mm256_i32gather_epi32(nm_base, idx, 4)
+                } else {
+                    let idx_nm = if normal_map.width_shift() < 32 {
+                        let mask_x = _mm256_set1_epi32((normal_map.width() - 1) as i32);
+                        let mask_y = _mm256_set1_epi32((normal_map.height() - 1) as i32);
+                        let shift_vec = _mm256_set1_epi32(i32::from(normal_map.width_shift()));
+                        let u_masked = _mm256_and_si256(u_i, mask_x);
+                        let v_masked = _mm256_and_si256(v_i, mask_y);
+                        _mm256_or_si256(_mm256_sllv_epi32(v_masked, shift_vec), u_masked)
                     } else {
-                        let idx_nm = if normal_map.width_shift < 32 {
-                            let mask_x = _mm256_set1_epi32((normal_map.width - 1) as i32);
-                            let mask_y = _mm256_set1_epi32((normal_map.height - 1) as i32);
-                            let shift_vec = _mm256_set1_epi32(i32::from(normal_map.width_shift));
-                            let u_masked = _mm256_and_si256(u_i, mask_x);
-                            let v_masked = _mm256_and_si256(v_i, mask_y);
-                            _mm256_or_si256(_mm256_sllv_epi32(v_masked, shift_vec), u_masked)
-                        } else {
-                            let w_vec = _mm256_set1_epi32(normal_map.width as i32);
-                            let max_x = _mm256_set1_epi32((normal_map.width - 1) as i32);
-                            let max_y = _mm256_set1_epi32((normal_map.height - 1) as i32);
-                            let zero_i = _mm256_setzero_si256();
-                            let u_clamped = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
-                            let v_clamped = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
-                            _mm256_add_epi32(_mm256_mullo_epi32(v_clamped, w_vec), u_clamped)
-                        };
-                        let nm_base = normal_map.pixels.as_ptr() as *const i32;
-                        _mm256_i32gather_epi32(nm_base, idx_nm, 4)
+                        let w_vec = _mm256_set1_epi32(normal_map.width() as i32);
+                        let max_x = _mm256_set1_epi32((normal_map.width() - 1) as i32);
+                        let max_y = _mm256_set1_epi32((normal_map.height() - 1) as i32);
+                        let zero_i = _mm256_setzero_si256();
+                        let u_clamped = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+                        let v_clamped = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+                        _mm256_add_epi32(_mm256_mullo_epi32(v_clamped, w_vec), u_clamped)
                     };
+                    let nm_base = normal_map.pixels().as_ptr() as *const i32;
+                    _mm256_i32gather_epi32(nm_base, idx_nm, 4)
+                };
 
                 // Unpack Diffuse (0..255 -> 0.0..1.0)
                 let r_mask_i32 = _mm256_set1_epi32(0xFF);
@@ -2810,7 +2811,7 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
 ) {
     use std::arch::x86_64::*;
 
-    if lod <= 0.0 || texture.mips.is_empty() {
+    if lod <= 0.0 || texture.mips().is_empty() {
         // Fallback to bilinear if LOD is 0 or no mips
         // u_fix_start is 16.16 (center). Bilinear simd expects 16.16 (offset -0.5).
         let u_fix = u_fix_start.wrapping_sub(32768);
@@ -2823,7 +2824,7 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
         return;
     }
 
-    let max_level = texture.mips.len() as f32;
+    let max_level = texture.mips().len() as f32;
     // We can't easily fallback to "just sample max mip" with bilinear SIMD because the
     // texture pointer changes.
     // So we handle all cases here or dispatch carefully.
@@ -2841,38 +2842,38 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
     let inv_weight_vec = _mm256_set1_epi32(inv_weight_int);
 
     // Identify the two levels
-    // Level 0 is texture.pixels
-    // Level K > 0 is texture.mips[K-1]
+    // Level 0 is texture.pixels()
+    // Level K > 0 is texture.mips()[K-1]
 
     let (pixels0, w0, h0, shift0) = if level == 0 {
         (
-            texture.pixels.as_slice(),
-            texture.width,
-            texture.height,
+            texture.pixels(),
+            texture.width(),
+            texture.height(),
             0, // base shift is 0 relative to u_fix >> 8 (bilinear)
                // But u_fix passed in is 16.16. Bilinear expects 24.8.
                // So effectively shift is 8.
         )
     } else {
         let idx = level - 1;
-        let w = (texture.width >> level).max(1);
-        let h = (texture.height >> level).max(1);
-        (texture.mips[idx].as_slice(), w, h, level)
+        let w = (texture.width() >> level).max(1);
+        let h = (texture.height() >> level).max(1);
+        (texture.mips()[idx].as_slice(), w, h, level)
     };
 
-    let (pixels1, w1, h1, shift1) = if level >= texture.mips.len() {
+    let (pixels1, w1, h1, shift1) = if level >= texture.mips().len() {
         // If we are at max level, we blend with itself (or clamped)
         // This happens if lod == max_level.
-        let idx = texture.mips.len() - 1;
-        let w = (texture.width >> (idx + 1)).max(1);
-        let h = (texture.height >> (idx + 1)).max(1);
-        (texture.mips[idx].as_slice(), w, h, idx + 1)
+        let idx = texture.mips().len() - 1;
+        let w = (texture.width() >> (idx + 1)).max(1);
+        let h = (texture.height() >> (idx + 1)).max(1);
+        (texture.mips()[idx].as_slice(), w, h, idx + 1)
     } else {
         // Next level is level + 1 (mips[level])
         let idx = level;
-        let w = (texture.width >> (level + 1)).max(1);
-        let h = (texture.height >> (level + 1)).max(1);
-        (texture.mips[idx].as_slice(), w, h, level + 1)
+        let w = (texture.width() >> (level + 1)).max(1);
+        let h = (texture.height() >> (level + 1)).max(1);
+        (texture.mips()[idx].as_slice(), w, h, level + 1)
     };
 
     // Prepare SIMD constants
@@ -3332,8 +3333,8 @@ pub fn fill_triangle_normal_mapped(
 
         // Scale UV by texture size (assuming both maps match size or using one size for ratio)
         // Usually, UVs are 0..1, we multiply by size to get texel coords
-        let w = texture.width as f32;
-        let h = texture.height as f32;
+        let w = texture.width() as f32;
+        let h = texture.height() as f32;
 
         let u0 = v0.1.x * w * inv_w0;
         let v0_val = v0.1.y * h * inv_w0;
@@ -3792,12 +3793,12 @@ unsafe fn draw_span_textured_gouraud_simd(
         let du_step = _mm256_slli_epi32(du_fix_vec, 3);
         let dv_step = _mm256_slli_epi32(dv_fix_vec, 3);
 
-        let w_vec = _mm256_set1_epi32(texture.width as i32);
-        let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
-        let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
+        let w_vec = _mm256_set1_epi32(texture.width() as i32);
+        let max_x = _mm256_set1_epi32((texture.width() - 1) as i32);
+        let max_y = _mm256_set1_epi32((texture.height() - 1) as i32);
         let zero_i = _mm256_setzero_si256();
-        let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift));
-        let is_pot = texture.width_shift < 32;
+        let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift()));
+        let is_pot = texture.width_shift() < 32;
 
         let ff_mask = _mm256_set1_epi32(0xFF);
         let mask_255 = _mm256_set1_epi32(255);
@@ -3820,7 +3821,7 @@ unsafe fn draw_span_textured_gouraud_simd(
                 };
 
                 let pixel_vals =
-                    _mm256_i32gather_epi32(texture.pixels.as_ptr().cast::<i32>(), idx, 4);
+                    _mm256_i32gather_epi32(texture.pixels().as_ptr().cast::<i32>(), idx, 4);
 
                 let tex_r_i = _mm256_and_si256(_mm256_srli_epi32(pixel_vals, 16), ff_mask);
                 let tex_g_i = _mm256_and_si256(_mm256_srli_epi32(pixel_vals, 8), ff_mask);
@@ -3987,14 +3988,14 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
         let du_step = _mm256_slli_epi32(du_fix_vec, 3);
         let dv_step = _mm256_slli_epi32(dv_fix_vec, 3);
 
-        let w_vec = _mm256_set1_epi32(texture.width as i32);
-        let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
-        let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
+        let w_vec = _mm256_set1_epi32(texture.width() as i32);
+        let max_x = _mm256_set1_epi32((texture.width() - 1) as i32);
+        let max_y = _mm256_set1_epi32((texture.height() - 1) as i32);
         let zero_i = _mm256_setzero_si256();
         let one_i = _mm256_set1_epi32(1);
 
-        let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift));
-        let is_pot = texture.width_shift < 32;
+        let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift()));
+        let is_pot = texture.width_shift() < 32;
 
         let mask_ff = _mm256_set1_epi32(0xFF);
         let const_256 = _mm256_set1_epi32(256);
@@ -4085,7 +4086,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
                             )
                         };
 
-                        let pixels_ptr = texture.pixels.as_ptr() as *const i32;
+                        let pixels_ptr = texture.pixels().as_ptr() as *const i32;
                         let c00 = _mm256_i32gather_epi32(pixels_ptr, idx00, 4);
                         let c10 = _mm256_i32gather_epi32(pixels_ptr, idx10, 4);
                         let c01 = _mm256_i32gather_epi32(pixels_ptr, idx01, 4);
@@ -4256,10 +4257,10 @@ fn draw_span_textured_gouraud_scalar(
     dg_dx: i32,
     db_dx: i32,
 ) {
-    let tex_pixels = &texture.pixels;
-    let tex_w = texture.width;
-    let tex_h = texture.height;
-    let shift = texture.width_shift;
+    let tex_pixels = &texture.pixels();
+    let tex_w = texture.width();
+    let tex_h = texture.height();
+    let shift = texture.width_shift();
     let is_pot = shift < 32;
 
     for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
@@ -4421,7 +4422,7 @@ pub fn draw_scanline_textured_gouraud(
         let fb_slice = &mut fb.as_mut_slice()[start_idx..=end_idx];
         let zb_slice = &mut zb.as_mut_slice()[start_idx..=end_idx];
 
-        match texture.filter_mode {
+        match texture.filter_mode() {
             FilterMode::Nearest => {
                 let u_fix = (u_tex_start * 65536.0) as i32;
                 let v_fix = (v_tex_start * 65536.0) as i32;
@@ -4664,8 +4665,8 @@ pub fn fill_triangle_textured_gouraud(
         let inv_w1 = p1_orig.inv_w;
         let inv_w2 = p2_orig.inv_w;
 
-        let w = texture.width as f32;
-        let h = texture.height as f32;
+        let w = texture.width() as f32;
+        let h = texture.height() as f32;
 
         let u0 = v0.2.x * w * inv_w0;
         let v0_val = v0.2.y * h * inv_w0;
@@ -4926,7 +4927,7 @@ mod tests {
         let mut fb = Framebuffer::new(10, 10).unwrap();
         let mut zb = ZBuffer::new(10, 10).unwrap();
         let mut tex = Texture::new(2, 2).unwrap();
-        tex.filter_mode = crate::texture::FilterMode::Bilinear;
+        tex.set_filter_mode(crate::texture::FilterMode::Bilinear);
 
         // 0,0: Black (0x00000000)
         // 1,0: White (0xFFFF_FFFF)
@@ -5168,7 +5169,7 @@ fn draw_scanline_laplacian_blend(
     // Gradients are in normalized UV / w space; multiply by tex dimension to get texel-space rate.
     let w = if q.abs() > 0.000_001 { 1.0 / q } else { 1.0 };
     let w_sq = w * w;
-    let tex_scale = tex0.width.max(tex0.height) as f32;
+    let tex_scale = tex0.width().max(tex0.height()) as f32;
     let du_tex_dx = (gradients.du_dx * q - u * gradients.dq_dx) * w_sq * tex_scale;
     let dv_tex_dx = (gradients.dv_dx * q - v * gradients.dq_dx) * w_sq * tex_scale;
     let du_tex_dy = (gradients.du_dy * q - u * gradients.dq_dy) * w_sq * tex_scale;
@@ -5468,7 +5469,7 @@ fn test_draw_scanline_trilinear() {
     // Level 1 (1x1) should be Grey (approx 127/128)
     // 0x7F7F7F...
 
-    tex.filter_mode = crate::texture::FilterMode::Trilinear;
+    tex.set_filter_mode(crate::texture::FilterMode::Trilinear);
 
     // 3. Setup Span
     // We want to sample at (0.5, 0.5) in texel space (Center of Top-Left pixel).

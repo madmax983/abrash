@@ -22,7 +22,7 @@ fn test_bilinear_scanline_output() {
             tex.set_pixel(x, y, color);
         }
     }
-    tex.filter_mode = FilterMode::Bilinear;
+    tex.set_filter_mode(FilterMode::Bilinear);
 
     let y = 50;
     let x_start = 10;

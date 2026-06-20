@@ -13,7 +13,7 @@ fn test_textured_gouraud_bilinear_rendering() {
 
     // Create a texture
     let mut texture = Texture::checkered(16, 16, 0xFFFF_FFFF, 0xFF00_0000).unwrap();
-    texture.filter_mode = FilterMode::Bilinear;
+    texture.set_filter_mode(FilterMode::Bilinear);
 
     // Triangle covering most of the screen
     let v0 = (

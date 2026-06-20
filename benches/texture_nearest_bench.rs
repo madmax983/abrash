@@ -20,7 +20,7 @@ fn bench_texture_nearest(c: &mut Criterion) {
             texture.set_pixel(x, y, 0xFFFF_FFFF);
         }
     }
-    texture.filter_mode = FilterMode::Nearest;
+    texture.set_filter_mode(FilterMode::Nearest);
 
     // Large triangle covering most of the screen
     let v0 = ((Vec3::new(-5.0, 5.0, 5.0), 5.0), Vec2::new(0.0, 0.0));

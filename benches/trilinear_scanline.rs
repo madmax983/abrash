@@ -25,7 +25,7 @@ fn bench_draw_scanline_trilinear_100px(c: &mut Criterion) {
     }
     // Generate mips for Trilinear
     tex.generate_mipmaps();
-    tex.filter_mode = FilterMode::Trilinear;
+    tex.set_filter_mode(FilterMode::Trilinear);
 
     let y = 50;
     let x_start = 10;

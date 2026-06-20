@@ -183,8 +183,8 @@ pub fn blit_opaque(fb: &mut Framebuffer, tex: &Texture, src: SrcRect, dst_x: i32
         dst_y,
         fb.width(),
         fb.height(),
-        tex.width,
-        tex.height,
+        tex.width(),
+        tex.height(),
     ) else {
         return;
     };
@@ -225,7 +225,7 @@ pub unsafe fn blit_opaque_unchecked(
     dst_y: u32,
 ) {
     let fb_w = fb.width() as usize;
-    let tex_w = tex.width as usize;
+    let tex_w = tex.width() as usize;
     let w = src.w as usize;
     let fb_pixels = fb.as_mut_slice();
 
@@ -233,7 +233,7 @@ pub unsafe fn blit_opaque_unchecked(
         let src_offset = (src.y as usize + row) * tex_w + src.x as usize;
         let dst_offset = (dst_y as usize + row) * fb_w + dst_x as usize;
         fb_pixels[dst_offset..dst_offset + w]
-            .copy_from_slice(&tex.pixels[src_offset..src_offset + w]);
+            .copy_from_slice(&tex.pixels()[src_offset..src_offset + w]);
     }
 }
 
@@ -271,8 +271,8 @@ pub fn blit_colorkey(
         dst_y,
         fb.width(),
         fb.height(),
-        tex.width,
-        tex.height,
+        tex.width(),
+        tex.height(),
     ) else {
         return;
     };
@@ -316,7 +316,7 @@ pub unsafe fn blit_colorkey_unchecked(
     key: u32,
 ) {
     let fb_w = fb.width() as usize;
-    let tex_w = tex.width as usize;
+    let tex_w = tex.width() as usize;
     let w = src.w as usize;
     let fb_pixels = fb.as_mut_slice();
 
@@ -324,7 +324,7 @@ pub unsafe fn blit_colorkey_unchecked(
         let src_row_start = (src.y as usize + row) * tex_w + src.x as usize;
         let dst_row_start = (dst_y as usize + row) * fb_w + dst_x as usize;
         for col in 0..w {
-            let src_px = tex.pixels[src_row_start + col];
+            let src_px = tex.pixels()[src_row_start + col];
             if src_px != key {
                 fb_pixels[dst_row_start + col] = src_px;
             }
@@ -381,8 +381,8 @@ pub fn blit_alpha(fb: &mut Framebuffer, tex: &Texture, src: SrcRect, dst_x: i32,
         dst_y,
         fb.width(),
         fb.height(),
-        tex.width,
-        tex.height,
+        tex.width(),
+        tex.height(),
     ) else {
         return;
     };
@@ -428,7 +428,7 @@ pub unsafe fn blit_alpha_unchecked(
     dst_y: u32,
 ) {
     let fb_w = fb.width() as usize;
-    let tex_w = tex.width as usize;
+    let tex_w = tex.width() as usize;
     let w = src.w as usize;
     let fb_pixels = fb.as_mut_slice();
 
@@ -436,7 +436,7 @@ pub unsafe fn blit_alpha_unchecked(
         let src_row_start = (src.y as usize + row) * tex_w + src.x as usize;
         let dst_row_start = (dst_y as usize + row) * fb_w + dst_x as usize;
         for col in 0..w {
-            let src_px = tex.pixels[src_row_start + col];
+            let src_px = tex.pixels()[src_row_start + col];
             let alpha = src_px >> 24;
             if alpha == 0xFF {
                 fb_pixels[dst_row_start + col] = src_px; // fully opaque

@@ -24,7 +24,7 @@ fn bench_draw_scanline_bilinear_pot(c: &mut Criterion) {
             tex.set_pixel(x, y, color);
         }
     }
-    tex.filter_mode = FilterMode::Bilinear;
+    tex.set_filter_mode(FilterMode::Bilinear);
 
     let y = 50;
     let x_start = 10;
@@ -84,7 +84,7 @@ fn bench_draw_scanline_bilinear_npot(c: &mut Criterion) {
             tex.set_pixel(x, y, color);
         }
     }
-    tex.filter_mode = FilterMode::Bilinear;
+    tex.set_filter_mode(FilterMode::Bilinear);
 
     let y = 50;
     let x_start = 10;

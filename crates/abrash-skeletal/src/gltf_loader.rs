@@ -611,7 +611,7 @@ fn extract_textures(images: &[gltf::image::Data]) -> Result<Vec<Texture>, GltfEr
                 img.width, img.height
             ))
         })?;
-        texture.filter_mode = FilterMode::Bilinear;
+        texture.set_filter_mode(FilterMode::Bilinear);
 
         let w = img.width as usize;
         let pixel_count = w * (img.height as usize);

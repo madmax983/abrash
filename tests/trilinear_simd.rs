@@ -23,7 +23,7 @@ fn test_trilinear_simd_correctness() {
         }
     }
     tex.generate_mipmaps();
-    tex.filter_mode = FilterMode::Trilinear;
+    tex.set_filter_mode(FilterMode::Trilinear);
 
     let y = 0;
     let x_start = 0;

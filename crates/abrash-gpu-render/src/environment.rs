@@ -73,15 +73,16 @@ impl GpuCubemap {
         queue: &wgpu::Queue,
         faces: &[Texture; 6],
     ) -> Result<Self, String> {
-        let size = faces[0].width;
+        let size = faces[0].width();
         if size == 0 {
             return Err("cubemap face dimensions must be positive".to_string());
         }
         for (i, face) in faces.iter().enumerate() {
-            if face.width != size || face.height != size {
+            if face.width() != size || face.height() != size {
                 return Err(format!(
                     "cubemap face {i} is {}x{}, expected {size}x{size}",
-                    face.width, face.height
+                    face.width(),
+                    face.height()
                 ));
             }
         }
@@ -104,7 +105,7 @@ impl GpuCubemap {
         // Upload each face
         for (layer, face) in faces.iter().enumerate() {
             let mut rgba = Vec::with_capacity((size * size * 4) as usize);
-            for &argb in &face.pixels {
+            for &argb in face.pixels() {
                 let bytes = [
                     ((argb >> 16) & 0xFF) as u8,
                     ((argb >> 8) & 0xFF) as u8,

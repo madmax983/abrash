@@ -19,7 +19,7 @@ fn bench_scanline_lengths(c: &mut Criterion) {
         }
     }
     // Use Bilinear to stress the SIMD path more (if it supports it)
-    tex.filter_mode = FilterMode::Bilinear;
+    tex.set_filter_mode(FilterMode::Bilinear);
 
     let lengths = [16, 32, 64, 100, 500, 1920];
 

@@ -368,7 +368,7 @@ impl GpuRenderer {
     ///
     /// Returns an error if the texture dimensions are zero.
     pub fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, String> {
-        if texture.width == 0 || texture.height == 0 {
+        if texture.width() == 0 || texture.height() == 0 {
             return Err("texture dimensions must be positive".to_string());
         }
 
@@ -376,8 +376,8 @@ impl GpuRenderer {
         let gpu_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("User Texture"),
             size: wgpu::Extent3d {
-                width: texture.width,
-                height: texture.height,
+                width: texture.width(),
+                height: texture.height(),
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -392,8 +392,8 @@ impl GpuRenderer {
         // for potentially massive, transient one-shot asset uploads. A thread-local buffer would
         // leak that massive capacity (e.g., 256MB) for the lifetime of the thread.
         // We revert back to the per-call allocation for safety in this specific context.
-        let mut rgba = vec![0u8; texture.pixels.len() * 4];
-        for (chunk, &argb) in rgba.chunks_exact_mut(4).zip(texture.pixels.iter()) {
+        let mut rgba = vec![0u8; texture.pixels().len() * 4];
+        for (chunk, &argb) in rgba.chunks_exact_mut(4).zip(texture.pixels().iter()) {
             chunk[0] = ((argb >> 16) & 0xFF) as u8;
             chunk[1] = ((argb >> 8) & 0xFF) as u8;
             chunk[2] = (argb & 0xFF) as u8;
@@ -410,12 +410,12 @@ impl GpuRenderer {
             &rgba,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(texture.width * 4),
-                rows_per_image: Some(texture.height),
+                bytes_per_row: Some(texture.width() * 4),
+                rows_per_image: Some(texture.height()),
             },
             wgpu::Extent3d {
-                width: texture.width,
-                height: texture.height,
+                width: texture.width(),
+                height: texture.height(),
                 depth_or_array_layers: 1,
             },
         );
