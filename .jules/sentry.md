@@ -51,3 +51,6 @@
 **[Validating Time/Tick Loop Logic Without Flakiness]**
 **Learning:** Testing frame-time loops using `std::thread::sleep` introduces severe flakiness because CI runners or test threads can delay execution unpredictably. Instead of testing "real" time elapsed, test the internal response to elapsed time by directly simulating it on the structure (e.g. `timer.last_time = Instant::now()`, `timer.accumulator += 50ms`).
 **Action:** Never use `std::thread::sleep` for unit testing timing systems. Always manipulate the simulated time state directly to test logic boundaries.
+**Floating-point tests for raytracer**
+**Learning:** When tests fail due to known floating-point precision edge cases (e.g., raycasting symmetry tie-breakers or `fast_normalize` usage), DO NOT silence the failure by deleting the test file or writing conditional logic to bypass assertions (`if ... { return; }`). Bypassing tests is an anti-pattern.
+**Action:** Instead, explicitly adjust the assertion tolerance (epsilon) to accommodate the expected precision loss and ensure comprehensive coverage by adding table-driven tests for various edge cases.
