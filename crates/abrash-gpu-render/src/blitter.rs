@@ -853,7 +853,8 @@ impl GpuBlitter {
         receiver.recv().unwrap().unwrap();
 
         let data = buffer_slice.get_mapped_range();
-        let bytes = data.to_vec();
+        let mut bytes = Vec::with_capacity(data.len());
+        bytes.extend_from_slice(&data);
         drop(data);
         self.readback_buffer.unmap();
         bytes

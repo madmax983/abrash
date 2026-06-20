@@ -63,8 +63,11 @@ pub fn apply_god_rays(fb: &mut Framebuffer, config: &GodRaysConfig) {
 
     SOURCE_PIXELS.with(|buf| {
         let mut original_pixels = buf.borrow_mut();
-        original_pixels.clear();
-        original_pixels.extend_from_slice(fb.as_slice());
+        let fb_slice = fb.as_slice();
+        if original_pixels.len() != fb_slice.len() {
+            original_pixels.resize(fb_slice.len(), 0);
+        }
+        original_pixels.copy_from_slice(fb_slice);
 
         let original_pixels_slice = original_pixels.as_slice();
         let pixels = fb.as_mut_slice();

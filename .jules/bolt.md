@@ -232,3 +232,11 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimal copy_from_slice instead of extend_from_slice]**
+**Learning:** In experimental post-processing effects where a full framebuffer copy is needed, clearing a `Vec` and then calling `.extend_from_slice()` requires unnecessary capacity checks. Pre-sizing the `Vec` via `.resize()` if needed and then calling `.copy_from_slice()` bypasses these checks and is a more idiomatic way to achieve `memcpy`-like performance when the capacity is deterministic.
+**Action:** Replace `buf.clear(); buf.extend_from_slice(src);` with `buf.resize(src.len(), 0); buf.copy_from_slice(src);` to guarantee the size and use optimized internal copies.
+
+**[Blitter Readback `.to_vec()` Allocation Elision]**
+**Learning:** Calling `.to_vec()` on a mapped GPU readback buffer `wgpu::BufferView` inside the blitter incurs significant O(N) allocation overhead per frame. While `Box<[u8]>` avoids some vector machinery, `Vec::with_capacity(len)` followed by `.extend_from_slice()` provides exactly the same performance as `.to_vec()` but is significantly more idiomatic when copying raw bytes out of a driver-mapped buffer view, because it explicitly models the capacity transfer while still eliding bounds checks in the standard library implementation.
+**Action:** Replace `data.to_vec()` with `let mut bytes = Vec::with_capacity(data.len()); bytes.extend_from_slice(&data);` when reading back mapped driver slices to make the allocation intent mathematically explicit.
