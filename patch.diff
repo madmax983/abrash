@@ -1,0 +1,13 @@
+<<<<<<< SEARCH
+    for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
+        if depth == f32::INFINITY {
+            *pixel = 0xFF00_0010; // Very Dark Blue Background
+            continue;
+        }
+=======
+    for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
+        if depth.to_bits() == 0x7F80_0000 {
+            *pixel = 0xFF00_0010; // Very Dark Blue Background
+            continue;
+        }
+>>>>>>> REPLACE
