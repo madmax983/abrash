@@ -20,7 +20,6 @@ use abrash::time::FixedTimestep;
 use abrash::skeletal::skinning::skin_vertices;
 use abrash::skeletal::{GltfScene, SkeletonAnimator, SkinnedMesh, load_gltf};
 
-use abrash_anim::clock::PlaybackMode;
 
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
@@ -145,7 +144,7 @@ impl GltfViewerApp {
             scene
                 .clips
                 .first()
-                .map(|clip| SkeletonAnimator::new(skel, clip, PlaybackMode::Loop))
+                .map(|clip| SkeletonAnimator::new(skel, clip))
         });
 
         Ok(Self {

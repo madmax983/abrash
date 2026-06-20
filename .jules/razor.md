@@ -21,3 +21,18 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+
+## [Reduction]
+**Bloat:** The `CoordMode` enum in `crates/abrash-gpu-render/src/blitter.rs` which was unused and flagged with `#[allow(dead_code)]`.
+**Cut:** Deleted the unused `CoordMode` enum completely according to the YAGNI principle.
+**Saved:** Removed 6 lines of unused code.
+
+## [Reduction]
+**Bloat:** The `dielectric_f0` field in `PbrUniforms` within `crates/abrash-render/src/rasterizer/pbr.rs` which was unused and flagged with `#[allow(dead_code)]`.
+**Cut:** Deleted the unused `dielectric_f0` field completely according to the YAGNI principle.
+**Saved:** Removed 3 lines of unused code struct declarations and initializations.
+
+## [Reduction]
+**Bloat:** The `playback` field in `SkeletonAnimator` within `crates/abrash-skeletal/src/animator.rs` which was unused and flagged with `#[allow(dead_code)]`.
+**Cut:** Deleted the unused `playback` field completely according to the YAGNI principle.
+**Saved:** Removed 2 lines of unused code.

@@ -34,8 +34,6 @@ pub struct SkeletonAnimator {
     bone_animators: Vec<BoneAnimator>,
     bind_pose: Pose,
     current_pose: Pose,
-    #[allow(dead_code)]
-    playback: PlaybackMode,
 }
 
 impl SkeletonAnimator {
@@ -44,7 +42,7 @@ impl SkeletonAnimator {
     /// Converts each channel into `Timeline<T>` via the Evaluable bridge.
     /// Channels referencing out-of-range joint indices are silently skipped.
     #[must_use]
-    pub fn new(skeleton: Skeleton, clip: &AnimationClip, playback: PlaybackMode) -> Self {
+    pub fn new(skeleton: Skeleton, clip: &AnimationClip) -> Self {
         let joint_count = skeleton.joint_count();
         let bind_pose = Pose::from_bind(&skeleton);
         let current_pose = Pose::from_bind(&skeleton);
@@ -69,17 +67,17 @@ impl SkeletonAnimator {
             match (&channel.target, &channel.values) {
                 (ChannelTarget::Translation, ChannelValues::Translation(_)) => {
                     let evaluable = channel_to_vec3_evaluable(channel);
-                    let tl = Timeline::from_evaluable(evaluable, playback);
+                    let tl = Timeline::from_evaluable(evaluable, PlaybackMode::Once);
                     animator.position = Some(tl);
                 }
                 (ChannelTarget::Rotation, ChannelValues::Rotation(_)) => {
                     let evaluable = channel_to_quat_evaluable(channel);
-                    let tl = Timeline::from_evaluable(evaluable, playback);
+                    let tl = Timeline::from_evaluable(evaluable, PlaybackMode::Once);
                     animator.rotation = Some(tl);
                 }
                 (ChannelTarget::Scale, ChannelValues::Scale(_)) => {
                     let evaluable = channel_to_vec3_evaluable(channel);
-                    let tl = Timeline::from_evaluable(evaluable, playback);
+                    let tl = Timeline::from_evaluable(evaluable, PlaybackMode::Once);
                     animator.scale = Some(tl);
                 }
                 _ => {} // Mismatched target/values — skip
@@ -91,7 +89,6 @@ impl SkeletonAnimator {
             bone_animators,
             bind_pose,
             current_pose,
-            playback,
         }
     }
 
@@ -215,7 +212,7 @@ mod tests {
             }],
         };
 
-        let mut anim = SkeletonAnimator::new(skeleton, &clip, PlaybackMode::Once);
+        let mut anim = SkeletonAnimator::new(skeleton, &clip);
 
         // Tick to midpoint (1 second into 2-second animation)
         let pose = tick_secs(&mut anim, 1.0);
@@ -252,7 +249,7 @@ mod tests {
             ],
         };
 
-        let mut anim = SkeletonAnimator::new(skeleton, &clip, PlaybackMode::Once);
+        let mut anim = SkeletonAnimator::new(skeleton, &clip);
         assert!(!anim.is_completed());
 
         // Tick through full duration
@@ -263,29 +260,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn looping_playback_never_completes() {
-        let skeleton = make_single_bone_skeleton();
-        let clip = AnimationClip {
-            name: "loop".to_string(),
-            duration: 1.0,
-            channels: vec![AnimationChannel {
-                joint: JointId(0),
-                target: ChannelTarget::Translation,
-                timestamps: vec![0.0, 1.0],
-                values: ChannelValues::Translation(vec![Vec3::ZERO, Vec3::ONE]),
-            }],
-        };
-
-        let mut anim = SkeletonAnimator::new(skeleton, &clip, PlaybackMode::Loop);
-
-        // Tick well past the duration
-        let _pose = tick_secs(&mut anim, 3.0);
-        assert!(
-            !anim.is_completed(),
-            "Looping animation should never complete"
-        );
-    }
 
     #[test]
     fn bones_without_channels_keep_bind_pose() {
@@ -303,7 +277,7 @@ mod tests {
             }],
         };
 
-        let mut anim = SkeletonAnimator::new(skeleton, &clip, PlaybackMode::Once);
+        let mut anim = SkeletonAnimator::new(skeleton, &clip);
         let pose = tick_secs(&mut anim, 0.5);
 
         // Joint 1 should keep its bind pose position of (1, 0, 0)
@@ -356,7 +330,7 @@ mod tests {
         };
 
         // Should not panic — out-of-range joints are silently skipped
-        let mut anim = SkeletonAnimator::new(skeleton, &clip, PlaybackMode::Once);
+        let mut anim = SkeletonAnimator::new(skeleton, &clip);
         anim.tick(0.0);
 
         // The single bone should have identity transform (bind pose)
@@ -375,7 +349,7 @@ mod tests {
             channels: vec![],
         };
 
-        let anim = SkeletonAnimator::new(skeleton, &clip, PlaybackMode::Once);
+        let anim = SkeletonAnimator::new(skeleton, &clip);
         assert_eq!(anim.skeleton().joint_count(), 2);
     }
 
@@ -388,7 +362,7 @@ mod tests {
             channels: vec![],
         };
 
-        let anim = SkeletonAnimator::new(skeleton, &clip, PlaybackMode::Once);
+        let anim = SkeletonAnimator::new(skeleton, &clip);
         // No timelines => all "none" => is_completed returns true
         assert!(anim.is_completed());
     }
@@ -408,7 +382,7 @@ mod tests {
             }],
         };
 
-        let mut anim = SkeletonAnimator::new(skeleton, &clip, PlaybackMode::Once);
+        let mut anim = SkeletonAnimator::new(skeleton, &clip);
         let pose = tick_secs(&mut anim, 1.0);
 
         let pos = pose.local_transforms[0].position;

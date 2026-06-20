@@ -53,15 +53,6 @@ impl BlitMode {
     }
 }
 
-/// Coordinate interpretation for sprite positions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
-pub(crate) enum CoordMode {
-    /// Coordinates are in framebuffer pixels.
-    Pixel,
-    /// Coordinates are normalized \[0.0, 1.0\].
-    Normalized,
-}
 
 /// Per-sprite instance data uploaded to the GPU vertex/instance buffer.
 ///
