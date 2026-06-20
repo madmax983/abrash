@@ -44,8 +44,14 @@ fn clear_rect_original(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height:
     if sx == 0 && ex == w {
         fb.as_mut_slice()[start_idx..end_idx].fill(color);
     } else {
-        for row in fb.as_mut_slice()[start_idx..end_idx].chunks_exact_mut(w) {
-            row[sx..ex].fill(color);
+        let len = ex - sx;
+        let mut offset = start_idx + sx;
+        let slice = fb.as_mut_slice();
+        for _ in sy..ey {
+            unsafe {
+                slice.get_unchecked_mut(offset..offset + len).fill(color);
+            }
+            offset += w;
         }
     }
 }
@@ -93,43 +99,37 @@ fn clear_rect_optimized(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height
     if sx == 0 && ex == w {
         fb.as_mut_slice()[start_idx..end_idx].fill(color);
     } else {
-        let len = ex - sx;
-        let mut offset = start_idx + sx;
-        let slice = fb.as_mut_slice();
-        for _ in sy..ey {
-            unsafe {
-                slice.get_unchecked_mut(offset..offset + len).fill(color);
-            }
-            offset += w;
+        for row in fb.as_mut_slice()[start_idx..end_idx].chunks_exact_mut(w) {
+            row[sx..ex].fill(color);
         }
     }
 }
 
 fn bench_clear_rect_opt(c: &mut Criterion) {
-    let mut fb = Framebuffer::new(1920, 1080).unwrap();
+    let mut fb = Framebuffer::new(3840, 2160).unwrap();
     let mut group = c.benchmark_group("clear_rect_opt");
 
-    group.bench_function("original_1080p", |b| {
+    group.bench_function("unsafe_4k", |b| {
         b.iter(|| {
             clear_rect_original(
                 &mut fb,
-                black_box(100),
-                black_box(100),
-                black_box(1000),
                 black_box(500),
+                black_box(500),
+                black_box(2000),
+                black_box(1000),
                 black_box(0xFFFF_FFFF),
             );
         });
     });
 
-    group.bench_function("optimized_1080p", |b| {
+    group.bench_function("chunks_exact_mut_4k", |b| {
         b.iter(|| {
             clear_rect_optimized(
                 &mut fb,
-                black_box(100),
-                black_box(100),
-                black_box(1000),
                 black_box(500),
+                black_box(500),
+                black_box(2000),
+                black_box(1000),
                 black_box(0xFFFF_FFFF),
             );
         });
