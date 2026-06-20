@@ -163,5 +163,24 @@ impl WindowApp for SkyboxDemoApp {
 
 fn main() {
     print_banner();
-    run_windowed(SkyboxDemoApp::new().unwrap());
+    match SkyboxDemoApp::new() {
+        Ok(app) => run_windowed(app),
+        Err(e) => {
+            let mut error_table = comfy_table::Table::new();
+            error_table
+                .load_preset(comfy_table::presets::UTF8_FULL)
+                .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+                .set_header(vec![
+                    comfy_table::Cell::new("❌ Application Error")
+                        .add_attribute(comfy_table::Attribute::Bold)
+                        .fg(comfy_table::Color::Red),
+                ])
+                .add_row(vec![
+                    comfy_table::Cell::new(format!("{e}")).fg(comfy_table::Color::Yellow),
+                ]);
+
+            eprintln!("\n{error_table}");
+            std::process::exit(1);
+        }
+    }
 }
