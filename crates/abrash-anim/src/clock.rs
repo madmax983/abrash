@@ -9,6 +9,17 @@
 const MAX_DELTA_SECS: f32 = 0.1;
 
 /// How the animation repeats.
+///
+/// Dictates the behavior of an animation when its clock reaches the end of
+/// its duration.
+///
+/// # Examples
+/// ```
+/// use abrash_anim::clock::PlaybackMode;
+///
+/// // The animation plays once and stops.
+/// let mode = PlaybackMode::Once;
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlaybackMode {
     /// Play once and stop.
@@ -22,6 +33,19 @@ pub enum PlaybackMode {
 }
 
 /// Events emitted by the clock on each tick.
+///
+/// Useful for triggering callbacks when an animation cycle completes.
+///
+/// # Examples
+/// ```
+/// use abrash_anim::clock::ClockEvent;
+///
+/// let event = ClockEvent::CycleBoundary { completed: 1 };
+/// match event {
+///     ClockEvent::Normal => println!("Still animating"),
+///     ClockEvent::CycleBoundary { completed } => println!("Completed {} cycles", completed),
+/// }
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClockEvent {
     /// Normal phase advance within a cycle.
@@ -34,6 +58,16 @@ pub enum ClockEvent {
 ///
 /// Uses `(cycle: u64, phase: f32)` to eliminate floating-point
 /// accumulation errors in looping animations.
+///
+/// # Examples
+/// ```
+/// use abrash_anim::clock::{AnimationClock, PlaybackMode};
+///
+/// let mut clock = AnimationClock::new();
+/// clock.tick(0.05, 1.0); // Advance 0.05s for a 1.0s animation
+/// assert_eq!(clock.phase(), 0.05);
+/// assert!(!clock.is_finished(&PlaybackMode::Once));
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AnimationClock {
     cycle: u64,

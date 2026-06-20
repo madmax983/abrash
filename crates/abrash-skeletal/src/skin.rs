@@ -7,6 +7,17 @@ use abrash_core::mesh::Mesh;
 /// Each vertex has up to 4 bone influences. The joint indices refer to
 /// joints in the associated [`crate::skeleton::Skeleton`], and the
 /// corresponding weights should sum to approximately 1.0.
+///
+/// # Examples
+/// ```
+/// use abrash_skeletal::skin::SkinData;
+///
+/// let skin = SkinData {
+///     joint_indices: vec![[0, 1, 0, 0]],
+///     weights: vec![[0.8, 0.2, 0.0, 0.0]],
+/// };
+/// skin.validate(1, 2).unwrap(); // Validates 1 vertex against a 2-joint skeleton
+/// ```
 #[derive(Debug, Clone)]
 pub struct SkinData {
     /// 4 joint indices per vertex.

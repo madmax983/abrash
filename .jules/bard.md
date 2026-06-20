@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2025-02-12 - The Missing Handle Documentation
+**Confusion:** The `ResourcePool` handles were undocumented causing confusion regarding how resources are managed. There was also missing documentation on rendering paths via `embed-demo` and skinning structures `pose::Pose` and `skin::SkinData`. Also `AnimationClock` from `abrash-anim` had missing context on repetition modes and states.
+**Clarification:** Added explicit documentation and examples for `EmbedCamera`, `EmbedDraw`, `EmbedScene` in `embed-demo`, `PlaybackMode`, `ClockEvent`, `AnimationClock` in `abrash-anim`, `Pose`, `SkinData` in `abrash-skeletal`, and `ResourcePool` in `abrash-render`. Discovered that when writing executable Doc Tests, we must ensure variable names in the example strictly match the actual struct definitions (e.g. `SkinData` field is `weights` not `joint_weights`!) otherwise `cargo test` will fail.

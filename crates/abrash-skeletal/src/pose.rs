@@ -4,6 +4,19 @@ use abrash_core::math::Mat4;
 use abrash_core::transform::Transform;
 
 /// A computed pose: one local `Transform` per joint.
+///
+/// Contains the evaluated local-space transforms for a skeleton at a specific
+/// point in time. Can be blended with other poses or converted into global
+/// skin matrices for vertex displacement.
+///
+/// # Examples
+/// ```
+/// use abrash_skeletal::pose::Pose;
+/// use abrash_core::transform::Transform;
+///
+/// let pose = Pose::new(vec![Transform::identity()]);
+/// assert_eq!(pose.local_transforms.len(), 1);
+/// ```
 #[derive(Debug, Clone)]
 pub struct Pose {
     /// Local-space transform for each joint, indexed by `JointId`.

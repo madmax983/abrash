@@ -50,6 +50,21 @@ use abrash_render::render_api::{BorrowedRenderTarget, RenderError};
 // ── Public types ──────────────────────────────────────────────────────────────
 
 /// Camera for a single rendered frame.
+///
+/// Defines the viewpoint, look-at target, and vertical field of view to
+/// project the 3D scene onto the 2D render target.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::Vec3;
+/// use embed_demo::EmbedCamera;
+///
+/// let camera = EmbedCamera {
+///     position: Vec3::new(0.0, 2.0, 5.0),
+///     target:   Vec3::ZERO,
+///     fov_y:    std::f32::consts::FRAC_PI_3,
+/// };
+/// ```
 #[derive(Clone)]
 pub struct EmbedCamera {
     /// Camera position in world space.
@@ -61,6 +76,20 @@ pub struct EmbedCamera {
 }
 
 /// A single draw call in a rendered scene.
+///
+/// Maps a registered mesh to a world transformation and a base flat color.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::Mat4;
+/// use embed_demo::EmbedDraw;
+///
+/// let draw = EmbedDraw {
+///     mesh_index: 0,
+///     transform: Mat4::identity(),
+///     color: 0xFFFF_0000, // Red
+/// };
+/// ```
 pub struct EmbedDraw {
     /// Index returned by [`AbrashBackend::register_mesh`].
     pub mesh_index: usize,
@@ -71,6 +100,24 @@ pub struct EmbedDraw {
 }
 
 /// A complete scene description for one frame.
+///
+/// Groups a camera viewpoint and an array of draw calls to render together.
+///
+/// # Examples
+/// ```
+/// use embed_demo::{EmbedScene, EmbedCamera, EmbedDraw};
+/// use abrash_core::math::Vec3;
+///
+/// let camera = EmbedCamera {
+///     position: Vec3::new(0.0, 0.0, 5.0),
+///     target: Vec3::ZERO,
+///     fov_y: std::f32::consts::FRAC_PI_3,
+/// };
+/// let scene = EmbedScene {
+///     camera,
+///     draws: &[],
+/// };
+/// ```
 pub struct EmbedScene<'a> {
     /// Camera parameters.
     pub camera: EmbedCamera,
