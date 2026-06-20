@@ -184,9 +184,11 @@ impl CpuRenderer {
             total_vertices += len;
         }
 
-        draw_list.vertices.reserve_exact(total_vertices);
-        draw_list.batches.reserve_exact(frame.commands.len());
-        draw_list.lights.reserve_exact(frame.lights.len());
+        // ⚡ Bolt: Use `reserve` instead of `reserve_exact` for frame-to-frame render lists.
+        // This leverages amortized O(1) growth and eliminates frequent O(N) reallocations when frame capacities fluctuate slightly.
+        draw_list.vertices.reserve(total_vertices);
+        draw_list.batches.reserve(frame.commands.len());
+        draw_list.lights.reserve(frame.lights.len());
 
         draw_list.clear_color = frame.clear_color;
 
