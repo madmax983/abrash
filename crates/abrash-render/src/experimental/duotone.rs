@@ -57,23 +57,25 @@ pub fn apply_duotone(fb: &mut Framebuffer, color1: u32, color2: u32) {
     let g2 = (color2 >> 8) & 0xFF;
     let b2 = color2 & 0xFF;
 
-    for row in pixels.chunks_exact_mut(width).take(height) {
-        for pixel in row.iter_mut() {
-            let color = *pixel;
+    // Precompute lookup table for all 256 possible luminance values
+    let mut lut = [0u32; 256];
+    for lum in 0..=255i32 {
+        let out_r = (r1 as i32 + (r2 as i32 - r1 as i32) * lum / 255) as u32;
+        let out_g = (g1 as i32 + (g2 as i32 - g1 as i32) * lum / 255) as u32;
+        let out_b = (b1 as i32 + (b2 as i32 - b1 as i32) * lum / 255) as u32;
+        lut[lum as usize] = (out_r << 16) | (out_g << 8) | out_b;
+    }
 
-            let r = (color >> 16) & 0xFF;
-            let g = (color >> 8) & 0xFF;
-            let b = color & 0xFF;
+    for pixel in pixels {
+        let color = *pixel;
+        let r = (color >> 16) & 0xFF;
+        let g = (color >> 8) & 0xFF;
+        let b = color & 0xFF;
 
-            // Simple relative luminance
-            let lum = (r * 299 + g * 587 + b * 114) / 1000;
+        let lum = (r * 299 + g * 587 + b * 114) / 1000;
 
-            let out_r = (r1 as i32 + (r2 as i32 - r1 as i32) * (lum as i32) / 255) as u32;
-            let out_g = (g1 as i32 + (g2 as i32 - g1 as i32) * (lum as i32) / 255) as u32;
-            let out_b = (b1 as i32 + (b2 as i32 - b1 as i32) * (lum as i32) / 255) as u32;
-
-            *pixel = (color & 0xFF00_0000) | (out_r << 16) | (out_g << 8) | out_b;
-        }
+        // Use the precomputed color and preserve original alpha
+        *pixel = (color & 0xFF00_0000) | lut[lum as usize];
     }
 }
 
