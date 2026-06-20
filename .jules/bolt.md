@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Eliminating Heap Allocations for Initial Embedded Scene Mesh/Texture Registration]**
+**Learning:** `CpuRenderer` provided both `.create_mesh(&Mesh)` (which clones) and `.create_mesh_owned(Mesh)` methods. Using `create_mesh(&Mesh)` inside the `embed-demo`'s `AbrashBackend::register_mesh(&Mesh)` wrapper caused an unnecessary heap allocation of O(N) memory proportional to vertices+indices sizes on initialization.
+**Action:** Prefer `create_mesh_owned(Mesh)` by modifying the API surface of the `embed-demo` crate so `register_mesh(Mesh)` takes `Mesh` by ownership rather than borrowing.

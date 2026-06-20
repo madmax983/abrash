@@ -12,7 +12,7 @@
 //! use abrash_core::mesh::Mesh;
 //!
 //! let mut backend = AbrashBackend::new(320, 240);
-//! let cube_idx = backend.register_mesh(&Mesh::cube(1.0));
+//! let cube_idx = backend.register_mesh(Mesh::cube(1.0));
 //! let mut pixels = vec![0xFF00_0000; 320 * 240];
 //! let mut depths = vec![f32::INFINITY; 320 * 240];
 //!
@@ -129,13 +129,16 @@ impl AbrashBackend {
     /// Meshes are stable for the lifetime of the backend — you can register them
     /// once at startup and reuse the index every frame.
     ///
+    /// ⚡ Performance Note: Takes ownership of `Mesh` instead of borrowing it to avoid an O(N)
+    /// heap allocation and cloning overhead when registering initial geometry.
+    ///
     /// # Panics
     ///
     /// Panics if the mesh has out-of-bounds triangle indices.
-    pub fn register_mesh(&mut self, mesh: &Mesh) -> usize {
+    pub fn register_mesh(&mut self, mesh: Mesh) -> usize {
         let handle = self
             .renderer
-            .create_mesh(mesh)
+            .create_mesh_owned(mesh)
             .expect("mesh indices must be in bounds");
         let idx = self.mesh_handles.len();
         self.mesh_handles.push(handle);
@@ -284,7 +287,7 @@ mod tests {
     #[test]
     fn test_cube_produces_visible_pixels() {
         let mut backend = AbrashBackend::new(200, 200);
-        let cube = backend.register_mesh(&Mesh::cube(1.0));
+        let cube = backend.register_mesh(Mesh::cube(1.0));
 
         let pixels = backend.render(&EmbedScene {
             camera: front_camera(),
@@ -305,7 +308,7 @@ mod tests {
     #[test]
     fn test_render_into_external_buffers_produces_visible_pixels() {
         let mut backend = AbrashBackend::new(200, 200);
-        let cube = backend.register_mesh(&Mesh::cube(1.0));
+        let cube = backend.register_mesh(Mesh::cube(1.0));
         let mut pixels = vec![0xFF00_0000; 200 * 200];
         let mut depths = vec![f32::INFINITY; 200 * 200];
 
@@ -334,7 +337,7 @@ mod tests {
     #[test]
     fn test_render_into_external_buffers_preserves_host_ownership() {
         let mut backend = AbrashBackend::new(128, 128);
-        let cube = backend.register_mesh(&Mesh::cube(1.0));
+        let cube = backend.register_mesh(Mesh::cube(1.0));
         let mut pixels = vec![0xFF00_0000; 128 * 128];
         let mut depths = vec![f32::INFINITY; 128 * 128];
         let pixels_ptr = pixels.as_ptr();
@@ -378,7 +381,7 @@ mod tests {
     #[test]
     fn test_render_into_external_buffers_matches_render_convenience_path() {
         let mut convenience_backend = AbrashBackend::new(160, 120);
-        let convenience_cube = convenience_backend.register_mesh(&Mesh::cube(1.0));
+        let convenience_cube = convenience_backend.register_mesh(Mesh::cube(1.0));
         let scene = EmbedScene {
             camera: front_camera(),
             draws: &[EmbedDraw {
@@ -391,7 +394,7 @@ mod tests {
         let convenience_depths = convenience_backend.target().depths().to_vec();
 
         let mut external_backend = AbrashBackend::new(160, 120);
-        let external_cube = external_backend.register_mesh(&Mesh::cube(1.0));
+        let external_cube = external_backend.register_mesh(Mesh::cube(1.0));
         let mut pixels = vec![0xFF00_0000; 160 * 120];
         let mut depths = vec![f32::INFINITY; 160 * 120];
         external_backend
@@ -416,7 +419,7 @@ mod tests {
     #[test]
     fn test_render_into_external_buffers_rejects_invalid_slices_before_rendering() {
         let mut backend = AbrashBackend::new(64, 64);
-        let cube = backend.register_mesh(&Mesh::cube(1.0));
+        let cube = backend.register_mesh(Mesh::cube(1.0));
         let mut pixels = vec![0xDEAD_BEEF; 8];
         let mut depths = vec![123.0; 8];
         let clear_scene = EmbedScene {
@@ -448,7 +451,7 @@ mod tests {
     #[test]
     fn test_two_objects_both_visible() {
         let mut backend = AbrashBackend::new(200, 200);
-        let cube = backend.register_mesh(&Mesh::cube(1.0));
+        let cube = backend.register_mesh(Mesh::cube(1.0));
 
         let camera = EmbedCamera {
             position: Vec3::new(0.0, 2.0, 8.0),
@@ -487,7 +490,7 @@ mod tests {
     #[test]
     fn test_mesh_reused_across_frames() {
         let mut backend = AbrashBackend::new(100, 100);
-        let cube = backend.register_mesh(&Mesh::cube(1.0));
+        let cube = backend.register_mesh(Mesh::cube(1.0));
 
         let camera = EmbedCamera {
             position: Vec3::new(0.0, 1.5, 4.0),
@@ -518,7 +521,7 @@ mod tests {
     #[test]
     fn test_culled_object_behind_camera_produces_no_pixels() {
         let mut backend = AbrashBackend::new(100, 100);
-        let cube = backend.register_mesh(&Mesh::cube(1.0));
+        let cube = backend.register_mesh(Mesh::cube(1.0));
 
         // Camera looks toward -z; object is far behind at +z=500
         let pixels = backend.render(&EmbedScene {
@@ -544,6 +547,6 @@ mod tests {
         let mut backend = AbrashBackend::new(100, 100);
         let mut bad_mesh = Mesh::cube(1.0);
         bad_mesh.indices.push([999, 999, 999]); // Add out-of-bounds indices
-        backend.register_mesh(&bad_mesh);
+        backend.register_mesh(bad_mesh);
     }
 }
