@@ -60,6 +60,7 @@ pub mod frosted_glass;
 pub mod glitch;
 pub mod halftone;
 pub mod harmonograph;
+pub mod histogram;
 pub mod hologram;
 pub mod infinite_grid;
 pub mod isosurface;

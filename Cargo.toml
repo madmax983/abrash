@@ -984,3 +984,13 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[bench]]
+name = "histogram_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "histogram_demo"
+path = "examples/histogram_demo.rs"
+required-features = ["nova"]
