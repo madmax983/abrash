@@ -255,7 +255,20 @@ fn apply_ssao_scalar(
                 let rotated_sample = Vec3::new(s.x * rx - s.y * ry, s.x * ry + s.y * rx, s.z);
 
                 let sample_pos = pos_view + rotated_sample * radius;
-                let (sample_clip, sample_w) = proj.transform_point(sample_pos);
+                let x = sample_pos.x * proj.m[0][0]
+                    + sample_pos.y * proj.m[1][0]
+                    + sample_pos.z * proj.m[2][0]
+                    + proj.m[3][0];
+                let y = sample_pos.x * proj.m[0][1]
+                    + sample_pos.y * proj.m[1][1]
+                    + sample_pos.z * proj.m[2][1]
+                    + proj.m[3][1];
+                let w = sample_pos.x * proj.m[0][3]
+                    + sample_pos.y * proj.m[1][3]
+                    + sample_pos.z * proj.m[2][3]
+                    + proj.m[3][3];
+                let sample_clip = Vec3::new(x, y, 0.0);
+                let sample_w = w;
 
                 if sample_w > 0.0 {
                     let inv_w = 1.0 / sample_w;
