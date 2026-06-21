@@ -125,3 +125,18 @@
 1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
 2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors.
 3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
+## [Extraction of draw_line_2d]
+**Tangle:** The 2D line drawing logic was duplicated across  () and  ( - which was actually unused). This violated the DRY principle and scattered primitive rasterization logic.
+**Blueprint:**
+1. Extracted the implementation into  as a public function .
+2. Re-exported it via .
+3. Updated  to import and use the shared function.
+4. Removed the dead  code from .
+
+## [Extraction of draw_line_2d]
+**Tangle:** The 2D line drawing logic was duplicated across `crates/abrash-render/src/experimental/harmonograph.rs` (`draw_line_2d`) and `crates/abrash-render/src/rasterizer/rect.rs` (`draw_line_2d_local` - which was actually unused). This violated the DRY principle and scattered primitive rasterization logic.
+**Blueprint:**
+1. Extracted the implementation into `crates/abrash-render/src/rasterizer/line.rs` as a public function `draw_line_2d`.
+2. Re-exported it via `crates/abrash-render/src/rasterizer/mod.rs`.
+3. Updated `harmonograph.rs` to import and use the shared function.
+4. Removed the dead `draw_line_2d_local` code from `rect.rs`.

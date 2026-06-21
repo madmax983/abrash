@@ -587,35 +587,6 @@ pub fn fill_rounded_rect(
     }
 }
 
-fn draw_line_2d_local(fb: &mut Framebuffer, p0: IVec2, p1: IVec2, color: u32) {
-    let mut x0 = p0.x;
-    let mut y0 = p0.y;
-    let x1 = p1.x;
-    let y1 = p1.y;
-
-    let dx = (x1 - x0).abs();
-    let sx = if x0 < x1 { 1 } else { -1 };
-    let dy = -(y1 - y0).abs();
-    let sy = if y0 < y1 { 1 } else { -1 };
-    let mut err = dx + dy;
-
-    loop {
-        fb.set_pixel(x0, y0, color);
-        if x0 == x1 && y0 == y1 {
-            break;
-        }
-        let e2 = 2 * err;
-        if e2 >= dy {
-            err += dy;
-            x0 += sx;
-        }
-        if e2 <= dx {
-            err += dx;
-            y0 += sy;
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
