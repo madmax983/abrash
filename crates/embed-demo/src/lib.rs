@@ -142,6 +142,24 @@ impl AbrashBackend {
         idx
     }
 
+    /// Upload a mesh taking ownership of the data, preventing a `clone()`.
+    ///
+    /// Meshes are stable for the lifetime of the backend — you can register them
+    /// once at startup and reuse the index every frame.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the mesh has out-of-bounds triangle indices.
+    pub fn register_mesh_owned(&mut self, mesh: Mesh) -> usize {
+        let handle = self
+            .renderer
+            .create_mesh_owned(mesh)
+            .expect("mesh indices must be in bounds");
+        let idx = self.mesh_handles.len();
+        self.mesh_handles.push(handle);
+        idx
+    }
+
     fn build_frame(&mut self, scene: &EmbedScene<'_>) -> (Frame, Vec<MaterialHandle>) {
         let up = Vec3::new(0.0, 1.0, 0.0);
         let view = Mat4::look_at(scene.camera.position, scene.camera.target, up);

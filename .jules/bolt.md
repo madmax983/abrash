@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Thread-local Cel Shading Optimization]
+**Learning:** Returning a `.to_vec()` on a framebuffer slice `fb.as_slice().to_vec()` creates dynamic heap allocations per-frame per-effect, which slows down the renderer significantly in a tight loop.
+**Action:** Replace `fb.as_slice().to_vec()` with a `thread_local!` `RefCell<Vec<u32>>`, then simply resize it dynamically via `.resize(fb_slice.len(), 0)` and `.copy_from_slice(fb_slice)` to bypass repetitive allocs.
