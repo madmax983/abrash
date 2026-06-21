@@ -171,4 +171,14 @@ mod tests {
         target.pixels_mut()[0] = 0xDEAD_BEEF;
         assert_eq!(target.pixels()[0], 0xDEAD_BEEF);
     }
+
+    #[test]
+    #[should_panic(expected = "owned render target has matching color and depth buffers")]
+    fn test_render_target_borrow_mut_guard() {
+        let mut target = RenderTarget::new(10, 10).unwrap();
+        // Artificially corrupt the zbuffer size to mismatch the framebuffer size
+        target.zbuffer = crate::zbuffer::ZBuffer::new(5, 5).unwrap();
+        // This should trigger the defensive expect
+        let _ = target.borrow_mut();
+    }
 }

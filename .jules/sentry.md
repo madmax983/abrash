@@ -51,3 +51,6 @@
 **[Validating Time/Tick Loop Logic Without Flakiness]**
 **Learning:** Testing frame-time loops using `std::thread::sleep` introduces severe flakiness because CI runners or test threads can delay execution unpredictably. Instead of testing "real" time elapsed, test the internal response to elapsed time by directly simulating it on the structure (e.g. `timer.last_time = Instant::now()`, `timer.accumulator += 50ms`).
 **Action:** Never use `std::thread::sleep` for unit testing timing systems. Always manipulate the simulated time state directly to test logic boundaries.
+**[Validating Expect Guards on Internal Constraints]**
+**Learning:** Defensive `expect()` guards that protect internal object invariants (like ensuring internal `framebuffer` and `zbuffer` sizes match before creating a borrowed slice) are impossible to trigger through safe public APIs. To ensure the guard works, you must artificially corrupt the internal state within a `tests` module and ensure it explodes.
+**Action:** Use `#[should_panic(expected = "...")]` inside unit tests by forcibly mutating internal private fields (e.g. changing `target.zbuffer`'s capacity) and triggering the method to verify the `expect` catches the inconsistency.
