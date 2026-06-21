@@ -1,0 +1,18 @@
+--- crates/abrash-render/src/heat_vision.rs
++++ crates/abrash-render/src/heat_vision.rs
+@@ -103,15 +103,15 @@
+         return;
+     }
+
+     for (pixel, &depth) in pixels[i..len].iter_mut().zip(depths[i..len].iter()) {
+-        if depth == f32::INFINITY {
++        if depth.to_bits() == 0x7F80_0000 {
+             *pixel = 0xFF00_0010;
+             continue;
+         }
+
+         let t = ((depth - min_z) * scale) as u32;
+         let t = t.min(1023);
+
+         *pixel = unsafe { *lut.get_unchecked(t as usize) };
+     }
