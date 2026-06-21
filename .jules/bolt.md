@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[String formatting in hot I/O loops is extremely slow]**
+**Learning:** Using the `write!` macro for single character output inside a hot per-pixel rendering loop (like exporting an ASCII framebuffer) incurs massive trait dispatch and formatting overhead, dominating execution time.
+**Action:** Replace `write!(writer, "{}", ch)` with allocation-free byte encoding using `writer.write_all(ch.encode_utf8(&mut buf).as_bytes())` to drastically improve performance and eliminate overhead.

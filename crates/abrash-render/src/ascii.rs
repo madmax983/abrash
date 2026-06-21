@@ -179,11 +179,13 @@ impl<'a> AsciiConverter<'a> {
         let mut writer = BufWriter::new(file);
 
         let width = self.framebuffer.width();
+        let mut char_buf = [0u8; 4];
         for row in self.framebuffer.as_slice().chunks_exact(width as usize) {
             for &pixel in row {
-                write!(writer, "{}", self.charset.map(pixel_luminance(pixel)))?;
+                let ch = self.charset.map(pixel_luminance(pixel));
+                writer.write_all(ch.encode_utf8(&mut char_buf).as_bytes())?;
             }
-            writeln!(writer)?;
+            writer.write_all(b"\n")?;
         }
 
         Ok(())
@@ -217,6 +219,7 @@ impl<'a> AsciiConverter<'a> {
         let mut writer = BufWriter::new(file);
 
         let width = self.framebuffer.width();
+        let mut char_buf = [0u8; 4];
         for row in self.framebuffer.as_slice().chunks_exact(width as usize) {
             for &pixel in row {
                 let ch = self.charset.map(pixel_luminance(pixel));
@@ -231,7 +234,7 @@ impl<'a> AsciiConverter<'a> {
                 writer.write_all(b";")?;
                 write_u8(&mut writer, b)?;
                 writer.write_all(b"m")?;
-                write!(writer, "{ch}")?; // characters can be multi-byte, so we still use write! for the char
+                writer.write_all(ch.encode_utf8(&mut char_buf).as_bytes())?;
             }
             writer.write_all(b"\x1b[0m\n")?;
         }
