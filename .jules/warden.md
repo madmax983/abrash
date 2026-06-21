@@ -24,3 +24,7 @@
 ## 2026-04-18 - [Heap Buffer Overflow in Pixel Sort via Unchecked SendPtr]
 **Threat:** The `SendPtr` wrapper inside `crates/abrash-render/src/experimental/pixel_sort.rs` lacked a length parameter and blindly added indices to the raw pointer via `*ptr.0.add(...)`. If a framebuffer lied about its dimensions or if sorting logic failed, it would lead to a catastrophic out-of-bounds heap read/write.
 **Defense:** Rewrote `SendPtr` to capture and store the length of the slice at instantiation. Replaced direct raw pointer dereferencing with safe `read()` and `write()` methods containing an `assert!(index < self.1, "Index out of bounds")` guard before evaluating the `unsafe` block.
+
+## 2026-04-19 - [Vulnerable Dependencies: imageproc and rand]
+**Threat:** The `cargo audit` scan revealed known vulnerabilities in `imageproc` (RUSTSEC-2026-0115, RUSTSEC-2026-0116, RUSTSEC-2026-0117) and `rand` (RUSTSEC-2026-0097). These could result in unsound bounds checks or custom logger unsoundness.
+**Defense:** Bumped the `imageproc` crate version to `0.25.1` and `rand` versions to latest secure patches (0.8.6 and 0.9.4) to remediate the CVEs.
