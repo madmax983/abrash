@@ -1,0 +1,33 @@
+<<<<<<< SEARCH
+        // Convert 0xAARRGGBB → RGBA bytes for wgpu.
+        // ⚡ Bolt: Eliminates O(N) dynamic heap allocation per frame by reusing a thread-local
+        // buffer. The buffer is dynamically resized to match the required capacity.
+        UPLOAD_BUFFER.with(|buf| {
+            let mut buf = buf.borrow_mut();
+            let required_size = fb_pixels.len() * 4;
+            if buf.len() != required_size {
+                buf.resize(required_size, 0);
+            }
+            for (chunk, &px) in buf.chunks_exact_mut(4).zip(fb_pixels.iter()) {
+                chunk[0] = ((px >> 16) & 0xFF) as u8;
+                chunk[1] = ((px >> 8) & 0xFF) as u8;
+                chunk[2] = (px & 0xFF) as u8;
+                chunk[3] = ((px >> 24) & 0xFF) as u8;
+            }
+=======
+        // Convert 0xAARRGGBB → RGBA bytes for wgpu.
+        // ⚡ Bolt: Eliminates O(N) dynamic heap allocation per frame by reusing a thread-local
+        // buffer. The buffer is dynamically resized to match the required capacity.
+        UPLOAD_BUFFER.with(|buf| {
+            let mut buf = buf.borrow_mut();
+            let required_size = fb_pixels.len() * 4;
+            if buf.len() != required_size {
+                buf.resize(required_size, 0);
+            }
+            for (chunk, &px) in buf.chunks_exact_mut(4).zip(fb_pixels.iter()) {
+                chunk[0] = ((px >> 16) & 0xFF) as u8;
+                chunk[1] = ((px >> 8) & 0xFF) as u8;
+                chunk[2] = (px & 0xFF) as u8;
+                chunk[3] = ((px >> 24) & 0xFF) as u8;
+            }
+>>>>>>> REPLACE
