@@ -27,7 +27,7 @@ fn main() {
     let mut depths = vec![f32::INFINITY; len];
 
     // Register geometry once — handles survive across frames.
-    let cube = backend.register_mesh(&Mesh::cube(1.0));
+    let cube = backend.register_mesh(Mesh::cube(1.0));
 
     let camera = EmbedCamera {
         position: Vec3::new(0.0, 2.0, 5.0),

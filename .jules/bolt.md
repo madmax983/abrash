@@ -232,3 +232,4 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+Persona 'Bolt' Learning: When registering large assets like Mesh or Texture in API wrappers (e.g., AbrashBackend), prefer accepting the asset by ownership and utilizing underlying _owned methods (like CpuRenderer::create_mesh_owned) instead of borrowing. This prevents unnecessary O(N) heap allocations and expensive .clone() calls during initialization.
