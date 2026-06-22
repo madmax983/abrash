@@ -74,7 +74,8 @@ pub fn fast_inv_sqrt(n: f32) -> f32 {
         // _mm_rsqrt_ss computes approximate 1/sqrt(a) for the lower float.
         let n_vec = std::arch::x86_64::_mm_set_ss(n);
         let r = std::arch::x86_64::_mm_rsqrt_ss(n_vec);
-        std::arch::x86_64::_mm_cvtss_f32(r)
+        let approx = std::arch::x86_64::_mm_cvtss_f32(r);
+        approx * (1.5 - (0.5 * n * approx * approx))
     }
 
     #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
