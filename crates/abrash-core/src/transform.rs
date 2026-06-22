@@ -203,12 +203,30 @@ impl Transform {
         )
     }
 
-    /// Transform a batch of points, reusing one output allocation.
+    /// Transform a batch of points.
     #[must_use]
     pub fn transform_points(&self, points: &[Vec3]) -> Vec<Vec3> {
-        let mut out = Vec::with_capacity(points.len());
-        self.transform_points_into(points, &mut out);
-        out
+        let basis = self.scaled_rotation_basis();
+        let m00 = basis[0][0];
+        let m01 = basis[0][1];
+        let m02 = basis[0][2];
+        let m10 = basis[1][0];
+        let m11 = basis[1][1];
+        let m12 = basis[1][2];
+        let m20 = basis[2][0];
+        let m21 = basis[2][1];
+        let m22 = basis[2][2];
+
+        points
+            .iter()
+            .map(|&p| {
+                Vec3::new(
+                    p.x * m00 + p.y * m10 + p.z * m20 + self.position.x,
+                    p.x * m01 + p.y * m11 + p.z * m21 + self.position.y,
+                    p.x * m02 + p.y * m12 + p.z * m22 + self.position.z,
+                )
+            })
+            .collect()
     }
 
     /// Transform a batch of points and write into `out`.
@@ -265,9 +283,27 @@ impl Transform {
     /// Transform a batch of direction vectors (scale + rotate, no translation).
     #[must_use]
     pub fn transform_vectors(&self, vectors: &[Vec3]) -> Vec<Vec3> {
-        let mut out = Vec::with_capacity(vectors.len());
-        self.transform_vectors_into(vectors, &mut out);
-        out
+        let basis = self.scaled_rotation_basis();
+        let m00 = basis[0][0];
+        let m01 = basis[0][1];
+        let m02 = basis[0][2];
+        let m10 = basis[1][0];
+        let m11 = basis[1][1];
+        let m12 = basis[1][2];
+        let m20 = basis[2][0];
+        let m21 = basis[2][1];
+        let m22 = basis[2][2];
+
+        vectors
+            .iter()
+            .map(|&v| {
+                Vec3::new(
+                    v.x * m00 + v.y * m10 + v.z * m20,
+                    v.x * m01 + v.y * m11 + v.z * m21,
+                    v.x * m02 + v.y * m12 + v.z * m22,
+                )
+            })
+            .collect()
     }
 
     /// Transform a batch of direction vectors and write into `out`.

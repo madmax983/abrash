@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**Remove `Vec::with_capacity` + `.extend` Anti-pattern**
+**Learning:** Replacing `.collect::<Vec<_>>()` calls with manual `Vec::with_capacity(iter.size_hint().0)` and `.extend()` is a well-known anti-pattern in Rust that provides zero performance benefit and clutters code. The standard library's `.collect()` already leverages `size_hint()` and `TrustedLen` internally to perfectly pre-allocate the correct capacity before iterating.
+**Action:** Use `.collect()` directly when creating new vectors from iterators, especially in hot paths like `transform_points`, `transform_vectors`, and `compute_face_normals`. Only use `Vec::with_capacity` + `.extend` when appending to an *existing* vector to reuse its allocation.
