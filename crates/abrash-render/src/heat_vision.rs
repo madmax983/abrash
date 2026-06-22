@@ -70,7 +70,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     let mut has_content = false;
 
     for &z in depths {
-        if z != f32::INFINITY {
+        if z.to_bits() != 0x7F80_0000 {
             if z < min_z {
                 min_z = z;
             }
@@ -105,7 +105,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     }
 
     for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
-        if depth == f32::INFINITY {
+        if depth.to_bits() == 0x7F80_0000 {
             *pixel = 0xFF00_0010; // Very Dark Blue Background
             continue;
         }
@@ -151,7 +151,7 @@ unsafe fn apply_heat_vision_simd(
         let depth_ptr = depths.as_ptr().add(i);
         let depth_val = _mm256_loadu_ps(depth_ptr);
 
-        // depth == f32::INFINITY
+        // depth.to_bits() == 0x7F80_0000
         let is_inf = _mm256_cmp_ps(depth_val, inf_vec, _CMP_EQ_OQ);
         let is_inf_int = _mm256_castps_si256(is_inf);
 
@@ -185,7 +185,7 @@ unsafe fn apply_heat_vision_simd(
 
     // Scalar tail
     for (pixel, &depth) in pixels[i..len].iter_mut().zip(depths[i..len].iter()) {
-        if depth == f32::INFINITY {
+        if depth.to_bits() == 0x7F80_0000 {
             *pixel = 0xFF00_0010;
             continue;
         }
