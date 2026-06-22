@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [Julia Set Generator]
+**Concept:** A mathematical fractal generator that renders the Julia Set. Similar to Mandelbrot, but allows exploring complex constants `c` to generate intricate, connected, or dust-like fractals. Can be animated by slowly rotating `c` over time in a demo.
+**Fate:** Pending
+**Lesson:** Adding another fractal type next to `Mandelbrot` provides a great visual demo capability, particularly because Julia sets animate beautifully by changing the complex constant `c` over time.
