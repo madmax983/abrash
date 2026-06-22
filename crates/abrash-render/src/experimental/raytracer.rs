@@ -307,10 +307,16 @@ impl RayTracer {
         AABB_BUFFER.with(|buffer| {
             let mut world_aabbs = buffer.borrow_mut();
             world_aabbs.clear();
-            world_aabbs.reserve(scene.objects.len());
-            for obj in &scene.objects {
-                world_aabbs.push(obj.calculate_world_aabb());
-            }
+
+            // ⚡ Bolt: Iterate over the objects and `extend` the vector directly using an iterator
+            // map instead of a manual `.reserve()` and `.push()` loop. This removes redundant bounds
+            // checking overhead inside the inner hot loop and allows the standard library to optimally size the allocation.
+            world_aabbs.extend(
+                scene
+                    .objects
+                    .iter()
+                    .map(crate::scene::SceneObject::calculate_world_aabb),
+            );
         });
 
         AABB_BUFFER.with(|buffer| {
