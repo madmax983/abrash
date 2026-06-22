@@ -171,4 +171,15 @@ mod tests {
         target.pixels_mut()[0] = 0xDEAD_BEEF;
         assert_eq!(target.pixels()[0], 0xDEAD_BEEF);
     }
+
+    #[test]
+    #[should_panic(expected = "owned render target has matching color and depth buffers")]
+    fn test_borrow_mut_panics_on_internal_invariant_violation() {
+        let mut target = RenderTarget::new(10, 10).unwrap();
+        // Artificially corrupt the internal invariant (framebuffer/zbuffer dimension mismatch)
+        target.framebuffer = Framebuffer::new(5, 5).unwrap();
+
+        // This should panic because the framebuffer slice is now shorter than expected by the zbuffer / target width
+        let _borrowed = target.borrow_mut();
+    }
 }
