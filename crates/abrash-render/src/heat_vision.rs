@@ -70,7 +70,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     let mut has_content = false;
 
     for &z in depths {
-        if z != f32::INFINITY {
+        if z.to_bits() != 0x7F80_0000 {
             if z < min_z {
                 min_z = z;
             }
@@ -105,7 +105,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     }
 
     for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
-        if depth == f32::INFINITY {
+        if depth.to_bits() == 0x7F80_0000 {
             *pixel = 0xFF00_0010; // Very Dark Blue Background
             continue;
         }
@@ -131,10 +131,10 @@ unsafe fn apply_heat_vision_simd(
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::{
-        __m256i, _CMP_EQ_OQ, _mm256_blendv_epi8, _mm256_castps_si256, _mm256_cmp_ps,
-        _mm256_cvttps_epi32, _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32,
-        _mm256_min_epi32, _mm256_mul_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256,
-        _mm256_storeu_si256, _mm256_sub_ps,
+        __m256i, _mm256_blendv_epi8, _mm256_castps_si256, _mm256_cmpeq_epi32, _mm256_cvttps_epi32,
+        _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32, _mm256_min_epi32, _mm256_mul_ps,
+        _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256, _mm256_storeu_si256,
+        _mm256_sub_ps,
     };
 
     let len = pixels.len().min(depths.len());
@@ -142,7 +142,7 @@ unsafe fn apply_heat_vision_simd(
 
     let min_z_vec = _mm256_set1_ps(min_z);
     let scale_vec = _mm256_set1_ps(scale);
-    let inf_vec = _mm256_set1_ps(f32::INFINITY);
+    let inf_vec_int = _mm256_set1_epi32(0x7F80_0000);
     let max_t_vec = _mm256_set1_epi32(1023);
     let bg_color = _mm256_set1_epi32(0xFF00_0010_u32 as i32);
     let lut_ptr = lut.as_ptr().cast::<i32>();
@@ -152,8 +152,7 @@ unsafe fn apply_heat_vision_simd(
         let depth_val = _mm256_loadu_ps(depth_ptr);
 
         // depth == f32::INFINITY
-        let is_inf = _mm256_cmp_ps(depth_val, inf_vec, _CMP_EQ_OQ);
-        let is_inf_int = _mm256_castps_si256(is_inf);
+        let is_inf_int = _mm256_cmpeq_epi32(_mm256_castps_si256(depth_val), inf_vec_int);
 
         // t = (depth - min_z) * scale
         let t_f32 = _mm256_mul_ps(_mm256_sub_ps(depth_val, min_z_vec), scale_vec);
@@ -185,7 +184,7 @@ unsafe fn apply_heat_vision_simd(
 
     // Scalar tail
     for (pixel, &depth) in pixels[i..len].iter_mut().zip(depths[i..len].iter()) {
-        if depth == f32::INFINITY {
+        if depth.to_bits() == 0x7F80_0000 {
             *pixel = 0xFF00_0010;
             continue;
         }
@@ -307,5 +306,28 @@ mod tests {
             p, 0x00FF_000000,
             "Should remain unchanged default Framebuffer color (Solid Black)"
         );
+    }
+}
+
+#[cfg(test)]
+mod additional_tests {
+    use super::*;
+
+    #[test]
+    fn test_heat_vision_negative_infinity_handling() {
+        let mut fb = Framebuffer::new(2, 1).unwrap();
+        let mut zb = ZBuffer::new(2, 1).unwrap();
+
+        // Negative infinity is not mathematically expected in Z-buffer,
+        // but checking our bitwise check (0x7F80_0000) does not match it.
+        zb.test_and_set(0, 0, f32::NEG_INFINITY);
+        zb.test_and_set(1, 0, 10.0);
+
+        // Should not panic, NEG_INFINITY should be treated as a valid float (minimum possible depth)
+        // rather than background color.
+        apply_heat_vision(&mut fb, &zb);
+
+        let p0 = fb.get_pixel(0, 0).unwrap();
+        assert_ne!(p0, 0xFF00_0010, "Negative infinity should not map to background color");
     }
 }

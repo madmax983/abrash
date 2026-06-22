@@ -232,3 +232,8 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Float Infinity Check Optimization]**\n**Learning:** Floating point comparisons like  can cause overhead in hot loops. They can be effectively bypassed by using bitwise integer comparisons like , matching both scalar and SIMD workloads.\n**Action:** Replaced  float checks with  integer bit checks in heat vision, gaining significant performance on large resolutions.
+
+**[Float Infinity Check Optimization]**
+**Learning:** Floating point comparisons like `depth == f32::INFINITY` can cause overhead in hot loops. They can be effectively bypassed by using bitwise integer comparisons like `depth.to_bits() == 0x7F80_0000`, matching both scalar and SIMD workloads.
+**Action:** Replaced `f32::INFINITY` float checks with `to_bits() == 0x7F80_0000` integer bit checks in heat vision, gaining significant performance on large resolutions.
