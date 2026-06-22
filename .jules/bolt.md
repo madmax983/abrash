@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**Refactor `clear_rect` to use safe iterators**
+**Learning:** For 2D region fills (like `clear_rect`), replacing manual loop indexing and `unsafe` slice accesses (`get_unchecked_mut`) with safe iterator-based chunking (e.g., `.chunks_exact_mut(w)`) eliminates memory safety risks. It also provides LLVM with explicit non-aliasing guarantees, allowing it to auto-vectorize and optimize the loop for equivalent or better performance.
+**Action:** Default to safe iterator chunking for 2D loops instead of explicit manual 1D indexing and speculative unsafe code.
