@@ -128,48 +128,8 @@ pub fn clip_triangle_to_frustum<V: Copy>(
     let (p1, w1) = get_pos(&v1);
     let (p2, w2) = get_pos(&v2);
 
-    let mut active_planes = 0u8;
-
-    #[cfg(target_arch = "x86_64")]
-    unsafe {
-        use std::arch::x86_64::{
-            _mm_and_ps, _mm_cmpge_ps, _mm_cmple_ps, _mm_movemask_ps, _mm_set_ps, _mm_setzero_ps,
-            _mm_sub_ps,
-        };
-        // Layout: [v2, v1, v0, pad] or [v0, v1, v2, pad]?
-        // _mm_set_ps(e3, e2, e1, e0) -> [e0, e1, e2, e3]
-        // We want lanes 0, 1, 2 to correspond to v0, v1, v2.
-        // So we should use _mm_set_ps(pad, v2, v1, v0).
-
-        let vx = _mm_set_ps(0.0, p2.x, p1.x, p0.x);
-        let vy = _mm_set_ps(0.0, p2.y, p1.y, p0.y);
-        let vz = _mm_set_ps(0.0, p2.z, p1.z, p0.z);
-        let vw = _mm_set_ps(1.0, w2, w1, w0);
-        let neg_vw = _mm_sub_ps(_mm_setzero_ps(), vw);
-
-        // Plane checks
-        // 1. Left: x >= -w
-        let m_left = _mm_cmpge_ps(vx, neg_vw);
-        // 2. Right: x <= w
-        let m_right = _mm_cmple_ps(vx, vw);
-        // 3. Bottom: y >= -w
-        let m_bottom = _mm_cmpge_ps(vy, neg_vw);
-        // 4. Top: y <= w
-        let m_top = _mm_cmple_ps(vy, vw);
-        // 5. Near: z >= -w
-        let m_near = _mm_cmpge_ps(vz, neg_vw);
-        // 6. Far: z <= w
-        let m_far = _mm_cmple_ps(vz, vw);
-
-        // Trivial Accept: All vertices inside all planes
-        // Combine all masks
-        let all_planes = _mm_and_ps(
-            _mm_and_ps(_mm_and_ps(m_left, m_right), _mm_and_ps(m_bottom, m_top)),
-            _mm_and_ps(m_near, m_far),
-        );
-
-        // Check if lower 3 bits are set (bits 0, 1, 2)
-        if (_mm_movemask_ps(all_planes) & 0x7) == 0x7 {
+    let active_planes = match detect_active_planes(p0, w0, p1, w1, p2, w2) {
+        Some(0) => {
             let mut result = ClippedTriangles::new_uninit();
             result.tris[0].write(v0);
             result.tris[1].write(v1);
@@ -177,145 +137,9 @@ pub fn clip_triangle_to_frustum<V: Copy>(
             result.count = 1;
             return result;
         }
-
-        // Trivial Reject & Active Plane Detection
-        let mask_left = _mm_movemask_ps(m_left) & 0x7;
-        let mask_right = _mm_movemask_ps(m_right) & 0x7;
-        let mask_bottom = _mm_movemask_ps(m_bottom) & 0x7;
-        let mask_top = _mm_movemask_ps(m_top) & 0x7;
-        let mask_near = _mm_movemask_ps(m_near) & 0x7;
-        let mask_far = _mm_movemask_ps(m_far) & 0x7;
-
-        if mask_left == 0
-            || mask_right == 0
-            || mask_bottom == 0
-            || mask_top == 0
-            || mask_near == 0
-            || mask_far == 0
-        {
-            return ClippedTriangles::new_uninit();
-        }
-
-        if mask_left != 7 {
-            active_planes |= 1;
-        }
-        if mask_right != 7 {
-            active_planes |= 2;
-        }
-        if mask_bottom != 7 {
-            active_planes |= 4;
-        }
-        if mask_top != 7 {
-            active_planes |= 8;
-        }
-        if mask_near != 7 {
-            active_planes |= 16;
-        }
-        if mask_far != 7 {
-            active_planes |= 32;
-        }
-    }
-
-    #[cfg(not(target_arch = "x86_64"))]
-    {
-        // Unrolled inside mask check
-        let mut m0 = 0;
-        if p0.x >= -w0 {
-            m0 |= 1;
-        }
-        if p0.x <= w0 {
-            m0 |= 2;
-        }
-        if p0.y >= -w0 {
-            m0 |= 4;
-        }
-        if p0.y <= w0 {
-            m0 |= 8;
-        }
-        if p0.z >= -w0 {
-            m0 |= 16;
-        }
-        if p0.z <= w0 {
-            m0 |= 32;
-        }
-
-        let mut m1 = 0;
-        if p1.x >= -w1 {
-            m1 |= 1;
-        }
-        if p1.x <= w1 {
-            m1 |= 2;
-        }
-        if p1.y >= -w1 {
-            m1 |= 4;
-        }
-        if p1.y <= w1 {
-            m1 |= 8;
-        }
-        if p1.z >= -w1 {
-            m1 |= 16;
-        }
-        if p1.z <= w1 {
-            m1 |= 32;
-        }
-
-        let mut m2 = 0;
-        if p2.x >= -w2 {
-            m2 |= 1;
-        }
-        if p2.x <= w2 {
-            m2 |= 2;
-        }
-        if p2.y >= -w2 {
-            m2 |= 4;
-        }
-        if p2.y <= w2 {
-            m2 |= 8;
-        }
-        if p2.z >= -w2 {
-            m2 |= 16;
-        }
-        if p2.z <= w2 {
-            m2 |= 32;
-        }
-
-        let all_in = m0 & m1 & m2;
-        if all_in == 0x3F {
-            // Trivial Accept: All inside
-            let mut result = ClippedTriangles::new_uninit();
-            result.tris[0].write(v0);
-            result.tris[1].write(v1);
-            result.tris[2].write(v2);
-            result.count = 1;
-            return result;
-        }
-
-        let any_in = m0 | m1 | m2;
-        if any_in != 0x3F {
-            // Trivial Reject: All outside at least one plane
-            return ClippedTriangles::new_uninit();
-        }
-
-        // Active Plane Detection
-        if (all_in & 1) == 0 {
-            active_planes |= 1;
-        }
-        if (all_in & 2) == 0 {
-            active_planes |= 2;
-        }
-        if (all_in & 4) == 0 {
-            active_planes |= 4;
-        }
-        if (all_in & 8) == 0 {
-            active_planes |= 8;
-        }
-        if (all_in & 16) == 0 {
-            active_planes |= 16;
-        }
-        if (all_in & 32) == 0 {
-            active_planes |= 32;
-        }
-    }
+        Some(mask) => mask,
+        None => return ClippedTriangles::new_uninit(),
+    };
 
     // Double buffering for vertex lists
     // A triangle clipped by 6 planes can have at most 9 vertices (usually).
@@ -960,4 +784,188 @@ mod tests {
         assert_eq!(r0, v0);
         assert_eq!(r1, v1);
     }
+}
+
+#[inline]
+fn detect_active_planes(p0: Vec3, w0: f32, p1: Vec3, w1: f32, p2: Vec3, w2: f32) -> Option<u8> {
+    let mut active_planes = 0u8;
+
+    #[cfg(target_arch = "x86_64")]
+    unsafe {
+        use std::arch::x86_64::{
+            _mm_and_ps, _mm_cmpge_ps, _mm_cmple_ps, _mm_movemask_ps, _mm_set_ps, _mm_setzero_ps,
+            _mm_sub_ps,
+        };
+        // Layout: [v2, v1, v0, pad] or [v0, v1, v2, pad]?
+        // _mm_set_ps(e3, e2, e1, e0) -> [e0, e1, e2, e3]
+        // We want lanes 0, 1, 2 to correspond to v0, v1, v2.
+        // So we should use _mm_set_ps(pad, v2, v1, v0).
+
+        let vx = _mm_set_ps(0.0, p2.x, p1.x, p0.x);
+        let vy = _mm_set_ps(0.0, p2.y, p1.y, p0.y);
+        let vz = _mm_set_ps(0.0, p2.z, p1.z, p0.z);
+        let vw = _mm_set_ps(1.0, w2, w1, w0);
+        let neg_vw = _mm_sub_ps(_mm_setzero_ps(), vw);
+
+        // Plane checks
+        // 1. Left: x >= -w
+        let m_left = _mm_cmpge_ps(vx, neg_vw);
+        // 2. Right: x <= w
+        let m_right = _mm_cmple_ps(vx, vw);
+        // 3. Bottom: y >= -w
+        let m_bottom = _mm_cmpge_ps(vy, neg_vw);
+        // 4. Top: y <= w
+        let m_top = _mm_cmple_ps(vy, vw);
+        // 5. Near: z >= -w
+        let m_near = _mm_cmpge_ps(vz, neg_vw);
+        // 6. Far: z <= w
+        let m_far = _mm_cmple_ps(vz, vw);
+
+        // Trivial Accept: All vertices inside all planes
+        // Combine all masks
+        let all_planes = _mm_and_ps(
+            _mm_and_ps(_mm_and_ps(m_left, m_right), _mm_and_ps(m_bottom, m_top)),
+            _mm_and_ps(m_near, m_far),
+        );
+
+        // Check if lower 3 bits are set (bits 0, 1, 2)
+        if (_mm_movemask_ps(all_planes) & 0x7) == 0x7 {
+            return Some(0);
+        }
+
+        // Trivial Reject & Active Plane Detection
+        let mask_left = _mm_movemask_ps(m_left) & 0x7;
+        let mask_right = _mm_movemask_ps(m_right) & 0x7;
+        let mask_bottom = _mm_movemask_ps(m_bottom) & 0x7;
+        let mask_top = _mm_movemask_ps(m_top) & 0x7;
+        let mask_near = _mm_movemask_ps(m_near) & 0x7;
+        let mask_far = _mm_movemask_ps(m_far) & 0x7;
+
+        if mask_left == 0
+            || mask_right == 0
+            || mask_bottom == 0
+            || mask_top == 0
+            || mask_near == 0
+            || mask_far == 0
+        {
+            return None;
+        }
+
+        if mask_left != 7 {
+            active_planes |= 1;
+        }
+        if mask_right != 7 {
+            active_planes |= 2;
+        }
+        if mask_bottom != 7 {
+            active_planes |= 4;
+        }
+        if mask_top != 7 {
+            active_planes |= 8;
+        }
+        if mask_near != 7 {
+            active_planes |= 16;
+        }
+        if mask_far != 7 {
+            active_planes |= 32;
+        }
+    }
+
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        // Unrolled inside mask check
+        let mut m0 = 0;
+        if p0.x >= -w0 {
+            m0 |= 1;
+        }
+        if p0.x <= w0 {
+            m0 |= 2;
+        }
+        if p0.y >= -w0 {
+            m0 |= 4;
+        }
+        if p0.y <= w0 {
+            m0 |= 8;
+        }
+        if p0.z >= -w0 {
+            m0 |= 16;
+        }
+        if p0.z <= w0 {
+            m0 |= 32;
+        }
+
+        let mut m1 = 0;
+        if p1.x >= -w1 {
+            m1 |= 1;
+        }
+        if p1.x <= w1 {
+            m1 |= 2;
+        }
+        if p1.y >= -w1 {
+            m1 |= 4;
+        }
+        if p1.y <= w1 {
+            m1 |= 8;
+        }
+        if p1.z >= -w1 {
+            m1 |= 16;
+        }
+        if p1.z <= w1 {
+            m1 |= 32;
+        }
+
+        let mut m2 = 0;
+        if p2.x >= -w2 {
+            m2 |= 1;
+        }
+        if p2.x <= w2 {
+            m2 |= 2;
+        }
+        if p2.y >= -w2 {
+            m2 |= 4;
+        }
+        if p2.y <= w2 {
+            m2 |= 8;
+        }
+        if p2.z >= -w2 {
+            m2 |= 16;
+        }
+        if p2.z <= w2 {
+            m2 |= 32;
+        }
+
+        let all_in = m0 & m1 & m2;
+        if all_in == 0x3F {
+            // Trivial Accept: All inside
+            return Some(0);
+        }
+
+        let any_in = m0 | m1 | m2;
+        if any_in != 0x3F {
+            // Trivial Reject: All outside at least one plane
+            return None;
+        }
+
+        // Active Plane Detection
+        if (all_in & 1) == 0 {
+            active_planes |= 1;
+        }
+        if (all_in & 2) == 0 {
+            active_planes |= 2;
+        }
+        if (all_in & 4) == 0 {
+            active_planes |= 4;
+        }
+        if (all_in & 8) == 0 {
+            active_planes |= 8;
+        }
+        if (all_in & 16) == 0 {
+            active_planes |= 16;
+        }
+        if (all_in & 32) == 0 {
+            active_planes |= 32;
+        }
+    }
+
+    Some(active_planes)
 }

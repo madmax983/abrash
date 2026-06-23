@@ -3268,6 +3268,28 @@ fn draw_scanline_normal_mapped(
 /// Uses the Lambertian diffuse model:
 /// $$ I = Ambient + (Diffuse \cdot \max(N \cdot L, 0)) $$
 /// where $N$ is sampled from the normal map and $L$ is the light vector transformed into Tangent Space.
+
+#[inline]
+fn calculate_ts_light(n: Vec3, t: Vec4, light_dir: Vec3) -> Vec3 {
+    let n_norm = n.fast_normalize();
+    let t_norm = Vec3::new(t.x, t.y, t.z).fast_normalize();
+    // Re-orthogonalize T with respect to N (Gram-Schmidt)
+    let t_ortho = (t_norm - n_norm * n_norm.dot(t_norm)).fast_normalize();
+    let b_ortho = n_norm.cross(t_ortho) * t.w;
+
+    // Transform LightDir to Tangent Space.
+    // LightDir passed in is direction of light (sun).
+    // We want vector TO light, so -light_dir.
+    let l_world = light_dir * -1.0;
+
+    // TS_L = TBN^T * L_world
+    Vec3::new(
+        t_ortho.dot(l_world),
+        b_ortho.dot(l_world),
+        n_norm.dot(l_world),
+    )
+}
+
 pub fn fill_triangle_normal_mapped(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
@@ -3346,30 +3368,11 @@ pub fn fill_triangle_normal_mapped(
         // Using `fast_normalize` here avoids expensive square roots in this extremely hot path.
         // This yields a measurable ~10-20% performance improvement in normal mapping rasterization
         // without visibly degrading visual quality.
-        let calculate_ts_light = |n: Vec3, t: Vec4| -> Vec3 {
-            let n_norm = n.fast_normalize();
-            let t_norm = Vec3::new(t.x, t.y, t.z).fast_normalize();
-            // Re-orthogonalize T with respect to N (Gram-Schmidt)
-            let t_ortho = (t_norm - n_norm * n_norm.dot(t_norm)).fast_normalize();
-            let b_ortho = n_norm.cross(t_ortho) * t.w;
-
-            // Transform LightDir to Tangent Space.
-            // LightDir passed in is direction of light (sun).
-            // We want vector TO light, so -light_dir.
-            let l_world = light_dir * -1.0;
-
-            // TS_L = TBN^T * L_world
-            Vec3::new(
-                t_ortho.dot(l_world),
-                b_ortho.dot(l_world),
-                n_norm.dot(l_world),
-            )
-        };
 
         // Use true normals/tangents (v0.2, v0.3) not scaled by inv_w
-        let l0_ts = calculate_ts_light(v0.2, v0.3);
-        let l1_ts = calculate_ts_light(v1.2, v1.3);
-        let l2_ts = calculate_ts_light(v2.2, v2.3);
+        let l0_ts = calculate_ts_light(v0.2, v0.3, light_dir);
+        let l1_ts = calculate_ts_light(v1.2, v1.3, light_dir);
+        let l2_ts = calculate_ts_light(v2.2, v2.3, light_dir);
 
         // Prepare for interpolation
         let l0 = l0_ts * inv_w0;

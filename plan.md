@@ -1,11 +1,12 @@
-1.  **Refactor Heat Vision to Fixed Point Math**
-    - The current `heat_vision.rs` uses floating-point math (`(normalized - 0.25) * 4.0`, etc.) inside a hot pixel loop to map depths to colors.
-    - We will follow the `[Posterize Float to Integer Math Optimization]` learning from `.jules/bolt.md` to map `0.0..1.0` depth range into integer `0..255`, and calculate RGB entirely using integer math (`t * 255 / scale`, etc.).
-    - We will pre-calculate `min_z` and `max_z` like before, calculate a `z_range` integer mapping multiplier, and use simple `(depth - min_z) * scale` to avoid floats in the main loop.
-2.  **Ensure Correctness**
-    - Ensure all existing tests in `heat_vision.rs` pass.
-3.  **Run Benchmark**
-    - Ensure `cargo bench --bench heat_vision_bench` runs successfully and shows performance improvements.
-4.  **Complete pre commit steps**
-    - Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done.
-5.  **Submit PR**
+# Objective
+Refactor God functions and pyramids of doom without altering logic or output.
+
+# Steps
+1. Refactor `clip_triangle_to_frustum` in `crates/abrash-core/src/clipping.rs` to extract the trivial accept/reject logic into a helper function `detect_active_planes`. This logic was over 100 lines deeply nested within the function, violating the "God Function" smell. This reduces `clip_triangle_to_frustum` and makes it cleaner to read without changing any SIMD logic.
+2. Verify the changes to `clipping.rs` by using `cat` on `crates/abrash-core/src/clipping.rs`.
+3. Refactor `fill_triangle_normal_mapped` in `crates/abrash-render/src/rasterizer/texture.rs`. I will extract the closure `calculate_ts_light` into a standalone helper function outside of the large main function to flatten the structure and keep logic separated.
+4. Verify the changes to `texture.rs` by using `cat` on `crates/abrash-render/src/rasterizer/texture.rs`.
+5. Run workspace tests explicitly: `cargo test -p abrash-core --all-features` and `cargo test -p abrash-render --all-features`.
+6. Add an entry to `.jules/forge.md` to document the learning of extracting `active_planes` masking with the format: `**[Title]\n**Learning:** [Insight]\n**Action:** [How to apply next time]`.
+7. Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
+8. Commit the code with PR title format `⚒️ Forge: [refactor name]` and description sections: `🚮 Smell`, `✨ Solution`, `🧼 Benefit`, `🛡️ Verification`.
