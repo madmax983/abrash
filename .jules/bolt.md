@@ -232,3 +232,10 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**Complex map iterators dropping size hints**
+**Learning:** LLVM and Rust standard library  calls occasionally fail to utilize exact size hints on complex mapped wrapper iterators (like ), resulting in continuous dynamic heap reallocations on the hot path.
+**Action:** Use explicit  and  when dealing with deeply nested or mapped hardware/file abstraction iterators to strictly guarantee single-pass O(N) allocation.
+
+**Complex map iterators dropping size hints**
+**Learning:** LLVM and Rust standard library `.collect::<Vec<_>>()` calls occasionally fail to utilize exact size hints on complex mapped wrapper iterators (like `gltf::accessor::Iter`), resulting in continuous dynamic heap reallocations on the hot path.
+**Action:** Use explicit `Vec::with_capacity(iter.size_hint().0)` and `vec.extend(iter)` when dealing with deeply nested or mapped hardware/file abstraction iterators to strictly guarantee single-pass O(N) allocation.
