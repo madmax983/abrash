@@ -984,3 +984,8 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[bench]]
+name = "test_chunks"
+harness = false
+path = "benches/test_chunks.rs"
