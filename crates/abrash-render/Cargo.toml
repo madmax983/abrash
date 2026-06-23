@@ -14,6 +14,7 @@ backend-wasm = ["dep:ratatui"]
 [dev-dependencies]
 proptest = "1.0"
 criterion = "0.5.1"
+rand = "0.10.1"
 
 [dependencies]
 abrash-core = { path = "../abrash-core" }
