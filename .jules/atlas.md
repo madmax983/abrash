@@ -125,3 +125,6 @@
 1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
 2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors.
 3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
+## [Doc Test Import Boundary Fix]
+**Tangle:** The `TuiWindow` doc test in `src/platform/tui.rs` was attempting to import itself via `use abrash_render::platform::tui::TuiWindow;`. This fails compilation and violates the workspace structural boundary because the `platform` module is not defined in or exported from the `abrash-render` crate; it is defined in the root `abrash` facade crate.
+**Blueprint:** Modified the doc test import to `use abrash::platform::tui::TuiWindow;`. This respects the workspace crate boundaries by resolving the module from the correct root crate, passing tests without introducing new dependencies or leaking internal structure.
