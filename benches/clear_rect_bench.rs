@@ -118,8 +118,24 @@ fn bench_zbuffer_clear_rect_full_width_4k(c: &mut Criterion) {
     });
 }
 
+fn bench_clear_rect_unaligned(c: &mut Criterion) {
+    let mut fb = Framebuffer::new(1920, 1080).unwrap();
+    c.bench_function("framebuffer/clear_rect_unaligned", |b| {
+        b.iter(|| {
+            fb.clear_rect(
+                black_box(13),
+                black_box(17),
+                black_box(997),
+                black_box(503),
+                black_box(0xFFFF_FFFF),
+            );
+        });
+    });
+}
+
 criterion_group!(
     benches,
+    bench_clear_rect_unaligned,
     bench_clear_rect_1080p,
     bench_clear_rect_4k,
     bench_zbuffer_clear_rect_1080p,
