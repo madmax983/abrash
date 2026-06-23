@@ -176,7 +176,7 @@ fn print_host_error_and_exit(err: &HostError) -> ! {
                 .add_attribute(comfy_table::Attribute::Bold)
                 .fg(Color::Red),
         ])
-        .add_row(vec![Cell::new(format!("{err}")).fg(Color::Yellow)]);
+        .add_row(vec![Cell::new(format!("{err}")).fg(Color::White)]);
 
     eprintln!("\n{table}");
     std::process::exit(1);
