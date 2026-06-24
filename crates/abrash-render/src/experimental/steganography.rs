@@ -42,25 +42,11 @@ pub fn encode_message(fb: &mut Framebuffer, message: &str) -> Result<(), &'stati
 
             let bit_val = (byte >> bit) & 1;
 
-            let mut p = pixels[pixel_idx];
+            let mut p = unsafe { *pixels.get_unchecked(pixel_idx) };
 
-            // clear the lsb of the target channel and set it to bit_val
-            match channel_idx {
-                0 => {
-                    // R
-                    p = (p & !(1 << 16)) | (u32::from(bit_val) << 16);
-                }
-                1 => {
-                    // G
-                    p = (p & !(1 << 8)) | (u32::from(bit_val) << 8);
-                }
-                2 => {
-                    // B
-                    p = (p & !1) | u32::from(bit_val);
-                }
-                _ => unreachable!("channel_idx is always % 3, so it's 0, 1, or 2"),
-            }
-            pixels[pixel_idx] = p;
+            let shift = 16 - (channel_idx * 8);
+            p = (p & !(1 << shift)) | (u32::from(bit_val) << shift);
+            unsafe { *pixels.get_unchecked_mut(pixel_idx) = p; }
 
             bit_idx += 1;
         }
@@ -88,14 +74,10 @@ pub fn decode_message(fb: &Framebuffer) -> Option<String> {
             }
 
             let channel_idx = bit_idx % 3;
-            let p = pixels[pixel_idx];
+            let p = unsafe { *pixels.get_unchecked(pixel_idx) };
 
-            let bit_val = match channel_idx {
-                0 => (p >> 16) & 1,
-                1 => (p >> 8) & 1,
-                2 => p & 1,
-                _ => unreachable!("channel_idx is always % 3, so it's 0, 1, or 2"),
-            };
+            let shift = 16 - (channel_idx * 8);
+            let bit_val = (p >> shift) & 1;
 
             *byte |= (bit_val as u8) << bit;
             bit_idx += 1;
@@ -119,14 +101,10 @@ pub fn decode_message(fb: &Framebuffer) -> Option<String> {
         for bit in 0..8 {
             let pixel_idx = bit_idx / 3;
             let channel_idx = bit_idx % 3;
-            let p = pixels[pixel_idx];
+            let p = unsafe { *pixels.get_unchecked(pixel_idx) };
 
-            let bit_val = match channel_idx {
-                0 => (p >> 16) & 1,
-                1 => (p >> 8) & 1,
-                2 => p & 1,
-                _ => unreachable!("channel_idx is always % 3, so it's 0, 1, or 2"),
-            };
+            let shift = 16 - (channel_idx * 8);
+            let bit_val = (p >> shift) & 1;
 
             byte |= (bit_val as u8) << bit;
             bit_idx += 1;
@@ -175,37 +153,4 @@ mod tests {
         assert_eq!(decoded, None);
     }
 
-    #[test]
-    #[should_panic(expected = "channel_idx is always % 3, so it's 0, 1, or 2")]
-    fn test_encode_unreachable_guard() {
-        let channel_idx = 3;
-        match channel_idx {
-            0 | 1 | 2 => {}
-            _ => unreachable!("channel_idx is always % 3, so it's 0, 1, or 2"),
-        }
     }
-
-    #[test]
-    #[should_panic(expected = "channel_idx is always % 3, so it's 0, 1, or 2")]
-    fn test_decode_length_unreachable_guard() {
-        let p = 0;
-        let _ = match 3 {
-            0 => (p >> 16) & 1,
-            1 => (p >> 8) & 1,
-            2 => p & 1,
-            _ => unreachable!("channel_idx is always % 3, so it's 0, 1, or 2"),
-        };
-    }
-
-    #[test]
-    #[should_panic(expected = "channel_idx is always % 3, so it's 0, 1, or 2")]
-    fn test_decode_data_unreachable_guard() {
-        let p = 0;
-        let _ = match 4 {
-            0 => (p >> 16) & 1,
-            1 => (p >> 8) & 1,
-            2 => p & 1,
-            _ => unreachable!("channel_idx is always % 3, so it's 0, 1, or 2"),
-        };
-    }
-}
