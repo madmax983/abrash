@@ -984,3 +984,6 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+[[bench]]
+name = "clear_rect_safe_bench"
+harness = false
