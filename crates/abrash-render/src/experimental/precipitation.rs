@@ -127,6 +127,8 @@ pub fn apply_precipitation(fb: &mut Framebuffer, zb: &ZBuffer, config: &Precipit
         let ih = fb.height() as i32;
 
         // Spawn new drops up to max_drops
+        // ⚡ Bolt: Pre-allocate capacity to avoid O(log N) heap reallocations when filling the initial drop pool.
+        drops.reserve_exact(config.max_drops.saturating_sub(drops.len()));
         while drops.len() < config.max_drops {
             let x = rng.next_f32() * width;
             let y = rng.next_f32() * height; // initial spawn scattered

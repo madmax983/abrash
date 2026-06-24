@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Eliding Loop Reallocation for State Initialization]**
+**Learning:** In systems like particle effects or precipitation generators, inserting elements using `vec.push()` inside a loop that fills up to a maximum threshold (e.g. `while drops.len() < max_drops`) causes O(log N) implicit heap reallocations. This introduces unnecessary overhead during the initialization phase or when large numbers of particles spawn simultaneously.
+**Action:** Pre-allocate the required space right before the loop using `vec.reserve_exact(max_items.saturating_sub(vec.len()))` to ensure the vector has enough capacity without reallocating, reducing memory fragmentation and CPU time.
