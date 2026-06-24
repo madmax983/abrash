@@ -205,24 +205,18 @@ impl ParticleSystem {
         }
 
         // Update existing particles
-        let mut i = 0;
-        while i < self.particles.len() {
-            let p = &mut self.particles[i];
-
+        self.particles.retain_mut(|p| {
             p.life -= dt;
             if p.life <= 0.0 {
-                // Remove dead particle (swap remove is O(1))
-                self.particles.swap_remove(i);
-                // Don't increment i, as the swapped element needs to be checked
-                continue;
+                return false;
             }
 
             // Physics
             p.velocity = p.velocity + self.gravity * dt;
             p.position = p.position + p.velocity * dt;
 
-            i += 1;
-        }
+            true
+        });
     }
 
     fn emit(&mut self) {
