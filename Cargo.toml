@@ -984,3 +984,6 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+[[bench]]
+name = "gltf_loader_bench"
+harness = false

@@ -1,0 +1,6 @@
+⚡ Bolt: Optimized gltf loader memory allocations
+
+💡 What: Replaced `.collect::<Vec<_>>()` calls with `Vec::with_capacity(iter.size_hint().0)` and `vec.extend()` in mapped iterators across `crates/abrash-skeletal/src/gltf_loader.rs`.
+🎯 Why: Iterators originating from the `gltf` crate's array accessors have known `.size_hint()`s. Calling `.collect()` fails to allocate the exact capacity for the mapped types under certain LLVM optimization heuristics, triggering multiple dynamic heap resizes and memory copies during initialization. Pre-allocating elides these O(N) reallocations.
+📊 Impact: Eliminates unneeded heap overallocation and copy operations during glTF file loading, scaling proportionately to the mesh complexity (e.g. fewer allocs per mesh node processed).
+🔬 Measurement: Run the test suite and verify no panics.
