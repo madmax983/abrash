@@ -33,7 +33,6 @@ use crate::math::{Mat4, Vec3, fast_inv_sqrt};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
 pub struct Quat {
     pub x: f32,
     pub y: f32,

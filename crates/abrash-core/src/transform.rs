@@ -30,7 +30,6 @@ use crate::quat::Quat;
 /// assert_eq!(i.scale, Vec3::ONE);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
 pub struct Transform {
     pub position: Vec3,
     pub rotation: Quat,

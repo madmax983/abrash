@@ -417,7 +417,6 @@ impl Cylinder {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
 pub struct BoundingSphere {
     pub center: Vec3,
     pub radius: f32,
@@ -607,7 +606,6 @@ impl BoundingSphere {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(missing_docs)]
 pub struct AABB {
     pub min: Vec3,
     #[doc(hidden)]
