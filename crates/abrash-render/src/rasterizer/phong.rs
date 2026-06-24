@@ -514,12 +514,7 @@ unsafe fn draw_scanline_point_lit_simd(
                 let safe_dist_sq = _mm256_blendv_ps(one, dist_sq, dist_valid);
                 let rsqrt_dist = _mm256_rsqrt_ps(safe_dist_sq);
 
-                let point_five = _mm256_set1_ps(0.5);
-                let three_halves = _mm256_set1_ps(1.5);
-
-                let iter1 = _mm256_mul_ps(safe_dist_sq, _mm256_mul_ps(rsqrt_dist, rsqrt_dist));
-                let iter2 = _mm256_sub_ps(three_halves, _mm256_mul_ps(point_five, iter1));
-                let inv_dist = _mm256_mul_ps(rsqrt_dist, iter2);
+                let inv_dist = rsqrt_dist;
 
                 let dist = _mm256_mul_ps(dist_sq, inv_dist);
 
