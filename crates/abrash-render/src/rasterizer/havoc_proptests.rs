@@ -18,7 +18,9 @@ proptest! {
         w in 1u32..2048u32,
         h in 1u32..2048u32,
         fb_len in 0usize..2048usize,
-        zb_len in 0usize..2048usize
+        zb_len in 0usize..2048usize,
+        // The vulnerability is in how texture properties can be manipulated
+        // or just by finding the right combination of u/v parameters that bypass checks
     ) {
         let mut fb = vec![0u32; fb_len];
         let mut zb = vec![100.0f32; zb_len];
@@ -56,6 +58,33 @@ proptest! {
         unsafe {
             draw_span_trilinear_simd(
                 &mut fb, &mut zb, &tex, z, dz_dx, u_fix, v_fix, du_fix, dv_fix, lod
+            );
+        }
+    }
+}
+
+
+proptest! {
+    #[test]
+    #[should_panic(expected = "slice::get_unchecked requires that the index is within the slice")]
+    fn test_texture_mutation_regression(
+        u_fix in any::<i32>(),
+        v_fix in any::<i32>(),
+        du_fix in any::<i32>(),
+        dv_fix in any::<i32>(),
+    ) {
+        let mut fb = vec![0u32; 100];
+        let mut zb = vec![100.0f32; 100];
+
+        let mut tex = Texture::new(1, 1).unwrap();
+        // Maliciously modify the public fields to mismatch the actual allocation
+        tex.width = 1024;
+        tex.height = 1024;
+        // The pixels vec remains size 1
+
+        unsafe {
+            draw_span_nearest_simd(
+                &mut fb, &mut zb, &tex, 0.0, 0.0, u_fix, v_fix, du_fix, dv_fix,
             );
         }
     }
