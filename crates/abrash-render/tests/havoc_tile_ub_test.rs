@@ -1,9 +1,11 @@
 use abrash_render::rasterizer::tile::{
     CompactScreenPoint, PreparedTriangle, PreparedTrianglesList,
 };
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 #[test]
+#[cfg(feature = "parallel")]
 fn test_tile_uninit_read_ub() {
     let mut list = PreparedTrianglesList::new();
     list.push(PreparedTriangle {

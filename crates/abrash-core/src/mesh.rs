@@ -194,11 +194,18 @@ impl Mesh {
                 let k1 = i * row + j;
                 let k2 = k1 + row;
 
-                if i != 0 {
-                    indices.push([k1 as usize, k2 as usize, (k1 + 1) as usize]);
-                }
-                if i != stacks - 1 {
-                    indices.push([(k1 + 1) as usize, k2 as usize, (k2 + 1) as usize]);
+                if i != 0 && i != stacks - 1 {
+                    indices.extend([
+                        [k1 as usize, k2 as usize, (k1 + 1) as usize],
+                        [(k1 + 1) as usize, k2 as usize, (k2 + 1) as usize],
+                    ]);
+                } else {
+                    if i != 0 {
+                        indices.push([k1 as usize, k2 as usize, (k1 + 1) as usize]);
+                    }
+                    if i != stacks - 1 {
+                        indices.push([(k1 + 1) as usize, k2 as usize, (k2 + 1) as usize]);
+                    }
                 }
             }
         }
@@ -256,8 +263,7 @@ impl Mesh {
                 let i1 = i0 + 1;
                 let i2 = ((z + 1) * row + x) as usize;
                 let i3 = i2 + 1;
-                indices.push([i0, i2, i1]);
-                indices.push([i1, i2, i3]);
+                indices.extend([[i0, i2, i1], [i1, i2, i3]]);
             }
         }
 
@@ -324,8 +330,10 @@ impl Mesh {
             for j in 0..sectors {
                 let k1 = i * row + j;
                 let k2 = k1 + row;
-                indices.push([k1 as usize, k2 as usize, (k1 + 1) as usize]);
-                indices.push([(k1 + 1) as usize, k2 as usize, (k2 + 1) as usize]);
+                indices.extend([
+                    [k1 as usize, k2 as usize, (k1 + 1) as usize],
+                    [(k1 + 1) as usize, k2 as usize, (k2 + 1) as usize],
+                ]);
             }
         }
 
@@ -446,8 +454,7 @@ impl Mesh {
             for j in 0..min {
                 let k1 = (i * row + j) as usize;
                 let k2 = ((i + 1) * row + j) as usize;
-                indices.push([k1, k2, k1 + 1]);
-                indices.push([k1 + 1, k2, k2 + 1]);
+                indices.extend([[k1, k2, k1 + 1], [k1 + 1, k2, k2 + 1]]);
             }
         }
 
