@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Eliding Bounds Checks on Blit Operations]**
+**Learning:** Inner loops in unchecked blitting operations that use matrix indexing still incur bounds checking overhead if `unsafe` is not carefully applied to the slice. Iterating using `zip` and `iter_mut` alongside `get_unchecked` on the row slice yields measurable performance gains.
+**Action:** In `blit_alpha_unchecked` and `blit_opaque_unchecked`, replace manual column iteration and indexing with slice-level `get_unchecked` for the entire row width, followed by `zip` iteration or `copy_from_slice`.

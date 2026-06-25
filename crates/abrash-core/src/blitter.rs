@@ -232,8 +232,10 @@ pub unsafe fn blit_opaque_unchecked(
     for row in 0..src.h as usize {
         let src_offset = (src.y as usize + row) * tex_w + src.x as usize;
         let dst_offset = (dst_y as usize + row) * fb_w + dst_x as usize;
-        fb_pixels[dst_offset..dst_offset + w]
-            .copy_from_slice(&tex.pixels[src_offset..src_offset + w]);
+
+        let src_slice = tex.pixels.get_unchecked(src_offset..src_offset + w);
+        let dst_slice = fb_pixels.get_unchecked_mut(dst_offset..dst_offset + w);
+        dst_slice.copy_from_slice(src_slice);
     }
 }
 
@@ -435,14 +437,17 @@ pub unsafe fn blit_alpha_unchecked(
     for row in 0..src.h as usize {
         let src_row_start = (src.y as usize + row) * tex_w + src.x as usize;
         let dst_row_start = (dst_y as usize + row) * fb_w + dst_x as usize;
-        for col in 0..w {
-            let src_px = tex.pixels[src_row_start + col];
+
+        let src_slice = tex.pixels.get_unchecked(src_row_start..src_row_start + w);
+        let dst_slice = fb_pixels.get_unchecked_mut(dst_row_start..dst_row_start + w);
+
+        for (dst, src) in dst_slice.iter_mut().zip(src_slice.iter()) {
+            let src_px = *src;
             let alpha = src_px >> 24;
             if alpha == 0xFF {
-                fb_pixels[dst_row_start + col] = src_px; // fully opaque
+                *dst = src_px; // fully opaque
             } else if alpha > 0 {
-                fb_pixels[dst_row_start + col] =
-                    alpha_blend_pixel(src_px, fb_pixels[dst_row_start + col]);
+                *dst = alpha_blend_pixel(src_px, *dst);
             }
             // alpha == 0 → skip
         }
