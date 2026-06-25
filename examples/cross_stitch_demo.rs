@@ -178,14 +178,16 @@ fn main() {
         .load_preset(presets::UTF8_FULL)
         .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
-            Cell::new("Error").fg(Color::Red),
-            Cell::new("Missing Feature").fg(Color::Yellow),
+            Cell::new("⚠️  Missing Feature: Backend-Winit")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(Color::Red),
+            Cell::new("Required Flag").fg(Color::Cyan),
         ])
         .add_row(vec![
             Cell::new("Cannot run graphical demo"),
             Cell::new("The `backend-winit` feature is required."),
         ]);
 
-    println!("{table}");
+    eprintln!("\n{table}");
     println!("Run again with: cargo run --example cross_stitch_demo --features backend-winit,nova");
 }

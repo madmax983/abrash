@@ -70,7 +70,7 @@ fn main() {
             Cell::new(
                 "Try running with:\ncargo run --example selective_color_demo --features nova",
             )
-            .fg(Color::Green),
+            .fg(Color::Cyan),
         ]);
 
     eprintln!("\n{error_table}");

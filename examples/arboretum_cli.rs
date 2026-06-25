@@ -370,7 +370,7 @@ fn main() {
                 comfy_table::Cell::new(
                     "Try running with:\ncargo run --example arboretum_cli --features nova",
                 )
-                .fg(comfy_table::Color::Green),
+                .fg(comfy_table::Color::Cyan),
             ]);
 
         eprintln!("\n{error_table}");

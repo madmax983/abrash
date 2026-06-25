@@ -263,7 +263,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ])
         .add_row(vec![
             Cell::new("Try running with:\ncargo run --example edge_glow_demo --features nova")
-                .fg(Color::Green),
+                .fg(Color::Cyan),
         ]);
 
     eprintln!("\n{error_table}");

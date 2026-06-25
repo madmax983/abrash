@@ -230,13 +230,15 @@ fn main() {
             .load_preset(presets::UTF8_FULL)
             .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
             .set_header(vec![
-                Cell::new("Missing Feature").fg(Color::Red),
-                Cell::new("Required Flag").fg(Color::Yellow),
+                Cell::new("⚠️  Missing Feature: Nova")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(Color::Red),
+                Cell::new("Required Flag").fg(Color::Cyan),
             ])
             .add_row(vec![
                 Cell::new("Depth Fog Filter Demo requires the `nova` feature."),
                 Cell::new("--features nova"),
             ]);
-        println!("{table}");
+        eprintln!("\n{table}");
     }
 }

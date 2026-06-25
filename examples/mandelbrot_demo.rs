@@ -113,7 +113,7 @@ fn main() {
                 "Try running with:
 cargo run --example mandelbrot_demo --features nova",
             )
-            .fg(Color::Green),
+            .fg(Color::Cyan),
         ]);
 
     eprintln!(
@@ -141,11 +141,11 @@ fn print_banner() {
         ])
         .add_row(vec![
             Cell::new("Description"),
-            Cell::new("Renders the Mandelbrot set with auto-zooming").fg(Color::Green),
+            Cell::new("Renders the Mandelbrot set with auto-zooming").fg(Color::Cyan),
         ]);
 
     println!("\n{}", "⚙️  Info".bold());
-    println!("{table}");
+    eprintln!("\n{table}");
 
     println!("\n{}", "🎮 Controls".bold());
     let mut controls = Table::new();

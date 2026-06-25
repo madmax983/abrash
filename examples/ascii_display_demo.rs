@@ -256,7 +256,7 @@ fn main() {
         ])
         .add_row(vec![
             Cell::new("Try running with:\ncargo run --example ascii_display_demo --features nova")
-                .fg(Color::Green),
+                .fg(Color::Cyan),
         ]);
 
     eprintln!("\n{error_table}");

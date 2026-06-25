@@ -177,7 +177,7 @@ fn main() {
                 comfy_table::Cell::new(
                     "Try running with:\ncargo run --example god_rays_demo --features nova,backend-tui",
                 )
-                .fg(comfy_table::Color::Green),
+                .fg(comfy_table::Color::Cyan),
             ]);
 
         eprintln!("\n{error_table}");

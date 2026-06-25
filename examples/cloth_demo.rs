@@ -371,7 +371,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             ])
             .add_row(vec![
                 Cell::new("Try running with:\ncargo run --example cloth_demo --features nova")
-                    .fg(Color::Green),
+                    .fg(Color::Cyan),
             ]);
 
         eprintln!("\n{error_table}");
@@ -403,7 +403,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             ])
             .add_row(vec![
                 Cell::new("Try running with:\ncargo run --example cloth_demo --features nova")
-                    .fg(Color::Green),
+                    .fg(Color::Cyan),
             ]);
 
         eprintln!("\n{error_table}");
