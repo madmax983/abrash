@@ -44,8 +44,14 @@ fn clear_rect_original(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height:
     if sx == 0 && ex == w {
         fb.as_mut_slice()[start_idx..end_idx].fill(color);
     } else {
-        for row in fb.as_mut_slice()[start_idx..end_idx].chunks_exact_mut(w) {
-            row[sx..ex].fill(color);
+        let len = ex - sx;
+        let mut offset = start_idx + sx;
+        let slice = fb.as_mut_slice();
+        for _ in sy..ey {
+            unsafe {
+                slice.get_unchecked_mut(offset..offset + len).fill(color);
+            }
+            offset += w;
         }
     }
 }
@@ -93,14 +99,10 @@ fn clear_rect_optimized(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height
     if sx == 0 && ex == w {
         fb.as_mut_slice()[start_idx..end_idx].fill(color);
     } else {
-        let len = ex - sx;
-        let mut offset = start_idx + sx;
-        let slice = fb.as_mut_slice();
-        for _ in sy..ey {
+        for row in fb.as_mut_slice()[start_idx..end_idx].chunks_exact_mut(w) {
             unsafe {
-                slice.get_unchecked_mut(offset..offset + len).fill(color);
+                row.get_unchecked_mut(sx..ex).fill(color);
             }
-            offset += w;
         }
     }
 }
