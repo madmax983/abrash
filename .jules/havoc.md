@@ -11,3 +11,6 @@
 **Flaw:** The clock calculated `phase_advance` as `delta_secs / duration`. With near-zero subnormal floats, this resulted in a massively large float value. When added to the clock's current `phase` and then casting the integer portion (`whole_cycles`) to `u64` to accumulate into `self.cycle`, it caused a `u64` addition overflow (`attempt to add with overflow`) when the number of cycles exceeded `u64::MAX`.
 **Outcome:** Engine crashed via unhandled panic during animation evaluation.
 **Resolution:** Replaced the unchecked `self.cycle += whole_cycles` with `self.cycle = self.cycle.saturating_add(whole_cycles)`. The clock gracefully tops out at `u64::MAX` instead of crashing.
+**[Radial Blur Addition Overflow]
+**Learning:** `cur_x += step_x;` and `cur_y += step_y;` in `apply_radial_blur` can overflow `i32` if `strength` is extremely large, causing a panic in debug mode (or potentially silent wraparound in release mode).
+**Action:** Created harness to detonate the panic and documented the wreckage in HAVOC_REPORT.md.

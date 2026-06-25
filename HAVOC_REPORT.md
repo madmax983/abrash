@@ -186,3 +186,33 @@ cargo test --test havoc_jelly_stress_panic --features nova
 
 ## 😈 Comment
 You fortified `update()` and `collide_sdf()` against structural changes to `mesh.vertices`, but you forgot `get_vertex_stress()`! You blindly trusted `spring_indices_a` as if the user would never modify public state. You left the back door wide open. You were wrong.
+
+# 👺 Havoc: apply_radial_blur Integer Overflow Panic
+
+## 🧨 The Trigger
+Calling `apply_radial_blur()` with an extreme `strength` value (e.g. `1e38`). The scale factor `sf_fixed` is computed as `-(strength / (samples - 1) as f32) * 65536.0`. When `strength` is massive, `sf_fixed` exceeds the bounds of `i32`. During rasterization, `step_x` and `step_y` are computed by multiplying `dx`/`dy` by `sf_fixed` and casting to `i32`, which saturates to `i32::MAX` or `i32::MIN`.
+Inside the sampling loop, the `cur_x += step_x;` and `cur_y += step_y;` operations blindly add these saturated values to an existing `i32` accumulator, triggering a fatal integer overflow panic.
+
+## 📉 The Stack Trace
+```
+thread 'test_havoc_radial_blur_extreme_f32_overflow' panicked at crates/abrash-render/src/experimental/radial_blur.rs:166:29:
+attempt to add with overflow
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/panicking.rs:662:5
+   1: core::panicking::panic_fmt
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/panicking.rs:74:14
+   2: core::panicking::panic_const::panic_const_add_overflow
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/panicking.rs:194:9
+   3: abrash_render::experimental::radial_blur::apply_radial_blur::{{closure}}
+             at /app/crates/abrash-render/src/experimental/radial_blur.rs:166:29
+```
+
+## 🧪 Reproduction
+Run the following test command:
+```bash
+cargo test --test havoc_radial_blur_extreme --features nova
+```
+
+## 😈 Comment
+You thought you could safely convert massive floating-point numbers into fixed-point integers by just casting them to `i32`. You assumed the math would never reach the hardware's breaking point. You were wrong.
