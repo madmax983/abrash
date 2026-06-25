@@ -143,11 +143,17 @@ struct SendPtr<T>(*mut T, usize);
 
 #[cfg(feature = "parallel")]
 impl<T> SendPtr<T> {
-    /// SAFETY: Caller must ensure the index is within bounds and writes are to non-overlapping regions
-
+    /// Write a value to the pointer at the given index.
+    ///
+    /// # Panics
+    /// Panics if the index is out of bounds based on the length provided when the pointer was created.
+    ///
+    /// SAFETY: Caller must ensure writes are to non-overlapping regions
+    #[inline(always)]
     unsafe fn write(&self, index: usize, value: T) {
         assert!(index < self.1, "Index out of bounds");
-        // SAFETY: Caller guarantees index is within bounds and writes are non-overlapping
+        // SAFETY: Caller guarantees writes are non-overlapping.
+        // We guarantee index is within bounds via the assert.
         unsafe {
             *self.0.add(index) = value;
         }
