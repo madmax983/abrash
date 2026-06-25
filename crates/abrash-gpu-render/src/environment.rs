@@ -103,16 +103,13 @@ impl GpuCubemap {
 
         // Upload each face
         for (layer, face) in faces.iter().enumerate() {
-            let mut rgba = Vec::with_capacity((size * size * 4) as usize);
-            for &argb in &face.pixels {
-                let bytes = [
-                    ((argb >> 16) & 0xFF) as u8,
-                    ((argb >> 8) & 0xFF) as u8,
-                    (argb & 0xFF) as u8,
-                    ((argb >> 24) & 0xFF) as u8,
-                ];
-                rgba.extend_from_slice(&bytes);
-            }
+            let mut rgba = vec![0u8; (size * size * 4) as usize];
+            rgba.chunks_exact_mut(4).zip(face.pixels.iter()).for_each(|(chunk, &argb)| {
+                chunk[0] = ((argb >> 16) & 0xFF) as u8;
+                chunk[1] = ((argb >> 8) & 0xFF) as u8;
+                chunk[2] = (argb & 0xFF) as u8;
+                chunk[3] = ((argb >> 24) & 0xFF) as u8;
+            });
 
             queue.write_texture(
                 wgpu::TexelCopyTextureInfo {

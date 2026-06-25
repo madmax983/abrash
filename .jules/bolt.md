@@ -232,3 +232,11 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimal Vec Initialization for Full-Image Converts]**
+**Learning:** In full-image pixel format conversion loops (e.g., preparing RGBA bytes for `wgpu` from ARGB), replacing `.flat_map().collect()` or `.extend_from_slice()` with a pre-allocated zeroed vector (`vec![0u8; len * 4]`) and `.chunks_exact_mut(4).zip(pixels.iter())` allows LLVM to heavily vectorize the assignment and elide bounds checks, yielding superior performance despite the initial zero-initialization overhead.
+**Action:** Replace `extend_from_slice()` when performing ARGB to RGBA byte conversion with pre-allocation and `chunks_exact_mut` + `zip`.
+
+**[clear_rect optimization]**
+**Learning:** In 2D region fills over a 1D pixel buffer (like `clear_rect` in `Framebuffer` or `ZBuffer`), replacing an outer `for` loop combined with explicit index calculations and `unsafe { get_unchecked_mut() }` with the safe iterator-based chunking (`.chunks_exact_mut()`), but applying `unsafe { get_unchecked_mut() }` directly on the row slice yields measurable performance gains across various resolutions, while simplifying the code.
+**Action:** Replaced loop index calculations with `.chunks_exact_mut(w)` and elided inner-loop bounds checks with `row.get_unchecked_mut(sx..ex)` in `Framebuffer::clear_rect` and `ZBuffer::clear_rect`.
