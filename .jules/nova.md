@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Procedural Lightning Generator]
+**Concept:** A screen-space rendering effect that generates electrical arcs and lightning bolts using a recursive midpoint displacement algorithm, paired with additive line drawing for an energy glow.
+**Fate:** Implemented
+**Lesson:** Using the recursive midpoint displacement algorithm naturally creates fractal-like structures that mimic electrical branching perfectly. Additive blending across line segments with a distance-based falloff gives a convincing bloom/glow without needing a heavy fullscreen post-processing pass.
