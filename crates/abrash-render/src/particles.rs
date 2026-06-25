@@ -198,30 +198,34 @@ impl ParticleSystem {
     pub fn update(&mut self, dt: f32) {
         // Emit new particles
         self.emission_accumulator += dt * self.emission_rate;
-        #[allow(clippy::while_float)]
-        while self.emission_accumulator >= 1.0 {
-            self.emit();
-            self.emission_accumulator -= 1.0;
+        let emit_count = self.emission_accumulator.trunc() as usize;
+        if emit_count > 0 {
+            self.emission_accumulator -= emit_count as f32;
+
+            // ⚡ Bolt: Reserve space to avoid reallocation during emission bursts.
+            self.particles.reserve(emit_count);
+            for _ in 0..emit_count {
+                self.emit();
+            }
         }
 
-        // Update existing particles
+        // ⚡ Bolt: Split physics and dead-particle removal into two passes.
+        // Pass 1: Apply physics unconditionally to all particles (highly vectorizable).
+        let gravity_dt = self.gravity * dt;
+        for p in &mut self.particles {
+            p.life -= dt;
+            p.velocity = p.velocity + gravity_dt;
+            p.position = p.position + p.velocity * dt;
+        }
+
+        // Pass 2: Remove dead particles (swap_remove is O(1)).
         let mut i = 0;
         while i < self.particles.len() {
-            let p = &mut self.particles[i];
-
-            p.life -= dt;
-            if p.life <= 0.0 {
-                // Remove dead particle (swap remove is O(1))
+            if self.particles[i].life <= 0.0 {
                 self.particles.swap_remove(i);
-                // Don't increment i, as the swapped element needs to be checked
-                continue;
+            } else {
+                i += 1;
             }
-
-            // Physics
-            p.velocity = p.velocity + self.gravity * dt;
-            p.position = p.position + p.velocity * dt;
-
-            i += 1;
         }
     }
 

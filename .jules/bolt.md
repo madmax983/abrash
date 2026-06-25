@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Particle Physics Vectorization]**
+**Learning:** Splitting a single `while` loop that handles both physics updates and dead particle removal (using `swap_remove`) into two distinct passes allows LLVM to auto-vectorize the unconditional math operations. The combined loop structure with branches prevents vectorization, causing a significant performance penalty on CPU-bound particle updates.
+**Action:** Separate data processing (unconditional math) from structural mutation (removal/swapping) in tight loops to enable SIMD optimizations by the compiler.
