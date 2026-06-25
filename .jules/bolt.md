@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimal Bounds Checking for Region Fills]**
+**Learning:** In 2D region fills over a 1D pixel buffer (like `clear_rect` in `Framebuffer` or `ZBuffer`), explicitly performing a bounds check inside an inner loop over an offset requires repetitive validation overhead. Replacing it with the `chunks_exact_mut(w)` iterator safely groups the outer dimension while exposing the correctly sized rows, allowing the safe bypass of bounds checks in the hot inner dimension via `row.get_unchecked_mut(sx..ex)`.
+**Action:** When filling or mutating rectangular subsets of a flat 1D buffer, prefer `.chunks_exact_mut(width)` on the outer dimension to obtain correctly sized slice boundaries, followed by `unsafe { row.get_unchecked_mut(...) }` on the inner dimension after validating the extents once upfront.

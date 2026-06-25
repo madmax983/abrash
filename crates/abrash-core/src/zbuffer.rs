@@ -124,15 +124,11 @@ impl ZBuffer {
                 }
             }
 
-            let mut offset = start_idx + sx;
-            let slice = self.depths.as_mut_slice();
-            for _ in sy..ey {
+            let slice = &mut self.depths[start_idx..end_idx];
+            for row in slice.chunks_exact_mut(w) {
                 unsafe {
-                    slice
-                        .get_unchecked_mut(offset..offset + len)
-                        .fill(f32::INFINITY);
+                    row.get_unchecked_mut(sx..ex).fill(f32::INFINITY);
                 }
-                offset += w;
             }
         }
     }
@@ -225,6 +221,36 @@ impl ZBuffer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_clear_rect_chunk_unsafe_pattern() {
+        let mut zb = ZBuffer::new(10, 10).unwrap();
+        // Fill buffer with 1.0
+        for y in 0..10 {
+            for x in 0..10 {
+                zb.test_and_set(x, y, 1.0);
+            }
+        }
+
+        // Clear a 5x5 region at (2, 2)
+        zb.clear_rect(2, 2, 5, 5);
+
+        for y in 0..10 {
+            for x in 0..10 {
+                let depth = zb.get_depth(x, y).unwrap();
+                if (2..7).contains(&x) && (2..7).contains(&y) {
+                    assert!(
+                        depth.is_infinite(),
+                        "Depth at ({}, {}) should be infinite",
+                        x,
+                        y
+                    );
+                } else {
+                    assert_eq!(depth, 1.0, "Depth at ({}, {}) should be 1.0", x, y);
+                }
+            }
+        }
+    }
 
     #[test]
     fn test_new_valid() {

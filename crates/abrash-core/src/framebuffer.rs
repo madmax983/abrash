@@ -316,14 +316,11 @@ impl Framebuffer {
             // Fast path for full-width clears (avoids chunking overhead)
             self.pixels[start_idx..end_idx].fill(color);
         } else {
-            let len = ex - sx;
-            let mut offset = start_idx + sx;
-            let slice = self.pixels.as_mut_slice();
-            for _ in sy..ey {
+            let slice = &mut self.pixels[start_idx..end_idx];
+            for row in slice.chunks_exact_mut(w) {
                 unsafe {
-                    slice.get_unchecked_mut(offset..offset + len).fill(color);
+                    row.get_unchecked_mut(sx..ex).fill(color);
                 }
-                offset += w;
             }
         }
     }
@@ -332,6 +329,31 @@ impl Framebuffer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_clear_rect_chunk_unsafe_pattern() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        // Fill with a background color
+        fb.as_mut_slice().fill(0xFF00_0000);
+
+        // Clear a 5x5 region at (2, 2)
+        fb.clear_rect(2, 2, 5, 5, 0xFFFFFFFF);
+
+        for y in 0..10 {
+            for x in 0..10 {
+                let pixel = fb.get_pixel(x, y).unwrap();
+                if (2..7).contains(&x) && (2..7).contains(&y) {
+                    assert_eq!(pixel, 0xFFFFFFFF, "Pixel at ({}, {}) should be white", x, y);
+                } else {
+                    assert_eq!(
+                        pixel, 0xFF00_0000,
+                        "Pixel at ({}, {}) should be black",
+                        x, y
+                    );
+                }
+            }
+        }
+    }
 
     #[test]
     fn test_new_valid() {
