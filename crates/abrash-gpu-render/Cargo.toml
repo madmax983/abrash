@@ -39,3 +39,7 @@ cast_precision_loss = "allow"
 [[bench]]
 name = "blitter_bench"
 harness = false
+
+[[bench]]
+name = "mesh_blas_capacity_bench"
+harness = false

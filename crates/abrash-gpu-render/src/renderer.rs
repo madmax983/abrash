@@ -336,6 +336,9 @@ impl GpuRenderer {
                     (mesh.indices.len() * 3) as u32,
                 );
                 // Keep mesh_blas in sync with meshes
+                // ⚡ Bolt Optimization: Pre-allocate capacity to elide implicit heap reallocations when synchronizing mesh_blas.
+                self.mesh_blas
+                    .reserve_exact(self.meshes.len().saturating_sub(self.mesh_blas.len()));
                 while self.mesh_blas.len() < self.meshes.len() {
                     self.mesh_blas.push(None);
                 }
