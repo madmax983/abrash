@@ -198,31 +198,42 @@ impl ParticleSystem {
     pub fn update(&mut self, dt: f32) {
         // Emit new particles
         self.emission_accumulator += dt * self.emission_rate;
-        #[allow(clippy::while_float)]
-        while self.emission_accumulator >= 1.0 {
-            self.emit();
-            self.emission_accumulator -= 1.0;
+        let emit_count = self.emission_accumulator.trunc() as usize;
+        if emit_count > 0 {
+            // ⚡ Bolt: Eliminate implicit bounds-checks during particle emission by pre-allocating exact capacities and using extend
+            self.particles.reserve_exact(emit_count);
+            let new_particles = (0..emit_count).map(|_| {
+                let vel = Vec3::new(
+                    self.rng.next_f32_signed() * self.spread,
+                    1.0 + self.rng.next_f32_signed() * self.spread,
+                    self.rng.next_f32_signed() * self.spread,
+                )
+                .fast_normalize()
+                    * self.start_speed;
+
+                Particle::new(
+                    self.position,
+                    vel,
+                    self.start_life,
+                    self.start_size,
+                    0xFFFF_FFFF,
+                )
+            });
+            self.particles.extend(new_particles);
+            self.emission_accumulator -= emit_count as f32;
         }
 
-        // Update existing particles
-        let mut i = 0;
-        while i < self.particles.len() {
-            let p = &mut self.particles[i];
-
+        // ⚡ Bolt: Using retain allows the standard library to efficiently manage removing elements and avoids manual bounds checking inside the hot loop.
+        let gravity = self.gravity;
+        self.particles.retain_mut(|p| {
             p.life -= dt;
             if p.life <= 0.0 {
-                // Remove dead particle (swap remove is O(1))
-                self.particles.swap_remove(i);
-                // Don't increment i, as the swapped element needs to be checked
-                continue;
+                return false;
             }
-
-            // Physics
-            p.velocity = p.velocity + self.gravity * dt;
+            p.velocity = p.velocity + gravity * dt;
             p.position = p.position + p.velocity * dt;
-
-            i += 1;
-        }
+            true
+        });
     }
 
     fn emit(&mut self) {

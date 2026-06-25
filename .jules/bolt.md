@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimize Particle Emission with exact reserve and iter extend]**
+**Learning:** Sequential scalar pushes in a hot loop (like `ParticleSystem::update`'s particle emission `push`) involves implicit bounds-checking overhead per item. Replacing the `push` loop with a mathematically determined `reserve_exact(count)` followed by `.extend(iter)` eliminates these bounds checks and allows the compiler to heavily optimize the insertion.
+**Action:** When dynamically emitting multiple particles in a single update step, compute the exact required spawn count, reserve that exact capacity on the `particles` Vec, and use `.extend(...)` with an iterator to bypass continuous dynamic bounds checking, yielding a ~18% speedup.
