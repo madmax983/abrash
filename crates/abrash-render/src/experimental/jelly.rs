@@ -132,6 +132,23 @@ pub struct Spring {
 }
 
 /// A soft-body object that can simulate physics.
+///
+/// Converts a standard `Mesh` into a physical mass-spring system, allowing it
+/// to bounce, deform, and react to forces.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::mesh::Mesh;
+/// use abrash_render::experimental::jelly::SoftBody;
+///
+/// // Create a basic jelly from a mesh.
+/// let mesh = Mesh::cube(1.0);
+/// let mass = 1.0;
+/// let stiffness = 50.0;
+/// let damping = 2.0;
+/// let mut jelly = SoftBody::new(mesh, mass, stiffness, damping).unwrap();
+/// ```
 pub struct SoftBody {
     /// The visual mesh (updated every frame).
     pub mesh: Mesh,
@@ -157,6 +174,25 @@ pub struct SoftBody {
 
 impl SoftBody {
     /// Adds a structural or constraint spring between two existing vertices.
+    ///
+    /// This allows creating internal support structures (cross-bracing) that are not
+    /// represented by the outer visual mesh edges.
+    ///
+    /// # Panics
+    ///
+    /// Returns an `Err` if `index_a` or `index_b` are greater than or equal to the
+    /// number of vertices.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::mesh::Mesh;
+    /// use abrash_render::experimental::jelly::SoftBody;
+    ///
+    /// let mut jelly = SoftBody::new(Mesh::cube(1.0), 1.0, 50.0, 2.0).unwrap();
+    /// // Add a diagonal support spring between opposite corners.
+    /// jelly.add_spring(0, 6, 1.732).unwrap();
+    /// ```
     pub fn add_spring(
         &mut self,
         index_a: usize,
@@ -178,7 +214,22 @@ impl SoftBody {
 
     /// Creates a new `SoftBody` from a Mesh.
     ///
-    /// Automatically generates springs from the mesh's unique edges.
+    /// Automatically generates structural springs from the mesh's unique edges.
+    ///
+    /// # Panics
+    ///
+    /// This function returns an `Err` (does not panic) if any mesh index is out of bounds
+    /// relative to the vertex count.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::mesh::Mesh;
+    /// use abrash_render::experimental::jelly::SoftBody;
+    ///
+    /// let mesh = Mesh::cube(1.0);
+    /// let jelly = SoftBody::new(mesh, 1.0, 100.0, 5.0).unwrap();
+    /// ```
     pub fn new(mesh: Mesh, mass: f32, stiffness: f32, damping: f32) -> Result<Self, String> {
         let vertex_count = mesh.vertices.len();
         let velocities = vec![Vec3::default(); vertex_count];
@@ -241,8 +292,21 @@ impl SoftBody {
         })
     }
 
-    /// Applies an external force to a specific vertex.
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+    /// Applies an external instantaneous force to a specific vertex.
+    ///
+    /// The force is accumulated for the current frame and cleared after the next `update()`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::mesh::Mesh;
+    /// use abrash_core::math::Vec3;
+    /// use abrash_render::experimental::jelly::SoftBody;
+    ///
+    /// let mut jelly = SoftBody::new(Mesh::cube(1.0), 1.0, 50.0, 2.0).unwrap();
+    /// // Push the first vertex to the right
+    /// jelly.apply_force(0, Vec3::new(10.0, 0.0, 0.0));
+    /// ```
     pub fn apply_force(&mut self, index: usize, force: Vec3) {
         if index < self.forces.len() {
             self.forces[index] = self.forces[index] + force;
@@ -250,6 +314,20 @@ impl SoftBody {
     }
 
     /// Updates the physics simulation by one time step.
+    ///
+    /// Evaluates Hooke's Law for all springs, applies gravity and drag,
+    /// and integrates velocities and positions using Semi-Implicit Euler.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::mesh::Mesh;
+    /// use abrash_render::experimental::jelly::SoftBody;
+    ///
+    /// let mut jelly = SoftBody::new(Mesh::cube(1.0), 1.0, 50.0, 2.0).unwrap();
+    /// // Advance the simulation by 16ms (60 FPS)
+    /// jelly.update(0.016);
+    /// ```
     pub fn update(&mut self, dt: f32) {
         // Validation: Ensure mesh topology is compatible with physics state
         if self.mesh.vertices.len() != self.velocities.len()
@@ -653,7 +731,27 @@ impl SoftBody {
         self.recompute_normals();
     }
 
-    /// Resolves collisions with an SDF scene.
+    /// Resolves collisions with an SDF (Signed Distance Field) scene.
+    ///
+    /// Pushes penetrating vertices out of the SDF volume and reflects their velocity.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::mesh::Mesh;
+    /// use abrash_render::experimental::jelly::SoftBody;
+    /// use abrash_render::experimental::sdf::{SdfScene, SdfObject};
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let mut jelly = SoftBody::new(Mesh::cube(1.0), 1.0, 50.0, 2.0).unwrap();
+    /// let mut scene = SdfScene::new();
+    /// scene.add(SdfObject {
+    ///         primitive: abrash_render::experimental::sdf::SdfPrimitive::Sphere { center: Vec3::default(), radius: 5.0 },
+    ///         color: 0,
+    ///     });
+    ///
+    /// jelly.collide_sdf(&scene, 0.5);
+    /// ```
     pub fn collide_sdf(&mut self, scene: &SdfScene, restitution: f32) {
         if self.mesh.vertices.len() != self.velocities.len() {
             return;
@@ -697,7 +795,18 @@ impl SoftBody {
     /// Calculates the average stress (strain) at each vertex.
     ///
     /// Returns a vector of stress values corresponding to `mesh.vertices`.
-    /// Positive values indicate stretching, negative values indicate compression (if implemented, but here length is unsigned so stress is abs error).
+    /// Useful for visualizing tension or tearing the soft body when stress exceeds a threshold.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::mesh::Mesh;
+    /// use abrash_render::experimental::jelly::SoftBody;
+    ///
+    /// let jelly = SoftBody::new(Mesh::cube(1.0), 1.0, 50.0, 2.0).unwrap();
+    /// let stress = jelly.get_vertex_stress();
+    /// assert_eq!(stress.len(), jelly.mesh.vertices.len());
+    /// ```
     pub fn get_vertex_stress(&self) -> Vec<f32> {
         let mut stress = vec![0.0; self.mesh.vertices.len()];
         let mut counts = vec![0; self.mesh.vertices.len()];

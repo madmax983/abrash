@@ -5,7 +5,18 @@
 
 use crate::framebuffer::Framebuffer;
 
-/// A struct holding an arbitrary set of ARGB colors.
+/// A struct holding an arbitrary set of ARGB colors for image quantization.
+///
+/// Used by [`apply_palette`] to map rendering output to retro or stylized color spaces.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_render::experimental::palette::Palette;
+///
+/// let custom = Palette::new(vec![0xFF_000000, 0xFF_FFFFFF, 0xFF_FF0000]);
+/// assert_eq!(custom.colors.len(), 3);
+/// ```
 #[derive(Debug, Clone)]
 pub struct Palette {
     pub colors: Vec<u32>,
@@ -13,12 +24,32 @@ pub struct Palette {
 
 impl Palette {
     /// Creates a new custom palette from a list of ARGB colors.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_render::experimental::palette::Palette;
+    ///
+    /// // A simple 2-color black and red palette
+    /// let pal = Palette::new(vec![0xFF_000000, 0xFF_FF0000]);
+    /// ```
     #[must_use]
     pub const fn new(colors: Vec<u32>) -> Self {
         Self { colors }
     }
 
     /// The classic 4-color Nintendo Gameboy palette.
+    ///
+    /// Consists of four shades of sickly green.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_render::experimental::palette::Palette;
+    ///
+    /// let gb = Palette::gameboy();
+    /// assert_eq!(gb.colors.len(), 4);
+    /// ```
     #[must_use]
     pub fn gameboy() -> Self {
         Self {
@@ -32,6 +63,17 @@ impl Palette {
     }
 
     /// The classic 16-color IBM CGA palette.
+    ///
+    /// Features high-contrast neon and dark colors typical of early MS-DOS games.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_render::experimental::palette::Palette;
+    ///
+    /// let cga = Palette::cga();
+    /// assert_eq!(cga.colors.len(), 16);
+    /// ```
     #[must_use]
     pub fn cga() -> Self {
         Self {
@@ -57,6 +99,17 @@ impl Palette {
     }
 
     /// A stylized synthwave/vaporwave aesthetic palette.
+    ///
+    /// Uses deep blues, hot pinks, and magentas.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_render::experimental::palette::Palette;
+    ///
+    /// let vw = Palette::vaporwave();
+    /// assert_eq!(vw.colors.len(), 8);
+    /// ```
     #[must_use]
     pub fn vaporwave() -> Self {
         Self {
@@ -74,6 +127,15 @@ impl Palette {
     }
 
     /// A stylized 1-bit monochrome (Black and White) palette.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_render::experimental::palette::Palette;
+    ///
+    /// let bw = Palette::monochrome();
+    /// assert_eq!(bw.colors.len(), 2);
+    /// ```
     #[must_use]
     pub fn monochrome() -> Self {
         Self {
@@ -82,7 +144,20 @@ impl Palette {
     }
 
     /// Returns the closest ARGB color in the palette to the given ARGB color.
+    ///
     /// Finds the nearest color using squared Euclidean distance in RGB space.
+    /// Alpha is preserved from the target color.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_render::experimental::palette::Palette;
+    ///
+    /// let bw = Palette::monochrome();
+    /// // A dark grey should snap to black
+    /// let closest = bw.closest_color(0xFF_222222);
+    /// assert_eq!(closest, 0xFF_000000);
+    /// ```
     #[must_use]
     pub fn closest_color(&self, target_color: u32) -> u32 {
         if self.colors.is_empty() {
@@ -126,7 +201,7 @@ impl Palette {
 /// # Arguments
 ///
 /// * `fb` - The framebuffer to modify in-place.
-/// * `palette` - The `Palette` to map colors against.
+/// * `palette` - The [`Palette`] to map colors against.
 ///
 /// # Examples
 ///
@@ -138,7 +213,6 @@ impl Palette {
 /// // ... render scene ...
 /// apply_palette(&mut fb, &Palette::gameboy());
 /// ```
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 pub fn apply_palette(fb: &mut Framebuffer, palette: &Palette) {
     if palette.colors.is_empty() {
         return;

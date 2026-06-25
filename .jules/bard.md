@@ -23,3 +23,7 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+
+## 2024-06-25 - [Experimental Modules Documentation]
+**Confusion:** The experimental physics and post-processing modules (`jelly`, `cloth`, and `palette`) had missing or unhelpful documentation. Users didn't know how to create the `SoftBody` and `Cloth` structures, how to run their simulation loops, or what the different pre-defined `Palette` options meant.
+**Clarification:** Added module-level summaries to `jelly` and `cloth` explaining their mass-spring Verlet/Euler integration models. Provided executable doc-tests for `new`, `update`, `pin`, `add_spring`, and `collide_sdf` to show practical usage. Documented the `Palette` aesthetic options (`gameboy`, `cga`, `vaporwave`, `monochrome`) and provided an example of applying quantization to a framebuffer.

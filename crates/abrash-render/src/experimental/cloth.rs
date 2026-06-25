@@ -24,6 +24,23 @@ pub struct Constraint {
 }
 
 /// A simulatable cloth object.
+///
+/// Implements a mass-spring system using Verlet integration. It represents a 2D grid
+/// of particles connected by structural and shear springs, allowing it to bend, fold,
+/// and react to gravity and wind.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec3;
+/// use abrash_render::experimental::cloth::Cloth;
+///
+/// // Create a 10x10 cloth grid with 1.0 spacing
+/// let mut cloth = Cloth::new(10, 10, 1.0);
+/// // Pin the top corners so it hangs
+/// cloth.pin(0, 0);
+/// cloth.pin(9, 0);
+/// ```
 pub struct Cloth {
     pub particles: Vec<Particle>,
     pub constraints: Vec<Constraint>,
@@ -36,6 +53,8 @@ pub struct Cloth {
 impl Cloth {
     /// Creates a new cloth grid.
     ///
+    /// The cloth is centered around the origin `(0, 0, 0)` in the XY plane.
+    ///
     /// # Arguments
     ///
     /// * `width` - Number of particles in X direction.
@@ -45,6 +64,15 @@ impl Cloth {
     /// ⚡ Bolt Optimization: Pre-allocates internal vectors (`particles`, `constraints`, `indices`)
     /// with exact capacities to prevent intermediate heap allocations and memory fragmentation
     /// during the initialization loops.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_render::experimental::cloth::Cloth;
+    ///
+    /// let cloth = Cloth::new(20, 20, 0.5);
+    /// assert_eq!(cloth.particles.len(), 400);
+    /// ```
     #[must_use]
     pub fn new(width: usize, height: usize, spacing: f32) -> Self {
         let mut particles = Vec::with_capacity(width * height);
@@ -148,7 +176,20 @@ impl Cloth {
         }
     }
 
-    /// Pins a particle at the given coordinates.
+    /// Pins a particle at the given grid coordinates (x, y) so it cannot move.
+    ///
+    /// Useful for attaching the cloth to a flagpole or hanging it from a ceiling.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_render::experimental::cloth::Cloth;
+    ///
+    /// let mut cloth = Cloth::new(10, 10, 1.0);
+    /// // Pin the top-left particle
+    /// cloth.pin(0, 0);
+    /// assert!(cloth.particles[0].pinned);
+    /// ```
     pub fn pin(&mut self, x: usize, y: usize) {
         if x < self.width && y < self.height {
             let idx = y * self.width + x;
@@ -156,7 +197,18 @@ impl Cloth {
         }
     }
 
-    /// Unpins a particle at the given coordinates.
+    /// Unpins a particle at the given grid coordinates (x, y) so it can move freely again.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_render::experimental::cloth::Cloth;
+    ///
+    /// let mut cloth = Cloth::new(10, 10, 1.0);
+    /// cloth.pin(0, 0);
+    /// cloth.unpin(0, 0);
+    /// assert!(!cloth.particles[0].pinned);
+    /// ```
     pub fn unpin(&mut self, x: usize, y: usize) {
         if x < self.width && y < self.height {
             let idx = y * self.width + x;
@@ -164,7 +216,20 @@ impl Cloth {
         }
     }
 
-    /// Updates the cloth simulation.
+    /// Updates the cloth simulation by integrating physics.
+    ///
+    /// Applies gravity, wind, and uses constraint relaxation to enforce spring lengths.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::Vec3;
+    /// use abrash_render::experimental::cloth::Cloth;
+    ///
+    /// let mut cloth = Cloth::new(10, 10, 1.0);
+    /// // Simulate 1/60th of a second with gravity and a light breeze
+    /// cloth.update(0.016, Vec3::new(0.0, -9.8, 0.0), Vec3::new(2.0, 0.0, 1.0));
+    /// ```
     pub fn update(&mut self, dt: f32, gravity: Vec3, wind: Vec3) {
         let friction = 0.99;
 
@@ -218,7 +283,19 @@ impl Cloth {
         }
     }
 
-    /// Converts the cloth to a Mesh.
+    /// Converts the cloth's current particle state into a renderable `Mesh`.
+    ///
+    /// Calculates smooth normals for lighting based on the deformed geometry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_render::experimental::cloth::Cloth;
+    ///
+    /// let cloth = Cloth::new(5, 5, 1.0);
+    /// let mesh = cloth.to_mesh();
+    /// assert_eq!(mesh.vertices.len(), 25);
+    /// ```
     #[must_use]
     pub fn to_mesh(&self) -> Mesh {
         let mut mesh = Mesh::with_capacity(self.particles.len(), self.indices.len());
