@@ -43,9 +43,6 @@ pub fn apply_anaglyph(fb: &mut Framebuffer, zb: &ZBuffer, config: AnaglyphConfig
     // on depth and we don't want to overwrite pixels we haven't processed yet.
     // Or we can process row by row and only buffer a row. Let's buffer rows for better memory efficiency.
 
-    let mut temp_row_red = vec![0u32; width];
-    let mut temp_row_depth = vec![0.0f32; width];
-
     let pixels = fb.as_mut_slice();
     let depths = zb.as_slice();
 
@@ -87,17 +84,28 @@ pub fn apply_anaglyph(fb: &mut Framebuffer, zb: &ZBuffer, config: AnaglyphConfig
 
     #[cfg(not(feature = "parallel"))]
     {
-        pixels
-            .chunks_exact_mut(width)
-            .enumerate()
-            .for_each(|(y, row_pixels)| {
-                // Copy row data
-                temp_row_red.copy_from_slice(row_pixels);
-                let row_start = y * width;
-                temp_row_depth.copy_from_slice(&depths[row_start..row_start + width]);
-
-                process_row(row_pixels, &temp_row_red, &temp_row_depth, width, config);
-            });
+        std::thread_local! {
+            static ROW_BUFFERS: std::cell::RefCell<(Vec<u32>, Vec<f32>)> = const { std::cell::RefCell::new((Vec::new(), Vec::new())) };
+        }
+        ROW_BUFFERS.with(|buffers| {
+            let mut b = buffers.borrow_mut();
+            if b.0.len() < width {
+                b.0.resize(width, 0);
+                b.1.resize(width, 0.0);
+            }
+            let (ref mut b_0, ref mut b_1) = *b;
+            let t_red = &mut b_0[..width];
+            let t_depth = &mut b_1[..width];
+            pixels
+                .chunks_exact_mut(width)
+                .enumerate()
+                .for_each(|(y, row_pixels)| {
+                    t_red.copy_from_slice(row_pixels);
+                    let row_start = y * width;
+                    t_depth.copy_from_slice(&depths[row_start..row_start + width]);
+                    process_row(row_pixels, t_red, t_depth, width, config);
+                });
+        });
     }
 }
 
