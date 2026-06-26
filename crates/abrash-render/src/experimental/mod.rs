@@ -75,6 +75,7 @@ pub mod metaballs;
 pub mod mode7;
 pub mod modifiers;
 pub mod mosaic;
+pub mod motion_blur;
 pub mod neon_outline;
 pub mod night_vision;
 pub mod palette;
