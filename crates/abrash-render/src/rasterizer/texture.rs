@@ -115,44 +115,35 @@ impl PerspectiveTextureGradients {
         v1: f32,
         v2: f32,
     ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-        let uz = p1.z - p0.z;
+        let base = crate::rasterizer::core::BaseTriangleDelta::compute(p0, p1, p2);
         let uq = q1 - q0;
         let uu = u1 - u0;
         let uv = v1 - v0;
-
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        let vz = p2.z - p0.z;
         let vq = q2 - q0;
         let vu = u2 - u0;
         let vv = v2 - v0;
 
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.000_1 { -1.0 / nz } else { 0.0 };
+        let nx_z = base.uy * base.vz - base.uz * base.vy;
+        let dz_dx = nx_z * base.inv_nz;
 
-        let nx_z = uy * vz - uz * vy;
-        let dz_dx = nx_z * inv_nz;
+        let nx_q = base.uy * vq - uq * base.vy;
+        let dq_dx = nx_q * base.inv_nz;
 
-        let nx_q = uy * vq - uq * vy;
-        let dq_dx = nx_q * inv_nz;
+        let nx_u = base.uy * vu - uu * base.vy;
+        let du_dx = nx_u * base.inv_nz;
 
-        let nx_u = uy * vu - uu * vy;
-        let du_dx = nx_u * inv_nz;
-
-        let nx_v = uy * vv - uv * vy;
-        let dv_dx = nx_v * inv_nz;
+        let nx_v = base.uy * vv - uv * base.vy;
+        let dv_dx = nx_v * base.inv_nz;
 
         // Calculate Y gradients
-        let ny_q = uq * vx - ux * vq;
-        let dq_dy = ny_q * inv_nz;
+        let ny_q = uq * base.vx - base.ux * vq;
+        let dq_dy = ny_q * base.inv_nz;
 
-        let ny_u = uu * vx - ux * vu;
-        let du_dy = ny_u * inv_nz;
+        let ny_u = uu * base.vx - base.ux * vu;
+        let du_dy = ny_u * base.inv_nz;
 
-        let ny_v = uv * vx - ux * vv;
-        let dv_dy = ny_v * inv_nz;
+        let ny_v = uv * base.vx - base.ux * vv;
+        let dv_dy = ny_v * base.inv_nz;
 
         (
             Self {
@@ -164,7 +155,7 @@ impl PerspectiveTextureGradients {
                 du_dy,
                 dv_dy,
             },
-            nz > 0.0,
+            base.nz > 0.0,
         )
     }
 }
@@ -2323,9 +2314,7 @@ impl NormalMapGradients {
         l1: Vec3,
         l2: Vec3,
     ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-        let uz = p1.z - p0.z;
+        let base = crate::rasterizer::core::BaseTriangleDelta::compute(p0, p1, p2);
         let uq = q1 - q0;
         let uu = u1 - u0;
         let uv = v1 - v0;
@@ -2333,9 +2322,6 @@ impl NormalMapGradients {
         let uly = l1.y - l0.y;
         let ulz = l1.z - l0.z;
 
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        let vz = p2.z - p0.z;
         let vq = q2 - q0;
         let vu = u2 - u0;
         let vv = v2 - v0;
@@ -2343,29 +2329,26 @@ impl NormalMapGradients {
         let vly = l2.y - l0.y;
         let vlz = l2.z - l0.z;
 
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+        let nx_z = base.uy * base.vz - base.uz * base.vy;
+        let dz_dx = nx_z * base.inv_nz;
 
-        let nx_z = uy * vz - uz * vy;
-        let dz_dx = nx_z * inv_nz;
+        let nx_q = base.uy * vq - uq * base.vy;
+        let dq_dx = nx_q * base.inv_nz;
 
-        let nx_q = uy * vq - uq * vy;
-        let dq_dx = nx_q * inv_nz;
+        let nx_u = base.uy * vu - uu * base.vy;
+        let du_dx = nx_u * base.inv_nz;
 
-        let nx_u = uy * vu - uu * vy;
-        let du_dx = nx_u * inv_nz;
+        let nx_v = base.uy * vv - uv * base.vy;
+        let dv_dx = nx_v * base.inv_nz;
 
-        let nx_v = uy * vv - uv * vy;
-        let dv_dx = nx_v * inv_nz;
+        let nx_lx = base.uy * vlx - ulx * base.vy;
+        let dlx_dx = nx_lx * base.inv_nz;
 
-        let nx_lx = uy * vlx - ulx * vy;
-        let dlx_dx = nx_lx * inv_nz;
+        let nx_ly = base.uy * vly - uly * base.vy;
+        let dly_dx = nx_ly * base.inv_nz;
 
-        let nx_ly = uy * vly - uly * vy;
-        let dly_dx = nx_ly * inv_nz;
-
-        let nx_lz = uy * vlz - ulz * vy;
-        let dlz_dx = nx_lz * inv_nz;
+        let nx_lz = base.uy * vlz - ulz * base.vy;
+        let dlz_dx = nx_lz * base.inv_nz;
 
         (
             Self {
@@ -2377,7 +2360,7 @@ impl NormalMapGradients {
                 dly_dx,
                 dlz_dx,
             },
-            nz > 0.0,
+            base.nz > 0.0,
         )
     }
 }

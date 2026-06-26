@@ -426,3 +426,38 @@ mod tests {
         assert!(!result_ccw, "Huge CCW triangle should be kept (nz < 0)");
     }
 }
+
+pub(crate) struct BaseTriangleDelta {
+    pub ux: f32,
+    pub uy: f32,
+    pub uz: f32,
+    pub vx: f32,
+    pub vy: f32,
+    pub vz: f32,
+    pub nz: f32,
+    pub inv_nz: f32,
+}
+
+impl BaseTriangleDelta {
+    #[inline(always)]
+    pub(crate) fn compute(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> Self {
+        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+        let uz = p1.z - p0.z;
+        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+        let vz = p2.z - p0.z;
+        let nz = ux * vy - uy * vx;
+        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+        Self {
+            ux,
+            uy,
+            uz,
+            vx,
+            vy,
+            vz,
+            nz,
+            inv_nz,
+        }
+    }
+}
