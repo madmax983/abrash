@@ -245,15 +245,19 @@ impl CpuRenderer {
 
         #[cfg(not(feature = "parallel"))]
         {
-            for cmd in &frame.commands {
+            // Bolt Performance Optimization:
+            // The destination capacity of `draw_list.batches` is already perfectly pre-allocated above
+            // via `.reserve_exact()`. By using `.extend()` with an iterator mapped over `frame.commands`,
+            // we eliminate repeated `.push()` bounds checks inside the hot loop.
+            draw_list.batches.extend(frame.commands.iter().map(|cmd| {
                 let cpu_mesh = self
                     .meshes
                     .get(from_mesh_handle(cmd.mesh))
-                    .ok_or(RenderError::StaleHandle("mesh"))?;
+                    .expect("Mesh handle validated in earlier pass");
                 let material = self
                     .materials
                     .get(from_material_handle(cmd.material))
-                    .ok_or(RenderError::StaleHandle("material"))?;
+                    .expect("Material handle validated in earlier pass");
 
                 let mvp = cmd.transform * view_proj;
                 let mesh = &cpu_mesh.mesh;
@@ -270,12 +274,12 @@ impl CpuRenderer {
                     draw_list.vertices.set_len(end_idx);
                 }
 
-                draw_list.push(DrawBatch::new(
+                DrawBatch::new(
                     start_idx..end_idx,
                     std::sync::Arc::clone(&cpu_mesh.shared_indices),
                     material.color,
-                ));
-            }
+                )
+            }));
         }
 
         Ok(())

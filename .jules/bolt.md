@@ -232,3 +232,11 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Pre-allocated Vector Extend Over Iterator Collect]**
+**Learning:** `.push()` inside hot loops mapping elements into a vector still triggers bounds checks, even if `.reserve_exact()` was called prior.
+**Action:** Use `.extend()` with an iterator adapter to naturally bypass these bounds checks since the standard library knows how to optimize iterator population for pre-allocated vectors.
+
+**[Redundant Handle Validation]**
+**Learning:** Repeating hash-map `.get().ok_or(...)` handle validations in multi-pass algorithms is pure overhead when the state hasn't changed.
+**Action:** Use `unsafe { map.get().unwrap_unchecked() }` in subsequent passes if the initial validation pass succeeded.
