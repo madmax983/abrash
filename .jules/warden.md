@@ -24,3 +24,7 @@
 ## 2026-04-18 - [Heap Buffer Overflow in Pixel Sort via Unchecked SendPtr]
 **Threat:** The `SendPtr` wrapper inside `crates/abrash-render/src/experimental/pixel_sort.rs` lacked a length parameter and blindly added indices to the raw pointer via `*ptr.0.add(...)`. If a framebuffer lied about its dimensions or if sorting logic failed, it would lead to a catastrophic out-of-bounds heap read/write.
 **Defense:** Rewrote `SendPtr` to capture and store the length of the slice at instantiation. Replaced direct raw pointer dereferencing with safe `read()` and `write()` methods containing an `assert!(index < self.1, "Index out of bounds")` guard before evaluating the `unsafe` block.
+
+**2026-04-13 - [Memory Safety: TriangleLists]**
+**Threat:** Uninitialized memory reads via `count` manipulation in `PreparedTrianglesList`. `into_par_iter` implementations in `tile.rs` initialized temporary arrays using `[None; 8]` and then populated them using `unsafe { self.tris[i].assume_init() }`, which creates undefined behavior due to padding bytes inside structs being read unconditionally by `assume_init`.
+**Defense:** Replaced the unsafe UB array mapping with `unsafe { std::ptr::read(self.tris[i].as_ptr()) }` alongside initializing the backing array with `[const { None }; 8]` in `into_par_iter` across `PreparedTrianglesList`, `PreparedTexturedTrianglesList`, and `PreparedGouraudTrianglesList`. This reads only the valid bytes and avoids UB from padding bytes.

@@ -1,10 +1,13 @@
+#[cfg(feature = "parallel")]
 use abrash_render::rasterizer::tile::{
     CompactScreenPoint, PreparedTriangle, PreparedTrianglesList,
 };
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
+#[cfg(feature = "parallel")]
 #[test]
-fn test_tile_uninit_read_ub() {
+fn havoc_tile_uninit_read_ub() {
     let mut list = PreparedTrianglesList::new();
     list.push(PreparedTriangle {
         p0: CompactScreenPoint { x: 0, y: 0, z: 0.0 },
