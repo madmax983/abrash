@@ -2250,3 +2250,41 @@ mod tests {
         }
     }
 }
+
+/// Applies Bayer matrix dithering to the framebuffer to reduce color banding
+/// by mapping high-color gradients into a smaller palette (e.g., 256 colors).
+pub fn apply_dithering(fb: &mut Framebuffer) {
+    let width = fb.width() as usize;
+    if width == 0 {
+        return;
+    }
+
+    const BAYER_MATRIX: [i32; 16] = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+
+    let pixels = fb.as_mut_slice();
+
+    for (y, row) in pixels.chunks_exact_mut(width).enumerate() {
+        // Fast modulo for power of two (y & 3)
+        let matrix_row_offset = (y & 3) * 4;
+
+        for (x, pixel) in row.iter_mut().enumerate() {
+            let threshold = BAYER_MATRIX[matrix_row_offset + (x & 3)];
+            // Map 0-15 to roughly a color step. Standard 8-bit dither scale factor.
+            let dither = (threshold - 8) * 4;
+
+            let argb = *pixel;
+            let a = argb & 0xFF000000;
+
+            let mut r = ((argb >> 16) & 0xFF) as i32 + dither;
+            let mut g = ((argb >> 8) & 0xFF) as i32 + dither;
+            let mut b = (argb & 0xFF) as i32 + dither;
+
+            // Clamp via branchless bitwise operations or standard clamp for safety
+            r = r.clamp(0, 255);
+            g = g.clamp(0, 255);
+            b = b.clamp(0, 255);
+
+            *pixel = a | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
+        }
+    }
+}

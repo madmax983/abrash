@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [Bayer Dithering]
+**Concept:** Implement an ordered Bayer matrix dither filter to reduce color banding in 8-bit output.
+**Fate:** Integrated into `crates/abrash-render/src/post_process/filters.rs`.
+**Lesson:** Using `.chunks_exact_mut(width)` combined with fast bitwise modulo (`& 3`) for 4x4 matrix indexing completely eliminates inner-loop bounds checking while satisfying the borrow checker, resulting in a highly optimized safe implementation (~8.4ms per 1080p frame).

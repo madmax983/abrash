@@ -232,3 +232,10 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Bayer Dithering Optimization]**
+**Learning:** When applying 2D repeating patterns (like a 4x4 Bayer matrix) over a framebuffer, combining `.chunks_exact_mut(width).enumerate()` for row iteration with bitwise modulo (`& 3`) for matrix indexing safely eliminates bounds checks and avoids `unsafe` blocks.
+**Action:** Replaced simple mathematical modulo with bitwise `& 3` on coordinates in dithering logic.
+
+**[Framebuffer Clones in Benchmarks]**
+**Learning:** The `Framebuffer` type does not implement `Clone`. When writing criterion benchmarks, avoid `b.iter_batched` with `.clone()`; mutate the framebuffer in place during a standard `b.iter()` or manually reset the state if needed.
+**Action:** Revert to `b.iter()` for simple destructive post-process benchmarks if `Clone` is unavailable.
