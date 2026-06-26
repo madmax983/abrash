@@ -205,25 +205,22 @@ impl ParticleSystem {
         }
 
         // Update existing particles
-        // Unconditional math pass
-        let grav = self.gravity * dt;
-        for p in &mut self.particles {
-            p.life -= dt;
-            p.velocity.x += grav.x;
-            p.velocity.y += grav.y;
-            p.velocity.z += grav.z;
-            p.position.x += p.velocity.x * dt;
-            p.position.y += p.velocity.y * dt;
-            p.position.z += p.velocity.z * dt;
-        }
-
-        // Conditional mutation pass
         let mut i = 0;
         while i < self.particles.len() {
-            if self.particles[i].life <= 0.0 {
+            let p = &mut self.particles[i];
+
+            p.life -= dt;
+            if p.life <= 0.0 {
+                // Remove dead particle (swap remove is O(1))
                 self.particles.swap_remove(i);
+                // Don't increment i, as the swapped element needs to be checked
                 continue;
             }
+
+            // Physics
+            p.velocity = p.velocity + self.gravity * dt;
+            p.position = p.position + p.velocity * dt;
+
             i += 1;
         }
     }

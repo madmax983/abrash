@@ -984,3 +984,13 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[bench]]
+name = "particles_bench"
+path = "crates/abrash-render/benches/particles_bench.rs"
+harness = false
+
+[[bench]]
+name = "particles_update_bench"
+path = "crates/abrash-render/benches/particles_update_bench.rs"
+harness = false
