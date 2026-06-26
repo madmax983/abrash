@@ -984,3 +984,7 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[bench]]
+name = "blitter_fill_rect_alpha_bench"
+harness = false

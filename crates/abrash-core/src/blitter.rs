@@ -523,18 +523,23 @@ pub fn fill_rect_alpha(fb: &mut Framebuffer, x: i32, y: i32, w: u32, h: u32, col
     let src_g_a = src_g * alpha;
     let inv_alpha = 255 - alpha;
 
-    for row in y0..y1 {
-        let row_start = row as usize * stride;
-        for col in x0..x1 {
-            let idx = row_start + col as usize;
-            let dst = fb_pixels[idx];
-            let dst_rb = dst & 0x00FF_00FF;
-            let dst_g = (dst >> 8) & 0x00FF_00FF;
+    let start_idx = (y0 as usize) * stride;
+    let end_idx = (y1 as usize) * stride;
+    let sx = x0 as usize;
+    let ex = x1 as usize;
+
+    let slice = &mut fb_pixels[start_idx..end_idx];
+    for row in slice.chunks_exact_mut(stride) {
+        let row_slice = unsafe { row.get_unchecked_mut(sx..ex) };
+        for dst in row_slice.iter_mut() {
+            let d = *dst;
+            let dst_rb = d & 0x00FF_00FF;
+            let dst_g = (d >> 8) & 0x00FF_00FF;
 
             let rb = ((src_rb_a + dst_rb * inv_alpha) >> 8) & 0x00FF_00FF;
             let g = ((src_g_a + dst_g * inv_alpha) >> 8) & 0x00FF_00FF;
 
-            fb_pixels[idx] = rb | (g << 8) | 0xFF00_0000;
+            *dst = rb | (g << 8) | 0xFF00_0000;
         }
     }
 }
