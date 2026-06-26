@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Optimize fill_rect_alpha]**
+**Learning:** In 2D region fills with alpha blending, using nested explicit index calculations forces the compiler to insert bounds checks for each pixel. Using `.chunks_exact_mut(stride)` combined with `unsafe { row.get_unchecked_mut(x0..x1) }` safely elides these checks and significantly improves performance.
+**Action:** Refactored `fill_rect_alpha` in `crates/abrash-core/src/blitter.rs` to use chunking iterators and `get_unchecked_mut` for extracting the row slices.
