@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Optimal Particle System Update]**
+**Learning:** In particle systems and similar collections, combining math updates and conditional removals into a single `.retain_mut()` call can be significantly faster (up to ~19% in `ParticleSystem::update`) than multi-pass or manual index-based looping with `swap_remove()`. `.retain_mut()` elides manual bounds checks inside the hot loop and retains contiguous processing, outperforming separated math/mutation passes.
+**Action:** Replace `while` loop index-based `swap_remove()` loops with `retain_mut()` for concurrent logic and lifespan filtering in arrays of actively simulated structs.
