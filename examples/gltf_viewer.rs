@@ -3,7 +3,7 @@
 //! Usage: `cargo run --example gltf_viewer --features gltf -- path/to/model.glb`
 
 use std::f32::consts::PI;
-use std::path::Path;
+
 
 use abrash::math::{Mat4, Vec3};
 use abrash::platform::{
@@ -22,6 +22,7 @@ use abrash::skeletal::{GltfScene, SkeletonAnimator, SkinnedMesh, load_gltf};
 
 use abrash_anim::clock::PlaybackMode;
 
+use clap::Parser;
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
 
@@ -29,6 +30,14 @@ const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const BACKGROUND: u32 = 0xFF1A_1A2E;
 const TITLE: &str = "Abrash - glTF Viewer";
+
+
+#[derive(Parser, Debug)]
+#[command(author, version, styles = clap::builder::Styles::styled().header(clap::builder::styling::AnsiColor::Green.on_default() | clap::builder::styling::Effects::BOLD).usage(clap::builder::styling::AnsiColor::Green.on_default() | clap::builder::styling::Effects::BOLD).literal(clap::builder::styling::AnsiColor::Cyan.on_default() | clap::builder::styling::Effects::BOLD).placeholder(clap::builder::styling::AnsiColor::Cyan.on_default()),  about = "Abrash glTF Viewer", long_about = None)]
+struct Args {
+    /// Path to the glTF 2.0 (.glb) file
+    input: std::path::PathBuf,
+}
 
 // ---------------------------------------------------------------------------
 // AABB helper
@@ -307,26 +316,8 @@ fn show_error_and_exit(msg: &str) -> ! {
 fn main() -> Result<(), HostError> {
     print_banner();
 
-    let args: Vec<String> = std::env::args().collect();
-
-    if args.len() < 2 {
-        let mut usage_table = Table::new();
-        usage_table
-            .load_preset(presets::UTF8_FULL)
-            .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
-            .set_header(vec![
-                Cell::new("ℹ️  Usage").fg(Color::Cyan),
-                Cell::new("Description").fg(Color::Cyan),
-            ])
-            .add_row(vec![
-                Cell::new("gltf_viewer <path/to/model.glb>"),
-                Cell::new("Loads a glTF 2.0 file and plays its first animation clip.\nThe camera orbits the model automatically."),
-            ]);
-        eprintln!("\n{usage_table}");
-        std::process::exit(1);
-    }
-
-    let path = Path::new(&args[1]);
+    let args = Args::parse();
+    let path = args.input.as_path();
     if !path.exists() {
         show_error_and_exit(&format!("File not found: {}", path.display()));
     }

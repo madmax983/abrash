@@ -4,6 +4,7 @@ use abrash::rasterizer::{ClipTriangle, TileRenderer};
 use abrash::zbuffer::ZBuffer;
 use std::time::Instant;
 
+use clap::Parser;
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
 
@@ -56,18 +57,21 @@ fn print_banner(width: u32, height: u32, triangle_count: usize) {
     println!("{table}");
 }
 
+
+#[derive(Parser, Debug)]
+#[command(author, version, styles = clap::builder::Styles::styled().header(clap::builder::styling::AnsiColor::Green.on_default() | clap::builder::styling::Effects::BOLD).usage(clap::builder::styling::AnsiColor::Green.on_default() | clap::builder::styling::Effects::BOLD).literal(clap::builder::styling::AnsiColor::Cyan.on_default() | clap::builder::styling::Effects::BOLD).placeholder(clap::builder::styling::AnsiColor::Cyan.on_default()),  about = "TileRenderer Benchmark", long_about = None)]
+struct Args {
+    /// Number of triangles to render
+    #[arg(short, long, default_value_t = 500)]
+    triangles: usize,
+}
+
 fn main() {
     let width = 3840;
     let height = 2160;
-    let triangle_count = 500;
 
-    // Check args for triangle count
-    let args: Vec<String> = std::env::args().collect();
-    let triangle_count = if args.len() > 1 {
-        args[1].parse().unwrap_or(triangle_count)
-    } else {
-        triangle_count
-    };
+    let args = Args::parse();
+    let triangle_count = args.triangles;
 
     let mut fb = Framebuffer::new(width, height).unwrap();
     let mut zb = ZBuffer::new(width, height).unwrap();
