@@ -49,6 +49,7 @@ fyrox = { version = "1.0.0-rc.2", default-features = false, features = ["fyrox-i
 
 comfy-table = "7.1"
 foldhash = "0.2.0"
+rand = "0.8"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = "1"
