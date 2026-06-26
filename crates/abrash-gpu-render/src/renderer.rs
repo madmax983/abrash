@@ -1736,4 +1736,15 @@ mod tests {
         assert!(color.b.abs() < f64::EPSILON);
         assert!((color.a - 1.0).abs() < 0.01);
     }
+
+
+    #[test]
+    #[should_panic(expected = "called `Option::unwrap()` on a `None` value")]
+    fn test_renderer_encode_gbuffer_pass_unwrap_panic() {
+        let renderer = GpuRenderer::new_headless().unwrap();
+
+        let mut encoder = renderer.gpu.device().create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        // Calling encode_gbuffer_pass before ensure_output initializes the gbuffer will panic at self.gbuffer.as_ref().unwrap()
+        let _ = renderer.encode_gbuffer_pass(&mut encoder, &[]);
+    }
 }

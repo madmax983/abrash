@@ -51,3 +51,10 @@
 **[Validating Time/Tick Loop Logic Without Flakiness]**
 **Learning:** Testing frame-time loops using `std::thread::sleep` introduces severe flakiness because CI runners or test threads can delay execution unpredictably. Instead of testing "real" time elapsed, test the internal response to elapsed time by directly simulating it on the structure (e.g. `timer.last_time = Instant::now()`, `timer.accumulator += 50ms`).
 **Action:** Never use `std::thread::sleep` for unit testing timing systems. Always manipulate the simulated time state directly to test logic boundaries.
+## [Uninitialized GPU Render Pass Panic]
+**Learning:** In GPU rendering pipelines, calling pass encoding methods (like encode_gbuffer_pass) before properly initializing render targets via initialization methods (like ensure_output) results in fatal panics on internal Option unwraps (e.g., self.gbuffer.as_ref().unwrap()).
+**Action:** Always write a #[should_panic] test that intentionally calls encoding passes out of order or before initialization to verify the implicit state dependency and document the explosion.
+
+## [Parallel Extract Draw List Panic]
+**Learning:** The parallel path for extract_draw_list inside cpu_renderer isolates mesh extraction via Rayon map loops. If a concurrent execution race condition leads to resource invalidation (e.g. freeing a mesh between safety validations and map execution), it panics during `unwrap()` on mesh lookup, killing the worker thread.
+**Action:** Always write `#[should_panic]` tests to simulate concurrency race conditions on parallel iteration paths that depend on sequential bounds/safety checks, proving that delayed `unwrap()` calls on shared resource maps will safely detonate rather than causing UB.

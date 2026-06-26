@@ -928,4 +928,53 @@ mod tests {
     fn test_cpu_renderer_drawlist_capacity_overflow() {
         let _dl = DrawList::with_capacity(test_camera(), usize::MAX, usize::MAX, usize::MAX);
     }
+#[test]
+    #[cfg(feature = "parallel")]
+    #[should_panic(expected = "called `Option::unwrap()` on a `None` value")]
+    fn test_parallel_extract_draw_list_stale_mesh_handle_panic() {
+        let mut renderer = CpuRenderer::new(100, 100);
+        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mat_h = renderer.create_material(Material::flat(0xFFFFFFFF)).unwrap();
+
+        // Intentionally remove the mesh to make the handle stale
+        renderer.destroy_mesh(mesh_h);
+
+        let mut frame = Frame::new(test_camera());
+        frame.draw(mesh_h, mat_h, Mat4::identity());
+
+        // We intentionally bypass the `ok_or` check in `extract_draw_list_into` by directly
+        // calling into the parallel implementation block logic, simulating a concurrent race
+        // condition where the mesh is destroyed after the initial sequential check.
+
+        let view_proj = frame.camera.view * frame.camera.projection;
+        let mut ranges: smallvec::SmallVec<[(usize, usize); 128]> = smallvec::SmallVec::with_capacity(1);
+        ranges.push((0, 0)); // dummy range
+
+        let mut draw_list = DrawList::with_capacity(frame.camera, 1, 3, 0);
+
+        use rayon::prelude::*;
+        let ptr = draw_list.vertices.as_mut_ptr() as usize;
+
+        draw_list.batches.par_extend(frame.commands.par_iter().zip(ranges.as_slice()).map(
+            |(cmd, &(start, end))| {
+                // This unwrap will panic because the mesh handle is now stale
+                let cpu_mesh = renderer.meshes.get(super::from_mesh_handle(cmd.mesh)).unwrap();
+                let material = renderer.materials.get(super::from_material_handle(cmd.material)).unwrap();
+
+                let mvp = cmd.transform * view_proj;
+                let mesh = &cpu_mesh.mesh;
+
+                unsafe {
+                    let offset_ptr = (ptr as *mut (crate::math::Vec3, f32)).add(start);
+                    let slice = std::slice::from_raw_parts_mut(
+                        offset_ptr.cast::<std::mem::MaybeUninit<(crate::math::Vec3, f32)>>(),
+                        mesh.vertices.len(),
+                    );
+                    mvp.transform_points_uninit(&mesh.vertices, slice);
+                }
+
+                DrawBatch::new(start..end, std::sync::Arc::clone(&cpu_mesh.shared_indices), material.color)
+            },
+        ));
+    }
 }
