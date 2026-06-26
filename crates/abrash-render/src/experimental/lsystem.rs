@@ -105,7 +105,9 @@ impl LSystem {
                         if let Some(replacement) = rules_array[(b as usize) & 127] {
                             next_bytes.extend_from_slice(replacement);
                         } else {
-                            next_bytes.push(b);
+                            // ⚡ Bolt: Uses `extend([b])` with array destructuring instead of `push(b)` to allow LLVM to elide
+                            // repetitive capacity checks in the tight inner loop.
+                            next_bytes.extend([b]);
                         }
                         if next_bytes.len() > self.max_capacity {
                             return Err("L-System expansion exceeded maximum capacity limit");

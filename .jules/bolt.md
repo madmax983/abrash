@@ -232,3 +232,11 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Loop Fusion Optimization (Revisited)]**
+**Learning:** Splitting a loop that combines math operations and conditional structural mutations (e.g., `swap_remove`) into two separate passes to encourage LLVM auto-vectorization can sometimes cause performance regressions (e.g., in `ParticleSystem::update`) due to increased memory bandwidth or cache thrashing.
+**Action:** Always verify with `cargo bench` before committing.
+
+**[Array Destructuring Extend in Parsing]**
+**Learning:** In tight inner loops where objects are gathered sequentially (e.g., LSystem bytes `next_bytes.push(b)`), replacing `.push(b)` with an array destructuring extend `.extend([b])` allows LLVM to elide repetitive bounds and capacity checks, yielding measurable speedups (e.g. ~19% performance boost in `lsystem_bench.rs`).
+**Action:** When gathering items in a hot loop and appending them sequentially to a `Vec`, use `extend([item])` instead of `push(item)`.
