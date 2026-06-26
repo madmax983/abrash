@@ -204,25 +204,19 @@ impl ParticleSystem {
             self.emission_accumulator -= 1.0;
         }
 
-        // Update existing particles
-        let mut i = 0;
-        while i < self.particles.len() {
-            let p = &mut self.particles[i];
+        let gravity_dt = self.gravity * dt;
 
+        // Use retain to conditionally drop dead particles and perform math on live ones
+        self.particles.retain_mut(|p| {
             p.life -= dt;
-            if p.life <= 0.0 {
-                // Remove dead particle (swap remove is O(1))
-                self.particles.swap_remove(i);
-                // Don't increment i, as the swapped element needs to be checked
-                continue;
+            if p.life > 0.0 {
+                p.velocity = p.velocity + gravity_dt;
+                p.position = p.position + p.velocity * dt;
+                true
+            } else {
+                false
             }
-
-            // Physics
-            p.velocity = p.velocity + self.gravity * dt;
-            p.position = p.position + p.velocity * dt;
-
-            i += 1;
-        }
+        });
     }
 
     fn emit(&mut self) {
