@@ -43,6 +43,19 @@
 /// No easing — constant rate.
 #[must_use]
 #[inline]
+/// Linear easing (no easing, constant speed).
+///
+/// Returns `t` exactly as provided.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::easing::linear;
+///
+/// assert_eq!(linear(0.0), 0.0);
+/// assert_eq!(linear(0.5), 0.5);
+/// assert_eq!(linear(1.0), 1.0);
+/// ```
 pub const fn linear(t: f32) -> f32 {
     t
 }
@@ -52,6 +65,7 @@ pub const fn linear(t: f32) -> f32 {
 /// Quadratic ease-in: starts slow, ends fast.
 #[must_use]
 #[inline]
+/// Quadratic ease-in. Starts slow, ends fast.
 pub const fn quad_in(t: f32) -> f32 {
     t * t
 }
@@ -59,6 +73,7 @@ pub const fn quad_in(t: f32) -> f32 {
 /// Quadratic ease-out: starts fast, ends slow.
 #[must_use]
 #[inline]
+/// Quadratic ease-out. Starts fast, ends slow.
 pub const fn quad_out(t: f32) -> f32 {
     t * (2.0 - t)
 }
@@ -66,6 +81,7 @@ pub const fn quad_out(t: f32) -> f32 {
 /// Quadratic ease-in-out: symmetric slow-fast-slow.
 #[must_use]
 #[inline]
+/// Quadratic ease-in-out. Starts and ends slow, fast in the middle.
 pub const fn quad_in_out(t: f32) -> f32 {
     if t < 0.5 {
         2.0 * t * t
@@ -79,6 +95,7 @@ pub const fn quad_in_out(t: f32) -> f32 {
 /// Cubic ease-in.
 #[must_use]
 #[inline]
+/// Cubic ease-in. Starts slow, ends fast.
 pub const fn cubic_in(t: f32) -> f32 {
     t * t * t
 }
@@ -86,6 +103,7 @@ pub const fn cubic_in(t: f32) -> f32 {
 /// Cubic ease-out.
 #[must_use]
 #[inline]
+/// Cubic ease-out. Starts fast, ends slow.
 pub const fn cubic_out(t: f32) -> f32 {
     let t1 = t - 1.0;
     t1 * t1 * t1 + 1.0
@@ -94,6 +112,7 @@ pub const fn cubic_out(t: f32) -> f32 {
 /// Cubic ease-in-out.
 #[must_use]
 #[inline]
+/// Cubic ease-in-out. Starts and ends slow, fast in the middle.
 pub const fn cubic_in_out(t: f32) -> f32 {
     if t < 0.5 {
         4.0 * t * t * t
@@ -108,6 +127,7 @@ pub const fn cubic_in_out(t: f32) -> f32 {
 /// Quartic ease-in.
 #[must_use]
 #[inline]
+/// Quartic ease-in. Starts slow, ends fast.
 pub const fn quart_in(t: f32) -> f32 {
     t * t * t * t
 }
@@ -115,6 +135,7 @@ pub const fn quart_in(t: f32) -> f32 {
 /// Quartic ease-out.
 #[must_use]
 #[inline]
+/// Quartic ease-out. Starts fast, ends slow.
 pub const fn quart_out(t: f32) -> f32 {
     let t1 = t - 1.0;
     1.0 - t1 * t1 * t1 * t1
@@ -123,6 +144,7 @@ pub const fn quart_out(t: f32) -> f32 {
 /// Quartic ease-in-out.
 #[must_use]
 #[inline]
+/// Quartic ease-in-out. Starts and ends slow, fast in the middle.
 pub const fn quart_in_out(t: f32) -> f32 {
     if t < 0.5 {
         8.0 * t * t * t * t
@@ -137,6 +159,7 @@ pub const fn quart_in_out(t: f32) -> f32 {
 /// Quintic ease-in.
 #[must_use]
 #[inline]
+/// Quintic ease-in. Starts slow, ends fast.
 pub const fn quint_in(t: f32) -> f32 {
     t * t * t * t * t
 }
@@ -144,6 +167,7 @@ pub const fn quint_in(t: f32) -> f32 {
 /// Quintic ease-out.
 #[must_use]
 #[inline]
+/// Quintic ease-out. Starts fast, ends slow.
 pub const fn quint_out(t: f32) -> f32 {
     let t1 = t - 1.0;
     t1 * t1 * t1 * t1 * t1 + 1.0
@@ -152,6 +176,7 @@ pub const fn quint_out(t: f32) -> f32 {
 /// Quintic ease-in-out.
 #[must_use]
 #[inline]
+/// Quintic ease-in-out. Starts and ends slow, fast in the middle.
 pub const fn quint_in_out(t: f32) -> f32 {
     if t < 0.5 {
         16.0 * t * t * t * t * t
