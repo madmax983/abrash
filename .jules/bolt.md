@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**Hoisting Per-Frame Allocations with `std::mem::take`**
+**Learning:** In hot loops where variables like `Vec` are repeatedly allocated with `Vec::with_capacity`, we can hoist them into a long-lived struct instance field. To update them while passing to multiple methods that may take `&self` or `&mut self` without fighting the borrow checker, `std::mem::take` allows us to extract the vector, populate it via `&mut Vec`, and then assign it back to the struct field.
+**Action:** Use `std::mem::take` combined with struct fields for zero-allocation per-frame update cycles without refactoring method ownership paths.
