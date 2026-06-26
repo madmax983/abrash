@@ -101,15 +101,18 @@ impl LSystem {
 
                 for _ in 0..iterations {
                     next_bytes.clear();
+                    // ⚡ Bolt: Reserve expected capacity to elide repeated reallocation checks,
+                    // and hoist the max_capacity check out of the hot per-byte expansion loop.
+                    next_bytes.reserve(current_bytes.len() * 2);
                     for &b in &*current_bytes {
                         if let Some(replacement) = rules_array[(b as usize) & 127] {
                             next_bytes.extend_from_slice(replacement);
                         } else {
                             next_bytes.push(b);
                         }
-                        if next_bytes.len() > self.max_capacity {
-                            return Err("L-System expansion exceeded maximum capacity limit");
-                        }
+                    }
+                    if next_bytes.len() > self.max_capacity {
+                        return Err("L-System expansion exceeded maximum capacity limit");
                     }
                     std::mem::swap(current_bytes, next_bytes);
                 }

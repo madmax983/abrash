@@ -232,3 +232,15 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimal Tile Bins Clear]**
+**Learning:** In tile-based rendering loops, blindly filling entire structure arrays with `u32::MAX` inside `TileBins::clear()` introduces unnecessary O(N) memset overhead, particularly on empty or sparse frames.
+**Action:** Guard the `fill` and `clear` operations with `if !self.nexts.is_empty() { ... }`. If `nexts` is empty, no triangles were binned, allowing the renderer to entirely bypass the state reset and instantly proceed.
+
+**[Replacing SmallVec to standard Vec]**
+**Learning:** The previous optimization of using `smallvec::SmallVec` for depth sorting resulted in hidden branching overhead (`inline` vs `heap` state checks) on every iteration.
+**Action:** Replace `SmallVec` with a single standard `Vec::with_capacity(128)` hoisted completely *outside* the tile loop, reusing its allocation via `.clear()`. This completely elides dynamic capacity and state checks in the hot path.
+
+**[Eliding L-System String Allocations]**
+**Learning:** In L-System string expansion, continuously extending the buffer via `next_bytes.extend_from_slice()` without `reserve` triggers repeated reallocations, and placing the `next_bytes.len() > self.max_capacity` check inside the inner character loop breaks compiler vectorization.
+**Action:** Pre-allocate using `next_bytes.reserve(current_bytes.len() * 2)` outside the loop based on a realistic expansion factor, and hoist the capacity security check outside the inner loop to maintain security while avoiding per-character branching.

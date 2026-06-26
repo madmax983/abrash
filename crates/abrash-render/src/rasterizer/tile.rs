@@ -708,10 +708,14 @@ impl TileBins {
 
     /// Clears the bin structure for the next frame.
     pub fn clear(&mut self) {
-        self.heads.fill(u32::MAX);
-        self.tails.fill(u32::MAX);
-        self.nexts.clear();
-        self.tris.clear();
+        // ⚡ Bolt: Only clear `heads` and `tails` if they were actually used.
+        // If `nexts` is empty, no triangles were binned, avoiding an O(N) memset on empty frames.
+        if !self.nexts.is_empty() {
+            self.heads.fill(u32::MAX);
+            self.tails.fill(u32::MAX);
+            self.nexts.clear();
+            self.tris.clear();
+        }
     }
 
     /// Pushes a triangle index into the bin for the given tile index.
@@ -3005,10 +3009,10 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
+        // ⚡ Bolt: Replace `SmallVec` with a single standard `Vec::with_capacity(128)`
+        // and reuse it via `.clear()`. This completely elides dynamic capacity and state checks in the hot path,
+        // avoiding the overhead of `SmallVec`'s inline vs heap state branches on every iteration.
+        let mut indices: Vec<u32> = Vec::with_capacity(128);
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
@@ -3528,10 +3532,10 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
+        // ⚡ Bolt: Replace `SmallVec` with a single standard `Vec::with_capacity(128)`
+        // and reuse it via `.clear()`. This completely elides dynamic capacity and state checks in the hot path,
+        // avoiding the overhead of `SmallVec`'s inline vs heap state branches on every iteration.
+        let mut indices: Vec<u32> = Vec::with_capacity(128);
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
@@ -3578,10 +3582,10 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        // Bolt Performance Optimization:
-        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
-        // This eliminates frequent dynamic heap allocations on the hot sorting path.
-        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
+        // ⚡ Bolt: Replace `SmallVec` with a single standard `Vec::with_capacity(128)`
+        // and reuse it via `.clear()`. This completely elides dynamic capacity and state checks in the hot path,
+        // avoiding the overhead of `SmallVec`'s inline vs heap state branches on every iteration.
+        let mut indices: Vec<u32> = Vec::with_capacity(128);
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
