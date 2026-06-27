@@ -1,6 +1,7 @@
 #![cfg(feature = "gpu-engine-compare")]
 
-use abrash::gpu_render::{GpuOffscreenBench, GpuOffscreenBenchConfig, unit_cube_mesh};
+use abrash::gpu_render::{GpuOffscreenBench, GpuOffscreenBenchConfig};
+use abrash::gpu_render::unit_cube_mesh;
 use bevy::{
     app::{App, Update},
     ecs::{component::Component, system::Query},

@@ -125,3 +125,6 @@
 1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
 2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors.
 3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
+**[Split large lib.rs in abrash-gpu-render]**
+**Tangle:** `src/lib.rs` inside `crates/abrash-gpu-render` was a 1256 line Blob anti-pattern mixing interactive app logic, headless benchmarking, and primitive meshes with core module definitions and shaders.
+**Blueprint:** Extracted `demo_app.rs` (holding `GpuMeshApp`, controllers, and config), `offscreen_bench.rs` (holding headless testing utils), and `primitives.rs` (holding validation and primitive generation like `unit_cube_mesh`).
