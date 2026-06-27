@@ -890,16 +890,15 @@ fn apply_vignette_scalar(
             let p = *p_ref;
 
             let a = p & 0xFF00_0000;
-            let r = (p >> 16) & 0xFF;
-            let g = (p >> 8) & 0xFF;
-            let b = p & 0xFF;
 
-            // Note: This truncating division matches SIMD _mm256_mullo_epi16 followed by _mm256_srli_epi16
-            let new_r = (r * factor_fixed) >> 8;
-            let new_g = (g * factor_fixed) >> 8;
-            let new_b = (b * factor_fixed) >> 8;
+            // ⚡ Bolt: SWAR (SIMD Within A Register) for per-pixel color scaling.
+            let rb = p & 0x00FF_00FF;
+            let p_g = p & 0x0000_FF00;
 
-            *p_ref = a | (new_r << 16) | (new_g << 8) | new_b;
+            let rb_scaled = (rb * factor_fixed) >> 8;
+            let g_scaled = (p_g * factor_fixed) >> 8;
+
+            *p_ref = a | (rb_scaled & 0x00FF_00FF) | (g_scaled & 0x0000_FF00);
         }
     }
 }
@@ -2248,5 +2247,33 @@ mod tests {
                 );
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test_swar {
+    use super::*;
+
+    #[test]
+    fn test_vignette_swar_correctness() {
+        let factor_fixed = 128;
+        let p = 0xFF_80_40_20u32;
+
+        let a = p & 0xFF00_0000;
+        let r = (p >> 16) & 0xFF;
+        let g = (p >> 8) & 0xFF;
+        let b = p & 0xFF;
+        let new_r = (r * factor_fixed) >> 8;
+        let new_g = (g * factor_fixed) >> 8;
+        let new_b = (b * factor_fixed) >> 8;
+        let expected = a | (new_r << 16) | (new_g << 8) | new_b;
+
+        let rb = p & 0x00FF_00FF;
+        let pg = p & 0x0000_FF00;
+        let rb_scaled = (rb * factor_fixed) >> 8;
+        let g_scaled = (pg * factor_fixed) >> 8;
+        let actual = a | (rb_scaled & 0x00FF_00FF) | (g_scaled & 0x0000_FF00);
+
+        assert_eq!(expected, actual, "SWAR logic must match discrete channel logic");
     }
 }

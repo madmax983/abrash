@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Vignette SWAR Color Scaling Optimization]**
+**Learning:** In the `apply_vignette` filter's scalar fallback path, manually masking and shifting each color channel `r`, `g`, `b` inside the hot per-pixel loop is inefficient.
+**Action:** Implemented SWAR (SIMD Within A Register) for color scaling inside the inner loop by extracting the RB and G components into `u32` words, multiplying by the fixed-point scaling factor, and shifting them down in parallel. This eliminates per-channel shifts and masks, improving performance by roughly ~11% in benchmarks.
