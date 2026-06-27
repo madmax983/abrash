@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Eliding Bounds Checks on Cubemap Uploads]**
+**Learning:** In hot full-image pixel processing loops (e.g., uploading textures or cubemap faces), replacing `Vec::with_capacity` combined with inner-loop `.extend_from_slice()` calls with a zero-initialized vector (`vec![0u8; len]`) and iterating via `.chunks_exact_mut(4).zip(pixels.iter())` eliminates dynamic capacity and bounds checks, allowing the compiler to safely vectorize the assignment for measurable performance gains.
+**Action:** Replace `extend_from_slice()` on dynamic vectors when performing full-image pixel format conversions with pre-allocation and `chunks_exact_mut` + `zip`.
