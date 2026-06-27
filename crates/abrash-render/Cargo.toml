@@ -50,3 +50,8 @@ required-features = ["nova"]
 name = "metaballs_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "cel_shade_bench"
+harness = false
+required-features = ["nova"]
