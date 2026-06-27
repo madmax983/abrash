@@ -984,3 +984,13 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[bench]]
+name = "radar_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "radar_demo"
+path = "examples/radar_demo.rs"
+required-features = ["nova"]

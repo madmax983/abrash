@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Radar Sweep Filter]
+**Concept:** A post-processing effect simulating a radar screen. It sweeps an angle over time using `fast_atan2`, drawing grid rings, and highlighting geometry from the ZBuffer as bright 'blips' when the sweep line passes them.
+**Fate:** Implemented
+**Lesson:** Using `fast_atan2` combined with squared distance checks enables a high-performance procedural polar coordinate effect entirely in screen space.
