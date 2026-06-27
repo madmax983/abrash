@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [Quadtree Image Abstraction]
+**Concept:** A post-processing effect that recursively subdivides the framebuffer into quadrants based on color variance, rendering solid color blocks or averages where the image is uniform, producing a stylish algorithmic block-art aesthetic.
+**Fate:** Implemented
+**Lesson:** Using a recursive quadtree decomposition algorithm on a read-only snapshot of the framebuffer, and drawing solid rectangles into the live framebuffer efficiently breaks the image down into regions of varying detail without complex edge detection or geometry algorithms.
