@@ -44,22 +44,21 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
             let (x_sin, _) = fast_sin_cos(x_scaled_time);
 
             // Calculate plasma value using multiple sine waves
-            let mut v = 0.0;
-            v += x_sin;
-            v += y_sin;
+            let v = x_sin + y_sin;
             let (v_sin, _) = fast_sin_cos(x_sin + y_cos);
-            v += v_sin;
+            let v = v + v_sin;
 
             // Map the value from [-3.0, 3.0] to roughly [0.0, 1.0]
             // We use PI to create cyclical colors
             let (c_sin, _) = fast_sin_cos(v * std::f32::consts::PI);
             let c = c_sin * 0.5 + 0.5;
 
-            // Map the normalized value to RGB colors
-            // Simple color palette generation based on the phase
-            let r = ((c * 255.0) as u32).min(255);
-            let g = (((c + 0.33) % 1.0 * 255.0) as u32).min(255);
-            let b = (((c + 0.66) % 1.0 * 255.0) as u32).min(255);
+            // Map the normalized value to RGB colors using fixed-point math
+            // to avoid multiple floating-point multiplications and modulo
+            let c_scaled = (c * 65536.0) as u32;
+            let r = (c_scaled * 255) >> 16;
+            let g = ((c_scaled.wrapping_add(21626) & 0xFFFF) * 255) >> 16;
+            let b = ((c_scaled.wrapping_add(43253) & 0xFFFF) * 255) >> 16;
 
             *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
         }

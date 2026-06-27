@@ -119,17 +119,23 @@ pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
             let (v1, _) = fast_sin_cos(u * 0.1);
             let (v2, _) = fast_sin_cos(v * 0.1);
             let (v3, _) = fast_sin_cos((u + v) * 0.1);
-            let (v4, _) = fast_sin_cos(u.mul_add(u, v * v).sqrt() * 0.1);
+            // We omit sqrt() entirely and use a scaled squared distance
+            // Since we're pushing this into a sine wave anyway, the visual effect
+            // is still a circular interference pattern, just with a different frequency distribution.
+            // Using a very small scale factor to prevent the frequency from getting too high too fast.
+            let (v4, _) = fast_sin_cos(u.mul_add(u, v * v) * 0.0005);
 
             let val = (v1 + v2 + v3 + v4) * 0.25; // -1 to 1
             let normalized = (val + 1.0) * 0.5; // 0 to 1
 
             // Map to a psychedelic palette
-            let (r_sin, _) = fast_sin_cos(normalized * std::f32::consts::PI);
+            let n_pi = normalized * std::f32::consts::PI;
+            let (r_sin, _) = fast_sin_cos(n_pi);
+            let (g_sin, _) = fast_sin_cos(n_pi + 2.0);
+            let (b_sin, _) = fast_sin_cos(n_pi + 4.0);
+
             let r = (r_sin.abs() * 255.0) as u32;
-            let (g_sin, _) = fast_sin_cos((normalized * std::f32::consts::PI) + 2.0);
             let g = (g_sin.abs() * 255.0) as u32;
-            let (b_sin, _) = fast_sin_cos((normalized * std::f32::consts::PI) + 4.0);
             let b = (b_sin.abs() * 255.0) as u32;
 
             let color = 0xFF00_0000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);

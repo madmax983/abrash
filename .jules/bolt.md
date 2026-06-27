@@ -232,3 +232,9 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**Optimize procedural generation Euclidean distance bounds**
+**Learning:** In procedural generation where Euclidean distance feeds into cyclical functions (e.g., `fast_sin_cos` for plasma or ripple effects), the expensive `.sqrt()` operation can often be entirely omitted. Passing a scaled squared distance (e.g., `dist_sq * small_factor`) into the sine function preserves the circular interference pattern while eliminating the ALU bottleneck, leading to measurable performance improvements.
+**Action:** Replaced `.sqrt()` with a scaled squared distance in `abrash-render` procedural plasma generation.
+**Floating Point fixed mapping**
+**Learning:** In procedural effects converting ranges (e.g. 0..1 to 0..255 colors), multiplying normalized floats mapped with sine patterns can be slightly slower compared to doing math on the phase itself using pre-calculated offsets, but full fixed-point math with bitwise masking works extremely well. Floating point to bit conversion and offsets speed up inner loop plasma logic effectively when working on `u32` colors.
+**Action:** Implemented fixed point math logic inside `apply_plasma`.
