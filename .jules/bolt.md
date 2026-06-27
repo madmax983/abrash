@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Thread-local Allocation for Atlas Uploads]**
+**Learning:** In GPU atlas uploads (`GpuBlitter::upload_atlas`), converting pixel formats by allocating a new `vec![0u8; pixels.len() * 4]` on every upload causes repeated heap allocations on hot paths.
+**Action:** Replaced the per-upload vector allocation with a `thread_local!` `RefCell<Vec<u8>>` and used `.resize(req_len, 0)` to reuse memory capacity across successive texture uploads, eliminating O(N) dynamic heap allocations while preserving vectorization via `chunks_exact_mut(4).zip()`.
