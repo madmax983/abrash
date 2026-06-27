@@ -110,6 +110,41 @@ pub struct WindowContext<'a> {
 }
 
 /// Trait implemented by callers that want to run inside the native host.
+///
+/// ## Examples
+///
+/// ```rust,no_run
+/// use abrash::platform::winit::{WindowApp, WindowContext, WindowHostConfig};
+/// use std::error::Error;
+/// use std::fmt;
+///
+/// #[derive(Debug)]
+/// struct MyError;
+/// impl fmt::Display for MyError {
+///     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+///         write!(f, "MyError")
+///     }
+/// }
+/// impl Error for MyError {}
+///
+/// struct MyApp;
+///
+/// impl WindowApp for MyApp {
+///     type Error = MyError;
+///
+///     fn config(&self) -> WindowHostConfig {
+///         WindowHostConfig::default()
+///     }
+///
+///     fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+///         Ok(())
+///     }
+///
+///     fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+///         Ok(())
+///     }
+/// }
+/// ```
 pub trait WindowApp {
     /// Concrete application error type.
     type Error: Error + Send + Sync + 'static;

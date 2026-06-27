@@ -14,6 +14,24 @@ pub use abrash_gpu_render::{
 ///
 /// # Errors
 /// Returns an error if the mesh has too many vertices for the 16-bit index buffer limit (65535).
+///
+/// ## Examples
+///
+/// ```rust
+/// use abrash_core::mesh::Mesh;
+/// use abrash_core::math::Vec3;
+/// use abrash::gpu_render::mesh_to_gpu;
+///
+/// let mut mesh = Mesh::new();
+/// mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
+/// mesh.vertices.push(Vec3::new(1.0, 0.0, 0.0));
+/// mesh.vertices.push(Vec3::new(0.0, 1.0, 0.0));
+/// mesh.indices.push([0, 1, 2]);
+///
+/// let (vertices, indices) = mesh_to_gpu(&mesh).unwrap();
+/// assert_eq!(vertices.len(), 3);
+/// assert_eq!(indices.len(), 3);
+/// ```
 pub fn mesh_to_gpu(mesh: &crate::mesh::Mesh) -> Result<(Vec<GpuVertex>, Vec<u16>), String> {
     if mesh.vertices.len() > u16::MAX as usize {
         return Err(format!(

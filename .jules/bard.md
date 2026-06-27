@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2024-06-27 - [WindowApp and mesh_to_gpu Documentation]
+**Confusion:** The `WindowApp` trait and `mesh_to_gpu` function lacked executable examples, leaving developers confused on how to implement or use them correctly.
+**Clarification:** Added complete, copy-pasteable doctests demonstrating how to correctly set up a struct implementing `WindowApp` and how to process a `Mesh` into GPU vertices using `mesh_to_gpu`.
