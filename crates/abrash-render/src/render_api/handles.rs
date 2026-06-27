@@ -461,4 +461,18 @@ mod tests {
             PoolEntry::Vacant { .. } => unreachable!(),
         }
     }
+
+    #[test]
+    #[should_panic(expected = "free list pointed to occupied slot")]
+    fn test_pool_insert_unreachable_guard() {
+        let mut pool = ResourcePool::<i32>::new();
+        let handle = pool.insert(42);
+
+        // Corrupt internal state by manually adding an occupied slot index to the free list
+        pool.free_list.push(handle.index);
+
+        // The next insert will pull the corrupted index from the free list,
+        // find it occupied, and trigger the unreachable!() panic.
+        pool.insert(99);
+    }
 }
