@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Sobel Filter Chunking Optimization]**
+**Learning:** The Sobel filter's scalar fallback originally used a 1D loop iterating over the Y axis, calculating multiple row offsets manually (`y * width`, `y * width - width`, etc.) and slicing out the rows inside the loop. This incurs bounds check overhead and index math on every iteration.
+**Action:** Replaced the index-based loop with `lum_slice.chunks_exact(width)` mapped via `zip(dest_rows.chunks_exact_mut(width))`. The sliding window approach (storing `prev_row` and `curr_row` and pulling `next_row` from the iterator) completely elides bounds checking on the row level and significantly simplifies the loop code without sacrificing performance.

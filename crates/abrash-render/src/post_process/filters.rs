@@ -511,47 +511,43 @@ pub fn apply_sobel(fb: &mut Framebuffer) {
 
         // 2. Apply Sobel
         // We skip the 1-pixel border.
-        // Iterate over valid interior rows.
-        for y in 1..height - 1 {
-            let row_offset = y * width;
-            let prev_row_offset = row_offset - width;
-            let next_row_offset = row_offset + width;
+        // Iterate over valid interior rows using chunks_exact_mut to elide bounds checks.
+        let mut row_iter = lum_slice.chunks_exact(width);
+        if height > 2 {
+            if let (Some(mut prev_row), Some(mut curr_row)) = (row_iter.next(), row_iter.next()) {
+                let dest_rows = &mut pixels[width..width * (height - 1)];
+                for (dest_row, next_row) in dest_rows.chunks_exact_mut(width).zip(row_iter) {
+                    for x in 1..width - 1 {
+                        // Neighborhood indices
+                        // TL T TR
+                        //  L C  R
+                        // BL B BR
+                        let tl = i32::from(prev_row[x - 1]);
+                        let t = i32::from(prev_row[x]);
+                        let tr = i32::from(prev_row[x + 1]);
+                        let l = i32::from(curr_row[x - 1]);
+                        let r = i32::from(curr_row[x + 1]);
+                        let bl = i32::from(next_row[x - 1]);
+                        let b = i32::from(next_row[x]);
+                        let br = i32::from(next_row[x + 1]);
 
-            // ⚡ Bolt Performance Optimization:
-            // Slicing out the three rows elides bounds checks in the inner loop.
-            let prev_row = &lum_slice[prev_row_offset..prev_row_offset + width];
-            let curr_row = &lum_slice[row_offset..row_offset + width];
-            let next_row = &lum_slice[next_row_offset..next_row_offset + width];
+                        // Gx Kernel
+                        let gx = (tr + 2 * r + br) - (tl + 2 * l + bl);
 
-            let dest_row = &mut pixels[row_offset..row_offset + width];
+                        // Gy Kernel
+                        let gy = (bl + 2 * b + br) - (tl + 2 * t + tr);
 
-            for x in 1..width - 1 {
-                // Neighborhood indices
-                // TL T TR
-                //  L C  R
-                // BL B BR
-                let tl = i32::from(prev_row[x - 1]);
-                let t = i32::from(prev_row[x]);
-                let tr = i32::from(prev_row[x + 1]);
-                let l = i32::from(curr_row[x - 1]);
-                let r = i32::from(curr_row[x + 1]);
-                let bl = i32::from(next_row[x - 1]);
-                let b = i32::from(next_row[x]);
-                let br = i32::from(next_row[x + 1]);
+                        // Magnitude
+                        let mag = (gx.abs() + gy.abs()).min(255) as u32;
 
-                // Gx Kernel
-                let gx = (tr + 2 * r + br) - (tl + 2 * l + bl);
-
-                // Gy Kernel
-                let gy = (bl + 2 * b + br) - (tl + 2 * t + tr);
-
-                // Magnitude
-                let mag = (gx.abs() + gy.abs()).min(255) as u32;
-
-                // Write back (Gray + Alpha)
-                // Use index relative to pixel buffer
-                let original_alpha = dest_row[x] & 0xFF00_0000;
-                dest_row[x] = original_alpha | (mag << 16) | (mag << 8) | mag;
+                        // Write back (Gray + Alpha)
+                        // Use index relative to pixel buffer
+                        let original_alpha = dest_row[x] & 0xFF00_0000;
+                        dest_row[x] = original_alpha | (mag << 16) | (mag << 8) | mag;
+                    }
+                    prev_row = curr_row;
+                    curr_row = next_row;
+                }
             }
         }
 
