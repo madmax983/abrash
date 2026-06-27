@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+## 2024-06-27 - [Eliminate SipHash Overhead in `obj_loader.rs`]
+**Learning:** `std::collections::HashMap` uses SipHash, which incurs unnecessary cryptographic overhead for simple integer-based keys (like `VertexKey`). While `obj_loader.rs` used a custom `FastU64Hasher` wrapped in `BuildHasherDefault`, `foldhash::HashMap` is already used elsewhere in the codebase and provides a standardized, fast, non-cryptographic hash function with less boilerplate.
+**Action:** Replaced `std::collections::HashMap` and the custom `FastU64Hasher` implementation with `foldhash::HashMap` in `obj_loader.rs` to standardize fast hashing and eliminate boilerplate.

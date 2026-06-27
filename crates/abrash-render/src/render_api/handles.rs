@@ -267,7 +267,7 @@ impl<T> ResourcePool<T> {
 
 impl<T> Default for ResourcePool<T> {
     fn default() -> Self {
-        Self::new()
+        Self::with_capacity(32)
     }
 }
 
