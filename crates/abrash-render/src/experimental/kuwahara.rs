@@ -133,6 +133,25 @@ fn process_kuwahara_region(
     }
 }
 
+/// Applies a Kuwahara filter to the given framebuffer.
+///
+/// This filter calculates the mean and variance of colors in four overlapping rectangular
+/// regions around each pixel and assigns the mean color of the region with the lowest variance.
+///
+/// # Arguments
+///
+/// * `fb` - The framebuffer to apply the filter to.
+/// * `radius` - The radius of the Kuwahara filter kernel.
+///
+/// # Examples
+///
+/// ```rust
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::experimental::kuwahara::apply_kuwahara;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// apply_kuwahara(&mut fb, 2);
+/// ```
 pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
     if radius <= 0 {
         return;

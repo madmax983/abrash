@@ -215,8 +215,6 @@ impl HiZBuffer {
         self.level_count
     }
 
-    /// Get the dimensions of a specific pyramid level
-    /// Gets the width and height of a specific pyramid level.
     ///
     /// Level 0 is the base full-resolution dimension. Each subsequent level is half the
     /// dimensions of the previous level, rounded up.

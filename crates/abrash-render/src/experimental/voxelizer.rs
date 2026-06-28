@@ -49,7 +49,6 @@ impl VoxelGrid {
         }
     }
 
-    /// Gets a voxel at the given grid coordinates.
     #[must_use]
     pub fn get(&self, x: usize, y: usize, z: usize) -> bool {
         if x < self.width && y < self.height && z < self.depth {

@@ -545,7 +545,6 @@ impl Texture {
         }
     }
 
-    /// Gets the raw color of a texel at (x, y) without any filtering.
     /// Returns 0 (transparent black) if coordinates are out of bounds.
     #[must_use]
     #[inline]

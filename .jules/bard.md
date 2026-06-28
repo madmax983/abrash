@@ -23,3 +23,10 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2024-05-20 - [Removed noisy getter comments]
+**Confusion:** Functions had doc strings like `/// Gets the width and height of a specific pyramid level.` or just `/// Gets the raw color` which violates the rule against "getter" style comments that add no value.
+**Clarification:** These lines were entirely removed from `hiz_buffer.rs`, `texture.rs`, and `voxelizer.rs` to leave only the `/// Returns` section which is meaningful.
+
+## 2024-05-20 - [Added Kuwahara docs]
+**Confusion:** The `apply_kuwahara` function in the experimental module had no documentation or examples.
+**Clarification:** Added a doc string with a usage example to demonstrate how to apply a Kuwahara filter to a framebuffer.
