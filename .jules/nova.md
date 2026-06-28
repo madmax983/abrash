@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Quadtree Image Segmentation Filter]
+**Concept:** A procedural post-processing effect that recursively subdivides the image into quadrants based on color variance. High variance areas (details/edges) are divided into smaller blocks, while low variance areas (flat colors) remain as large blocks. This creates a blocky, stylized, compression-artifact-like aesthetic.
+**Fate:** Implemented
+**Lesson:** Pre-calculating color variance using E[X^2] - (E[X])^2 in a single pass over the block allows for fast top-down recursive subdivision without needing multiple passes or complex region-growing algorithms.
