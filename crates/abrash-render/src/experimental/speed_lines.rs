@@ -89,14 +89,14 @@ pub fn apply_speed_lines(fb: &mut Framebuffer, config: &SpeedLinesConfig) {
     row_iter.for_each(|(y, row)| {
         let dy = (y as f32) - cy;
 
+        let inner_radius_sq = config.inner_radius * config.inner_radius;
         for (x, pixel) in row.iter_mut().enumerate().take(width) {
             let dx = (x as f32) - cx;
 
-            // Calculate distance from center
-            #[allow(clippy::imprecise_flops)]
-            let dist = (dx * dx + dy * dy).sqrt();
+            // Calculate squared distance from center
+            let dist_sq = dx * dx + dy * dy;
 
-            if dist < config.inner_radius {
+            if dist_sq < inner_radius_sq {
                 continue; // Inside the safe zone
             }
 
@@ -121,7 +121,7 @@ pub fn apply_speed_lines(fb: &mut Framebuffer, config: &SpeedLinesConfig) {
                 + config.min_length
                 + noise * (config.max_length - config.min_length);
 
-            if dist > start_dist {
+            if dist_sq > start_dist * start_dist {
                 // If it passes the start distance, check if we're inside the line thickness
                 // We want lines to occupy only a part of the sector
                 let sector_fraction = (angle_normalized * config.density as f32).fract();
