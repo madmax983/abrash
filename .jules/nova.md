@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [CCTV Security Camera Filter]
+**Concept:** A post-processing effect simulating a low-fi security camera feed. It combines desaturation, noise, heavy vignette, scanlines, and a custom minimal 5x7 font overlay for "REC" and timestamps.
+**Fate:** Implemented
+**Lesson:** Combining basic image processing (vignette, noise) with a simple hardcoded bitmapped text overlay adds significant cinematic flavor without the overhead of a full text rendering library.
