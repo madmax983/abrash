@@ -135,13 +135,12 @@ impl Flock {
                 }
 
                 if distance_sq > 0.0 && distance_sq < separation_radius_sq {
-                    let distance = distance_sq.sqrt();
                     // Separation (weighted by inverse distance)
                     let diff_x = boid.position.x - other_boid.position.x;
                     let diff_y = boid.position.y - other_boid.position.y;
                     let diff_z = boid.position.z - other_boid.position.z;
 
-                    let inv_dist = 1.0 / distance;
+                    let inv_dist = distance_sq.sqrt().recip();
                     separation.x += diff_x * inv_dist;
                     separation.y += diff_y * inv_dist;
                     separation.z += diff_z * inv_dist;
@@ -216,17 +215,20 @@ impl Flock {
                 (separation.z + alignment.z + cohesion.z + bounds_steering.z) * delta_time;
 
             // Clamp speed
+            let max_speed_sq = self.config.max_speed * self.config.max_speed;
+            let min_speed_sq = self.config.min_speed * self.config.min_speed;
             let speed_sq = boid.velocity.x * boid.velocity.x
                 + boid.velocity.y * boid.velocity.y
                 + boid.velocity.z * boid.velocity.z;
-            let speed = speed_sq.sqrt();
 
-            if speed > self.config.max_speed {
+            if speed_sq > max_speed_sq {
+                let speed = speed_sq.sqrt();
                 let f = self.config.max_speed / speed;
                 boid.velocity.x *= f;
                 boid.velocity.y *= f;
                 boid.velocity.z *= f;
-            } else if speed < self.config.min_speed && speed > 0.001 {
+            } else if speed_sq < min_speed_sq && speed_sq > 0.000001 {
+                let speed = speed_sq.sqrt();
                 let f = self.config.min_speed / speed;
                 boid.velocity.x *= f;
                 boid.velocity.y *= f;

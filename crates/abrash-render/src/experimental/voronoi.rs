@@ -279,8 +279,8 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                 let fy = y as f32;
                 for (x, pixel) in row.iter_mut().enumerate() {
                     let fx = x as f32;
-                    let mut min_dist = f32::MAX;
-                    let mut second_min_dist = f32::MAX;
+                    let mut min_dist_pow4 = f32::MAX;
+                    let mut second_min_dist_pow4 = f32::MAX;
                     let mut closest_idx = 0;
 
                     for (i, seed) in seeds.iter().enumerate() {
@@ -290,16 +290,20 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         let dy = dy.abs();
                         let x2 = dx * dx;
                         let y2 = dy * dy;
-                        #[allow(clippy::imprecise_flops)]
-                        let dist = (x2 * x2 + y2 * y2).sqrt().sqrt();
-                        if dist < min_dist {
-                            second_min_dist = min_dist;
-                            min_dist = dist;
+                        let dist_pow4 = x2 * x2 + y2 * y2;
+                        if dist_pow4 < min_dist_pow4 {
+                            second_min_dist_pow4 = min_dist_pow4;
+                            min_dist_pow4 = dist_pow4;
                             closest_idx = i;
-                        } else if dist < second_min_dist {
-                            second_min_dist = dist;
+                        } else if dist_pow4 < second_min_dist_pow4 {
+                            second_min_dist_pow4 = dist_pow4;
                         }
                     }
+
+                    #[allow(clippy::imprecise_flops)]
+                    let min_dist = min_dist_pow4.sqrt().sqrt();
+                    #[allow(clippy::imprecise_flops)]
+                    let second_min_dist = second_min_dist_pow4.sqrt().sqrt();
 
                     let diff = (second_min_dist - min_dist).abs();
                     if diff <= config.border_thickness {
@@ -314,7 +318,7 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                 let fy = y as f32;
                 for (x, pixel) in row.iter_mut().enumerate() {
                     let fx = x as f32;
-                    let mut min_dist = f32::MAX;
+                    let mut min_dist_pow4 = f32::MAX;
                     let mut closest_idx = 0;
 
                     for (i, seed) in seeds.iter().enumerate() {
@@ -324,10 +328,9 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         let dy = dy.abs();
                         let x2 = dx * dx;
                         let y2 = dy * dy;
-                        #[allow(clippy::imprecise_flops)]
-                        let dist = (x2 * x2 + y2 * y2).sqrt().sqrt();
-                        if dist < min_dist {
-                            min_dist = dist;
+                        let dist_pow4 = x2 * x2 + y2 * y2;
+                        if dist_pow4 < min_dist_pow4 {
+                            min_dist_pow4 = dist_pow4;
                             closest_idx = i;
                         }
                     }

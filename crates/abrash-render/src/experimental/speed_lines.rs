@@ -93,12 +93,14 @@ pub fn apply_speed_lines(fb: &mut Framebuffer, config: &SpeedLinesConfig) {
             let dx = (x as f32) - cx;
 
             // Calculate distance from center
-            #[allow(clippy::imprecise_flops)]
-            let dist = (dx * dx + dy * dy).sqrt();
+            let dist_sq = dx * dx + dy * dy;
 
-            if dist < config.inner_radius {
+            if dist_sq < config.inner_radius * config.inner_radius {
                 continue; // Inside the safe zone
             }
+
+            #[allow(clippy::imprecise_flops)]
+            let dist = dist_sq.sqrt();
 
             // Calculate angle (-PI to PI)
             let mut angle = abrash_core::math::fast_atan2(dy, dx);
