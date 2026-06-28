@@ -514,15 +514,19 @@ impl GpuBlitter {
         });
 
         // Convert 0xAARRGGBB pixels to RGBA bytes for wgpu.
-        // ⚡ Bolt: Uses zero-initialized vector and zips directly into chunks to avoid capacity
-        // checking overheads present in `extend_from_slice` and iterator `flat_map().collect()`.
+        // ⚡ Bolt: Uses uninitialized vector mapping via `spare_capacity_mut` to avoid the memory
+        // zeroing overhead present in `vec![0u8; len * 4]` while still eliding bounds checks.
         let pixels = texture.pixels();
-        let mut rgba = vec![0u8; pixels.len() * 4];
-        for (chunk, &px) in rgba.chunks_exact_mut(4).zip(pixels.iter()) {
-            chunk[0] = ((px >> 16) & 0xFF) as u8;
-            chunk[1] = ((px >> 8) & 0xFF) as u8;
-            chunk[2] = (px & 0xFF) as u8;
-            chunk[3] = ((px >> 24) & 0xFF) as u8;
+        let mut rgba = Vec::with_capacity(pixels.len() * 4);
+        let slice = rgba.spare_capacity_mut();
+        for (chunk, &px) in slice.chunks_exact_mut(4).zip(pixels.iter()) {
+            chunk[0].write(((px >> 16) & 0xFF) as u8);
+            chunk[1].write(((px >> 8) & 0xFF) as u8);
+            chunk[2].write((px & 0xFF) as u8);
+            chunk[3].write(((px >> 24) & 0xFF) as u8);
+        }
+        unsafe {
+            rgba.set_len(pixels.len() * 4);
         }
 
         self.queue.write_texture(
@@ -876,15 +880,21 @@ impl GpuBlitter {
         UPLOAD_BUFFER.with(|buf| {
             let mut rgba = buf.borrow_mut();
             let required_len = fb_pixels.len() * 4;
-            if rgba.len() != required_len {
-                rgba.resize(required_len, 0);
-            }
 
-            for (chunk, &px) in rgba.chunks_exact_mut(4).zip(fb_pixels.iter()) {
-                chunk[0] = ((px >> 16) & 0xFF) as u8;
-                chunk[1] = ((px >> 8) & 0xFF) as u8;
-                chunk[2] = (px & 0xFF) as u8;
-                chunk[3] = ((px >> 24) & 0xFF) as u8;
+            // ⚡ Bolt: Clear length so spare_capacity_mut represents the full capacity,
+            // while preserving the underlying allocation to elide memory zeroing.
+            rgba.clear();
+            rgba.reserve(required_len);
+
+            let slice = &mut rgba.spare_capacity_mut()[..required_len];
+            for (chunk, &px) in slice.chunks_exact_mut(4).zip(fb_pixels.iter()) {
+                chunk[0].write(((px >> 16) & 0xFF) as u8);
+                chunk[1].write(((px >> 8) & 0xFF) as u8);
+                chunk[2].write((px & 0xFF) as u8);
+                chunk[3].write(((px >> 24) & 0xFF) as u8);
+            }
+            unsafe {
+                rgba.set_len(required_len);
             }
 
             self.queue.write_texture(

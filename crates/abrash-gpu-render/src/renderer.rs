@@ -392,12 +392,16 @@ impl GpuRenderer {
         // for potentially massive, transient one-shot asset uploads. A thread-local buffer would
         // leak that massive capacity (e.g., 256MB) for the lifetime of the thread.
         // We revert back to the per-call allocation for safety in this specific context.
-        let mut rgba = vec![0u8; texture.pixels.len() * 4];
-        for (chunk, &argb) in rgba.chunks_exact_mut(4).zip(texture.pixels.iter()) {
-            chunk[0] = ((argb >> 16) & 0xFF) as u8;
-            chunk[1] = ((argb >> 8) & 0xFF) as u8;
-            chunk[2] = (argb & 0xFF) as u8;
-            chunk[3] = ((argb >> 24) & 0xFF) as u8;
+        let mut rgba = Vec::with_capacity(texture.pixels.len() * 4);
+        let slice = rgba.spare_capacity_mut();
+        for (chunk, &argb) in slice.chunks_exact_mut(4).zip(texture.pixels.iter()) {
+            chunk[0].write(((argb >> 16) & 0xFF) as u8);
+            chunk[1].write(((argb >> 8) & 0xFF) as u8);
+            chunk[2].write((argb & 0xFF) as u8);
+            chunk[3].write(((argb >> 24) & 0xFF) as u8);
+        }
+        unsafe {
+            rgba.set_len(texture.pixels.len() * 4);
         }
 
         self.gpu.queue().write_texture(
