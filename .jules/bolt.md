@@ -232,3 +232,10 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Unordered Collection Removal Anti-Pattern]**
+**Learning:** Do not blindly replace `swap_remove` loops with `retain_mut` in unordered collections like particle systems. `swap_remove` achieves O(1) removals by moving at most one element, whereas `retain_mut` preserves order by shifting all subsequent elements down (O(N)), which actively degrades performance when order preservation is unnecessary.
+**Action:** When order does not matter and elements are frequently removed from a collection, prefer an index-based `while` loop using `.swap_remove(i)` to achieve optimal O(1) removal performance, rather than using `retain_mut` which forces an O(N) shift.
+
+**[Safe MaybeUninit Reading]**
+**Learning:** Calling `.assume_init()` on uninitialized generic memory elements containing padding or floats leads to Undefined Behavior.
+**Action:** Replace `unsafe { value.assume_init() }` with `unsafe { std::ptr::read(value.as_ptr()) }` to safely extract initialized values from a `MaybeUninit<T>` array without triggering UB.
