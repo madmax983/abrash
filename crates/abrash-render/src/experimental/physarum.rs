@@ -138,50 +138,24 @@ pub fn apply_physarum(fb: &mut Framebuffer, config: &PhysarumConfig) {
                 let sensor_size = config.sensor_size;
 
                 for agent in agents_borrow.iter_mut() {
-                    let sense = |angle_offset: f32, trail_slice: &[f32]| -> f32 {
-                        let sensor_angle = agent.angle + angle_offset;
-                        let (sin_a, cos_a) = sensor_angle.sin_cos();
-                        let sensor_pos_x = agent.position.x + cos_a * sensor_dist;
-                        let sensor_pos_y = agent.position.y + sin_a * sensor_dist;
-
-                        let sx = sensor_pos_x as i32;
-                        let sy = sensor_pos_y as i32;
-
-                        let mut sum = 0.0;
-                        for dy in -sensor_size..=sensor_size {
-                            let mut ny = sy + dy;
-
-                            // Optimize wrapping logic
-                            if (ny as u32) >= height as u32 {
-                                if ny < 0 {
-                                    ny += height_i32;
-                                } else {
-                                    ny -= height_i32;
-                                }
-                            }
-
-                            let row_idx = ny as usize * width;
-
-                            for dx in -sensor_size..=sensor_size {
-                                let mut nx = sx + dx;
-
-                                if (nx as u32) >= width as u32 {
-                                    if nx < 0 {
-                                        nx += width_i32;
-                                    } else {
-                                        nx -= width_i32;
-                                    }
-                                }
-
-                                sum += trail_slice[row_idx + nx as usize];
-                            }
-                        }
-                        sum
-                    };
-
-                    let weight_forward = sense(0.0, &trail_borrow);
-                    let weight_left = sense(config.sensor_angle, &trail_borrow);
-                    let weight_right = sense(-config.sensor_angle, &trail_borrow);
+                    let weight_forward =
+                        sense_trail(agent, 0.0, config, &trail_borrow, width_i32, height_i32);
+                    let weight_left = sense_trail(
+                        agent,
+                        config.sensor_angle,
+                        config,
+                        &trail_borrow,
+                        width_i32,
+                        height_i32,
+                    );
+                    let weight_right = sense_trail(
+                        agent,
+                        -config.sensor_angle,
+                        config,
+                        &trail_borrow,
+                        width_i32,
+                        height_i32,
+                    );
 
                     let random_steer_strength = rng.f32();
 
@@ -231,40 +205,7 @@ pub fn apply_physarum(fb: &mut Framebuffer, config: &PhysarumConfig) {
                 }
 
                 // Step 2: Diffuse and decay
-                let diffuse_center = 1.0 - config.diffuse_rate;
-                let diffuse_side = config.diffuse_rate / 8.0;
-
-                for y in 0..height {
-                    let y_prev = if y == 0 { height - 1 } else { y - 1 };
-                    let y_next = if y == height - 1 { 0 } else { y + 1 };
-
-                    let row_idx = y * width;
-                    let row_prev_idx = y_prev * width;
-                    let row_next_idx = y_next * width;
-
-                    for x in 0..width {
-                        let x_prev = if x == 0 { width - 1 } else { x - 1 };
-                        let x_next = if x == width - 1 { 0 } else { x + 1 };
-
-                        let sum =
-                            // Top row
-                            trail_borrow[row_prev_idx + x_prev] * diffuse_side +
-                            trail_borrow[row_prev_idx + x] * diffuse_side +
-                            trail_borrow[row_prev_idx + x_next] * diffuse_side +
-                            // Middle row
-                            trail_borrow[row_idx + x_prev] * diffuse_side +
-                            trail_borrow[row_idx + x] * diffuse_center +
-                            trail_borrow[row_idx + x_next] * diffuse_side +
-                            // Bottom row
-                            trail_borrow[row_next_idx + x_prev] * diffuse_side +
-                            trail_borrow[row_next_idx + x] * diffuse_side +
-                            trail_borrow[row_next_idx + x_next] * diffuse_side;
-
-                        // Decay
-                        let decayed = (sum - config.decay_rate).max(0.0);
-                        trail_next_borrow[row_idx + x] = decayed;
-                    }
-                }
+                diffuse_and_decay(&trail_borrow, &mut trail_next_borrow, width, height, config);
 
                 // Swap buffers
                 std::mem::swap(&mut *trail_borrow, &mut *trail_next_borrow);
@@ -304,5 +245,99 @@ mod tests {
             ..Default::default()
         };
         apply_physarum(&mut fb, &config);
+    }
+}
+
+fn sense_trail(
+    agent: &Agent,
+    angle_offset: f32,
+    config: &PhysarumConfig,
+    trail_slice: &[f32],
+    width_i32: i32,
+    height_i32: i32,
+) -> f32 {
+    let sensor_angle = agent.angle + angle_offset;
+    let (sin_a, cos_a) = sensor_angle.sin_cos();
+    let sensor_pos_x = agent.position.x + cos_a * config.sensor_offset_dist;
+    let sensor_pos_y = agent.position.y + sin_a * config.sensor_offset_dist;
+
+    let sx = sensor_pos_x as i32;
+    let sy = sensor_pos_y as i32;
+    let sensor_size = config.sensor_size;
+    let width = width_i32 as usize;
+    let height = height_i32 as usize;
+
+    let mut sum = 0.0;
+    for dy in -sensor_size..=sensor_size {
+        let mut ny = sy + dy;
+
+        // Optimize wrapping logic
+        if (ny as u32) >= height as u32 {
+            if ny < 0 {
+                ny += height_i32;
+            } else {
+                ny -= height_i32;
+            }
+        }
+
+        let row_idx = ny as usize * width;
+
+        for dx in -sensor_size..=sensor_size {
+            let mut nx = sx + dx;
+
+            if (nx as u32) >= width as u32 {
+                if nx < 0 {
+                    nx += width_i32;
+                } else {
+                    nx -= width_i32;
+                }
+            }
+
+            sum += trail_slice[row_idx + nx as usize];
+        }
+    }
+    sum
+}
+
+fn diffuse_and_decay(
+    trail_borrow: &[f32],
+    trail_next_borrow: &mut [f32],
+    width: usize,
+    height: usize,
+    config: &PhysarumConfig,
+) {
+    let diffuse_center = 1.0 - config.diffuse_rate;
+    let diffuse_side = config.diffuse_rate / 8.0;
+
+    for y in 0..height {
+        let y_prev = if y == 0 { height - 1 } else { y - 1 };
+        let y_next = if y == height - 1 { 0 } else { y + 1 };
+
+        let row_idx = y * width;
+        let row_prev_idx = y_prev * width;
+        let row_next_idx = y_next * width;
+
+        for x in 0..width {
+            let x_prev = if x == 0 { width - 1 } else { x - 1 };
+            let x_next = if x == width - 1 { 0 } else { x + 1 };
+
+            let sum =
+                // Top row
+                trail_borrow[row_prev_idx + x_prev] * diffuse_side +
+                trail_borrow[row_prev_idx + x] * diffuse_side +
+                trail_borrow[row_prev_idx + x_next] * diffuse_side +
+                // Middle row
+                trail_borrow[row_idx + x_prev] * diffuse_side +
+                trail_borrow[row_idx + x] * diffuse_center +
+                trail_borrow[row_idx + x_next] * diffuse_side +
+                // Bottom row
+                trail_borrow[row_next_idx + x_prev] * diffuse_side +
+                trail_borrow[row_next_idx + x] * diffuse_side +
+                trail_borrow[row_next_idx + x_next] * diffuse_side;
+
+            // Decay
+            let decayed = (sum - config.decay_rate).max(0.0);
+            trail_next_borrow[row_idx + x] = decayed;
+        }
     }
 }
