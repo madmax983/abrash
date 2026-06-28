@@ -4521,8 +4521,8 @@ pub fn draw_scanline_textured_gouraud(
                     let mut b_curr = b_fix;
 
                     for i in 0..count {
-                        let pixel = unsafe { fb_slice.get_unchecked_mut(i as usize) };
-                        let depth_val = unsafe { zb_slice.get_unchecked_mut(i as usize) };
+                        let pixel = &mut fb_slice[i as usize];
+                        let depth_val = &mut zb_slice[i as usize];
 
                         if z_curr < *depth_val {
                             let q_curr = q + (i as f32) * gradients.dq_dx;
