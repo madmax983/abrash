@@ -890,16 +890,22 @@ fn apply_vignette_scalar(
             let p = *p_ref;
 
             let a = p & 0xFF00_0000;
-            let r = (p >> 16) & 0xFF;
-            let g = (p >> 8) & 0xFF;
-            let b = p & 0xFF;
 
-            // Note: This truncating division matches SIMD _mm256_mullo_epi16 followed by _mm256_srli_epi16
-            let new_r = (r * factor_fixed) >> 8;
-            let new_g = (g * factor_fixed) >> 8;
-            let new_b = (b * factor_fixed) >> 8;
+            // ⚡ Bolt: SWAR optimization. Process R/B and G channels in parallel
+            // Explicitly cast to u64 to avoid overflow when factor > 1.0 (factor_fixed > 256)
+            let rb = u64::from(p & 0x00FF_00FF);
+            let g = u64::from((p >> 8) & 0x0000_00FF);
 
-            *p_ref = a | (new_r << 16) | (new_g << 8) | new_b;
+            let factor_fixed_u64 = u64::from(factor_fixed);
+            let rb_scaled = rb * factor_fixed_u64;
+            let g_scaled = g * factor_fixed_u64;
+
+            // Safe downcast to u32 after shift/mask because the mask guarantees
+            // it fits within a 32-bit integer space.
+            let new_rb = ((rb_scaled >> 8) & 0x00FF_00FF) as u32;
+            let new_g = (g_scaled & 0x0000_FF00) as u32;
+
+            *p_ref = a | new_rb | new_g;
         }
     }
 }

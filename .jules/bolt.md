@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[SWAR Optimization in Vignette Filter]**
+**Learning:** In hot pixel processing loops, manually masking and shifting each color channel (r, g, b) sequentially is inefficient. Implementing SWAR (SIMD Within A Register) to extract the RB and G components into packed words, upcasting to `u64::from()` to avoid intermediate overflow during scaling by a factor, and downcasting safely after a single bitwise shift eliminates multiple per-channel ALU operations, yielding measurable execution time improvements (around 7% for 1080p).
+**Action:** Replaced sequential shifts and extracts for RGB with packed RB and G extraction, and explicitly used `u64::from()` upcasting during multiplication to avoid overflow before masking, shifting, and re-packing the pixel back to `u32`.
