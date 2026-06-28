@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [ANSI Terminal Exporter]
+**Concept:** A utility that takes a `Framebuffer` and converts it directly into a string of ANSI truecolor escape codes (using the half-block character `▀` to double vertical resolution). This allows saving a "screenshot" as a text file that can be rendered directly in modern terminals.
+**Fate:** Implemented
+**Lesson:** Iterating vertically in steps of 2 while clamping odd-height framebuffers securely prevents out-of-bounds reads. Pre-allocating string capacity and only emitting escape codes when foreground/background colors change minimizes terminal overhead and string allocation.

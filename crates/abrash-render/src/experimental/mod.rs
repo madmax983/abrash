@@ -26,6 +26,7 @@
 //! ```
 
 pub mod anaglyph;
+pub mod ansi_export;
 pub mod arboretum;
 pub mod ascii_display;
 pub mod autostereogram;

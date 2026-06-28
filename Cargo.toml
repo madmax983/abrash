@@ -191,6 +191,11 @@ name = "ascii_display_demo"
 path = "examples/ascii_display_demo.rs"
 required-features = ["nova"]
 
+[[example]]
+name = "ansi_export_demo"
+path = "examples/ansi_export_demo.rs"
+required-features = ["nova"]
+
 [[bench]]
 name = "gamma_bench"
 harness = false
