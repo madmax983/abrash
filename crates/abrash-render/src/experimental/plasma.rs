@@ -58,8 +58,18 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
             // Map the normalized value to RGB colors
             // Simple color palette generation based on the phase
             let r = ((c * 255.0) as u32).min(255);
-            let g = (((c + 0.33) % 1.0 * 255.0) as u32).min(255);
-            let b = (((c + 0.66) % 1.0 * 255.0) as u32).min(255);
+
+            let mut cg = c + 0.33;
+            if cg >= 1.0 {
+                cg -= 1.0;
+            }
+            let g = ((cg * 255.0) as u32).min(255);
+
+            let mut cb = c + 0.66;
+            if cb >= 1.0 {
+                cb -= 1.0;
+            }
+            let b = ((cb * 255.0) as u32).min(255);
 
             *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
         }
