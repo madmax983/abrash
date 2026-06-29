@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimal Vec Construction]**
+**Learning:** In tight loops (like `decode_message` inside steganography) or update loops (like `metaballs`), repeatedly calling `.push()` inside an explicitly capacity-reserved `Vec` requires internal LLVM bounds-checking for every iteration, and `Vec::new()` causes dynamic allocator overheads.
+**Action:** Replace `Vec::with_capacity(len)` + `.push()` with `vec![0u8; len]` initialization and slicing `.iter_mut()`, or replace loop `.push()` logic with iterators using `.map().collect()` / `.extend()` so LLVM can use `TrustedLen` traits to bulk-allocate and elide per-element bounds checking.

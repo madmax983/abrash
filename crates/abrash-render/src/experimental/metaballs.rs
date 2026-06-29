@@ -130,15 +130,9 @@ impl Metaballs {
         let num_balls = self.balls.len();
 
         // Cache ball positions and square sizes to avoid repeated property access in hot loop
-        let mut b_xs = Vec::with_capacity(num_balls);
-        let mut b_ys = Vec::with_capacity(num_balls);
-        let mut b_r_sqs = Vec::with_capacity(num_balls);
-
-        for ball in &self.balls {
-            b_xs.push(ball.position.x);
-            b_ys.push(ball.position.y);
-            b_r_sqs.push(ball.size * ball.size);
-        }
+        let b_xs: Vec<f32> = self.balls.iter().map(|b| b.position.x).collect();
+        let b_ys: Vec<f32> = self.balls.iter().map(|b| b.position.y).collect();
+        let b_r_sqs: Vec<f32> = self.balls.iter().map(|b| b.size * b.size).collect();
 
         #[cfg(feature = "parallel")]
         let iter = pixels.par_chunks_exact_mut(width_u).enumerate();

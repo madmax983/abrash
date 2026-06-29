@@ -112,10 +112,9 @@ pub fn decode_message(fb: &Framebuffer) -> Option<String> {
         return None;
     }
 
-    let mut message_bytes = Vec::with_capacity(len);
+    let mut message_bytes = vec![0u8; len];
 
-    for _ in 0..len {
-        let mut byte = 0u8;
+    for byte in &mut message_bytes {
         for bit in 0..8 {
             let pixel_idx = bit_idx / 3;
             let channel_idx = bit_idx % 3;
@@ -128,10 +127,9 @@ pub fn decode_message(fb: &Framebuffer) -> Option<String> {
                 _ => unreachable!("channel_idx is always % 3, so it's 0, 1, or 2"),
             };
 
-            byte |= (bit_val as u8) << bit;
+            *byte |= (bit_val as u8) << bit;
             bit_idx += 1;
         }
-        message_bytes.push(byte);
     }
 
     String::from_utf8(message_bytes).ok()
