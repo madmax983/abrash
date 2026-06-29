@@ -191,26 +191,32 @@ fn process_smooth_row(
         let dg = fg_g - key_g;
         let db = fg_b - key_b;
 
-        // Euclidean distance in RGB space
-        let dist = (dr * dr + dg * dg + db * db).sqrt();
+        // ⚡ Bolt: Fast exit using squared distance eliminates costly `.sqrt()`
+        // for exact or sub-threshold matches (the majority of green screen pixels).
+        let dist_sq = dr * dr + dg * dg + db * db;
+        let threshold_sq = threshold * threshold;
 
-        if dist <= threshold {
+        if dist_sq <= threshold_sq {
             fg_row[x] = bg_row[x];
-        } else if feather > 0.0 && dist < threshold + feather {
-            // Calculate alpha for blending (0.0 = fully bg, 1.0 = fully fg)
-            let alpha = (dist - threshold) / feather;
-            let inv_alpha = 1.0 - alpha;
+        } else if feather > 0.0 {
+            // Euclidean distance in RGB space
+            let dist = dist_sq.sqrt();
+            if dist < threshold + feather {
+                // Calculate alpha for blending (0.0 = fully bg, 1.0 = fully fg)
+                let alpha = (dist - threshold) / feather;
+                let inv_alpha = 1.0 - alpha;
 
-            let bg_pixel = bg_row[x];
-            let bg_r = ((bg_pixel >> 16) & 0xFF) as f32;
-            let bg_g = ((bg_pixel >> 8) & 0xFF) as f32;
-            let bg_b = (bg_pixel & 0xFF) as f32;
+                let bg_pixel = bg_row[x];
+                let bg_r = ((bg_pixel >> 16) & 0xFF) as f32;
+                let bg_g = ((bg_pixel >> 8) & 0xFF) as f32;
+                let bg_b = (bg_pixel & 0xFF) as f32;
 
-            let out_r = (fg_r * alpha + bg_r * inv_alpha) as u32;
-            let out_g = (fg_g * alpha + bg_g * inv_alpha) as u32;
-            let out_b = (fg_b * alpha + bg_b * inv_alpha) as u32;
+                let out_r = (fg_r * alpha + bg_r * inv_alpha) as u32;
+                let out_g = (fg_g * alpha + bg_g * inv_alpha) as u32;
+                let out_b = (fg_b * alpha + bg_b * inv_alpha) as u32;
 
-            fg_row[x] = fg_a | (out_r << 16) | (out_g << 8) | out_b;
+                fg_row[x] = fg_a | (out_r << 16) | (out_g << 8) | out_b;
+            }
         }
     }
 }

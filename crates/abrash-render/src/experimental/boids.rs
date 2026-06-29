@@ -135,13 +135,14 @@ impl Flock {
                 }
 
                 if distance_sq > 0.0 && distance_sq < separation_radius_sq {
-                    let distance = distance_sq.sqrt();
+                    // ⚡ Bolt: Fast inverse square root eliminates the `.sqrt()` and the `1.0 / distance`
+                    // division in the hot particle simulation inner loop.
+                    let inv_dist = abrash_core::math::fast_inv_sqrt(distance_sq);
+
                     // Separation (weighted by inverse distance)
                     let diff_x = boid.position.x - other_boid.position.x;
                     let diff_y = boid.position.y - other_boid.position.y;
                     let diff_z = boid.position.z - other_boid.position.z;
-
-                    let inv_dist = 1.0 / distance;
                     separation.x += diff_x * inv_dist;
                     separation.y += diff_y * inv_dist;
                     separation.z += diff_z * inv_dist;

@@ -166,15 +166,23 @@ pub fn apply_edge_glow(fb: &mut Framebuffer, config: &EdgeGlowConfig) {
 #[inline(always)]
 const fn darken_pixel(pixel: u32, darken_fixed: u32) -> u32 {
     let alpha = pixel & 0xFF00_0000;
-    let r = (pixel >> 16) & 0xFF;
-    let g = (pixel >> 8) & 0xFF;
-    let b = pixel & 0xFF;
 
-    let new_r = (r * darken_fixed) >> 8;
-    let new_g = (g * darken_fixed) >> 8;
-    let new_b = (b * darken_fixed) >> 8;
+    // ⚡ Bolt: Use SWAR (SIMD Within A Register) to multiply color channels in parallel.
+    // By packing Red and Blue into a single 32-bit word, we can process them simultaneously,
+    // halving the number of multiplications and shifts required per pixel.
+    let rb = pixel & 0x00FF_00FF;
+    let g = pixel & 0x0000_FF00;
 
-    alpha | (new_r << 16) | (new_g << 8) | new_b
+    // Upcast to u64 to prevent intermediate overflow of the Red channel (which is shifted left by 16 bits).
+    let rb_scaled = (rb as u64 * darken_fixed as u64) >> 8;
+    let g_scaled = (g * darken_fixed) >> 8;
+
+    // Mask off the overflowing bits and recombine
+    #[allow(clippy::cast_possible_truncation)]
+    let rb_final = (rb_scaled as u32) & 0x00FF_00FF;
+    let g_final = g_scaled & 0x0000_FF00;
+
+    alpha | rb_final | g_final
 }
 
 #[cfg(test)]

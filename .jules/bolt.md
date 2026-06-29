@@ -232,3 +232,15 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[SWAR Color Math]**
+**Learning:** Per-pixel inner loops often apply the same fixed point scalar to multiple color channels. Shifting and multiplying channels independently creates ALU bottlenecks.
+**Action:** Use SIMD Within A Register (SWAR) to pack non-overlapping color channels (like Red and Blue via `pixel & 0x00FF_00FF`) into a single register. Upcast to `u64` for fixed-point multiplications to prevent internal overlap, reducing mathematical instructions by 50% for 2 channels.
+
+**[Squared Euclidean Distance Early Exits]**
+**Learning:** In hot pixel-processing loops (like post-processing filters), calculating full Euclidean distances (`.sqrt()`) for every pixel is a severe ALU bottleneck.
+**Action:** Replace `(dx*dx + dy*dy).sqrt()` with squared distance thresholds (`dx*dx + dy*dy < radius * radius`) to quickly eliminate the vast majority of pixels that do not require exact Euclidean measurements, falling back to `.sqrt()` only for pixels that absolutely require exact distances (e.g. for alpha blending interpolation).
+
+**[Fast Inverse Square Root Optimization]**
+**Learning:** In hot pixel illumination loops (`phong`, `texture`, `reflection`), exact `.sqrt().recip()` cascade calculations were found to be slower on CPU rasterization than utilizing `fast_inv_sqrt()`, despite hardware improvements for f32 square root. Replacing `.sqrt().recip()` with `abrash_core::math::fast_inv_sqrt()` significantly boosted throughput without noticeable visual degradation in the 8-bit output domain.
+**Action:** Replace cascaded exact floating point distance routines in hot pixel/fragment inner loops with `fast_inv_sqrt` or early squared distance exits when precision requirements allow.

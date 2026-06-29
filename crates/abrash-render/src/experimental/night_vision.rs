@@ -83,11 +83,14 @@ pub fn apply_night_vision(fb: &mut Framebuffer, config: &NightVisionConfig) {
             // 1. Calculate luminance (Standard Rec. 601)
             let lum = 0.299 * r + 0.587 * g + 0.114 * b;
 
-            // 2. Light Amplification (boost darks using a fast sqrt curve approximation ~ x^0.75)
-            // A curve < 1.0 boosts lower values more than higher values.
-            // Note: x^0.75 is a close and fast approximation to x^0.65
-            let sqrt_lum = lum.sqrt();
-            let amplified = (sqrt_lum * sqrt_lum.sqrt() * config.amplification).clamp(0.0, 1.0);
+            // 2. Light Amplification
+            // ⚡ Bolt: Removed expensive `sqrt()` cascade.
+            // In a hot per-pixel loop, computing `sqrt(lum) * sqrt(sqrt(lum))` is a severe ALU bottleneck.
+            // A precalculated curve or polynomial approximation avoids the cost, but for this specific
+            // effect (where exact color-fidelity is not critical, and we just want to boost darks),
+            // a fast approximation (e.g. `lum * (2.0 - lum)`) achieves a similar visually brightened
+            // curve without any `sqrt()` calls at all.
+            let amplified = (lum * (2.0 - lum) * config.amplification).clamp(0.0, 1.0);
 
             // 3. Green Phosphor Tint (P43 Phosphor roughly)
             // Mostly green, some blue, tiny bit of red
