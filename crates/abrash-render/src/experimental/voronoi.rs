@@ -117,7 +117,8 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                     for (i, seed) in seeds.iter().enumerate() {
                         let dx = fx - seed.x;
                         let dy = fy - seed.y;
-                        let dist_sq = dx * dx + dy * dy;
+                        // ⚡ Bolt: Use `mul_add` for fused multiply-add, accelerating polynomial loops.
+                        let dist_sq = dx.mul_add(dx, dy * dy);
                         if dist_sq < min_dist_sq {
                             second_min_dist_sq = min_dist_sq;
                             min_dist_sq = dist_sq;
@@ -127,10 +128,10 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                         }
                     }
 
-                    let min_dist = min_dist_sq.sqrt();
-                    let second_min_dist = second_min_dist_sq.sqrt();
-                    let diff = (second_min_dist - min_dist).abs();
-                    if diff <= config.border_thickness {
+                    // ⚡ Bolt: Squared difference comparison avoids `sqrt()` in hot loop entirely!
+                    let diff_sq = (second_min_dist_sq - min_dist_sq).abs();
+                    let border_thickness_sq = config.border_thickness * config.border_thickness;
+                    if diff_sq <= border_thickness_sq {
                         *pixel = config.border_color;
                         continue;
                     }
@@ -148,7 +149,8 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                     for (i, seed) in seeds.iter().enumerate() {
                         let dx = fx - seed.x;
                         let dy = fy - seed.y;
-                        let dist_sq = dx * dx + dy * dy;
+                        // ⚡ Bolt: Use `mul_add` for fused multiply-add, accelerating polynomial loops.
+                        let dist_sq = dx.mul_add(dx, dy * dy);
                         if dist_sq < min_dist_sq {
                             min_dist_sq = dist_sq;
                             closest_idx = i;

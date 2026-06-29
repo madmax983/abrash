@@ -152,6 +152,7 @@ impl Metaballs {
 
                 let mut sum = 0.0;
                 for i in 0..num_balls {
+                    // ⚡ Bolt: Replace `.powi(2)` mapping logic with straight multiply-adds to bypass branching logic
                     let dx = fx - b_xs[i];
                     let dy = fy - b_ys[i];
                     let dist_sq = dx * dx + dy * dy;

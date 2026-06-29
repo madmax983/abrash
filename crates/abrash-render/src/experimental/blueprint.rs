@@ -103,13 +103,14 @@ pub fn apply_blueprint(fb: &mut Framebuffer, config: &BlueprintConfig) {
             // ⚡ Bolt: Calculate delta once and use direct multiplication instead of `i32::pow(2)`.
             // Bypasses branching/overflow check overhead inside this hot per-pixel loop,
             // resulting in faster execution.
-            let dr = r_src as i32 - r_bg as i32;
-            let dg = g_src as i32 - g_bg as i32;
-            let db = b_src as i32 - b_bg as i32;
-            let dist_sq = dr * dr + dg * dg + db * db;
+            // Bypassing squaring altogether.
+            let dr = r_src.abs_diff(r_bg);
+            let dg = g_src.abs_diff(g_bg);
+            let db = b_src.abs_diff(b_bg);
+            let dist_manhattan = dr as u32 + dg as u32 + db as u32;
 
             // If the pixel is very close to black, it's not an edge.
-            if dist_sq < 1000 {
+            if dist_manhattan < 31 {
                 if is_grid_line {
                     *dest_pixel = grid_color;
                 } else {

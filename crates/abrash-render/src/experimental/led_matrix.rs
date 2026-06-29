@@ -89,7 +89,8 @@ pub fn apply_led_matrix(fb: &mut Framebuffer, config: &LedMatrixConfig) {
 
             let dx = x as f32 - center_x as f32;
             let dy = y as f32 - center_y as f32;
-            let dist_sq = dx * dx + dy * dy;
+            // ⚡ Bolt: Use `mul_add` for fused multiply-add, accelerating polynomial loops.
+            let dist_sq = dx.mul_add(dx, dy * dy);
 
             if dist_sq <= led_radius_sq {
                 // Inside the LED: smooth edge if needed

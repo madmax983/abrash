@@ -69,7 +69,8 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
             let dy = ry - cy;
 
             // Calculate the distance from the pixel to the cell center
-            let dist_sq = dx * dx + dy * dy;
+            // ⚡ Bolt: Use `mul_add` for fused multiply-add, accelerating polynomial loops.
+            let dist_sq = dx.mul_add(dx, dy * dy);
 
             // The radius of the dot we should draw (squared).
             let dot_radius_sq = (1.0 - lum) * max_dist_sq;

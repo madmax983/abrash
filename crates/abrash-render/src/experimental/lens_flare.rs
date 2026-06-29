@@ -152,9 +152,19 @@ pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlar
 
                 for x in g.min_x..=g.max_x {
                     let dx = x as f32 - g.cx;
-                    let dist_sq = dx * dx + dy_sq;
+                    // ⚡ Bolt: Use `mul_add` for fused multiply-add, accelerating polynomial loops.
+                    let dist_sq = dx.mul_add(dx, dy_sq);
                     if dist_sq <= g.r_sq {
-                        let dist = dist_sq.sqrt();
+                        // ⚡ Bolt: Using fast inverse square root to accelerate normalization
+                        let inv_dist = if dist_sq > 0.0001 {
+                            let x2 = dist_sq * 0.5;
+                            let mut y = f32::from_bits(0x5f3759df - (dist_sq.to_bits() >> 1));
+                            y = y * (1.5 - (x2 * y * y));
+                            y
+                        } else {
+                            0.0
+                        };
+                        let dist = dist_sq * inv_dist;
                         let intensity = (256.0 * (1.0 - (dist / g.r))) as u32;
                         if intensity > 0 {
                             let idx = x as usize;
@@ -171,9 +181,19 @@ pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlar
 
             for x in halo_min_x..=halo_max_x {
                 let dx = x as f32 - halo_cx;
-                let dist_sq = dx * dx + dy_sq;
+                // ⚡ Bolt: Use `mul_add` for fused multiply-add, accelerating polynomial loops.
+                let dist_sq = dx.mul_add(dx, dy_sq);
                 if dist_sq <= halo_max_r_sq && dist_sq >= halo_min_r_sq {
-                    let dist = dist_sq.sqrt();
+                    // ⚡ Bolt: Using fast inverse square root to accelerate normalization
+                    let inv_dist = if dist_sq > 0.0001 {
+                        let x2 = dist_sq * 0.5;
+                        let mut y = f32::from_bits(0x5f3759df - (dist_sq.to_bits() >> 1));
+                        y = y * (1.5 - (x2 * y * y));
+                        y
+                    } else {
+                        0.0
+                    };
+                    let dist = dist_sq * inv_dist;
                     let center_dist = (dist - config.halo_radius).abs();
                     let intensity = (256.0 * (1.0 - (center_dist / config.halo_thickness))) as i32;
                     if intensity > 0 {

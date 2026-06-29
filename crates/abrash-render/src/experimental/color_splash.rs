@@ -58,6 +58,7 @@ pub fn apply_color_splash(fb: &mut Framebuffer, config: &ColorSplashConfig) {
         let g = ((p >> 8) & 0xFF) as i32;
         let b = (p & 0xFF) as i32;
 
+        // ⚡ Bolt: Replace `.powi(2)` mapping logic with straight multiply-adds to bypass branching logic
         let dr = r - target_r;
         let dg = g - target_g;
         let db = b - target_b;
