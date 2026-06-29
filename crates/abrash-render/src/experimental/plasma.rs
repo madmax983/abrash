@@ -58,8 +58,18 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
             // Map the normalized value to RGB colors
             // Simple color palette generation based on the phase
             let r = ((c * 255.0) as u32).min(255);
-            let g = (((c + 0.33) % 1.0 * 255.0) as u32).min(255);
-            let b = (((c + 0.66) % 1.0 * 255.0) as u32).min(255);
+
+            let mut g_val = c + 0.33;
+            if g_val >= 1.0 {
+                g_val -= 1.0;
+            }
+            let g = ((g_val * 255.0) as u32).min(255);
+
+            let mut b_val = c + 0.66;
+            if b_val >= 1.0 {
+                b_val -= 1.0;
+            }
+            let b = ((b_val * 255.0) as u32).min(255);
 
             *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
         }
@@ -96,5 +106,17 @@ mod tests {
             has_non_black,
             "Framebuffer should not be entirely black after plasma effect"
         );
+    }
+
+    #[test]
+    fn test_apply_plasma_color_wrapping() {
+        // Ensure that the color wrapping logic doesn't panic and produces valid ARGB
+        // especially for time values that might cause edge cases in wrapping.
+        let mut fb = Framebuffer::new(16, 16).unwrap();
+        apply_plasma(&mut fb, 100.0, 0.1);
+        for &p in fb.as_slice() {
+            let a = (p >> 24) & 0xFF;
+            assert_eq!(a, 0xFF, "Alpha channel should remain opaque");
+        }
     }
 }

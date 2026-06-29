@@ -1,0 +1,6 @@
+⚡ Bolt: replace f32::rem modulo in plasma effect
+
+💡 What: Replaced the `% 1.0` floating-point modulo operations for the G and B color channels with manual bounds checking/subtraction. Also added tests and benchmarks for plasma.
+🎯 Why: Floating point modulos are extremely slow and invoke `libm::fmodf`. By taking advantage of the fact the value can only ever be `< 2.0`, we can do a simple conditional subtract instead.
+📊 Impact: Measured a ~33% decrease in execution time on `plasma_800x600` bench.
+🔭 Measurement: Criterion `plasma_800x600` bench drop from ~7.9ms to ~5.2ms.
