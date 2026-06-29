@@ -58,8 +58,21 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
             // Map the normalized value to RGB colors
             // Simple color palette generation based on the phase
             let r = ((c * 255.0) as u32).min(255);
-            let g = (((c + 0.33) % 1.0 * 255.0) as u32).min(255);
-            let b = (((c + 0.66) % 1.0 * 255.0) as u32).min(255);
+
+            // ⚡ Bolt: Replace floating point modulo (`% 1.0`) with manual subtraction.
+            // Floating-point modulo triggers slow `libm` function calls. Because `c` is strictly bounded,
+            // a single subtraction is mathematically equivalent and significantly faster.
+            let mut g_val = c + 0.33;
+            if g_val >= 1.0 {
+                g_val -= 1.0;
+            }
+            let g = ((g_val * 255.0) as u32).min(255);
+
+            let mut b_val = c + 0.66;
+            if b_val >= 1.0 {
+                b_val -= 1.0;
+            }
+            let b = ((b_val * 255.0) as u32).min(255);
 
             *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
         }
