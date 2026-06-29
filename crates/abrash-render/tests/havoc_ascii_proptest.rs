@@ -1,5 +1,5 @@
 use abrash_core::framebuffer::Framebuffer;
-use abrash_render::ascii::{AsciiConverter, AsciiCharset};
+use abrash_render::ascii::{AsciiCharset, AsciiConverter};
 use proptest::prelude::*;
 
 proptest! {
