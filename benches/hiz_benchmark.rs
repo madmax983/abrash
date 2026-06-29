@@ -12,7 +12,7 @@ fn bench_hiz_build(c: &mut Criterion) {
     let mut rng = StdRng::seed_from_u64(42);
     let slice = zb.as_mut_slice();
     for depth in slice.iter_mut() {
-        *depth = rng.gen_range(0.0..1.0);
+        *depth = rng.random_range(0.0..1.0);
     }
 
     let mut hiz = HiZBuffer::new(width, height);
@@ -32,7 +32,7 @@ fn bench_hiz_query(c: &mut Criterion) {
     let mut rng = StdRng::seed_from_u64(42);
     let slice = zb.as_mut_slice();
     for depth in slice.iter_mut() {
-        *depth = rng.gen_range(0.0..1.0);
+        *depth = rng.random_range(0.0..1.0);
     }
 
     let mut hiz = HiZBuffer::new(width, height);
@@ -41,17 +41,17 @@ fn bench_hiz_query(c: &mut Criterion) {
     // Generate some random AABBs
     let mut aabbs = Vec::new();
     for _ in 0..1000 {
-        let min_x = rng.gen_range(0..width as i32 - 100);
-        let min_y = rng.gen_range(0..height as i32 - 100);
-        let w = rng.gen_range(10..100);
-        let h = rng.gen_range(10..100);
+        let min_x = rng.random_range(0..width as i32 - 100);
+        let min_y = rng.random_range(0..height as i32 - 100);
+        let w = rng.random_range(10..100);
+        let h = rng.random_range(10..100);
         aabbs.push(AABB3D {
             min_x,
             max_x: min_x + w,
             min_y,
             max_y: min_y + h,
-            min_depth: rng.gen_range(0.0..0.5),
-            max_depth: rng.gen_range(0.5..1.0),
+            min_depth: rng.random_range(0.0..0.5),
+            max_depth: rng.random_range(0.5..1.0),
         });
     }
 

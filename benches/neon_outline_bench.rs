@@ -9,10 +9,10 @@ fn bench_neon_outline(c: &mut Criterion) {
     let mut fb = Framebuffer::new(width, height).unwrap();
 
     // Fill with random noise to ensure worst-case edge detection
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     for y in 0..height {
         for x in 0..width {
-            let col = if rng.gen_bool(0.1) {
+            let col = if rng.random_bool(0.1) {
                 0xFFFF_FFFF
             } else {
                 0xFF00_0000
