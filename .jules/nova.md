@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Pointillism Filter]
+**Concept:** A post-processing effect that converts the framebuffer into a pointillist painting by sampling pixels and drawing small colored circles/dots with slight spatial and color jitter.
+**Fate:** Implemented
+**Lesson:** When drawing thousands of identical geometric shapes (like circles for dots), pre-computing a flat list of `(dx, dy)` coordinate offsets entirely eliminates inner loop math `dx*dx + dy*dy <= r*r`. Additionally, splitting the drawing logic into a "Fast Path" (which elides all bounds checking for dots fully inside the framebuffer) and a "Slow Path" yields enormous performance improvements.

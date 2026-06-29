@@ -984,3 +984,13 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[example]]
+name = "pointillism_demo"
+path = "examples/pointillism_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "pointillism_bench"
+harness = false
+required-features = ["nova"]
