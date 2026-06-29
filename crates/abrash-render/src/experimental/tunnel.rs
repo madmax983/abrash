@@ -40,9 +40,12 @@ pub fn apply_tunnel(framebuffer: &mut Framebuffer, time: f32, texture: &Texture)
             for (x, pixel) in row.iter_mut().enumerate() {
                 let dx = x as f32 - center_x;
 
-                // Distance from center
-                #[allow(clippy::imprecise_flops)]
-                let distance = (dx * dx + dy * dy).sqrt().max(1.0);
+                // Distance from center squared
+                let dist_sq = dx.mul_add(dx, dy * dy).max(1.0);
+
+                // Fast Inverse Square Root for 1.0 / distance
+                let mut inv_dist = f32::from_bits(0x5f37_59df - (dist_sq.to_bits() >> 1));
+                inv_dist = inv_dist * (1.5 - (0.5 * dist_sq * inv_dist * inv_dist)); // 1st iteration
 
                 // Angle
                 let angle = f32::atan2(dy, dx);
@@ -54,10 +57,10 @@ pub fn apply_tunnel(framebuffer: &mut Framebuffer, time: f32, texture: &Texture)
                 // V maps down the depth of the tunnel
                 // We scale by some factor to make the texture repeat nicely
                 let depth_scale = (width.min(height) as f32) * 0.5;
-                let v = depth_scale / distance + time;
+                let v = depth_scale * inv_dist + time;
 
                 // Calculate a simple shading based on distance (darker further away)
-                let shade = (distance / depth_scale).clamp(0.0, 1.0);
+                let shade = (1.0 / (inv_dist * depth_scale)).clamp(0.0, 1.0);
 
                 let u_norm = u.fract();
                 let v_norm = v.fract();
@@ -68,13 +71,19 @@ pub fn apply_tunnel(framebuffer: &mut Framebuffer, time: f32, texture: &Texture)
                 // texture.get_pixel takes normalized floats in [0.0, 1.0] and returns a single u32 color
                 let texel = texture.get_pixel(u_val, v_val);
 
-                // Apply shading
-                let a = (texel >> 24) & 0xFF;
-                let r = ((texel >> 16) & 0xFF) as f32 * shade;
-                let g = ((texel >> 8) & 0xFF) as f32 * shade;
-                let b = (texel & 0xFF) as f32 * shade;
+                // Apply shading using SWAR multiplication for speed
+                let shade_fix = (shade * 256.0) as u64;
 
-                *pixel = (a << 24) | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
+                // Pack R and B into one u64, G into another
+                let rb = ((u64::from(texel)) & 0x00FF_00FF) * shade_fix;
+                let g  = (((u64::from(texel)) >> 8) & 0x0000_00FF) * shade_fix;
+
+                // Shift down and mask
+                let rb_out = (rb >> 8) & 0x00FF_00FF;
+                let g_out  = (g >> 8) & 0x0000_00FF;
+
+                let a = texel & 0xFF00_0000;
+                *pixel = a | (rb_out as u32) | ((g_out as u32) << 8);
             }
         });
 }
