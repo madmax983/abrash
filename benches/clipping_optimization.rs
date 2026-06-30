@@ -3,38 +3,18 @@ use abrash::math::Vec3;
 use criterion::{Criterion, black_box, criterion_group, criterion_main}; // The new optimized implementation
 
 // Helper traits/structs copied for benchmark legacy implementation
-pub trait Lerp: Copy + Clone {
-    #[must_use]
-    fn lerp(self, other: Self, t: f32) -> Self;
-}
-
-impl Lerp for (Vec3, f32) {
-    fn lerp(self, other: Self, t: f32) -> Self {
-        fn lerp_f32(a: f32, b: f32, t: f32) -> f32 {
-            a + (b - a) * t
-        }
-        fn lerp_vec3(a: Vec3, b: Vec3, t: f32) -> Vec3 {
-            Vec3 {
-                x: lerp_f32(a.x, b.x, t),
-                y: lerp_f32(a.y, b.y, t),
-                z: lerp_f32(a.z, b.z, t),
-            }
-        }
-        (lerp_vec3(self.0, other.0, t), lerp_f32(self.1, other.1, t))
-    }
-}
-
 pub struct ClippedTriangles<V> {
     pub tris: [V; 24],
     pub count: usize,
 }
 
 // Legacy implementation (slow version)
-pub fn clip_triangle_to_frustum_legacy<V: Lerp + Copy + Default>(
+pub fn clip_triangle_to_frustum_legacy<V: Copy + Default>(
     v0: V,
     v1: V,
     v2: V,
     get_pos: impl Fn(&V) -> (Vec3, f32),
+    lerp_fn: impl Fn(V, V, f32) -> V,
 ) -> ClippedTriangles<V> {
     let (p0, w0) = get_pos(&v0);
     let (p1, w1) = get_pos(&v1);
@@ -118,7 +98,7 @@ pub fn clip_triangle_to_frustum_legacy<V: Lerp + Copy + Default>(
                 if prev_d < 0.0 {
                     let t = prev_d / (prev_d - curr_d);
                     if out_count < 12 {
-                        buf2[out_count] = prev_v.lerp(curr_v, t);
+                        buf2[out_count] = lerp_fn(prev_v, curr_v, t);
                         out_count += 1;
                     }
                 }
@@ -129,7 +109,7 @@ pub fn clip_triangle_to_frustum_legacy<V: Lerp + Copy + Default>(
             } else if prev_d >= 0.0 {
                 let t = prev_d / (prev_d - curr_d);
                 if out_count < 12 {
-                    buf2[out_count] = prev_v.lerp(curr_v, t);
+                    buf2[out_count] = lerp_fn(prev_v, curr_v, t);
                     out_count += 1;
                 }
             }
@@ -168,7 +148,7 @@ fn bench_clipping(c: &mut Criterion) {
         let v1 = (Vec3::new(0.5, 0.0, 0.0), 1.0);
         let v2 = (Vec3::new(0.0, 0.5, 0.0), 1.0);
         b.iter(|| {
-            clip_triangle_to_frustum_legacy(black_box(v0), black_box(v1), black_box(v2), |v| *v)
+            clip_triangle_to_frustum_legacy(black_box(v0), black_box(v1), black_box(v2), |v| *v, |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t))
         });
     });
 
@@ -193,7 +173,7 @@ fn bench_clipping(c: &mut Criterion) {
         let v1 = (Vec3::new(0.0, 2.0, -1.0), -1.0);
         let v2 = (Vec3::new(2.0, 0.0, -1.0), -1.0);
         b.iter(|| {
-            clip_triangle_to_frustum_legacy(black_box(v0), black_box(v1), black_box(v2), |v| *v)
+            clip_triangle_to_frustum_legacy(black_box(v0), black_box(v1), black_box(v2), |v| *v, |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t))
         });
     });
 

@@ -21,3 +21,9 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+🪒 Razor: Remove one-time Lerp trait from clipping benchmarks
+
+## [Reduction]
+**Bloat:** The `Lerp` trait in `benches/clipping_optimization.rs` was implemented exclusively for the tuple `(Vec3, f32)` and used only by a single generic boundary `clip_triangle_to_frustum_legacy`.
+**Cut:** Deleted the `Lerp` trait entirely and removed the trait bound from the clipping function. Replaced it with a generic `impl Fn` closure parameter that takes care of the exact same logic.
+**Saved:** ~10 lines of trait definition boilerplate, and reduced cognitive load by removing the abstraction of a single-use trait.
