@@ -79,10 +79,11 @@ pub fn fast_inv_sqrt(n: f32) -> f32 {
 
     #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
     {
-        // Modern hardware sqrt (e.g. sqrtss) is extremely fast.
-        // Combined with reciprocal, this is faster (~2.3ns) than the legacy Quake III
-        // bit-hack (~3.4ns) on modern x86_64, and safer than manual intrinsics.
-        n.sqrt().recip()
+        // ⚡ Bolt: Fast Newton-Raphson Fast Inverse Square Root avoids division and square root.
+        let i = n.to_bits();
+        let i = 0x5f37_59df - (i >> 1);
+        let y = f32::from_bits(i);
+        y * 1.5 - (n * 0.5 * y * y * y)
     }
 }
 

@@ -455,6 +455,18 @@ mod tests {
     }
 
     #[test]
+    fn test_fast_inv_sqrt_nr_precision() {
+        // Test accuracy is within acceptable graphics bounds (usually < 1%)
+        let values = [0.1_f32, 1.0, 2.0, 10.0, 100.0, 1000.0];
+        for &v in &values {
+            let actual = fast_inv_sqrt(v);
+            let expected = v.sqrt().recip();
+            let error = (actual - expected).abs() / expected;
+            assert!(error < 0.01, "fast_inv_sqrt precision too low for {}: expected {}, got {} (error: {:.2}%)", v, expected, actual, error * 100.0);
+        }
+    }
+
+    #[test]
     fn test_project_to_screen_safety() {
         let half_width = 400.0;
         let half_height = 300.0;

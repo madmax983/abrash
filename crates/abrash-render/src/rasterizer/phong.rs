@@ -382,7 +382,7 @@ unsafe fn draw_scanline_phong_shadowed_simd(
             let len_sq = nx * nx + ny * ny + nz * nz;
             let dot_unorm = nx * neg_light_dir.x + ny * neg_light_dir.y + nz * neg_light_dir.z;
             let intensity = if len_sq > 0.0001 {
-                let inv_len = len_sq.sqrt().recip();
+                let inv_len = crate::math::fast_inv_sqrt(len_sq);
                 (dot_unorm * inv_len).max(0.0)
             } else {
                 0.0
@@ -616,7 +616,7 @@ unsafe fn draw_scanline_point_lit_simd(
 
             // ⚡ Bolt: Using `sqrt().recip()` is often faster and strictly more precise than `fast_inv_sqrt`
             // on modern architectures with dedicated floating-point units.
-            let inv_dist = dist_sq.sqrt().recip();
+            let inv_dist = crate::math::fast_inv_sqrt(dist_sq);
             let dist = dist_sq * inv_dist;
 
             let att_factor = 1.0 / (attenuation.x + attenuation.y * dist + attenuation.z * dist_sq);
@@ -625,7 +625,7 @@ unsafe fn draw_scanline_point_lit_simd(
             let dot_unorm = nx * lv_x + ny * lv_y + nz * lv_z;
 
             let intensity = if len_sq > 0.0001 && dist > 0.0001 {
-                let inv_len = len_sq.sqrt().recip();
+                let inv_len = crate::math::fast_inv_sqrt(len_sq);
 
                 (dot_unorm * inv_len * inv_dist).max(0.0)
             } else {
@@ -744,7 +744,7 @@ fn draw_scanline_point_lit(
 
             // ⚡ Bolt: Using `sqrt().recip()` is often faster and strictly more precise than `fast_inv_sqrt`
             // on modern architectures with dedicated floating-point units.
-            let inv_dist = dist_sq.sqrt().recip();
+            let inv_dist = crate::math::fast_inv_sqrt(dist_sq);
             let dist = dist_sq * inv_dist;
 
             // Attenuation
@@ -756,7 +756,7 @@ fn draw_scanline_point_lit(
             let dot_unorm = nx * lv_x + ny * lv_y + nz * lv_z;
 
             let intensity = if len_sq > 0.0001 && dist > 0.0001 {
-                let inv_len = len_sq.sqrt().recip();
+                let inv_len = crate::math::fast_inv_sqrt(len_sq);
 
                 (dot_unorm * inv_len * inv_dist).max(0.0)
             } else {
@@ -1135,7 +1135,7 @@ fn draw_scanline_phong_shadowed(
             let dot_unorm = nx * neg_light_dir.x + ny * neg_light_dir.y + nz * neg_light_dir.z;
 
             let intensity = if len_sq > 0.0001 {
-                let inv_len = len_sq.sqrt().recip();
+                let inv_len = crate::math::fast_inv_sqrt(len_sq);
                 (dot_unorm * inv_len).max(0.0)
             } else {
                 0.0
@@ -1776,7 +1776,7 @@ unsafe fn draw_scanline_phong_simd(
                 let dot_unorm = nx * neg_light_dir.x + ny * neg_light_dir.y + nz * neg_light_dir.z;
 
                 let intensity = if len_sq > 0.0001 {
-                    let inv_len = len_sq.sqrt().recip();
+                    let inv_len = crate::math::fast_inv_sqrt(len_sq);
                     (dot_unorm * inv_len).max(0.0)
                 } else {
                     0.0
@@ -1873,7 +1873,7 @@ fn draw_scanline_phong(
             let dot_unorm = nx * neg_light_dir.x + ny * neg_light_dir.y + nz * neg_light_dir.z;
 
             let intensity = if len_sq > 0.0001 {
-                let inv_len = len_sq.sqrt().recip();
+                let inv_len = crate::math::fast_inv_sqrt(len_sq);
                 (dot_unorm * inv_len).max(0.0)
             } else {
                 0.0

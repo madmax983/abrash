@@ -904,9 +904,10 @@ fn test_fast_normalize_improves_ts_light_calc() {
         n_norm.dot(l_world),
     );
 
-    assert!((result.x - -1.0).abs() < f32::EPSILON * 10.0);
-    assert!((result.y - 0.0).abs() < f32::EPSILON * 10.0);
-    assert!((result.z - 0.0).abs() < f32::EPSILON * 10.0);
+    // fast_inv_sqrt has a known precision error of ~0.175%, so we use a tolerance of 0.005
+    assert!((result.x - -1.0).abs() < 0.005);
+    assert!((result.y - 0.0).abs() < 0.005);
+    assert!((result.z - 0.0).abs() < 0.005);
 }
 
 #[inline(always)]
@@ -2774,7 +2775,7 @@ unsafe fn draw_scanline_normal_mapped_simd(
 
                 let len_sq = lx * lx + ly * ly + lz * lz;
                 let intensity = if len_sq > 0.000_1 {
-                    let inv_len = len_sq.sqrt().recip();
+                    let inv_len = crate::math::fast_inv_sqrt(len_sq);
                     (nm_r * lx + nm_g * ly + nm_b * lz) * inv_len
                 } else {
                     0.0
@@ -3217,7 +3218,7 @@ fn draw_scanline_normal_mapped(
             // Light Vector in Tangent Space
             let len_sq = lx * lx + ly * ly + lz * lz;
             let intensity = if len_sq > 0.000_1 {
-                let inv_len = len_sq.sqrt().recip();
+                let inv_len = crate::math::fast_inv_sqrt(len_sq);
                 // Dot product: normal . light
                 (nm_r * lx + nm_g * ly + nm_b * lz) * inv_len
             } else {

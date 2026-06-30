@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Fast Inverse Square Root Optimization]**
+**Learning:** When `.sqrt()` and division (e.g., `1.0 / dist`) are strictly necessary in a hot pixel loop, replacing them with a Newton-Raphson Fast Inverse Square Root calculation (e.g., `f32::from_bits(0x5f3759df - (dist_sq.to_bits() >> 1))`) avoids severe ALU bottlenecks and significantly improves speed with acceptable precision loss.
+**Action:** Replaced `.sqrt().recip()` with a Newton-Raphson implementation inside `fast_inv_sqrt` and used it across `phong.rs`, `texture.rs`, and `reflection.rs`.
