@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Chladni Plate Generator]
+**Concept:** A screen-space effect that simulates Chladni plate resonance patterns (acoustic figures) by visualizing the nodal lines of standing waves on a 2D surface based on physical math equations.
+**Fate:** Implemented
+**Lesson:** Pre-calculating trigonometric values into 1D linear arrays before running the nested X/Y loop dramatically reduces ALU bottlenecks, changing an O(W*H) math-heavy inner loop into O(W+H) setup with fast parallel rendering.
