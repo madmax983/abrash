@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Clifford Strange Attractor]
+**Concept:** A mathematical visualization mapping millions of chaotic points from iterated sine/cosine functions onto the framebuffer to create complex, wispy patterns.
+**Fate:** Implemented
+**Lesson:** When plotting millions of points into a framebuffer, repeatedly packing ARGB colors and writing to memory inside the hot loop causes overhead. By first accumulating pixel hits into a simple 1D `u32` density histogram, and mapping that histogram to final colors in a secondary Rayon-parallelized pass, performance is drastically improved.
