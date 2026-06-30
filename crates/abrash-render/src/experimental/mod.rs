@@ -36,6 +36,7 @@ pub mod fractal;
 
 pub mod blueprint;
 pub mod cel_shade;
+pub mod chladni;
 pub mod chroma_key;
 pub mod cloth;
 pub mod color_blindness;

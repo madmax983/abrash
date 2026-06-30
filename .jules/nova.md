@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Chladni Plate Simulator]
+**Concept:** A procedural post-processing effect that evaluates the harmonic Chladni resonance equation (`cos(n*pi*x)*cos(m*pi*y) - cos(m*pi*x)*cos(n*pi*y) = 0`) to visualize acoustic cymatics over the framebuffer.
+**Fate:** Implemented
+**Lesson:** Splitting mathematically separable functions (like X and Y components of a 2D equation) into pre-computed 1D arrays before iterating over the 2D pixel grid provides a massive speedup by converting an O(W*H) math evaluation bottleneck into an O(W+H) setup.
