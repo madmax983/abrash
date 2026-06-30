@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**Replace Modulo with Conditional Subtraction**
+**Learning:** Floating-point modulo operations (e.g., `val % 1.0`) are extremely slow in hot per-pixel loops because they trigger costly `libm` function calls.
+**Action:** When the domain of the input is strictly bounded (e.g., `< 2.0` for normalized phase/color wrapping), replace the modulo with a manual conditional subtraction (e.g., `let mut x = val; if x >= 1.0 { x -= 1.0; }`) to eliminate the ALU bottleneck and achieve massive performance gains.
