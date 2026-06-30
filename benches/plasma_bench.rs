@@ -1,17 +1,20 @@
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use abrash_core::framebuffer::Framebuffer;
 use abrash_render::experimental::plasma::apply_plasma;
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_plasma(c: &mut Criterion) {
-    let mut fb = Framebuffer::new(800, 600).unwrap();
-    let time = 1.0;
-    let scale = 0.05;
+    let mut group = c.benchmark_group("Plasma Benchmark");
 
-    c.bench_function("plasma_800x600", |b| {
-        b.iter(|| {
-            apply_plasma(black_box(&mut fb), black_box(time), black_box(scale));
-        });
+    // Benchmark at common resolution
+    let width = 800;
+    let height = 600;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+
+    group.bench_function(format!("plasma_{}x{}", width, height), |b| {
+        b.iter(|| apply_plasma(black_box(&mut fb), black_box(0.0), black_box(0.05)))
     });
+
+    group.finish();
 }
 
 criterion_group!(benches, bench_plasma);
