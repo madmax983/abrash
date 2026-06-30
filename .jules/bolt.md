@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimal Vec Capacity when Collecting Mapped Iterators]**
+**Learning:** Calling `.collect::<Vec<_>>()` on iterators, especially after `.map()` or `.filter()`, does not always pre-allocate the exact required capacity, leading to redundant heap reallocations (doubling size) as the vector grows.
+**Action:** When the size of an iterator is known (e.g., mapping an array or a slice), explicitly pre-allocate the vector with `Vec::with_capacity(iter.len())` and use `.extend(iter)` to guarantee exactly one heap allocation.
