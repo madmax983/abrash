@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Histogram Equalization Filter]
+**Concept:** A post-processing effect that enhances image contrast by stretching the intensity distribution through a Cumulative Distribution Function (CDF) and applying it to pixel luminance to remap colors without losing hues.
+**Fate:** Implemented
+**Lesson:** Fixed point arithmetic is excellent for preserving performance when scaling RGB colors by a dynamically calculated luminance ratio. Building a histogram and CDF requires calculating over all pixels but enables a visually stunning improvement to dark or washed-out images completely in screen-space.
