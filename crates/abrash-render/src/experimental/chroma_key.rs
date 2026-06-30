@@ -192,11 +192,18 @@ fn process_smooth_row(
         let db = fg_b - key_b;
 
         // Euclidean distance in RGB space
-        let dist = (dr * dr + dg * dg + db * db).sqrt();
+        // ⚡ Bolt Optimization: Replace `.sqrt()` and thresholds with squared distance.
+        let dist_sq = dr.mul_add(dr, dg.mul_add(dg, db * db));
 
-        if dist <= threshold {
+        let threshold_sq = threshold * threshold;
+        let feather_threshold = threshold + feather;
+        let feather_threshold_sq = feather_threshold * feather_threshold;
+
+        if dist_sq <= threshold_sq {
             fg_row[x] = bg_row[x];
-        } else if feather > 0.0 && dist < threshold + feather {
+        } else if feather > 0.0 && dist_sq < feather_threshold_sq {
+            let dist = dist_sq.sqrt();
+
             // Calculate alpha for blending (0.0 = fully bg, 1.0 = fully fg)
             let alpha = (dist - threshold) / feather;
             let inv_alpha = 1.0 - alpha;

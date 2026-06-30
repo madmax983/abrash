@@ -188,7 +188,7 @@ pub fn render_mode7(fb: &mut Framebuffer, texture: &Texture, config: &Mode7Confi
                     let tx = (u as usize) & tex_w_mask;
                     let ty = (v as usize) & tex_h_mask;
 
-                    let color = tex_data[ty * tex_w_i + tx];
+                    let color = unsafe { *tex_data.get_unchecked(ty * tex_w_i + tx) };
 
                     *pixel = lerp_color(color, config.fog_color, fog_factor);
 
@@ -204,7 +204,7 @@ pub fn render_mode7(fb: &mut Framebuffer, texture: &Texture, config: &Mode7Confi
                     let tx = (u as usize) & tex_w_mask;
                     let ty = (v as usize) & tex_h_mask;
 
-                    *pixel = tex_data[ty * tex_w_i + tx];
+                    *pixel = unsafe { *tex_data.get_unchecked(ty * tex_w_i + tx) };
 
                     // Step mapping coordinates for the next pixel
                     map_x += d_map_x;
@@ -215,14 +215,22 @@ pub fn render_mode7(fb: &mut Framebuffer, texture: &Texture, config: &Mode7Confi
             for pixel in row.iter_mut() {
                 // Wrap texture coordinates using euclidean remainder
                 let u = map_x.floor() as i32;
-                let u = u.rem_euclid(tex_w_i as i32) as usize;
+                let u_rem = u % tex_w_i as i32;
+                let tx = if u_rem < 0 {
+                    (u_rem + tex_w_i as i32) as usize
+                } else {
+                    u_rem as usize
+                };
+
                 let v = map_z.floor() as i32;
-                let v = v.rem_euclid(tex_h_i as i32) as usize;
+                let v_rem = v % tex_h_i as i32;
+                let ty = if v_rem < 0 {
+                    (v_rem + tex_h_i as i32) as usize
+                } else {
+                    v_rem as usize
+                };
 
-                let tx = u % tex_w_i;
-                let ty = v % tex_h_i;
-
-                let color = tex_data[ty * tex_w_i + tx];
+                let color = unsafe { *tex_data.get_unchecked(ty * tex_w_i + tx) };
 
                 *pixel = if fog_factor > 0.0 {
                     lerp_color(color, config.fog_color, fog_factor) // Fade to fog color

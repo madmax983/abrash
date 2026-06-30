@@ -8,6 +8,9 @@
 use abrash_core::framebuffer::Framebuffer;
 use abrash_core::texture::Texture;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 /// Applies an infinite 3D tunnel effect.
 ///
 /// # Arguments
@@ -30,53 +33,60 @@ pub fn apply_tunnel(framebuffer: &mut Framebuffer, time: f32, texture: &Texture)
     let center_x = width as f32 / 2.0;
     let center_y = height as f32 / 2.0;
 
-    framebuffer
+    #[cfg(feature = "parallel")]
+    let row_iter = framebuffer
+        .as_mut_slice()
+        .par_chunks_exact_mut(width)
+        .enumerate();
+    #[cfg(not(feature = "parallel"))]
+    let row_iter = framebuffer
         .as_mut_slice()
         .chunks_exact_mut(width)
-        .enumerate()
-        .for_each(|(y, row)| {
-            let dy = y as f32 - center_y;
+        .enumerate();
 
-            for (x, pixel) in row.iter_mut().enumerate() {
-                let dx = x as f32 - center_x;
+    row_iter.for_each(|(y, row)| {
+        let dy = y as f32 - center_y;
 
-                // Distance from center
-                #[allow(clippy::imprecise_flops)]
-                let distance = (dx * dx + dy * dy).sqrt().max(1.0);
+        for (x, pixel) in row.iter_mut().enumerate() {
+            let dx = x as f32 - center_x;
 
-                // Angle
-                let angle = f32::atan2(dy, dx);
+            // Distance from center
+            #[allow(clippy::imprecise_flops)]
+            let distance = (dx * dx + dy * dy).sqrt().max(1.0);
 
-                // Map to U, V
-                // U maps around the cylinder (angle)
-                let u = (angle / std::f32::consts::PI + 1.0) * 0.5;
+            // Angle
+            let angle = f32::atan2(dy, dx);
 
-                // V maps down the depth of the tunnel
-                // We scale by some factor to make the texture repeat nicely
-                let depth_scale = (width.min(height) as f32) * 0.5;
-                let v = depth_scale / distance + time;
+            // Map to U, V
+            // U maps around the cylinder (angle)
+            let u = (angle / std::f32::consts::PI + 1.0) * 0.5;
 
-                // Calculate a simple shading based on distance (darker further away)
-                let shade = (distance / depth_scale).clamp(0.0, 1.0);
+            // V maps down the depth of the tunnel
+            // We scale by some factor to make the texture repeat nicely
+            let depth_scale = (width.min(height) as f32) * 0.5;
+            let v = depth_scale / distance + time;
 
-                let u_norm = u.fract();
-                let v_norm = v.fract();
+            // Calculate a simple shading based on distance (darker further away)
+            let shade = (distance / depth_scale).clamp(0.0, 1.0);
 
-                let u_val = if u_norm < 0.0 { u_norm + 1.0 } else { u_norm };
-                let v_val = if v_norm < 0.0 { v_norm + 1.0 } else { v_norm };
+            let u_norm = u.fract();
+            let v_norm = v.fract();
 
-                // texture.get_pixel takes normalized floats in [0.0, 1.0] and returns a single u32 color
-                let texel = texture.get_pixel(u_val, v_val);
+            let u_val = if u_norm < 0.0 { u_norm + 1.0 } else { u_norm };
+            let v_val = if v_norm < 0.0 { v_norm + 1.0 } else { v_norm };
 
-                // Apply shading
-                let a = (texel >> 24) & 0xFF;
-                let r = ((texel >> 16) & 0xFF) as f32 * shade;
-                let g = ((texel >> 8) & 0xFF) as f32 * shade;
-                let b = (texel & 0xFF) as f32 * shade;
+            // texture.get_pixel takes normalized floats in [0.0, 1.0] and returns a single u32 color
+            let texel = texture.get_pixel(u_val, v_val);
 
-                *pixel = (a << 24) | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
-            }
-        });
+            // Apply shading
+            let a = (texel >> 24) & 0xFF;
+            let r = ((texel >> 16) & 0xFF) as f32 * shade;
+            let g = ((texel >> 8) & 0xFF) as f32 * shade;
+            let b = (texel & 0xFF) as f32 * shade;
+
+            *pixel = (a << 24) | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
+        }
+    });
 }
 
 #[cfg(test)]

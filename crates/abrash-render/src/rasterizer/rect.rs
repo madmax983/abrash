@@ -253,9 +253,11 @@ pub fn draw_rounded_rect(
     let h_i32 = height.min(i32::MAX as u32) as i32;
 
     // ⚡ Bolt: Early rejection for fully off-screen rects
-    let right = x.saturating_add(w_i32).saturating_sub(1);
-    let bottom = y.saturating_add(h_i32).saturating_sub(1);
-    if right < 0 || bottom < 0 || x >= fb.width() as i32 || y >= fb.height() as i32 {
+    if x >= fb.width() as i32
+        || y >= fb.height() as i32
+        || x.saturating_add(w_i32) <= 0
+        || y.saturating_add(h_i32) <= 0
+    {
         return;
     }
 
@@ -452,9 +454,11 @@ pub fn fill_rounded_rect(
     let h_i32 = height.min(i32::MAX as u32) as i32;
 
     // ⚡ Bolt: Early rejection for fully off-screen rects
-    let right = x.saturating_add(w_i32).saturating_sub(1);
-    let bottom = y.saturating_add(h_i32).saturating_sub(1);
-    if right < 0 || bottom < 0 || x >= fb.width() as i32 || y >= fb.height() as i32 {
+    if x >= fb.width() as i32
+        || y >= fb.height() as i32
+        || x.saturating_add(w_i32) <= 0
+        || y.saturating_add(h_i32) <= 0
+    {
         return;
     }
 
