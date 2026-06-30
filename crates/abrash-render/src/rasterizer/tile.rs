@@ -4073,6 +4073,30 @@ fn draw_scanline_gouraud_i32_tile(
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    #[should_panic(expected = "TileRenderer dimensions overflow")]
+    fn test_tile_renderer_new_overflow_panics() {
+        let _ = TileRenderer::new(u32::MAX, u32::MAX);
+    }
+
+    #[test]
+    #[should_panic(expected = "Framebuffer slice too small")]
+    fn test_tile_renderer_slices_fb_too_small_panics() {
+        let mut renderer = TileRenderer::new(100, 100);
+        let mut fb = vec![0u32; 10]; // Too small
+        let mut zb = vec![0.0f32; 10000];
+        renderer.render_batch_into_slices(100, 100, &mut fb, &mut zb, &[]);
+    }
+
+    #[test]
+    #[should_panic(expected = "ZBuffer slice too small")]
+    fn test_tile_renderer_slices_zb_too_small_panics() {
+        let mut renderer = TileRenderer::new(100, 100);
+        let mut fb = vec![0u32; 10000];
+        let mut zb = vec![0.0f32; 10]; // Too small
+        renderer.render_batch_into_slices(100, 100, &mut fb, &mut zb, &[]);
+    }
+
     use super::*;
     use crate::framebuffer::Framebuffer;
     use crate::math::{Vec2, Vec3};

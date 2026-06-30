@@ -51,3 +51,6 @@
 **[Validating Time/Tick Loop Logic Without Flakiness]**
 **Learning:** Testing frame-time loops using `std::thread::sleep` introduces severe flakiness because CI runners or test threads can delay execution unpredictably. Instead of testing "real" time elapsed, test the internal response to elapsed time by directly simulating it on the structure (e.g. `timer.last_time = Instant::now()`, `timer.accumulator += 50ms`).
 **Action:** Never use `std::thread::sleep` for unit testing timing systems. Always manipulate the simulated time state directly to test logic boundaries.
+**2023-10-27 - Triggering existing panics in tests**
+**Learning:** Sometimes the production code already has robust bounds checks or `expect()` calls (e.g., `expect("TileRenderer dimensions overflow")`), but they are completely untested. Writing `#[should_panic]` tests that trigger these specific messages is a valid way to improve coverage without needing to add new "Green Phase" production code. The existing code *is* the Green Phase, and the new test validates it.
+**Action:** Before assuming new bounds checks need to be written, inspect the code for existing, untested panic points and write tests specifically targeting their expected panic messages.
