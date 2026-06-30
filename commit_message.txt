@@ -1,0 +1,13 @@
+🗺️ Atlas: Relocate Quat to math module and fix composition
+
+🕸️ Tangle: The `Quat` and `DualQuat` types were located in a monolithic `src/quat.rs` inside `abrash-core`, breaking the high cohesion of the `abrash_core::math` module which already contained `Mat4`, `Vec3`, etc. In addition, the transform composition `Transform::then` was calculating the combined rotation as `self.rotation * other.rotation`, which incorrectly applied the rotations out of order for row-vector mathematical rules, breaking exact tests.
+
+📐 Blueprint:
+- Relocated `src/quat.rs` to `src/math/quat.rs` and updated module tree logic to unify all primitive algebra.
+- Updated all workspace crates to reflect the new import path for `Quat`.
+- Fixed `Transform::then` to correctly compute combined rotation as `other.rotation * self.rotation` (i.e., applying `self`'s rotation first).
+- Fixed floating point equivalence logic in tests, removed unused `Quat::new` references, and handled resulting type issues across the crate tests.
+
+🧱 Stability: High cohesion achieved with all foundational math primitives centralized under `math::*`. The fixes to `Transform` composition ensures correctly combined sequences of `t1.then(t2)`.
+
+🔬 Verification: Ran `cargo test --workspace --all-features` and `cargo clippy --workspace --all-features -- -D warnings`.

@@ -1,3 +1,4 @@
+use crate::math::quat::Quat;
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use std::mem::MaybeUninit;
