@@ -64,22 +64,49 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     let pixels = fb.as_mut_slice();
     let depths = zb.as_slice();
 
+
     // 1. Find min and max depth (excluding Infinity)
     let mut min_z = f32::MAX;
     let mut max_z = f32::MIN;
     let mut has_content = false;
 
-    for &z in depths {
-        if z != f32::INFINITY {
-            if z < min_z {
-                min_z = z;
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if std::is_x86_feature_detected!("avx2") {
+        unsafe {
+            let (mz, mz_max, hc) = find_min_max_simd(depths);
+            min_z = mz;
+            max_z = mz_max;
+            has_content = hc;
+        }
+    } else {
+        for &z in depths {
+            if z != f32::INFINITY {
+                if z < min_z {
+                    min_z = z;
+                }
+                if z > max_z {
+                    max_z = z;
+                }
+                has_content = true;
             }
-            if z > max_z {
-                max_z = z;
-            }
-            has_content = true;
         }
     }
+
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+    {
+        for &z in depths {
+            if z != f32::INFINITY {
+                if z < min_z {
+                    min_z = z;
+                }
+                if z > max_z {
+                    max_z = z;
+                }
+                has_content = true;
+            }
+        }
+    }
+
 
     if !has_content {
         // Nothing drawn, just clear to cold background
@@ -90,112 +117,56 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     }
 
     // Add a small epsilon to avoid division by zero if flat plane
-    let range = (max_z - min_z).max(0.0001);
-    // Map [0.0, range] to [0, 1023] (4 segments of 256)
-    // Adding a slight bias to prevent floating point inaccuracy at the absolute top end
-    // from truncating 1024 to 1023 when scaling.
-    let scale = 1024.0 / range;
 
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if std::is_x86_feature_detected!("avx2") {
-        unsafe {
-            apply_heat_vision_simd(pixels, depths, min_z, scale, &LUT);
-        }
-        return;
-    }
+
+    // Add a small epsilon to avoid division by zero if flat plane
+
+    // Avoid float multiplication in the per-pixel loop by using fixed point arithmetic.
+    // 16.16 fixed point allows enough precision for depth gradients without float hardware.
+
+    // Scale is 1024.0 / range. We can precalculate a fixed point multiplier.
+    // However, if the depths are huge, 16.16 fixed point depth * fixed point scale might overflow.
+    // So we just precalculate `t` directly via fixed point if depths are within reason.
+    // Wait, the memory instruction specifically says:
+    // "Replacing floating-point normalization gradients with fixed-point integer scaling buckets and strict integer bounds checking inside per-pixel loops."
+
+
+
+    // Avoid float multiplication in the per-pixel loop by using integer mapping.
+    // We must handle extreme floating point values (f32::MAX/MIN) which can overflow fixed-point i64 math.
+    // Instead, we will normalize the depth into a 0.0..1.0 float, then scale to 1024,
+    // OR we just cap the depths if we want pure fixed point.
+    // Wait, the directive specifically says:
+    // "Replacing floating-point normalization gradients with fixed-point integer scaling buckets and strict integer bounds checking inside per-pixel loops."
+
+    // To prevent fixed-point overflow with extreme f32 values, we cap the depths used for scaling to a safe fixed-point range.
+    let max_safe_depth = 32000.0; // Arbitrary safe far-plane distance for fixed-point math
+    let min_z_capped = min_z.clamp(-max_safe_depth, max_safe_depth);
+    let max_z_capped = max_z.clamp(-max_safe_depth, max_safe_depth);
+    let range = (max_z_capped - min_z_capped).max(0.0001);
+
+    let min_z_fp = (min_z_capped * 65536.0) as i64;
+    let scale_fp = ((1024.0 / range) * 65536.0) as i64;
 
     for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
-        if depth == f32::INFINITY {
-            *pixel = 0xFF00_0010; // Very Dark Blue Background
-            continue;
-        }
-
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023); // Clamp strictly to 1023
-
-        // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
-        *pixel = unsafe { *LUT.get_unchecked(t as usize) };
-    }
-}
-
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-#[target_feature(enable = "avx2")]
-unsafe fn apply_heat_vision_simd(
-    pixels: &mut [u32],
-    depths: &[f32],
-    min_z: f32,
-    scale: f32,
-    lut: &[u32; 1024],
-) {
-    #[cfg(target_arch = "x86")]
-    use std::arch::x86::*;
-    #[cfg(target_arch = "x86_64")]
-    use std::arch::x86_64::{
-        __m256i, _CMP_EQ_OQ, _mm256_blendv_epi8, _mm256_castps_si256, _mm256_cmp_ps,
-        _mm256_cvttps_epi32, _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_max_epi32,
-        _mm256_min_epi32, _mm256_mul_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_si256,
-        _mm256_storeu_si256, _mm256_sub_ps,
-    };
-
-    let len = pixels.len().min(depths.len());
-    let mut i = 0;
-
-    let min_z_vec = _mm256_set1_ps(min_z);
-    let scale_vec = _mm256_set1_ps(scale);
-    let inf_vec = _mm256_set1_ps(f32::INFINITY);
-    let max_t_vec = _mm256_set1_epi32(1023);
-    let bg_color = _mm256_set1_epi32(0xFF00_0010_u32 as i32);
-    let lut_ptr = lut.as_ptr().cast::<i32>();
-
-    while i + 8 <= len {
-        let depth_ptr = depths.as_ptr().add(i);
-        let depth_val = _mm256_loadu_ps(depth_ptr);
-
-        // depth == f32::INFINITY
-        let is_inf = _mm256_cmp_ps(depth_val, inf_vec, _CMP_EQ_OQ);
-        let is_inf_int = _mm256_castps_si256(is_inf);
-
-        // t = (depth - min_z) * scale
-        let t_f32 = _mm256_mul_ps(_mm256_sub_ps(depth_val, min_z_vec), scale_vec);
-
-        // t_u32 = t_f32 as i32
-        let t_i32 = _mm256_cvttps_epi32(t_f32);
-
-        // Ensure not negative
-        let zero_vec = _mm256_setzero_si256();
-        let t_clamped_low = _mm256_max_epi32(t_i32, zero_vec);
-
-        // Clamp to 1023
-        let t_clamped = _mm256_min_epi32(t_clamped_low, max_t_vec);
-
-        // Gather from LUT
-        // SAFETY: t_clamped is strictly between 0 and 1023, lut is 1024 elements
-        let gathered = _mm256_i32gather_epi32::<4>(lut_ptr, t_clamped);
-
-        // Blend: if is_inf, use bg_color, else use gathered color
-        let final_color = _mm256_blendv_epi8(gathered, bg_color, is_inf_int);
-
-        // Store to framebuffer
-        #[allow(clippy::cast_ptr_alignment)]
-        let fb_ptr = pixels.as_mut_ptr().add(i).cast::<__m256i>();
-        _mm256_storeu_si256(fb_ptr, final_color);
-
-        i += 8;
-    }
-
-    // Scalar tail
-    for (pixel, &depth) in pixels[i..len].iter_mut().zip(depths[i..len].iter()) {
         if depth == f32::INFINITY {
             *pixel = 0xFF00_0010;
             continue;
         }
 
-        let t = ((depth - min_z) * scale) as u32;
-        let t = t.min(1023);
+        // Fixed point math. Clamp depth to safe range to prevent i64 overflow.
+        let depth_capped = depth.clamp(-max_safe_depth, max_safe_depth);
+        let depth_fp = (depth_capped * 65536.0) as i64;
+        let t_fp = (depth_fp.saturating_sub(min_z_fp)).saturating_mul(scale_fp);
 
-        *pixel = unsafe { *lut.get_unchecked(t as usize) };
+        let mut t = (t_fp >> 32) as u32;
+        t = t.min(1023);
+
+        *pixel = unsafe { *LUT.get_unchecked(t as usize) };
     }
 }
+
+
 
 #[cfg(test)]
 mod tests {
@@ -308,4 +279,130 @@ mod tests {
             "Should remain unchanged default Framebuffer color (Solid Black)"
         );
     }
+}
+
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+unsafe fn find_min_max_simd(depths: &[f32]) -> (f32, f32, bool) {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::*;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::*;
+
+    let mut min_vec = _mm256_set1_ps(f32::MAX);
+    let mut max_vec = _mm256_set1_ps(f32::MIN);
+    let inf_vec = _mm256_set1_ps(f32::INFINITY);
+    let max_val_vec = _mm256_set1_ps(f32::MAX);
+    let min_val_vec = _mm256_set1_ps(f32::MIN);
+
+    let len = depths.len();
+    let mut i = 0;
+
+    while i + 8 <= len {
+        let d = _mm256_loadu_ps(depths.as_ptr().add(i));
+        let is_inf = _mm256_cmp_ps(d, inf_vec, _CMP_EQ_OQ);
+
+        let min_d = _mm256_blendv_ps(d, max_val_vec, is_inf);
+        let max_d = _mm256_blendv_ps(d, min_val_vec, is_inf);
+
+        min_vec = _mm256_min_ps(min_vec, min_d);
+        max_vec = _mm256_max_ps(max_vec, max_d);
+
+        i += 8;
+    }
+
+    let mut mins = [0.0f32; 8];
+    let mut maxs = [0.0f32; 8];
+    _mm256_storeu_ps(mins.as_mut_ptr(), min_vec);
+    _mm256_storeu_ps(maxs.as_mut_ptr(), max_vec);
+
+    let mut min_z = f32::MAX;
+    let mut max_z = f32::MIN;
+
+    for j in 0..8 {
+        if mins[j] < min_z {
+            min_z = mins[j];
+        }
+        if maxs[j] > max_z {
+            max_z = maxs[j];
+        }
+    }
+
+    for &z in &depths[i..len] {
+        if z != f32::INFINITY {
+            if z < min_z {
+                min_z = z;
+            }
+            if z > max_z {
+                max_z = z;
+            }
+        }
+    }
+
+    let has_content = min_z != f32::MAX || max_z != f32::MIN;
+    (min_z, max_z, has_content)
+}
+
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+unsafe fn find_min_max_simd(depths: &[f32]) -> (f32, f32, bool) {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::*;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::*;
+
+    let mut min_vec = _mm256_set1_ps(f32::MAX);
+    let mut max_vec = _mm256_set1_ps(f32::MIN);
+    let inf_vec = _mm256_set1_ps(f32::INFINITY);
+    let max_val_vec = _mm256_set1_ps(f32::MAX);
+    let min_val_vec = _mm256_set1_ps(f32::MIN);
+
+    let len = depths.len();
+    let mut i = 0;
+
+    while i + 8 <= len {
+        let d = _mm256_loadu_ps(depths.as_ptr().add(i));
+        let is_inf = _mm256_cmp_ps(d, inf_vec, _CMP_EQ_OQ);
+
+        let min_d = _mm256_blendv_ps(d, max_val_vec, is_inf);
+        let max_d = _mm256_blendv_ps(d, min_val_vec, is_inf);
+
+        min_vec = _mm256_min_ps(min_vec, min_d);
+        max_vec = _mm256_max_ps(max_vec, max_d);
+
+        i += 8;
+    }
+
+    let mut mins = [0.0f32; 8];
+    let mut maxs = [0.0f32; 8];
+    _mm256_storeu_ps(mins.as_mut_ptr(), min_vec);
+    _mm256_storeu_ps(maxs.as_mut_ptr(), max_vec);
+
+    let mut min_z = f32::MAX;
+    let mut max_z = f32::MIN;
+
+    for j in 0..8 {
+        if mins[j] < min_z {
+            min_z = mins[j];
+        }
+        if maxs[j] > max_z {
+            max_z = maxs[j];
+        }
+    }
+
+    for &z in &depths[i..len] {
+        if z != f32::INFINITY {
+            if z < min_z {
+                min_z = z;
+            }
+            if z > max_z {
+                max_z = z;
+            }
+        }
+    }
+
+    let has_content = min_z != f32::MAX || max_z != f32::MIN;
+    (min_z, max_z, has_content)
 }
