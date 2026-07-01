@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimizing Procedural Modulo Math]**
+**Learning:** Using f32 `% 1.0` in a hot pixel loop to bound normalized values between 0.0 and 1.0 causes significant performance degradation.
+**Action:** When the value's domain is small and strictly bounded (e.g., adding a small offset to a value in [0.0, 1.0]), manual bounds checking (e.g., `if val >= 1.0 { val -= 1.0 }`) dramatically outperforms floating-point modulo operations.
