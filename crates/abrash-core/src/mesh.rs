@@ -594,8 +594,10 @@ impl Mesh {
             tan2[i2] = tan2[i2] + tdir;
         }
 
+        // ⚡ Bolt: Eliminate redundant zero-initialization of memory by using `reserve_exact`
+        // and `.push` instead of `.resize` followed by indexed assignment.
         self.tangents.clear();
-        self.tangents.resize(self.vertices.len(), Vec4::default());
+        self.tangents.reserve_exact(self.vertices.len());
         for i in 0..self.vertices.len() {
             let n = self.normals[i];
             let t = tan1[i];
@@ -610,7 +612,8 @@ impl Mesh {
                 1.0
             };
 
-            self.tangents[i] = Vec4::new(tangent_xyz.x, tangent_xyz.y, tangent_xyz.z, w);
+            self.tangents
+                .push(Vec4::new(tangent_xyz.x, tangent_xyz.y, tangent_xyz.z, w));
         }
     }
 }

@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Eliminating Redundant Zero-Initialization]**
+**Learning:** When populating a vector from scratch inside a loop, using `.resize(len, Default::default())` followed by indexed assignments introduces overhead by redundantly zero-initializing the memory before writing to it.
+**Action:** Use `.reserve_exact(len)` followed by `.push(...)` to write data directly into the pre-allocated capacity, completely eliminating the double-write.
