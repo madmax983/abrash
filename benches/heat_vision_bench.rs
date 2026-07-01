@@ -40,4 +40,53 @@ fn bench_heat_vision(c: &mut Criterion) {
 }
 
 criterion_group!(benches, bench_heat_vision);
-criterion_main!(benches);
+criterion_main!(benches, min_max_benches);
+
+fn bench_find_min_max_depth_simd(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Heat Vision Min Max");
+    let resolutions = [(320, 240), (800, 600), (1920, 1080)];
+
+    for (w, h) in resolutions {
+        let mut depths = vec![0.0; w * h];
+        let mut rng = rand::thread_rng();
+        for d in depths.iter_mut() {
+            *d = if rng.gen_bool(0.1) {
+                f32::INFINITY
+            } else {
+                rng.gen_range(0.1..100.0)
+            };
+        }
+
+        group.bench_function(format!("SIMD {w}x{h}"), |b| {
+            b.iter(|| {
+                #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+                if std::is_x86_feature_detected!("avx2") {
+                    unsafe {
+                        let result = abrash_render::heat_vision::find_min_max_depth_simd(&depths);
+                        black_box(result);
+                    }
+                }
+            });
+        });
+
+        group.bench_function(format!("Scalar {w}x{h}"), |b| {
+            b.iter(|| {
+                let mut min_z = f32::MAX;
+                let mut max_z = f32::MIN;
+                let mut has_content = false;
+                for &z in depths.iter() {
+                    if z != f32::INFINITY {
+                        if z < min_z { min_z = z; }
+                        if z > max_z { max_z = z; }
+                        has_content = true;
+                    }
+                }
+                black_box((min_z, max_z, has_content));
+            });
+        });
+    }
+
+    group.finish();
+}
+
+criterion_group!(min_max_benches, bench_find_min_max_depth_simd);

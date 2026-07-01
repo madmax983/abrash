@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Heat Vision SIMD Min/Max Optimization]**
+**Learning:** In the `apply_heat_vision` pass, finding the minimum and maximum depth bounds across the Z-buffer is a computationally intensive scalar loop. While the second pass (color application) was already optimized, vectorizing the initial reduction loop with AVX2 (`_mm256_min_ps`, `_mm256_max_ps`, and `_mm256_blendv_ps` to ignore infinity values) yields massive performance improvements across all resolutions (e.g. ~53% faster total execution time).
+**Action:** Replace the scalar `min_z`/`max_z` search loop with a 256-bit AVX2 SIMD implementation that processes 8 pixels at a time, guarded by appropriate `#[cfg]` and runtime target feature checks.
