@@ -23,3 +23,7 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+
+## 2024-05-19 - [TuiWindow and FramebufferWidget Documentation]
+**Confusion:** Various methods and public fields in `TuiWindow` (such as `is_open`, `width`, `height`, `poll_events`, `blit_framebuffer`) and the `framebuffer` field in `FramebufferWidget` lacked documentation, confusing developers about how to interact with terminal backends.
+**Clarification:** Added doc comments for all missing methods in `TuiWindow` with executable doctests. Also added documentation to the `framebuffer` field in `FramebufferWidget` explaining its purpose.

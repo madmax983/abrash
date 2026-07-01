@@ -131,6 +131,9 @@ impl TuiWindow {
         })
     }
 
+    /// Returns `true` if the terminal window is still open.
+    ///
+    /// The window is considered open until a quit event (like pressing `Esc` or `q`) is polled.
     #[must_use]
     pub const fn is_open(&self) -> bool {
         self.is_open
@@ -146,6 +149,23 @@ impl TuiWindow {
         self.height
     }
 
+    /// Polls for window events (like keyboard input or terminal resize).
+    ///
+    /// This method is non-blocking and will return immediately with any events that
+    /// have occurred since the last poll.
+    ///
+    /// ## Examples
+    ///
+    /// ```rust
+    /// # use abrash::platform::TuiWindow;
+    /// # use crossterm::event::{Event, KeyCode};
+    /// # let mut window = TuiWindow::new("test", 80, 40).unwrap();
+    /// for event in window.poll_events() {
+    ///     if let Event::Key(key) = event {
+    ///         println!("Key pressed: {:?}", key.code);
+    ///     }
+    /// }
+    /// ```
     pub fn poll_events(&mut self) -> Vec<Event> {
         self.frame_start = Instant::now();
         let mut events = Vec::new();
@@ -169,6 +189,21 @@ impl TuiWindow {
         events
     }
 
+    /// Draws a given [`Framebuffer`] to the terminal window and updates the frame time statistics.
+    ///
+    /// ## Panics
+    ///
+    /// This method will panic if drawing to the terminal backend fails.
+    ///
+    /// ## Examples
+    ///
+    /// ```rust
+    /// # use abrash::platform::TuiWindow;
+    /// # use abrash::framebuffer::Framebuffer;
+    /// # let mut window = TuiWindow::new("test", 80, 40).unwrap();
+    /// # let mut framebuffer = Framebuffer::new(80, 40).unwrap();
+    /// window.blit_framebuffer(&framebuffer);
+    /// ```
     pub fn blit_framebuffer(&mut self, framebuffer: &Framebuffer) {
         self.frame_count += 1;
         self.frames_since_update += 1;
