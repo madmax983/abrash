@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [Pointillism Filter]
+**Concept:** A post-processing effect that converts the image into a pattern of colored dots, simulating the Pointillism painting technique. Uses a procedural hash with localized per-cell coordinate evaluation to highly parallelize splatting.
+**Fate:** Implemented
+**Lesson:** When splatting randomized overlapping shapes, replacing global sorting/draw calls with a localized cell-based procedural lookup (a procedural painter's algorithm) enables highly efficient and parallelizable execution directly over the framebuffer.
