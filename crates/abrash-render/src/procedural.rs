@@ -111,15 +111,29 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
 pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
     let mut tex = Texture::new(width, height)?;
 
-    for y in 0..height {
-        for x in 0..width {
-            let u = x as f32;
-            let v = y as f32;
+    let mut v1_table = vec![0.0; width as usize];
+    for (x, val) in v1_table.iter_mut().enumerate() {
+        let (s, _) = fast_sin_cos((x as f32) * 0.1);
+        *val = s;
+    }
 
-            let (v1, _) = fast_sin_cos(u * 0.1);
-            let (v2, _) = fast_sin_cos(v * 0.1);
-            let (v3, _) = fast_sin_cos((u + v) * 0.1);
-            let (v4, _) = fast_sin_cos(u.mul_add(u, v * v).sqrt() * 0.1);
+    let mut v2_table = vec![0.0; height as usize];
+    for (y, val) in v2_table.iter_mut().enumerate() {
+        let (s, _) = fast_sin_cos((y as f32) * 0.1);
+        *val = s;
+    }
+
+    let width_usize = width as usize;
+    for (y, row) in tex.pixels_mut().chunks_exact_mut(width_usize).enumerate() {
+        let v2 = v2_table[y];
+        let v_f32 = y as f32;
+
+        for (x, pixel) in row.iter_mut().enumerate() {
+            let u_f32 = x as f32;
+            let v1 = v1_table[x];
+
+            let (v3, _) = fast_sin_cos((u_f32 + v_f32) * 0.1);
+            let (v4, _) = fast_sin_cos(u_f32.mul_add(u_f32, v_f32 * v_f32).sqrt() * 0.1);
 
             let val = (v1 + v2 + v3 + v4) * 0.25; // -1 to 1
             let normalized = (val + 1.0) * 0.5; // 0 to 1
@@ -132,8 +146,7 @@ pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
             let (b_sin, _) = fast_sin_cos((normalized * std::f32::consts::PI) + 4.0);
             let b = (b_sin.abs() * 255.0) as u32;
 
-            let color = 0xFF00_0000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
-            tex.set_pixel(x, y, color);
+            *pixel = 0xFF00_0000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
         }
     }
     Ok(tex)
