@@ -11,6 +11,17 @@ members = [
 ]
 resolver = "2"
 
+
+[[bench]]
+name = "pointillism_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "pointillism_demo"
+path = "crates/abrash-render/examples/pointillism_demo.rs"
+required-features = ["nova"]
+
 [package]
 name = "abrash"
 version = "0.1.0"
