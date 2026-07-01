@@ -716,14 +716,13 @@ impl GpuRenderer {
             .filter(|pixel| pixel != &&background[..])
             .count();
 
-        let batches = prepared_draws
-            .iter()
-            .map(|draw| BatchStats {
-                index: draw.command_index,
-                triangle_count: draw.triangle_count,
-                color: draw.color,
-            })
-            .collect();
+        // ⚡ Bolt: Reserve capacity to avoid dynamic allocations during vector mapping
+        let mut batches = Vec::with_capacity(prepared_draws.len());
+        batches.extend(prepared_draws.iter().map(|draw| BatchStats {
+            index: draw.command_index,
+            triangle_count: draw.triangle_count,
+            color: draw.color,
+        }));
 
         Ok(GpuDebugCapture {
             stats: FrameStats {
