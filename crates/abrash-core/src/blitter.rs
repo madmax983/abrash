@@ -774,6 +774,28 @@ mod tests {
         );
     }
 
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        #[should_panic(expected = "attempt to add with overflow")]
+        fn clip_blit_havoc_overflow(
+            sx in 0u32..=u32::MAX,
+            sy in 0u32..=u32::MAX,
+            w in 0u32..=u32::MAX,
+            h in 0u32..=u32::MAX,
+            dx in i32::MIN..=i32::MAX,
+            dy in i32::MIN..=i32::MAX,
+            fb_w in 0u32..=u32::MAX,
+            fb_h in 0u32..=u32::MAX,
+            tex_w in 0u32..=u32::MAX,
+            tex_h in 0u32..=u32::MAX,
+        ) {
+            let src = SrcRect { x: sx, y: sy, w, h };
+            let _ = clip_blit(&src, dx, dy, fb_w, fb_h, tex_w, tex_h);
+        }
+    }
+
     #[test]
     fn clip_blit_atlas_subregion() {
         let src = SrcRect {
