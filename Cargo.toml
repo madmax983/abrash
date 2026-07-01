@@ -984,3 +984,7 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[bench]]
+name = "min_max_bench"
+harness = false
