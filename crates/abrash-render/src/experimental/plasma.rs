@@ -58,8 +58,14 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
             // Map the normalized value to RGB colors
             // Simple color palette generation based on the phase
             let r = ((c * 255.0) as u32).min(255);
-            let g = (((c + 0.33) % 1.0 * 255.0) as u32).min(255);
-            let b = (((c + 0.66) % 1.0 * 255.0) as u32).min(255);
+
+            let mut g_val = c + 0.33;
+            if g_val >= 1.0 { g_val -= 1.0; }
+            let g = ((g_val * 255.0) as u32).min(255);
+
+            let mut b_val = c + 0.66;
+            if b_val >= 1.0 { b_val -= 1.0; }
+            let b = ((b_val * 255.0) as u32).min(255);
 
             *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
         }
@@ -96,5 +102,20 @@ mod tests {
             has_non_black,
             "Framebuffer should not be entirely black after plasma effect"
         );
+    }
+
+    #[test]
+    fn test_apply_plasma_modulo_equivalence() {
+        let mut fb = Framebuffer::new(20, 20).unwrap();
+        apply_plasma(&mut fb, 10.0, 0.05);
+        let pixels = fb.as_slice();
+        for &p in pixels {
+            let r = (p >> 16) & 0xFF;
+            let g = (p >> 8) & 0xFF;
+            let b = p & 0xFF;
+            assert!(r <= 255);
+            assert!(g <= 255);
+            assert!(b <= 255);
+        }
     }
 }

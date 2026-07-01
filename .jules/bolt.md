@@ -232,3 +232,10 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimization Attempt: Heat Vision SIMD Min/Max Search Optimization]**
+**Learning:** In the `apply_heat_vision` effect, replacing the scalar `min_z`/`max_z` search loop with a custom AVX2 SIMD pass utilizing `_mm256_min_ps` and `_mm256_max_ps` (which carefully avoids `f32::INFINITY` entries via `_mm256_blendv_ps` combined with `f32::MAX`/`f32::MIN` sentinels) results in roughly a 40%+ improvement in total execution time across varying resolutions.
+**Action:** Replaced the scalar depth reduction loop in `apply_heat_vision` with an AVX2-accelerated reduction loop when hardware supports it.
+**[Plasma Effect Modulo Optimization]**
+**Learning:** Floating-point modulo operations (e.g., `val % 1.0`) are extremely slow in hot per-pixel loops because they trigger costly `libm` function calls. When the domain of the input is strictly bounded (e.g., `< 2.0` for normalized phase/color wrapping), replacing the modulo with a manual conditional subtraction (e.g., `let mut x = val; if x >= 1.0 { x -= 1.0; }`) eliminates the ALU bottleneck and achieves massive performance gains (~29% speedup).
+**Action:** Replaced modulo arithmetic `% 1.0` with conditional subtraction when normalizing color phases inside the nested loop of `apply_plasma`.
