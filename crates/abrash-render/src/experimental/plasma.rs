@@ -58,8 +58,12 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
             // Map the normalized value to RGB colors
             // Simple color palette generation based on the phase
             let r = ((c * 255.0) as u32).min(255);
-            let g = (((c + 0.33) % 1.0 * 255.0) as u32).min(255);
-            let b = (((c + 0.66) % 1.0 * 255.0) as u32).min(255);
+            let mut gc = c + 0.33;
+            if gc >= 1.0 { gc -= 1.0; }
+            let g = ((gc * 255.0) as u32).min(255);
+            let mut bc = c + 0.66;
+            if bc >= 1.0 { bc -= 1.0; }
+            let b = ((bc * 255.0) as u32).min(255);
 
             *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
         }
@@ -68,6 +72,13 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_no_modulo_1_0() {
+        let src = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/experimental/plasma.rs")).unwrap();
+        let bad_pattern = format!("{} 1.0", "%");
+        assert!(!src.contains(&bad_pattern), "Found expensive float modulo operation in plasma.rs!");
+    }
+
     use super::*;
 
     #[test]
