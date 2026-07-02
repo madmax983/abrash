@@ -125,3 +125,11 @@
 1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
 2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors.
 3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
+
+## [Removing Ray Struct Duplication]
+**Tangle:** The `crates/abrash-render/src/experimental/raytracer.rs` module redefined its own `Ray` struct and its MT intersection logic (`intersect_triangle`). This duplicated the identical primitive `abrash_core::ray::Ray` and created a "God Struct" inside the experimental namespace. Furthermore, the duplicated code introduced a precision error because it incorrectly used `fast_normalize()` instead of `normalize()`, resulting in precision loss and failing tests.
+**Blueprint:**
+1.  **Delete Duplicate:** Completely removed the `Ray` struct and implementation from `raytracer.rs`.
+2.  **Unify Imports:** Replaced the local `Ray` with `abrash_core::ray::Ray`.
+3.  **Encapsulate Hit Logic:** Since the core `Ray` returns a scalar `t` instead of a full `Hit` struct (which contains calculated normals, UVs, etc.), I moved the `Hit` generation logic directly into the raytracer rendering methods (`trace_ray`).
+**Stability:** High cohesion is restored by ensuring all primitive ray geometry operations remain in `abrash-core`, avoiding redundant structs and reducing logic coupling between the generic math module and the experimental renderer. Test suite accuracy improved.
