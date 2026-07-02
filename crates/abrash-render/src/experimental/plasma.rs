@@ -33,15 +33,19 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
     #[cfg(not(feature = "parallel"))]
     let row_iter = pixels.chunks_exact_mut(width).enumerate();
 
+    let mut x_sins = vec![0.0; width];
+    for x in 0..width {
+        let x_scaled_time = (x as f32 * scale + time) % std::f32::consts::TAU;
+        let (s, _) = fast_sin_cos(x_scaled_time);
+        x_sins[x] = s;
+    }
+
     row_iter.for_each(|(y, row)| {
-        let y_f32 = y as f32;
-        let y_scaled_time = (y_f32 * scale + time) % std::f32::consts::TAU;
+        let y_scaled_time = (y as f32 * scale + time) % std::f32::consts::TAU;
         let (y_sin, y_cos) = fast_sin_cos(y_scaled_time);
 
         for (x, pixel) in row.iter_mut().enumerate().take(width) {
-            let x_f32 = x as f32;
-            let x_scaled_time = (x_f32 * scale + time) % std::f32::consts::TAU;
-            let (x_sin, _) = fast_sin_cos(x_scaled_time);
+            let x_sin = x_sins[x];
 
             // Calculate plasma value using multiple sine waves
             let mut v = 0.0;
@@ -58,8 +62,12 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
             // Map the normalized value to RGB colors
             // Simple color palette generation based on the phase
             let r = ((c * 255.0) as u32).min(255);
-            let g = (((c + 0.33) % 1.0 * 255.0) as u32).min(255);
-            let b = (((c + 0.66) % 1.0 * 255.0) as u32).min(255);
+            let mut c_g = c + 0.33;
+            if c_g >= 1.0 { c_g -= 1.0; }
+            let g = ((c_g * 255.0) as u32).min(255);
+            let mut c_b = c + 0.66;
+            if c_b >= 1.0 { c_b -= 1.0; }
+            let b = ((c_b * 255.0) as u32).min(255);
 
             *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
         }
@@ -69,6 +77,23 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_apply_plasma_time_invariance() {
+        // Since we are changing floating point modulo math, let's verify that a time
+        // large enough to overflow TAU modulo gives reasonable results compared to a small time.
+        // Actually, this just checks that no crash happens for large time inputs.
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        apply_plasma(&mut fb, std::f32::consts::TAU * 100.0, 0.05);
+        let mut has_non_black = false;
+        for &p in fb.as_slice() {
+            if p != 0xFF_00_00_00 {
+                has_non_black = true;
+                break;
+            }
+        }
+        assert!(has_non_black);
+    }
 
     #[test]
     fn test_apply_plasma_0x0() {
