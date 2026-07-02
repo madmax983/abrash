@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Fast Float Sorting via Integer Mapping]**
+**Learning:** Float comparisons using `partial_cmp().unwrap_or(...)` inside `sort_unstable_by` are slow in hot paths (like tile depth sorting) due to branching and NaN checks. Using a fast integer-based float mapping (e.g., `let bits = depth.to_bits() as i32; if bits < 0 { bits ^ 0x7FFF_FFFF } else { bits }`) perfectly preserves IEEE 754 float ordering while allowing the use of the much faster `sort_unstable_by_key`.
+**Action:** When sorting floating-point values in performance-critical loops (especially depth sorting), always use `sort_unstable_by_key` with the fast integer bitwise mapping instead of `partial_cmp`.
