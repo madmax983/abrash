@@ -53,6 +53,10 @@ pub struct Metaballs {
     pub config: MetaballsConfig,
     pub balls: Vec<Metaball>,
     initialized: bool,
+    // ⚡ Bolt: Cache position vectors to avoid per-frame dynamic heap allocations
+    b_xs_cache: Vec<f32>,
+    b_ys_cache: Vec<f32>,
+    b_r_sqs_cache: Vec<f32>,
 }
 
 impl Default for Metaballs {
@@ -68,6 +72,9 @@ impl Metaballs {
             config,
             balls: Vec::new(),
             initialized: false,
+            b_xs_cache: Vec::new(),
+            b_ys_cache: Vec::new(),
+            b_r_sqs_cache: Vec::new(),
         }
     }
 
@@ -130,15 +137,20 @@ impl Metaballs {
         let num_balls = self.balls.len();
 
         // Cache ball positions and square sizes to avoid repeated property access in hot loop
-        let mut b_xs = Vec::with_capacity(num_balls);
-        let mut b_ys = Vec::with_capacity(num_balls);
-        let mut b_r_sqs = Vec::with_capacity(num_balls);
+        // ⚡ Bolt: Use pre-allocated cache vectors to eliminate per-frame dynamic heap allocations.
+        self.b_xs_cache.clear();
+        self.b_ys_cache.clear();
+        self.b_r_sqs_cache.clear();
 
         for ball in &self.balls {
-            b_xs.push(ball.position.x);
-            b_ys.push(ball.position.y);
-            b_r_sqs.push(ball.size * ball.size);
+            self.b_xs_cache.push(ball.position.x);
+            self.b_ys_cache.push(ball.position.y);
+            self.b_r_sqs_cache.push(ball.size * ball.size);
         }
+
+        let b_xs = self.b_xs_cache.as_slice();
+        let b_ys = self.b_ys_cache.as_slice();
+        let b_r_sqs = self.b_r_sqs_cache.as_slice();
 
         #[cfg(feature = "parallel")]
         let iter = pixels.par_chunks_exact_mut(width_u).enumerate();
