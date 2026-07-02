@@ -65,21 +65,19 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     let depths = zb.as_slice();
 
     // 1. Find min and max depth (excluding Infinity)
-    let mut min_z = f32::MAX;
-    let mut max_z = f32::MIN;
-    let mut has_content = false;
-
-    for &z in depths {
-        if z != f32::INFINITY {
-            if z < min_z {
-                min_z = z;
-            }
-            if z > max_z {
-                max_z = z;
-            }
-            has_content = true;
+    #[allow(unused_mut)]
+    let (mut min_z, mut max_z, mut has_content) = {
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe { find_min_max_z_simd(depths) }
+        } else {
+            find_min_max_z_scalar(depths)
         }
-    }
+        #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+        {
+            find_min_max_z_scalar(depths)
+        }
+    };
 
     if !has_content {
         // Nothing drawn, just clear to cold background
@@ -116,6 +114,104 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         // SAFETY: t is strictly clamped to 1023 above, which is within the bounds of the 1024-element LUT.
         *pixel = unsafe { *LUT.get_unchecked(t as usize) };
     }
+}
+
+fn find_min_max_z_scalar(depths: &[f32]) -> (f32, f32, bool) {
+    let mut min_z = f32::MAX;
+    let mut max_z = f32::MIN;
+    let mut has_content = false;
+
+    for &z in depths {
+        if z != f32::INFINITY {
+            if z < min_z {
+                min_z = z;
+            }
+            if z > max_z {
+                max_z = z;
+            }
+            has_content = true;
+        }
+    }
+    (min_z, max_z, has_content)
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+unsafe fn find_min_max_z_simd(depths: &[f32]) -> (f32, f32, bool) {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::*;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::{
+        _CMP_NEQ_OQ, _mm256_and_ps, _mm256_blendv_ps, _mm256_castps_si256, _mm256_cmp_ps,
+        _mm256_loadu_ps, _mm256_max_ps, _mm256_min_ps, _mm256_movemask_epi8, _mm256_set1_ps,
+        _mm256_storeu_ps, _mm256_testz_si256,
+    };
+
+    let len = depths.len();
+    let mut i = 0;
+
+    let inf_vec = _mm256_set1_ps(f32::INFINITY);
+    let mut min_vec = _mm256_set1_ps(f32::MAX);
+    let mut max_vec = _mm256_set1_ps(f32::MIN);
+
+    let mut has_content = false;
+
+    while i + 8 <= len {
+        let depth_ptr = depths.as_ptr().add(i);
+        let depth_val = _mm256_loadu_ps(depth_ptr);
+
+        // depth != f32::INFINITY
+        let is_valid = _mm256_cmp_ps(depth_val, inf_vec, _CMP_NEQ_OQ);
+
+        let mask = _mm256_castps_si256(is_valid);
+        if _mm256_testz_si256(mask, mask) == 0 {
+            has_content = true;
+            // blend min/max updates
+            // if valid, use min(depth_val, min_vec), else keep min_vec
+            let curr_min = _mm256_min_ps(depth_val, min_vec);
+            min_vec = _mm256_blendv_ps(min_vec, curr_min, is_valid);
+
+            let curr_max = _mm256_max_ps(depth_val, max_vec);
+            max_vec = _mm256_blendv_ps(max_vec, curr_max, is_valid);
+        }
+
+        i += 8;
+    }
+
+    // Scalar tail
+    let mut min_z = f32::MAX;
+    let mut max_z = f32::MIN;
+
+    // extract SIMD min/max
+    let mut min_arr = [0.0f32; 8];
+    let mut max_arr = [0.0f32; 8];
+    _mm256_storeu_ps(min_arr.as_mut_ptr(), min_vec);
+    _mm256_storeu_ps(max_arr.as_mut_ptr(), max_vec);
+
+    for v in min_arr {
+        if v < min_z {
+            min_z = v;
+        }
+    }
+    for v in max_arr {
+        if v > max_z {
+            max_z = v;
+        }
+    }
+
+    for &z in &depths[i..len] {
+        if z != f32::INFINITY {
+            if z < min_z {
+                min_z = z;
+            }
+            if z > max_z {
+                max_z = z;
+            }
+            has_content = true;
+        }
+    }
+
+    (min_z, max_z, has_content)
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -306,6 +402,19 @@ mod tests {
         assert_eq!(
             p, 0x00FF_000000,
             "Should remain unchanged default Framebuffer color (Solid Black)"
+        );
+    }
+
+    #[test]
+    fn test_simd_min_max_optimization_present() {
+        let src =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/heat_vision.rs"))
+                .unwrap();
+        let min_simd = format!("{}_{}", "_mm256", "min_ps");
+        let max_simd = format!("{}_{}", "_mm256", "max_ps");
+        assert!(
+            src.contains(&min_simd) && src.contains(&max_simd),
+            "AVX2 min/max instructions not found in heat_vision.rs"
         );
     }
 }

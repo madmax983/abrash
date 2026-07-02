@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Two-Pass SIMD Reduction Optimization]**
+**Learning:** In two-pass algorithms (like `apply_heat_vision` where we first find the `min`/`max` depth and then apply it to pixels), vectorizing the initial scalar reduction loop with AVX2 (`_mm256_min_ps` and `_mm256_max_ps`) can drastically improve performance even if the second pass is already vectorized.
+**Action:** Extract initial reduction loops into `unsafe fn` gated by `target_feature(enable = "avx2")` and perform concurrent minimum and maximum blend reduction across SIMD vectors to eliminate scalar ALU bottlenecks.
