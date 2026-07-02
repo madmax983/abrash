@@ -16,6 +16,34 @@ use rayon::prelude::*;
 /// * `fb`: The Framebuffer to modify.
 /// * `time`: A time variable used to animate the plasma.
 /// * `scale`: A scaling factor for the sine waves (e.g., 0.05).
+
+#[inline]
+pub fn plasma_color_modulo(c: f32) -> u32 {
+    let r = ((c * 255.0) as u32).min(255);
+    let g = (((c + 0.33) % 1.0 * 255.0) as u32).min(255);
+    let b = (((c + 0.66) % 1.0 * 255.0) as u32).min(255);
+    0xFF00_0000 | (r << 16) | (g << 8) | b
+}
+
+#[inline]
+pub fn plasma_color_optimized(c: f32) -> u32 {
+    let r = ((c * 255.0) as u32).min(255);
+
+    let mut cg = c + 0.33;
+    if cg >= 1.0 {
+        cg -= 1.0;
+    }
+    let g = ((cg * 255.0) as u32).min(255);
+
+    let mut cb = c + 0.66;
+    if cb >= 1.0 {
+        cb -= 1.0;
+    }
+    let b = ((cb * 255.0) as u32).min(255);
+
+    0xFF00_0000 | (r << 16) | (g << 8) | b
+}
+
 pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
     if fb.width() == 0 || fb.height() == 0 {
         return;
@@ -55,13 +83,7 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
             let (c_sin, _) = fast_sin_cos(v * std::f32::consts::PI);
             let c = c_sin * 0.5 + 0.5;
 
-            // Map the normalized value to RGB colors
-            // Simple color palette generation based on the phase
-            let r = ((c * 255.0) as u32).min(255);
-            let g = (((c + 0.33) % 1.0 * 255.0) as u32).min(255);
-            let b = (((c + 0.66) % 1.0 * 255.0) as u32).min(255);
-
-            *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+            *pixel = plasma_color_optimized(c);
         }
     });
 }
@@ -69,6 +91,19 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_plasma_color_equivalence() {
+        for i in 0..=100 {
+            let c = i as f32 / 100.0;
+            assert_eq!(
+                super::plasma_color_modulo(c),
+                super::plasma_color_optimized(c),
+                "Mismatch at c={}",
+                c
+            );
+        }
+    }
 
     #[test]
     fn test_apply_plasma_0x0() {
