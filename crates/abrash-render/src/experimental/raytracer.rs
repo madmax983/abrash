@@ -388,7 +388,12 @@ impl RayTracer {
             // Specular (Phong)
             let view_dir = ray.direction * -1.0;
             let reflect_dir = light_dir.reflect(hit.normal).fast_normalize();
-            let spec = reflect_dir.dot(view_dir).max(0.0).powi(32);
+            let mut spec = reflect_dir.dot(view_dir).max(0.0);
+            spec *= spec;
+            spec *= spec;
+            spec *= spec;
+            spec *= spec;
+            spec *= spec;
             let specular = light_color * spec * 0.5;
 
             // Shadow Ray
@@ -530,5 +535,14 @@ mod tests {
         // Extract the red channel. Due to specular/ambient/diffuse, it should be > 0.
         let r = (pixel >> 16) & 0xFF;
         assert!(r > 0, "Red channel should be lit");
+    }
+
+    #[test]
+    fn should_not_use_powi_in_specular() {
+        let src = std::fs::read_to_string("src/experimental/raytracer.rs").unwrap();
+
+        let pattern = format!("{}.powi(32)", "reflect_dir.dot(view_dir).max(0.0)");
+        assert!(!src.contains(&pattern), "powi(32) should be replaced with cascaded multiplications");
+
     }
 }
