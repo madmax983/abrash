@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Thread-Local Static Buffers for Free Functions]**
+**Learning:** To eliminate per-frame dynamic heap allocations (e.g., `Vec::with_capacity`) inside hot free functions where a parent struct cannot cache the vector, hoisting the allocation into a `thread_local! { static BUFFER: std::cell::RefCell<Vec<T>> = const { std::cell::RefCell::new(Vec::new()) }; }` completely eliminates the allocation overhead.
+**Action:** Use thread-local static buffers with `RefCell` and `borrow_mut()` to cache and reuse `Vec` capacity across frames in standalone effect functions (like `apply_god_rays`).

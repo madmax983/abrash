@@ -71,8 +71,13 @@ pub fn apply_god_rays(fb: &mut Framebuffer, config: &GodRaysConfig) {
 
         let density_step = config.density / config.num_samples as f32;
 
-        // Pre-calculate sample weights using fixed-point math (16.16 format for 65536)
-        let mut weights_fixed = Vec::with_capacity(config.num_samples as usize);
+        // ⚡ Bolt: Eliminate per-frame heap allocation for sample weights by using a thread-local buffer.
+        thread_local! {
+            static WEIGHTS_BUFFER: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+        }
+
+        let mut weights_fixed = WEIGHTS_BUFFER.with(std::cell::RefCell::take);
+        weights_fixed.clear();
         let mut decay = 1.0;
         for _ in 0..config.num_samples {
             weights_fixed.push((decay * config.weight * 65536.0) as u32);
@@ -140,6 +145,10 @@ pub fn apply_god_rays(fb: &mut Framebuffer, config: &GodRaysConfig) {
 
                 *pixel = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
             }
+        });
+
+        WEIGHTS_BUFFER.with(|buf| {
+            buf.replace(weights_fixed);
         });
     });
 }
