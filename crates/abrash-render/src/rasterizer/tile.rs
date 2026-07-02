@@ -3022,14 +3022,13 @@ impl TileRenderer {
             }
 
             if indices.len() > 1 {
-                indices.sort_unstable_by(|&a, &b| {
-                    let tri_idx_a = tris[a as usize] as usize;
-                    let tri_idx_b = tris[b as usize] as usize;
-                    let depth_a = unsafe { prepared_gouraud.get_unchecked(tri_idx_a).min_depth };
-                    let depth_b = unsafe { prepared_gouraud.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                // f32_to_bits_ordered perfectly preserves f32 sorting order using integers, making it significantly faster
+                indices.sort_unstable_by_key(|&i| unsafe {
+                    crate::math::funcs::f32_to_bits_ordered(
+                        prepared_gouraud
+                            .get_unchecked(tris[i as usize] as usize)
+                            .min_depth,
+                    )
                 });
 
                 *head = indices[0];
@@ -3545,14 +3544,11 @@ impl TileRenderer {
             }
 
             if indices.len() > 1 {
-                indices.sort_unstable_by(|&a, &b| {
-                    let tri_idx_a = tris[a as usize] as usize;
-                    let tri_idx_b = tris[b as usize] as usize;
-                    let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                // f32_to_bits_ordered perfectly preserves f32 sorting order using integers, making it significantly faster
+                indices.sort_unstable_by_key(|&i| unsafe {
+                    crate::math::funcs::f32_to_bits_ordered(
+                        prepared.get_unchecked(tris[i as usize] as usize).min_depth,
+                    )
                 });
 
                 *head = indices[0];
@@ -3595,14 +3591,13 @@ impl TileRenderer {
             }
 
             if indices.len() > 1 {
-                indices.sort_unstable_by(|&a, &b| {
-                    let tri_idx_a = tris[a as usize] as usize;
-                    let tri_idx_b = tris[b as usize] as usize;
-                    let depth_a = unsafe { prepared_textured.get_unchecked(tri_idx_a).min_depth };
-                    let depth_b = unsafe { prepared_textured.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                // f32_to_bits_ordered perfectly preserves f32 sorting order using integers, making it significantly faster
+                indices.sort_unstable_by_key(|&i| unsafe {
+                    crate::math::funcs::f32_to_bits_ordered(
+                        prepared_textured
+                            .get_unchecked(tris[i as usize] as usize)
+                            .min_depth,
+                    )
                 });
 
                 *head = indices[0];

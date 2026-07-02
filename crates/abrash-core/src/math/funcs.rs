@@ -8539,3 +8539,10 @@ pub fn smith_g_schlick_ggx(n_dot_v: f32, roughness: f32) -> f32 {
 }
 
 // ── Pass 59 tests ─────────────────────────────────────────────────────────────
+
+/// Converts an f32 to a u32 that can be compared as an integer to perfectly preserve the f32 ordering.
+#[inline(always)]
+pub const fn f32_to_bits_ordered(f: f32) -> i32 {
+    let bits = f.to_bits() as i32;
+    if bits < 0 { bits ^ 0x7FFF_FFFF } else { bits }
+}

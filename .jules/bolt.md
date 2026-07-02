@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Fast Float Sorting]
+**Learning:** Float comparisons using `partial_cmp().unwrap_or(...)` in a `sort_unstable_by` are slow due to branching and NaN checks.
+**Action:** Use a fast `f32_to_bits_ordered` conversion that preserves the float ordering using integer math, and switch to `sort_unstable_by_key`. This significantly speeds up triangle depth sorting (~30% faster).
