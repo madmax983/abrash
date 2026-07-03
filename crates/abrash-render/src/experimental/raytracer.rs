@@ -388,7 +388,15 @@ impl RayTracer {
             // Specular (Phong)
             let view_dir = ray.direction * -1.0;
             let reflect_dir = light_dir.reflect(hit.normal).fast_normalize();
-            let spec = reflect_dir.dot(view_dir).max(0.0).powi(32);
+
+            let spec_base = reflect_dir.dot(view_dir).max(0.0);
+            let mut spec = spec_base;
+            spec *= spec;
+            spec *= spec;
+            spec *= spec;
+            spec *= spec;
+            spec *= spec;
+
             let specular = light_color * spec * 0.5;
 
             // Shadow Ray
@@ -453,6 +461,21 @@ impl RayTracer {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn verify_powi_optimization() {
+        let path = std::path::Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/experimental/raytracer.rs"
+        ));
+        let src = std::fs::read_to_string(path).unwrap();
+        let search_pattern = format!(".powi({})", 32);
+        assert!(
+            !src.contains(&search_pattern),
+            "Optimization failed: raytracer still contains .powi({})",
+            32
+        );
+    }
+
     use super::*;
     use crate::math::Mat4;
     use crate::mesh::Mesh;

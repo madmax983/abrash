@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[powi(32) Replacement]**
+**Learning:** In performance-critical paths like the raytracer's Phong specular calculation, using the generic `.powi(32)` function incurs unnecessary overhead. Replacing it with manually unrolled cascade multiplications (`x *= x` repeated 5 times) significantly optimizes the ALU bottleneck by performing the exponentiation directly.
+**Action:** Replaced `.powi(32)` with manual `spec *= spec` operations in `raytracer.rs` to speed up rendering.
