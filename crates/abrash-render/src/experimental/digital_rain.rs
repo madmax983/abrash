@@ -34,6 +34,18 @@ impl DigitalRain {
         Self::default()
     }
 
+    /// ⚡ Bolt: Create a new DigitalRain instance with pre-allocated capacity.
+    /// This eliminates heap reallocations when initially populating the rain drops.
+    #[must_use]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            drops: Vec::with_capacity(capacity),
+            rng: XorShift32::new(0xDEAD_BEEF),
+            cached_width: 0,
+            cached_height: 0,
+        }
+    }
+
     /// Renders the digital rain onto the given framebuffer
     ///
     /// * `fb`: Framebuffer to render to
@@ -52,11 +64,13 @@ impl DigitalRain {
         let columns = (width as f32 / cell_width as f32).ceil() as usize;
 
         if self.cached_width != width || self.cached_height != height {
+            // ⚡ Bolt: Eliminate double-write overhead in `Vec` initialization.
+            // Using `.resize(len, default)` zeroes the memory before we immediately overwrite it.
+            // Using `.reserve_exact` + `.push` initializes the vector in a single pass.
             self.drops.clear();
-            self.drops.resize(columns, 0.0);
-            for d in &mut self.drops {
-                // Randomize initial starting positions so they don't all fall at once
-                *d = self.rng.next_f32() * -(height as f32);
+            self.drops.reserve_exact(columns);
+            for _ in 0..columns {
+                self.drops.push(self.rng.next_f32() * -(height as f32));
             }
             self.cached_width = width;
             self.cached_height = height;

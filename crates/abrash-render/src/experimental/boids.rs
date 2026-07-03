@@ -75,6 +75,17 @@ impl Flock {
         }
     }
 
+    /// ⚡ Bolt: Create a new Flock with pre-allocated capacity for boids.
+    /// This eliminates heap reallocations when registering initial boids.
+    #[must_use]
+    pub fn with_capacity(config: FlockConfig, capacity: usize) -> Self {
+        Self {
+            boids: Vec::with_capacity(capacity),
+            old_boids: Vec::with_capacity(capacity),
+            config,
+        }
+    }
+
     pub fn add_boid(&mut self, boid: Boid) {
         self.boids.push(boid);
     }

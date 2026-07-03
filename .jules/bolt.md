@@ -232,3 +232,11 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[DigitalRain and Flock Capacity Optimization]**
+**Learning:** Initializing `Vec` fields inside structs that represent rapidly growing collections (like particles or boids) with `Vec::new()` causes dynamic heap overallocation when elements are later pushed. Providing explicit `with_capacity()` constructors and using `.reserve_exact` internally eliminates redundant initialization and reallocation.
+**Action:** Use `.reserve_exact()` and `.push()` rather than `.resize(..., 0.0)` when immediately iterating to assign values to elide double-write zeroing overhead. Add `pub fn with_capacity` to collection managers like `Flock` or `DigitalRain` to optimize initialization.
+
+**[Misguided Powi Micro-optimization]**
+**Learning:** Do not manually unroll or replace constant-power `f32::powi()` calls (e.g., `x.powi(32)`) with manual cascaded multiplications. The Rust compiler (via LLVM) automatically lowers these into an identical sequence of efficient multiplications.
+**Action:** Trust LLVM to handle constant-power `powi` correctly. Manual unrolling degrades readability without providing a real performance gain.
