@@ -232,3 +232,10 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+## powi(32) replaced with cascaded multiplications
+**Learning:** `powi(32)` is noticeably slower than direct cascaded multiplications (`*=` five times) in hot rendering paths.
+**Action:** Replaced `spec.powi(32)` with manual multiplications in `raytracer.rs` to elide floating-point ALU bottlenecks.
+
+## % 1.0 replaced with manual conditional subtraction
+**Learning:** Floating-point modulo operations (like `val % 1.0`) are extremely slow in hot loops because they trigger `libm` function calls. Replacing them with conditional subtractions when the domain is bounded (e.g. `< 2.0`) gives massive performance gains.
+**Action:** Replaced `% 1.0` and `% 100` operations in `plasma.rs`, `vhs.rs`, and `pencil_sketch.rs` with manual conditional subtractions.
