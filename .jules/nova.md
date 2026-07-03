@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Datamosh Filter]
+**Concept:** A post-processing effect simulating I-frame video compression artifacts ("datamoshing"). It computes naive block-matching motion vectors from luminance changes between clean frames and smears them onto a persistently cached moshed frame.
+**Fate:** Implemented
+**Lesson:** When building stateful filters that require data from previous frames, do not use `thread_local!` buffers. This causes fatal visual corruption and cross-talk if multiple disparate framebuffers are rendered on the same thread. Always wrap the history in an instantiated struct (e.g. `DatamoshFilter`).

@@ -63,7 +63,6 @@ crossterm = "0.29.0"
 [[bench]]
 name = "plasma_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "math"
@@ -155,22 +154,18 @@ path = "examples/reflection_demo.rs"
 [[example]]
 name = "cloth_demo"
 path = "examples/cloth_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "vision_demo"
 path = "examples/vision_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "pixel_sort_demo"
 path = "examples/pixel_sort_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "anaglyph_demo"
 path = "examples/anaglyph_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "gltf_viewer"
@@ -184,12 +179,10 @@ path = "examples/god_rays_demo.rs"
 [[example]]
 name = "voronoi_demo"
 path = "examples/voronoi_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "ascii_display_demo"
 path = "examples/ascii_display_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "gamma_bench"
@@ -418,7 +411,6 @@ harness = false
 [[bench]]
 name = "softbody_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "z_cull"
@@ -439,47 +431,38 @@ harness = false
 [[bench]]
 name = "pixelate_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "arboretum_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "crosshatch_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "sharpen_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "crt_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "kaleidoscope_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "fast_atan2_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "directional_blur_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "emboss_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "cylinder_bench"
@@ -492,22 +475,18 @@ harness = false
 [[example]]
 name = "chromatic_aberration_demo"
 path = "examples/chromatic_aberration_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "directional_blur_demo"
 path = "examples/directional_blur_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "chromatic_aberration_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "kuwahara_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "film_grain_bench"
@@ -520,12 +499,10 @@ harness = false
 [[bench]]
 name = "mesh_modifiers_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "voxelizer_bench"
 harness = false
-required-features = ["nova"]
 
 [[bin]]
 name = "run_film_grain"
@@ -538,12 +515,10 @@ harness = false
 [[bench]]
 name = "lsystem_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "posterize_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "vec3_reflect_bench"
@@ -552,137 +527,110 @@ harness = false
 [[bench]]
 name = "autostereogram_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "ascii_display_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "water_ripple_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "halftone_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "voronoi_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "duotone_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "swirl_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "vignette_bench"
 harness = false
-required-features = ["nova"]
 
 [[example]]
 name = "vignette_demo"
 path = "examples/vignette_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "swirl_demo"
 path = "examples/swirl_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "wobble_demo"
 path = "examples/wobble_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "tilt_shift_bench"
 harness = false
-required-features = ["nova"]
 
 [[example]]
 name = "tilt_shift_demo"
 path = "examples/tilt_shift_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "sonar_bench"
 harness = false
-required-features = ["nova"]
 
 [[example]]
 name = "sonar_demo"
 path = "examples/sonar_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "halftone_demo"
 path = "examples/halftone_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "led_matrix_demo"
 path = "examples/led_matrix_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "pop_art_demo"
 path = "examples/pop_art_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "fisheye_demo"
 path = "examples/fisheye_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "glitch_demo"
 path = "examples/glitch_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "vision_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "pop_art_bench"
 harness = false
-required-features = ["nova"]
 
 [[example]]
 name = "slitscan_demo"
 path = "examples/slitscan_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "melt_demo"
 path = "examples/melt_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "black_hole_demo"
 path = "examples/black_hole_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "dither_demo"
 path = "examples/dither_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "vhs_demo"
 path = "examples/vhs_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "raycast_demo"
@@ -691,12 +639,10 @@ path = "examples/raycast_demo.rs"
 [[bench]]
 name = "black_hole_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "dither_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "bam_bench"
@@ -721,42 +667,34 @@ harness = false
 [[bench]]
 name = "mode7_bench"
 harness = false
-required-features = ["nova"]
 
 [[example]]
 name = "brickify_demo"
 path = "examples/brickify_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "hologram_demo"
 path = "examples/hologram_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "mode7_demo"
 path = "examples/mode7_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "night_vision_demo"
 path = "examples/night_vision_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "night_vision_bench"
 harness = false
-required-features = ["nova"]
 
 [[example]]
 name = "plasma_demo"
 path = "examples/plasma_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "starfield_demo"
 path = "examples/starfield_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "sdf_imprecise_flops"
@@ -771,67 +709,54 @@ path = "benches/scanline_jitter_bench.rs"
 [[example]]
 name = "digital_rain_demo"
 path = "examples/digital_rain_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "frosted_glass_demo"
 path = "examples/frosted_glass_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "steganography_demo"
 path = "examples/steganography_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "reaction_diffusion_demo"
 path = "examples/reaction_diffusion_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "fractal_demo"
 path = "examples/fractal_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "jelly_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "fractal_bench"
 harness = false
-required-features = ["nova"]
 
 [[example]]
 name = "selective_color_demo"
 path = "examples/selective_color_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "color_splash_bench"
 harness = false
-required-features = ["nova"]
 
 [[example]]
 name = "mandelbrot_demo"
 path = "examples/mandelbrot_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "metaballs_demo"
 path = "examples/metaballs_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "mandelbrot_bench"
 harness = false
-required-features = ["nova"]
 
 [[example]]
 name = "color_splash_demo"
 path = "examples/color_splash_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "gamma_demo"
@@ -840,47 +765,38 @@ path = "examples/gamma_demo.rs"
 [[bench]]
 name = "pencil_sketch_bench"
 harness = false
-required-features = ["nova"]
 
 [[example]]
 name = "pencil_sketch_demo"
 path = "examples/pencil_sketch_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "fire_demo"
 path = "examples/fire_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "rect_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "speed_lines_bench"
 harness = false
-required-features = ["nova"]
 
 [[example]]
 name = "speed_lines_demo"
 path = "examples/speed_lines_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "topography_demo"
 path = "examples/topography_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "harmonograph_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "neon_outline_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "solarize_bench"
@@ -889,22 +805,18 @@ harness = false
 [[example]]
 name = "cel_shade_demo"
 path = "examples/cel_shade_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "cel_shade_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "conway_bench"
 harness = false
-required-features = ["nova"]
 
 [[example]]
 name = "conway_demo"
 path = "examples/conway_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "clear_rect_opt_bench"
@@ -913,22 +825,18 @@ harness = false
 [[example]]
 name = "cross_stitch_demo"
 path = "examples/cross_stitch_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "speed_lines_hypot_bench"
 harness = false
-required-features = ["nova"]
 
 [[example]]
 name = "mosaic_demo"
 path = "examples/mosaic_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "mosaic_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "offscreen_rect_bench"
@@ -937,17 +845,14 @@ harness = false
 [[bench]]
 name = "droste_bench"
 harness = false
-required-features = ["nova"]
 
 [[example]]
 name = "magnifying_glass_demo"
 path = "examples/magnifying_glass_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "droste_demo"
 path = "examples/droste_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "zbuffer_clear_rect_extreme_bench"
@@ -956,22 +861,18 @@ harness = false
 [[example]]
 name = "physarum_demo"
 path = "examples/physarum_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "physarum_bench"
 harness = false
-required-features = ["nova"]
 
 [[example]]
 name = "tunnel_demo"
 path = "examples/tunnel_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "tunnel_bench"
 harness = false
-required-features = ["nova"]
 
 [[example]]
 name = "infinite_grid_demo"
@@ -984,3 +885,8 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[bench]]
+name = "datamosh_bench"
+harness = false
+required-features = ["nova"]
