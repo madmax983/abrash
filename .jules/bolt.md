@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**Float Sorting in Hot Paths (Tile Rendering)**
+**Learning:** `partial_cmp().unwrap_or(...)` used in `sort_unstable_by` introduces significant branching overhead and NaN checks when sorting depth buffers in tight rendering loops, reducing overall FPS.
+**Action:** Replace `sort_unstable_by` with `sort_unstable_by_key` and manually map the IEEE 754 floats to a strictly monotonic integer using bitwise operations (`if bits < 0 { bits ^ 0x7FFF_FFFF } else { bits }`). This fast integer mapping allows `sort_unstable_by_key` to sort floats massively faster without panicking on NaN.

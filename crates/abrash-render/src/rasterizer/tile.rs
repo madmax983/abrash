@@ -3022,14 +3022,11 @@ impl TileRenderer {
             }
 
             if indices.len() > 1 {
-                indices.sort_unstable_by(|&a, &b| {
-                    let tri_idx_a = tris[a as usize] as usize;
-                    let tri_idx_b = tris[b as usize] as usize;
-                    let depth_a = unsafe { prepared_gouraud.get_unchecked(tri_idx_a).min_depth };
-                    let depth_b = unsafe { prepared_gouraud.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                indices.sort_unstable_by_key(|&idx| {
+                    let tri_idx = tris[idx as usize] as usize;
+                    let depth = unsafe { prepared_gouraud.get_unchecked(tri_idx).min_depth };
+                    let bits = depth.to_bits() as i32;
+                    if bits < 0 { bits ^ 0x7FFF_FFFF } else { bits }
                 });
 
                 *head = indices[0];
@@ -3545,14 +3542,11 @@ impl TileRenderer {
             }
 
             if indices.len() > 1 {
-                indices.sort_unstable_by(|&a, &b| {
-                    let tri_idx_a = tris[a as usize] as usize;
-                    let tri_idx_b = tris[b as usize] as usize;
-                    let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                indices.sort_unstable_by_key(|&idx| {
+                    let tri_idx = tris[idx as usize] as usize;
+                    let depth = unsafe { prepared.get_unchecked(tri_idx).min_depth };
+                    let bits = depth.to_bits() as i32;
+                    if bits < 0 { bits ^ 0x7FFF_FFFF } else { bits }
                 });
 
                 *head = indices[0];
@@ -3595,14 +3589,11 @@ impl TileRenderer {
             }
 
             if indices.len() > 1 {
-                indices.sort_unstable_by(|&a, &b| {
-                    let tri_idx_a = tris[a as usize] as usize;
-                    let tri_idx_b = tris[b as usize] as usize;
-                    let depth_a = unsafe { prepared_textured.get_unchecked(tri_idx_a).min_depth };
-                    let depth_b = unsafe { prepared_textured.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                indices.sort_unstable_by_key(|&idx| {
+                    let tri_idx = tris[idx as usize] as usize;
+                    let depth = unsafe { prepared_textured.get_unchecked(tri_idx).min_depth };
+                    let bits = depth.to_bits() as i32;
+                    if bits < 0 { bits ^ 0x7FFF_FFFF } else { bits }
                 });
 
                 *head = indices[0];
@@ -5146,5 +5137,22 @@ mod tile_bins_tests {
         bins.push(0, 10);
         let items: Vec<usize> = bins.iter(0).collect();
         assert_eq!(items, vec![10]);
+    }
+}
+
+#[cfg(test)]
+mod bolt_tests {
+    #[test]
+    fn test_bolt_fast_sort_optimization() {
+        let source_code = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/rasterizer/tile.rs"
+        ))
+        .unwrap();
+        let slow_cmp = format!("partial_{}", "cmp");
+        assert!(
+            !source_code.contains(&slow_cmp),
+            "Found slow float sorting! Replace with integer-based float mapping and sort_unstable_by_key."
+        );
     }
 }
