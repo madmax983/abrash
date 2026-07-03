@@ -232,3 +232,9 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+## 2024-XX-XX - Optimizing Sort by Key
+**Learning:** Replaced slow  float comparisons in  with  using bit-level integer mapping for  depth values. This prevents branching and NaN checks in hot loops.
+**Action:** Replaced float sorting in tile rendering.
+## 2024-XX-XX - Optimizing Sort by Key
+**Learning:** Replaced slow `partial_cmp` float comparisons in `sort_unstable_by` with `sort_unstable_by_key` using bit-level integer mapping for `f32` depth values. This prevents branching and NaN checks in hot loops.
+**Action:** Replaced float sorting in tile rendering.
