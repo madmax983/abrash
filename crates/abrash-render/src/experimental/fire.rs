@@ -24,6 +24,10 @@ pub fn apply_fire(fb: &mut Framebuffer, cooling_map: &[u8]) {
         return;
     }
 
+    if cooling_map.len() < width * height {
+        return;
+    }
+
     thread_local! {
         static SRC_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
     }
@@ -104,5 +108,12 @@ mod tests {
         let pixel = fb.get_pixel(1, 1).unwrap();
         let red = (pixel >> 16) & 0xFF;
         assert!(red > 0, "Heat did not propagate upwards");
+    }
+
+    #[test]
+    fn test_apply_fire_does_not_panic_with_invalid_cooling_map() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let cooling_map = vec![0; 5]; // smaller than 100
+        apply_fire(&mut fb, &cooling_map); // Should return early, not panic
     }
 }
