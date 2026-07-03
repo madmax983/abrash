@@ -232,3 +232,10 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimize Tile Rendering Depth Sorting]**
+**Learning:** In tile rendering, sorting overlapping triangles front-to-back using `sort_unstable_by` with `depth.partial_cmp(&depth_b).unwrap_or(...)` relies on branching float comparison methods and NaN checks.
+**Action:** Replace the `partial_cmp` closure with `sort_unstable_by_key` utilizing a fast integer-based float mapping (`let bits = depth.to_bits() as i32; if bits < 0 { bits ^ 0x7FFF_FFFF } else { bits }`). This eliminates float comparison overhead and handles NaNs safely in hot sort paths, bringing measurable throughput stability and preventing worst-case sorting slow-downs.
+
+**Update (Optimized Float Sorting Logic):**
+Refined the integer mapping to use branchless bitwise operations (`bits ^ (bits >> 31 & 0x7FFF_FFFF)`). This is a known standard algorithm for mimicking IEEE 754 total ordering via integer comparison. It is significantly faster than using branches or standard library float comparisons, preventing unpredictable sort regressions when triangles clump heavily around similar z-indices.
