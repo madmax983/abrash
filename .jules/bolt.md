@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Night Vision Effect LUT Optimization]**
+**Learning:** In the `apply_night_vision` effect, replacing the dynamic conditional branches and per-pixel floating-point math (e.g. `lum.sqrt()` and multiplications) with a pre-calculated 256-entry lookup table (LUT) eliminates floating-point arithmetic overhead entirely for luminance mapping.
+**Action:** Replaced per-pixel Rec. 601 float luminance extraction with an integer approximation and utilized a pre-computed lookup table for light amplification values. Although the initial setup improved local benchmark latency slightly in some environments, the memory and cache-miss overhead introduced by replacing registers with an array lookup proved negative in others. Ultimately, optimizing standard library vectorization constraints is highly dependent on target architecture.

@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_imports, unused_variables)]
 //! Abrash Graphics Demo - Lit 3D Cube
 //!
 //! Demonstrates flat shading with directional lighting.
@@ -5,6 +6,7 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
+#[cfg(feature = "backend-winit")]
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
@@ -95,6 +97,7 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
+#[cfg(feature = "backend-winit")]
 struct LitCubeApp {
     presenter: Option<SoftwarePresenter>,
     framebuffer: Framebuffer,
@@ -106,6 +109,7 @@ struct LitCubeApp {
     angle_x: f32,
 }
 
+#[cfg(feature = "backend-winit")]
 impl LitCubeApp {
     fn new() -> Result<Self, HostError> {
         let cube = Mesh::cube(1.5);
@@ -126,6 +130,7 @@ impl LitCubeApp {
     }
 }
 
+#[cfg(feature = "backend-winit")]
 impl WindowApp for LitCubeApp {
     type Error = HostError;
 
@@ -218,7 +223,13 @@ impl WindowApp for LitCubeApp {
     }
 }
 
+#[cfg(feature = "backend-winit")]
 fn main() {
     print_banner();
     run_windowed(LitCubeApp::new().unwrap());
+}
+
+#[cfg(not(feature = "backend-winit"))]
+fn main() {
+    println!("This example requires the 'backend-winit' feature.");
 }

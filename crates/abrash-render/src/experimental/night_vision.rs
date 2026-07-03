@@ -62,6 +62,15 @@ pub fn apply_night_vision(fb: &mut Framebuffer, config: &NightVisionConfig) {
 
     let dest_pixels = fb.as_mut_slice();
 
+    // Pre-calculate luminance mapping LUT to avoid per-pixel float math
+    let mut amp_lut = [0.0f32; 256];
+    for lum_int in 0..=255 {
+        let lum = (lum_int as f32) / 255.0;
+        let sqrt_lum = lum.sqrt();
+        amp_lut[lum_int as usize] =
+            (sqrt_lum * sqrt_lum.sqrt() * config.amplification).clamp(0.0, 1.0);
+    }
+
     #[cfg(feature = "parallel")]
     let row_iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
     #[cfg(not(feature = "parallel"))]
@@ -76,30 +85,31 @@ pub fn apply_night_vision(fb: &mut Framebuffer, config: &NightVisionConfig) {
 
         for (x, pixel) in row.iter_mut().enumerate() {
             let p = *pixel;
-            let r = ((p >> 16) & 0xFF) as f32 / 255.0;
-            let g = ((p >> 8) & 0xFF) as f32 / 255.0;
-            let b = (p & 0xFF) as f32 / 255.0;
+            let r_int = (p >> 16) & 0xFF;
+            let g_int = (p >> 8) & 0xFF;
+            let b_int = p & 0xFF;
 
-            // 1. Calculate luminance (Standard Rec. 601)
-            let lum = 0.299 * r + 0.587 * g + 0.114 * b;
+            // 1. Calculate luminance (Standard Rec. 601) using integer math
+            let lum_int = (r_int * 77 + g_int * 150 + b_int * 29) >> 8;
 
-            // 2. Light Amplification (boost darks using a fast sqrt curve approximation ~ x^0.75)
-            // A curve < 1.0 boosts lower values more than higher values.
-            // Note: x^0.75 is a close and fast approximation to x^0.65
-            let sqrt_lum = lum.sqrt();
-            let amplified = (sqrt_lum * sqrt_lum.sqrt() * config.amplification).clamp(0.0, 1.0);
+            // 2. Light Amplification from LUT
+            let amplified = amp_lut[lum_int as usize];
 
-            // 3. Green Phosphor Tint (P43 Phosphor roughly)
-            // Mostly green, some blue, tiny bit of red
+            let r = r_int as f32 / 255.0;
+            let g = g_int as f32 / 255.0;
+            let b = b_int as f32 / 255.0;
+
+            // 3. Green Phosphor Tint
             let mut out_r = amplified * 0.1 * config.green_tint;
             let mut out_g = amplified * 0.95 * config.green_tint;
             let mut out_b = amplified * 0.2 * config.green_tint;
 
             // Blend with original if green_tint < 1.0
             if config.green_tint < 1.0 {
-                out_r = r * (1.0 - config.green_tint) + out_r;
-                out_g = g * (1.0 - config.green_tint) + out_g;
-                out_b = b * (1.0 - config.green_tint) + out_b;
+                let inv_tint = 1.0 - config.green_tint;
+                out_r += r * inv_tint;
+                out_g += g * inv_tint;
+                out_b += b * inv_tint;
             }
 
             // 4. Procedural High-Frequency Noise

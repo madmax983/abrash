@@ -1,4 +1,6 @@
+#![allow(dead_code, unused_imports, unused_variables)]
 use abrash::framebuffer::Framebuffer;
+#[cfg(feature = "backend-winit")]
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
@@ -49,6 +51,7 @@ const WIDTH: u32 = 640;
 const HEIGHT: u32 = 480;
 const TITLE: &str = "🌟 Nova: Fire Effect Demo";
 
+#[cfg(feature = "backend-winit")]
 struct FireDemoApp {
     presenter: Option<SoftwarePresenter>,
     framebuffer: Framebuffer,
@@ -56,6 +59,7 @@ struct FireDemoApp {
     rng: XorShift32,
 }
 
+#[cfg(feature = "backend-winit")]
 impl FireDemoApp {
     fn new() -> Result<Self, HostError> {
         Ok(Self {
@@ -78,6 +82,7 @@ impl FireDemoApp {
     }
 }
 
+#[cfg(feature = "backend-winit")]
 impl WindowApp for FireDemoApp {
     type Error = HostError;
 
@@ -139,9 +144,15 @@ impl WindowApp for FireDemoApp {
     }
 }
 
+#[cfg(feature = "backend-winit")]
 fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
     run_windowed(FireDemoApp::new().unwrap());
+}
+
+#[cfg(not(feature = "backend-winit"))]
+fn main() {
+    println!("This example requires the 'backend-winit' feature.");
 }
