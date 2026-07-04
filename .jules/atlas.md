@@ -125,3 +125,6 @@
 1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
 2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors.
 3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
+## Extracting Cubemap to abrash-core to break circular dependency
+**Tangle:** A circular dependency existed between `abrash-render::skybox` and `abrash-render::rasterizer`. The rasterizer's `reflection` and `phong` routines imported `Cubemap` from `skybox`, while `skybox` imported `fill_quad_textured` from the `rasterizer` module to draw itself.
+**Blueprint:** Extracted the `Cubemap` data type (which only relies on core `Vec3` and `Texture`) from `abrash-render::skybox` down into a new `abrash-core::skybox` module. Now `abrash-render::skybox` and `abrash-render::rasterizer` both depend cleanly on the core type without tangling with each other, enforcing a unidirectional graph (Core <- Render).

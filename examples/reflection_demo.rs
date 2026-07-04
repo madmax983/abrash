@@ -1,9 +1,9 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::rasterizer::fill_triangle_reflection;
-use abrash::skybox::Cubemap;
 use abrash::texture::Texture;
 use abrash::zbuffer::ZBuffer;
+use abrash_core::skybox::Cubemap;
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
 use std::time::Instant;

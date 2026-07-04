@@ -3,9 +3,10 @@ use abrash::math::{Mat4, Vec3};
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
-use abrash::skybox::{Cubemap, draw_skybox};
+use abrash::skybox::draw_skybox;
 use abrash::texture::Texture;
 use abrash::zbuffer::ZBuffer;
+use abrash_core::skybox::Cubemap;
 use std::time::Instant;
 
 use comfy_table::{Cell, Color, Table, presets};

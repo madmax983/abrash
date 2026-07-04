@@ -21,6 +21,7 @@ pub use abrash_core::hiz_buffer;
 pub use abrash_core::math;
 pub use abrash_core::mesh;
 pub use abrash_core::obj_loader;
+pub use abrash_core::skybox::Cubemap;
 pub use abrash_core::texture;
 pub use abrash_core::time;
 pub use abrash_core::utils;

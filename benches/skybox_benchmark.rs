@@ -1,8 +1,9 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
-use abrash::skybox::{Cubemap, draw_skybox};
+use abrash::skybox::draw_skybox;
 use abrash::texture::Texture;
 use abrash::zbuffer::ZBuffer;
+use abrash_core::skybox::Cubemap;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_skybox_render(c: &mut Criterion) {
