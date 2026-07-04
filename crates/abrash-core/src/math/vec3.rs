@@ -245,7 +245,7 @@ impl Vec3 {
         }
     }
 
-    /// Returns a normalized unit vector using fast inverse square root approximation.
+    /// Returns a normalized unit vector using fast inverse square root approximation (`sqrt().recip()`).
     ///
     /// This is faster than `normalize()` but slightly less accurate.
     /// Useful for lighting calculations where extreme precision is not required.
@@ -259,7 +259,7 @@ impl Vec3 {
     pub fn fast_normalize(self) -> Self {
         let len_sq = self.length_sq();
         if len_sq > 0.000_000_01 {
-            let inv_len = fast_inv_sqrt(len_sq);
+            let inv_len = len_sq.sqrt().recip();
             Self {
                 x: self.x * inv_len,
                 y: self.y * inv_len,

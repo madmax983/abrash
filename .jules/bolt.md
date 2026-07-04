@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**Replace fast_inv_sqrt with sqrt().recip()**
+**Learning:** The custom `fast_inv_sqrt` function (based on the Quake III algorithm) is actually slower and less precise on modern x86_64 architectures than calling the standard library's `sqrt().recip()`, which uses highly optimized hardware instructions.
+**Action:** Replaced `fast_inv_sqrt` with `sqrt().recip()` in `Vec3::fast_normalize`, resulting in a measurable performance improvement (e.g. ~4-6% faster in `vec3_fast_normalize` benchmark).
