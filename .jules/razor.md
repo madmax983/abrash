@@ -21,3 +21,7 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+## [Reduction]
+**Bloat:** `ChannelTarget` enum that perfectly duplicates the implicit state of the variants of `ChannelValues`
+**Cut:** Deleted `ChannelTarget` enum, removed `target` field from `AnimationChannel`, simplified parsing in `gltf_loader.rs` and match statements in `animator.rs`.
+**Saved:** Redundant structural complexity and single variant matches.

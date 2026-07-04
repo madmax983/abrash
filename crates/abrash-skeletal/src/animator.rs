@@ -10,7 +10,7 @@ use abrash_core::quat::Quat;
 use abrash_anim::clock::PlaybackMode;
 use abrash_anim::timeline::Timeline;
 
-use crate::clip::{AnimationClip, ChannelTarget, ChannelValues};
+use crate::clip::{AnimationClip, ChannelValues};
 use crate::clip_evaluable::{channel_to_quat_evaluable, channel_to_vec3_evaluable};
 use crate::pose::Pose;
 use crate::skeleton::Skeleton;
@@ -66,23 +66,22 @@ impl SkeletonAnimator {
             }
 
             let animator = &mut bone_animators[joint_idx];
-            match (&channel.target, &channel.values) {
-                (ChannelTarget::Translation, ChannelValues::Translation(_)) => {
+            match &channel.values {
+                ChannelValues::Translation(_) => {
                     let evaluable = channel_to_vec3_evaluable(channel);
                     let tl = Timeline::from_evaluable(evaluable, playback);
                     animator.position = Some(tl);
                 }
-                (ChannelTarget::Rotation, ChannelValues::Rotation(_)) => {
+                ChannelValues::Rotation(_) => {
                     let evaluable = channel_to_quat_evaluable(channel);
                     let tl = Timeline::from_evaluable(evaluable, playback);
                     animator.rotation = Some(tl);
                 }
-                (ChannelTarget::Scale, ChannelValues::Scale(_)) => {
+                ChannelValues::Scale(_) => {
                     let evaluable = channel_to_vec3_evaluable(channel);
                     let tl = Timeline::from_evaluable(evaluable, playback);
                     animator.scale = Some(tl);
                 }
-                _ => {} // Mismatched target/values — skip
             }
         }
 
@@ -150,7 +149,7 @@ impl SkeletonAnimator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::clip::{AnimationChannel, ChannelTarget, ChannelValues};
+    use crate::clip::{AnimationChannel, ChannelValues};
     use crate::skeleton::{Joint, JointId};
     use abrash_core::math::Mat4;
     use std::f32::consts::FRAC_PI_2;
@@ -209,7 +208,6 @@ mod tests {
             duration: 2.0,
             channels: vec![AnimationChannel {
                 joint: JointId(0),
-                target: ChannelTarget::Translation,
                 timestamps: vec![0.0, 2.0],
                 values: ChannelValues::Translation(vec![Vec3::ZERO, Vec3::new(10.0, 0.0, 0.0)]),
             }],
@@ -236,13 +234,11 @@ mod tests {
             channels: vec![
                 AnimationChannel {
                     joint: JointId(0),
-                    target: ChannelTarget::Translation,
                     timestamps: vec![0.0, 1.0],
                     values: ChannelValues::Translation(vec![Vec3::ZERO, Vec3::new(5.0, 0.0, 0.0)]),
                 },
                 AnimationChannel {
                     joint: JointId(1),
-                    target: ChannelTarget::Rotation,
                     timestamps: vec![0.0, 1.0],
                     values: ChannelValues::Rotation(vec![
                         Quat::identity(),
@@ -271,7 +267,6 @@ mod tests {
             duration: 1.0,
             channels: vec![AnimationChannel {
                 joint: JointId(0),
-                target: ChannelTarget::Translation,
                 timestamps: vec![0.0, 1.0],
                 values: ChannelValues::Translation(vec![Vec3::ZERO, Vec3::ONE]),
             }],
@@ -297,7 +292,6 @@ mod tests {
             duration: 1.0,
             channels: vec![AnimationChannel {
                 joint: JointId(0),
-                target: ChannelTarget::Translation,
                 timestamps: vec![0.0, 1.0],
                 values: ChannelValues::Translation(vec![Vec3::ZERO, Vec3::new(10.0, 0.0, 0.0)]),
             }],
@@ -349,7 +343,6 @@ mod tests {
             duration: 1.0,
             channels: vec![AnimationChannel {
                 joint: JointId(99), // Out of range
-                target: ChannelTarget::Translation,
                 timestamps: vec![0.0, 1.0],
                 values: ChannelValues::Translation(vec![Vec3::ZERO, Vec3::ONE]),
             }],
@@ -402,7 +395,6 @@ mod tests {
             duration: 1.0,
             channels: vec![AnimationChannel {
                 joint: JointId(0),
-                target: ChannelTarget::Translation,
                 timestamps: vec![0.0, 1.0],
                 values: ChannelValues::Translation(vec![Vec3::ZERO, target_pos]),
             }],
