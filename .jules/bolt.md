@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[HashSet allocation in Jelly Physics engine simulation]**
+**Learning:** Changing the implementation from `std::collections::HashSet` to `foldhash::HashSet` can result in performance gains due to foldhash's extremely fast algorithmic implementation, and reduces string key collisions.
+**Action:** Prefer `foldhash::HashSet` when memory operations involve simple keys like coordinates and indices inside tight loops.

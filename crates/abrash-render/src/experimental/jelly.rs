@@ -8,7 +8,9 @@
 use super::sdf::SdfScene;
 use crate::math::{Vec3, Vec4};
 use crate::mesh::Mesh;
-use std::collections::HashSet;
+// ⚡ Bolt: Uses `foldhash::HashSet` with a fast hasher instead of std::collections::HashSet.
+// Reduces CPU execution time in jelly physics simulation by avoiding SipHash overhead on simple integer types.
+use foldhash::{HashSet, HashSetExt};
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[target_feature(enable = "avx2")]
