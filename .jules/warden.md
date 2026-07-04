@@ -24,3 +24,18 @@
 ## 2026-04-18 - [Heap Buffer Overflow in Pixel Sort via Unchecked SendPtr]
 **Threat:** The `SendPtr` wrapper inside `crates/abrash-render/src/experimental/pixel_sort.rs` lacked a length parameter and blindly added indices to the raw pointer via `*ptr.0.add(...)`. If a framebuffer lied about its dimensions or if sorting logic failed, it would lead to a catastrophic out-of-bounds heap read/write.
 **Defense:** Rewrote `SendPtr` to capture and store the length of the slice at instantiation. Replaced direct raw pointer dereferencing with safe `read()` and `write()` methods containing an `assert!(index < self.1, "Index out of bounds")` guard before evaluating the `unsafe` block.
+**2025-01-20 - [memmap2 Unchecked Pointer Offset]**
+**Threat:** Unchecked pointer offset in `memmap2` (RUSTSEC-2026-0186).
+**Defense:** Bumped `memmap2` to version `0.9.11`.
+
+**2025-01-20 - [rand Unsound Custom Logger]**
+**Threat:** `rand` is unsound with a custom logger using `rand::rng()` (RUSTSEC-2026-0097).
+**Defense:** Bumped `rand` from `0.8.5` to `0.8.6` and `0.9.2` to `0.9.4`.
+
+**2025-01-20 - [imageproc Fragile Bounds Check]**
+**Threat:** Fragile bounds check when sampling from image (RUSTSEC-2026-0115, RUSTSEC-2026-0117).
+**Defense:** Bumped `imageproc` from `0.25.0` to `0.25.1`.
+
+**2025-01-20 - [anyhow Unsoundness]**
+**Threat:** Unsoundness in `Error::downcast_mut()` (RUSTSEC-2026-0190).
+**Defense:** Bumped `anyhow` from `1.0.102` to `1.0.103`.
