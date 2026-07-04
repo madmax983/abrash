@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Thread Local String Caching]**
+**Learning:** In hot functions like `LSystem::expand()` that have a fallback path repeatedly generating and mutating large `String` buffers per frame, unconditionally allocating `String::new()` dynamically places significant pressure on the heap allocator.
+**Action:** Hoist the string allocations into a `thread_local!` buffer pair (`RefCell<(String, String)>`) within the fallback block, similar to the ASCII fast path, and clear/reuse the capacity.
