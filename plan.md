@@ -1,11 +1,8 @@
-1.  **Refactor Heat Vision to Fixed Point Math**
-    - The current `heat_vision.rs` uses floating-point math (`(normalized - 0.25) * 4.0`, etc.) inside a hot pixel loop to map depths to colors.
-    - We will follow the `[Posterize Float to Integer Math Optimization]` learning from `.jules/bolt.md` to map `0.0..1.0` depth range into integer `0..255`, and calculate RGB entirely using integer math (`t * 255 / scale`, etc.).
-    - We will pre-calculate `min_z` and `max_z` like before, calculate a `z_range` integer mapping multiplier, and use simple `(depth - min_z) * scale` to avoid floats in the main loop.
-2.  **Ensure Correctness**
-    - Ensure all existing tests in `heat_vision.rs` pass.
-3.  **Run Benchmark**
-    - Ensure `cargo bench --bench heat_vision_bench` runs successfully and shows performance improvements.
-4.  **Complete pre commit steps**
-    - Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done.
-5.  **Submit PR**
+1. **Verify Files**
+   - Run `run_in_bash_session` to verify the failing test (`crates/abrash-core/tests/obj_loader_havoc.rs`) and the report (`HAVOC_OBJ_LOADER_REPORT.md`) have been created correctly.
+2. **Run Test Suite**
+   - Run the test suite across the workspace using `run_in_bash_session` with the command `cargo test --workspace --features "nova parallel"`.
+3. **Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.**
+   - Call `pre_commit_instructions` tool to get the required checks and perform them.
+4. **Submit the PR**
+   - Use `run_in_bash_session` with exact git commands to stage and commit the files: `git add crates/abrash-core/tests/obj_loader_havoc.rs HAVOC_OBJ_LOADER_REPORT.md` followed by `git commit -m "👺 Havoc: OBJ Loader Excessive Face Vertices Memory Exhaustion"`.
