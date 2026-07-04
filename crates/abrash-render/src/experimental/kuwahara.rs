@@ -147,12 +147,9 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
     KUWAHARA_BUFFER.with(|buf| {
         let mut src_fb_vec = buf.borrow_mut();
         let size = (width * height) as usize;
-        if src_fb_vec.len() < size {
-            src_fb_vec.resize(size, 0);
-        }
-
-        let src_fb = &mut src_fb_vec[..size];
-        src_fb.copy_from_slice(fb.as_slice());
+        src_fb_vec.clear();
+        src_fb_vec.extend_from_slice(fb.as_slice());
+        let src_fb = src_fb_vec.as_slice();
 
         let dest_pixels = fb.as_mut_slice();
 

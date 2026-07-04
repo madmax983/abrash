@@ -56,10 +56,8 @@ pub fn apply_droste(fb: &mut Framebuffer, config: &DrosteConfig) {
     // Cache the original framebuffer to prevent read-after-write aliasing
     SOURCE_BUFFER.with(|buf| {
         let mut b = buf.borrow_mut();
-        if b.len() < len {
-            b.resize(len, 0);
-        }
-        b[..len].copy_from_slice(fb.as_slice());
+        b.clear();
+        b.extend_from_slice(fb.as_slice());
     });
 
     let dest_pixels = fb.as_mut_slice();

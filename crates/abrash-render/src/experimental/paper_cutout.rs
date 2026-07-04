@@ -94,10 +94,8 @@ pub fn apply_paper_cutout(fb: &mut Framebuffer, zb: &ZBuffer, config: &PaperCuto
 
     // Extract buffers from thread local to avoid borrow panics during rayon stealing
     let mut src = SRC_BUFFER.with(|buf| std::mem::take(&mut *buf.borrow_mut()));
-    if src.len() < len {
-        src.resize(len, 0);
-    }
-    src[..len].copy_from_slice(pixels);
+    src.clear();
+    src.extend_from_slice(pixels);
 
     let mut layers_arr = LAYER_BUFFER.with(|buf| std::mem::take(&mut *buf.borrow_mut()));
     if layers_arr.len() < len {

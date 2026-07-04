@@ -31,10 +31,8 @@ pub fn apply_fire(fb: &mut Framebuffer, cooling_map: &[u8]) {
     SRC_BUFFER.with(|src_buf| {
         let mut src_vec = src_buf.borrow_mut();
         let size = width * height;
-        if src_vec.len() != size {
-            src_vec.resize(size, 0);
-        }
-        src_vec.copy_from_slice(fb.as_slice());
+        src_vec.clear();
+        src_vec.extend_from_slice(fb.as_slice());
         let src_pixels = src_vec.as_slice();
 
         let dest_pixels = fb.as_mut_slice();

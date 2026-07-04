@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Optimal Vec Initialization for Full-Image Converts]**
+**Learning:** In Rust, the most optimal way to overwrite a `Vec` with a slice is `vec.clear(); vec.extend_from_slice(slice);`. For `Copy` types, this reuses capacity and performs a highly-optimized `ptr::copy_nonoverlapping`. Replacing this with `vec.resize(len, 0); vec.copy_from_slice(slice);` introduces a severe performance regression due to redundant zero-initialization.
+**Action:** Replace `vec.resize(len, 0)` followed by `.copy_from_slice(slice)` with `vec.clear(); vec.extend_from_slice(slice);` to eliminate O(N) zero-filling overhead.

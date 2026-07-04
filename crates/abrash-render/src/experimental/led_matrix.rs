@@ -62,10 +62,8 @@ pub fn apply_led_matrix(fb: &mut Framebuffer, config: &LedMatrixConfig) {
     // ⚡ Bolt: Eliminate per-frame heap allocation by using a thread-local static buffer.
     let mut source_pixels = SOURCE_PIXELS.with(RefCell::take);
     let size = width * height;
-    if source_pixels.len() < size {
-        source_pixels.resize(size, 0);
-    }
-    source_pixels[..size].copy_from_slice(fb.as_slice());
+    source_pixels.clear();
+    source_pixels.extend_from_slice(fb.as_slice());
 
     let src_pixels = &source_pixels[..size]; // reference to local
     let dest_pixels = fb.as_mut_slice();

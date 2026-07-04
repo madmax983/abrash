@@ -64,10 +64,8 @@ pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &Directiona
         let mut source_pixels = source_pixels_cell.borrow_mut();
         let fb_slice = framebuffer.as_slice();
 
-        if source_pixels.len() != fb_slice.len() {
-            source_pixels.resize(fb_slice.len(), 0);
-        }
-        source_pixels.copy_from_slice(fb_slice);
+        source_pixels.clear();
+        source_pixels.extend_from_slice(fb_slice);
         // We now safely reference the slice. We can extract it as an immutable reference
         // to pass into the parallel iterator safely since `RefMut` doesn't implement `Sync`.
         let source_slice: &[u32] = &source_pixels;

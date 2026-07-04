@@ -55,10 +55,8 @@ pub fn apply_wobble(fb: &mut Framebuffer, config: &WobbleConfig) {
     let mut source_pixels = SOURCE_PIXELS.with(RefCell::take);
 
     let fb_slice = fb.as_slice();
-    if source_pixels.len() != fb_slice.len() {
-        source_pixels.resize(fb_slice.len(), 0);
-    }
-    source_pixels.copy_from_slice(fb_slice);
+    source_pixels.clear();
+    source_pixels.extend_from_slice(fb_slice);
 
     let dest = fb.as_mut_slice();
     let src: &[u32] = &source_pixels;

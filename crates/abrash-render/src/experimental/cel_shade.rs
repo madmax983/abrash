@@ -67,10 +67,8 @@ pub fn apply_cel_shade(fb: &mut Framebuffer, zb: &ZBuffer, config: &CelShadeConf
 
         // ⚡ Bolt: Eliminate `.to_vec()` and instead dynamically resize the thread-local buffer
         // to match the framebuffer length. This reuses memory capacity across frames.
-        if source_pixels.len() != fb_slice.len() {
-            source_pixels.resize(fb_slice.len(), 0);
-        }
-        source_pixels.copy_from_slice(fb_slice);
+        source_pixels.clear();
+        source_pixels.extend_from_slice(fb_slice);
 
         // Extract as immutable reference to pass into the parallel iterator safely
         let src_pixels: &[u32] = &source_pixels;

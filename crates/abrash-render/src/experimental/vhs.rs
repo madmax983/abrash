@@ -70,12 +70,9 @@ pub fn apply_vhs(fb: &mut Framebuffer, config: &VhsConfig) {
     VHS_BUFFER.with(|buf| {
         let mut src_fb_vec = buf.borrow_mut();
         let size = width * height;
-        if src_fb_vec.len() < size {
-            src_fb_vec.resize(size, 0);
-        }
-
-        let src_pixels = &mut src_fb_vec[..size];
-        src_pixels.copy_from_slice(fb.as_slice());
+        src_fb_vec.clear();
+        src_fb_vec.extend_from_slice(fb.as_slice());
+        let src_pixels = src_fb_vec.as_slice();
 
         let dest_pixels = fb.as_mut_slice();
 
