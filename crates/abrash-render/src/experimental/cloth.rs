@@ -8,26 +8,38 @@ use crate::mesh::Mesh;
 /// A single particle in the cloth grid.
 #[derive(Clone, Copy, Debug)]
 pub struct Particle {
+    /// The current position of the particle.
     pub pos: Vec3,
+    /// The previous position of the particle, used for Verlet integration.
     pub old_pos: Vec3,
+    /// The accumulated acceleration forces on the particle.
     pub acc: Vec3,
+    /// Whether the particle is pinned in place (immovable).
     pub pinned: bool,
+    /// The texture coordinate for rendering.
     pub uv: Vec2,
 }
 
 /// A structural constraint between two particles.
 #[derive(Clone, Copy, Debug)]
 pub struct Constraint {
+    /// The index of the first particle connected by the constraint.
     pub p1: usize,
+    /// The index of the second particle connected by the constraint.
     pub p2: usize,
+    /// The natural resting length of the constraint.
     pub rest_length: f32,
 }
 
 /// A simulatable cloth object.
 pub struct Cloth {
+    /// The particles that make up the cloth.
     pub particles: Vec<Particle>,
+    /// The spring constraints holding the cloth together.
     pub constraints: Vec<Constraint>,
+    /// The width (number of particles) of the cloth grid.
     pub width: usize,
+    /// The height (number of particles) of the cloth grid.
     pub height: usize,
     /// Pre-calculated triangle indices for mesh generation.
     pub indices: Vec<[usize; 3]>,
@@ -149,6 +161,7 @@ impl Cloth {
     }
 
     /// Pins a particle at the given coordinates.
+    /// Pins a particle in place by grid coordinates, making it immovable.
     pub fn pin(&mut self, x: usize, y: usize) {
         if x < self.width && y < self.height {
             let idx = y * self.width + x;

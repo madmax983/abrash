@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::missing_docs_in_private_items)]
 //! Composable animation system for the Abrash rendering engine.
 //!
 //! Provides phase-based animation evaluation inspired by Arthropod's `anim-graph`.

@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2026-07-04 - [Experimental Modules Documentation]
+**Confusion:** The boids and cloth experimental modules lacked struct-level documentation and executable examples, leaving users confused about how to configure and run the simulations.
+**Clarification:** Added thorough doc-comments and copy-pasteable examples to boids.rs and cloth.rs.

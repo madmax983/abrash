@@ -16,14 +16,23 @@ use rayon::prelude::*;
 /// Configuration parameters for the Boids simulation.
 #[derive(Clone, Debug)]
 pub struct FlockConfig {
+    /// How much a boid tries to steer away from its neighbors (default 1.5).
     pub separation_weight: f32,
+    /// How much a boid tries to match its neighbors' velocities (default 1.0).
     pub alignment_weight: f32,
+    /// How much a boid tries to steer toward the center of mass of its neighbors (default 1.0).
     pub cohesion_weight: f32,
+    /// How much a boid tries to steer away from the edges of the bounding volume (default 5.0).
     pub bound_weight: f32,
+    /// The radius within which a boid can see and interact with neighbors (default 10.0).
     pub perception_radius: f32,
+    /// The radius within which a boid actively avoids neighbors (default 2.5).
     pub separation_radius: f32,
+    /// The maximum speed a boid can travel (default 10.0).
     pub max_speed: f32,
+    /// The minimum speed a boid must maintain (default 3.0).
     pub min_speed: f32,
+    /// The 3D boundaries of the space the boids fly around in.
     pub bounds: Vec3,
 }
 
@@ -46,11 +55,14 @@ impl Default for FlockConfig {
 /// A single simulated entity.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Boid {
+    /// The current 3D position of the boid.
     pub position: Vec3,
+    /// The current velocity (speed and direction) of the boid.
     pub velocity: Vec3,
 }
 
 impl Boid {
+    /// Creates a new Boid with a given position and velocity.
     #[must_use]
     pub const fn new(position: Vec3, velocity: Vec3) -> Self {
         Self { position, velocity }
@@ -59,13 +71,27 @@ impl Boid {
 
 /// A manager for a collection of Boids.
 pub struct Flock {
+    /// The list of boids in this flock.
     pub boids: Vec<Boid>,
     /// Pre-allocated buffer to store the previous state of the flock without per-frame allocations.
     pub old_boids: Vec<Boid>,
+    /// The tuning parameters for how the flock behaves.
     pub config: FlockConfig,
 }
 
 impl Flock {
+    /// Creates a new flock from the given configuration.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use abrash_render::experimental::boids::{Flock, FlockConfig, Boid};
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let mut flock = Flock::new(FlockConfig::default());
+    /// flock.add_boid(Boid::new(Vec3::ZERO, Vec3::new(1.0, 0.0, 0.0)));
+    /// flock.update(0.16); // Simulate a frame
+    /// ```
     #[must_use]
     pub const fn new(config: FlockConfig) -> Self {
         Self {
@@ -75,6 +101,7 @@ impl Flock {
         }
     }
 
+    /// Adds a single boid to the flock.
     pub fn add_boid(&mut self, boid: Boid) {
         self.boids.push(boid);
     }

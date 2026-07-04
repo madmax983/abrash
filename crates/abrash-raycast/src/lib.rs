@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::missing_docs_in_private_items)]
 #![allow(clippy::all, unused_variables, dead_code, unused_imports, unused_mut)]
 //! Raycasting engine for the Abrash graphics project.
 //!

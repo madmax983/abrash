@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::missing_docs_in_private_items)]
 //! GPU rasterization and rendering utilities.
 //!
 //! This crate contains portable GPU rendering primitives and demo runtime
