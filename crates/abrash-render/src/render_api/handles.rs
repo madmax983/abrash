@@ -461,4 +461,16 @@ mod tests {
             PoolEntry::Vacant { .. } => unreachable!(),
         }
     }
+
+    #[test]
+    #[should_panic(expected = "free list pointed to occupied slot")]
+    fn test_pool_insert_unreachable_guard() {
+        let mut pool = ResourcePool::<i32>::new();
+        // Insert one item to populate the entries vector
+        pool.insert(10);
+        // Normally, this index is occupied. If we manually push it to the free list...
+        pool.free_list.push(0);
+        // ...the next insert will panic because the free list is corrupted.
+        pool.insert(20);
+    }
 }

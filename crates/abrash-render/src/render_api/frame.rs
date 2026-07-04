@@ -103,8 +103,20 @@ impl Frame {
     /// let camera = FrameCamera::new(Mat4::identity(), Mat4::identity());
     /// let frame = Frame::with_capacity(camera, 100, 10);
     /// ```
+    ///
+    /// # Panics
+    /// Panics if the requested capacity exceeds the maximum allowed allocation size (`isize::MAX` bytes).
     #[must_use]
     pub fn with_capacity(camera: FrameCamera, num_commands: usize, num_lights: usize) -> Self {
+        // WARDEN DEFENSE: Prevent capacity overflow panics
+        assert!(
+            num_lights <= (isize::MAX as usize) / std::mem::size_of::<Light>(),
+            "capacity overflow"
+        );
+        assert!(
+            num_commands <= (isize::MAX as usize) / std::mem::size_of::<DrawCommand>(),
+            "capacity overflow"
+        );
         Self {
             camera,
             lights: Vec::with_capacity(num_lights),
@@ -208,5 +220,13 @@ mod tests {
             radius: 10.0,
         }));
         assert_eq!(frame.lights.len(), 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "capacity overflow")]
+    fn test_frame_capacity_overflow() {
+        let cam = test_camera();
+        // Simulating absurd memory bounds from a fuzzed command buffer length
+        let _frame = Frame::with_capacity(cam, usize::MAX, usize::MAX);
     }
 }
