@@ -275,6 +275,14 @@ impl Quat {
     }
 
     /// Normalize to unit length.
+    ///
+    /// ## Examples
+    /// ```
+    /// use abrash_core::quat::Quat;
+    /// let q = Quat::new(1.0, 1.0, 1.0, 1.0);
+    /// let normalized = q.normalize();
+    /// assert!((normalized.length_sq() - 1.0).abs() < 0.0001);
+    /// ```
     #[must_use]
     pub fn normalize(self) -> Self {
         let len_sq = self.length_sq();
