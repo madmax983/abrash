@@ -524,7 +524,7 @@ impl GpuRenderer {
     /// Returns an error if cubemap faces have mismatched dimensions.
     pub fn set_environment(
         &mut self,
-        cubemap: &abrash_render::skybox::Cubemap,
+        cubemap: &abrash_core::texture::Cubemap,
     ) -> Result<(), String> {
         let gpu_cubemap = crate::environment::GpuCubemap::from_faces(
             self.gpu.device(),

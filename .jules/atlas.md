@@ -125,3 +125,11 @@
 1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `MeshIndexOutOfBounds`).
 2.  **Refactor Modules:** Updated experimental modules to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors.
 3.  **Result:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.
+
+## [Decoupling GPU Renderer via Cubemap Extraction]
+**Tangle:** The `abrash-gpu-render` crate, responsible for GPU-accelerated rendering, depended directly on the CPU rasterizer crate `abrash-render` purely to access the `Cubemap` struct defined in `crates/abrash-render/src/skybox.rs`. This violated strict unidirectional dependency principles by coupling the hardware renderer to the software renderer.
+**Blueprint:**
+1.  **Extract:** Relocated the `Cubemap` struct and its implementation from `crates/abrash-render/src/skybox.rs` to the foundational `crates/abrash-core/src/texture.rs`.
+2.  **Refactor:** Updated `abrash-gpu-render` to accept and use `abrash_core::texture::Cubemap`.
+3.  **Facade:** Maintained backward compatibility by adding `pub use abrash_core::texture::Cubemap;` to `abrash-render/src/skybox.rs`.
+**Stability:** Broken the invalid dependency loop. The GPU renderer no longer relies on the CPU rasterizer's specific module layout, ensuring low coupling and high cohesion where `Cubemap` lives alongside `Texture` in the core engine crate.

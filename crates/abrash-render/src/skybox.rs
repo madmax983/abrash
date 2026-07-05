@@ -9,6 +9,7 @@ use crate::math::{Mat4, Vec2, Vec3};
 use crate::rasterizer::texture::fill_quad_textured;
 use crate::texture::Texture;
 use crate::zbuffer::ZBuffer;
+pub use abrash_core::texture::Cubemap;
 
 /// A Cubemap texture consisting of 6 faces.
 ///
@@ -19,7 +20,7 @@ use crate::zbuffer::ZBuffer;
 ///
 /// ```
 /// use abrash_core::texture::Texture;
-/// use abrash_render::skybox::Cubemap;
+/// use abrash_core::texture::Cubemap;
 ///
 /// let faces = [
 ///     Texture::new(1, 1).unwrap(),
@@ -31,62 +32,6 @@ use crate::zbuffer::ZBuffer;
 /// ];
 /// let cubemap = Cubemap::new(faces);
 /// ```
-pub struct Cubemap {
-    /// The 6 textures that make up the cubemap faces (Right, Left, Top, Bottom, Front, Back).
-    pub faces: [Texture; 6],
-}
-
-impl Cubemap {
-    /// Create a new Cubemap from 6 textures.
-    #[must_use]
-    pub const fn new(faces: [Texture; 6]) -> Self {
-        Self { faces }
-    }
-
-    /// Sample the cubemap using a direction vector.
-    /// Used for CPU-side ray tracing or reference.
-    #[must_use]
-    pub fn sample(&self, dir: Vec3) -> u32 {
-        let abs_x = dir.x.abs();
-        let abs_y = dir.y.abs();
-        let abs_z = dir.z.abs();
-
-        let (face_idx, ma, sc, tc) = if abs_x >= abs_y && abs_x >= abs_z {
-            let ma = abs_x;
-            if dir.x > 0.0 {
-                (0, ma, -dir.z, -dir.y) // +X (Right)
-            } else {
-                (1, ma, dir.z, -dir.y) // -X (Left)
-            }
-        } else if abs_y >= abs_x && abs_y >= abs_z {
-            let ma = abs_y;
-            if dir.y > 0.0 {
-                (2, ma, dir.x, dir.z) // +Y (Top)
-            } else {
-                (3, ma, dir.x, -dir.z) // -Y (Bottom)
-            }
-        } else {
-            let ma = abs_z;
-            if dir.z > 0.0 {
-                (4, ma, dir.x, -dir.y) // +Z (Front)
-            } else {
-                (5, ma, -dir.x, -dir.y) // -Z (Back)
-            }
-        };
-
-        // Avoid division by zero
-        if ma == 0.0 {
-            return 0xFF00_0000;
-        }
-
-        // Map to [0, 1]
-        let u = (sc / ma + 1.0) * 0.5;
-        let v = (tc / ma + 1.0) * 0.5;
-
-        self.faces[face_idx].get_pixel_bilinear(u, v)
-    }
-}
-
 /// Helper to render a Skybox.
 ///
 /// This constructs a unit cube and rasterizes it using optimized quad rendering.
