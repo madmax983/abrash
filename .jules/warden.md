@@ -24,3 +24,12 @@
 ## 2026-04-18 - [Heap Buffer Overflow in Pixel Sort via Unchecked SendPtr]
 **Threat:** The `SendPtr` wrapper inside `crates/abrash-render/src/experimental/pixel_sort.rs` lacked a length parameter and blindly added indices to the raw pointer via `*ptr.0.add(...)`. If a framebuffer lied about its dimensions or if sorting logic failed, it would lead to a catastrophic out-of-bounds heap read/write.
 **Defense:** Rewrote `SendPtr` to capture and store the length of the slice at instantiation. Replaced direct raw pointer dereferencing with safe `read()` and `write()` methods containing an `assert!(index < self.1, "Index out of bounds")` guard before evaluating the `unsafe` block.
+
+
+## 2024-05-18 - TileRenderer Memory Corruption
+**Threat:** A memory safety vulnerability existed in the `TileRenderer` parallel execution path due to an unsafe `SendPtr` construct. While validation checks existed for the main `render_batch` api, an attacker could bypass them using `render_batch_into_slices` combined with incorrectly sized target slices, resulting in a heap buffer overflow (OOB array access).
+**Defense:** `SendPtr::write` had a check for index bounds, but I've updated its panic message to provide a clearer error, and explicitly fixed the fuzzer test `unsound_tile_renderer_parallel` that exploited `render_batch_into_slices` bypassing bounds check in older code.
+
+## 2024-05-18 - Texture Mapping Bounds Vulnerability
+**Threat:** A vulnerability existed within the texture renderer `draw_span_nearest` and `draw_span_bilinear` fastpaths. The fastpath logic validated that endpoints were within texture boundaries but failed to validate the full length against integer wrapping attacks, allowing intermediate variables to wrap around out of bounds during loop iteration.
+**Defense:** Enforced range delta constraints (`u_max_64 - u_min_64 < i32::MAX`) during fastpath checks to guarantee coordinates cannot exceed capacity before wrap-around.
