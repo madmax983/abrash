@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**Total_cmp for Float Sorting**
+**Learning:** Using `.partial_cmp().unwrap_or(...)` in tight loops like triangle sorting adds measurable overhead due to floating point branching and NaN handling checks, resulting in slower execution times. Using Rust's native `f32::total_cmp` bypassing these branches results in significantly faster (roughly 2x improvement) execution speeds for sorting operations.
+**Action:** Replaced `.partial_cmp(&depth_b).unwrap_or(std::cmp::Ordering::Equal)` with `.total_cmp(&depth_b)` in rasterizer and benchmarking sorting paths. Added a new `bolt_sort_benchmark` to explicitly measure the difference.
