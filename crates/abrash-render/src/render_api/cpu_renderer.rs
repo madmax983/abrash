@@ -419,6 +419,26 @@ impl CpuRenderer {
     /// # Errors
     ///
     /// Returns [`RenderError::InvalidTexture`] if the texture data is malformed.
+    /// Update an existing material resource with new data.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::StaleHandle`] if the handle is invalid.
+    pub fn update_material(
+        &mut self,
+        handle: MaterialHandle,
+        material: Material,
+    ) -> Result<(), RenderError> {
+        let cpu_material = self
+            .materials
+            .get_mut(from_material_handle(handle))
+            .ok_or(RenderError::StaleHandle("material"))?;
+
+        *cpu_material = material;
+        Ok(())
+    }
+
+    #[allow(clippy::missing_errors_doc)]
     pub fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, RenderError> {
         Ok(to_texture_handle(self.textures.insert(texture.clone())))
     }
@@ -795,6 +815,38 @@ mod tests {
         assert!(result.is_err());
         match result.unwrap_err() {
             RenderError::StaleHandle(kind) => assert_eq!(kind, "texture"),
+            other => panic!("Expected StaleHandle, got {other}"),
+        }
+    }
+
+    #[test]
+    fn test_update_material() {
+        let mut renderer = CpuRenderer::new(100, 100);
+        let mat_h = renderer
+            .create_material(Material::flat(0xFFFF_0000))
+            .unwrap();
+
+        // Update material
+        let updated = Material::flat(0xFF00_FF00);
+
+        let result = renderer.update_material(mat_h, updated);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_update_material_stale_handle() {
+        let mut renderer = CpuRenderer::new(100, 100);
+        let mat_h = renderer
+            .create_material(Material::flat(0xFFFF_0000))
+            .unwrap();
+
+        renderer.destroy_material(mat_h);
+
+        let updated = Material::flat(0xFF00_FF00);
+        let result = renderer.update_material(mat_h, updated);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            RenderError::StaleHandle(kind) => assert_eq!(kind, "material"),
             other => panic!("Expected StaleHandle, got {other}"),
         }
     }

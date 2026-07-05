@@ -104,7 +104,17 @@ impl Frame {
     /// let frame = Frame::with_capacity(camera, 100, 10);
     /// ```
     #[must_use]
+    #[allow(clippy::missing_panics_doc)]
     pub fn with_capacity(camera: FrameCamera, num_commands: usize, num_lights: usize) -> Self {
+        assert!(
+            num_lights <= (isize::MAX as usize) / std::mem::size_of::<Light>(),
+            "capacity overflow"
+        );
+        assert!(
+            num_commands <= (isize::MAX as usize) / std::mem::size_of::<DrawCommand>(),
+            "capacity overflow"
+        );
+
         Self {
             camera,
             lights: Vec::with_capacity(num_lights),
@@ -208,5 +218,11 @@ mod tests {
             radius: 10.0,
         }));
         assert_eq!(frame.lights.len(), 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "capacity overflow")]
+    fn test_frame_capacity_overflow() {
+        let _frame = Frame::with_capacity(test_camera(), usize::MAX, usize::MAX);
     }
 }

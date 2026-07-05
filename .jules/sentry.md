@@ -70,3 +70,7 @@
 ## [Bounds Check Panic on apply_fire]
 **Learning:** Functions that accept parallel slices for reading (e.g. `cooling_map`) and map over the primary framebuffer dimensions MUST assert that the provided slices have sufficient length to cover the entire framebuffer before starting iteration. Otherwise, out-of-bounds indexing will cause panics in multithreaded loops, which can crash the entire application instantly.
 **Action:** Always add an explicit bounds check (e.g. `if map.len() < width * height { return; }`) at the start of array-processing functions to prevent out-of-bounds access.
+
+**[Missing Tests for Handle Error Propagation]**
+**Learning:** Even when errors like `StaleHandle` are correctly propagated from internal handle lookup failure via `ok_or()`, there might not be explicit tests verifying the exact enum variant of the returned `Result`. The existing test suite was heavily verifying stale `Mesh` handles, but silently lacked mirror tests for `Material` handles, leaving a logic path untested.
+**Action:** Audit functions that interact with multiple types of resource handles (e.g. `Mesh` and `Material`) to ensure that *every* handle type has a corresponding failure test, rather than relying on a single representative test case.

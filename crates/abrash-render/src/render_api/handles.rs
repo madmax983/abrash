@@ -173,7 +173,18 @@ impl<T> ResourcePool<T> {
     /// assert_eq!(pool.capacity(), 10);
     /// ```
     #[must_use]
+    #[allow(clippy::missing_panics_doc)]
     pub fn with_capacity(capacity: usize) -> Self {
+        // WARDEN DEFENSE: Prevent capacity overflow panics
+        assert!(
+            capacity <= (isize::MAX as usize) / std::mem::size_of::<PoolEntry<T>>(),
+            "capacity overflow"
+        );
+        assert!(
+            capacity <= (isize::MAX as usize) / std::mem::size_of::<u32>(),
+            "capacity overflow"
+        );
+
         Self {
             entries: Vec::with_capacity(capacity),
             free_list: Vec::with_capacity(capacity),
@@ -233,6 +244,7 @@ impl<T> ResourcePool<T> {
     ///
     /// ⚡ Bolt: Extracted generation computation before the core `std::mem::replace` swap to
     /// prevent duplicate nested replacements during reclamation.
+    #[allow(clippy::missing_panics_doc)]
     pub fn remove(&mut self, handle: Handle<T>) -> Option<T> {
         let entry = self.entries.get_mut(handle.index as usize)?;
         let old_gen = match entry {
@@ -470,5 +482,11 @@ mod tests {
             }
             PoolEntry::Vacant { .. } => unreachable!(),
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "capacity overflow")]
+    fn test_pool_capacity_overflow() {
+        let _pool: ResourcePool<i32> = ResourcePool::with_capacity(usize::MAX);
     }
 }
