@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**Optimize Tile Rendering Sorting with total_cmp**
+**Learning:** Replaced `partial_cmp().unwrap_or(...)` branching overhead with a fast integer bit-mapping closure to eliminate branches. It provided a significant boost. However, simply using Rust's built-in `f32::total_cmp` provides the exact same branching optimizations but drastically simplifies the syntax, dropping overdraw tile sorting bench times by ~33%.
+**Action:** Reverted the custom integer bit-mapping closure to use `f32::total_cmp` in Z-buffer tile sorting loops.
