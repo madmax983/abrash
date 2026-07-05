@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[HashMap Overhead in Edge Deduplication]**
+**Learning:** In geometry processing tasks like soft body initialization (`SoftBody::new`), where unique edges must be generated from vertex indices, using the standard library's `HashSet` with `SipHash` incurs significant cryptographic overhead for simple integer tuple keys.
+**Action:** Replace `std::collections::HashSet` with `foldhash::HashSet` (and `foldhash::HashSetExt` for `with_capacity`) to drastically reduce allocation and insertion time for integer-based deduplication algorithms.

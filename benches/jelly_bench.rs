@@ -33,7 +33,8 @@ fn create_grid_mesh(size: usize) -> Mesh {
 fn bench_jelly_collide_sdf(c: &mut Criterion) {
     let size = 30; // 30x30 = 900 vertices
     let mesh = create_grid_mesh(size);
-    let mut softbody = SoftBody::new(mesh, 1.0, 10.0, 0.5).expect("Failed to create SoftBody");
+    let mut softbody =
+        SoftBody::new(mesh.clone(), 1.0, 10.0, 0.5).expect("Failed to create SoftBody");
 
     // Create a sphere scene right in the middle
     let mut scene = SdfScene::new();
@@ -50,6 +51,14 @@ fn bench_jelly_collide_sdf(c: &mut Criterion) {
         b.iter(|| {
             softbody.collide_sdf(black_box(&scene), 0.5);
         });
+    });
+
+    group.bench_function("new_30x30", |b| {
+        b.iter_batched(
+            || mesh.clone(),
+            |m| SoftBody::new(m, 1.0, 10.0, 0.5).unwrap(),
+            criterion::BatchSize::SmallInput,
+        );
     });
     group.finish();
 }
