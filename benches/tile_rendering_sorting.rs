@@ -47,12 +47,12 @@ fn bench_sorting_impact(c: &mut Criterion) {
     // Smallest depth first. Our generate function creates small depth at small index.
     let mut tris_f2b = raw_tris.clone();
     // Already sorted by construction (depth = 2.0 + t*8.0), but let's be sure.
-    tris_f2b.sort_by(|a, b| a.0.0.z.partial_cmp(&b.0.0.z).unwrap());
+    tris_f2b.sort_by(|a, b| a.0.0.z.total_cmp(&b.0.0.z));
 
     // 2. Back-to-Front (Worst case / Painter's Algorithm)
     // Largest depth first.
     let mut tris_b2f = raw_tris.clone();
-    tris_b2f.sort_by(|a, b| b.0.0.z.partial_cmp(&a.0.0.z).unwrap());
+    tris_b2f.sort_by(|a, b| b.0.0.z.total_cmp(&a.0.0.z));
 
     // 3. Random Shuffle (Typical case)
     let mut tris_random = raw_tris;

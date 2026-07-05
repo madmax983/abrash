@@ -1,0 +1,7 @@
+**What:** Replaced `.partial_cmp().unwrap_or(Equal)` with `f32::total_cmp()` in depth sorting routines inside `TileRenderer` and in the related Criterion benchmark `benches/tile_rendering_sorting.rs`.
+
+**Why:** Using `partial_cmp().unwrap_or(Equal)` inside tight sorting loops introduces branching and behaves improperly or panics when encountering `NaN` values, breaking strict total ordering required by `sort_unstable_by`. `f32::total_cmp` resolves this by mapping floats directly to totally ordered integer representations, eliding conditional checks and handling NaNs safely natively.
+
+**Impact:** Improves performance in depth sorting for tile rendering by reducing branching, while guaranteeing panic-free stability for rendering scenes that produce NaN depth values.
+
+**Measurement:** A new `total_cmp_bench.rs` was created mapping a 10,000 float vector which measures the difference. Additionally, the existing `tile_rendering_sorting` benchmarks show cleaner and more stable execution.

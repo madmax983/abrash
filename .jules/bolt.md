@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Float Sorting Optimization]**
+**Learning:** `partial_cmp().unwrap_or(...)` handles NaNs poorly and breaks strict total ordering algorithms in Rust. Using `total_cmp` provides branch-free mapping and robust execution for floating point sorting (like Z-Buffer depths).
+**Action:** Replaced `.partial_cmp(&b).unwrap_or(Equal)` with `.total_cmp(&b)` in depth sorting blocks for `TileRenderer`.
