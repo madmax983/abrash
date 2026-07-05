@@ -74,6 +74,12 @@
 
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::gouraud::draw_scanline_gouraud_simd_fast;
+
+/// Helper for sorting float depths quickly, avoiding branches from `partial_cmp` / unwrap.
+#[inline(always)]
+fn fast_depth_cmp(a: &f32, b: &f32) -> std::cmp::Ordering {
+    a.total_cmp(b)
+}
 use super::gouraud::{GouraudEdgeWalker, GouraudGradients};
 use super::texture::{draw_span_bilinear, draw_span_nearest, draw_span_trilinear};
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
@@ -3027,9 +3033,7 @@ impl TileRenderer {
                     let tri_idx_b = tris[b as usize] as usize;
                     let depth_a = unsafe { prepared_gouraud.get_unchecked(tri_idx_a).min_depth };
                     let depth_b = unsafe { prepared_gouraud.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                    fast_depth_cmp(&depth_a, &depth_b)
                 });
 
                 *head = indices[0];
@@ -3550,9 +3554,7 @@ impl TileRenderer {
                     let tri_idx_b = tris[b as usize] as usize;
                     let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
                     let depth_b = unsafe { prepared.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                    fast_depth_cmp(&depth_a, &depth_b)
                 });
 
                 *head = indices[0];
@@ -3600,9 +3602,7 @@ impl TileRenderer {
                     let tri_idx_b = tris[b as usize] as usize;
                     let depth_a = unsafe { prepared_textured.get_unchecked(tri_idx_a).min_depth };
                     let depth_b = unsafe { prepared_textured.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                    fast_depth_cmp(&depth_a, &depth_b)
                 });
 
                 *head = indices[0];

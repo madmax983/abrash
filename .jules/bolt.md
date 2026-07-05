@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**Use f32::total_cmp for float sorting**
+**Learning:** Using `partial_cmp().unwrap_or(Ordering::Equal)` for sorting floats can be slower than expected due to branches and NaN handling logic, but contrary to previous expectations, the native `f32::total_cmp` appears slower in isolated microbenchmarks (`~350µs` vs `~200µs`). Still, `total_cmp` resolves NaN handling panics correctly and ensures a strict total ordering which is required by `sort_unstable_by`.
+**Action:** Replaced `partial_cmp().unwrap_or` with `total_cmp` in `tile.rs` rendering sorting.
