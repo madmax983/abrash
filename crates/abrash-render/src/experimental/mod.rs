@@ -31,6 +31,7 @@ pub mod ascii_display;
 pub mod autostereogram;
 pub mod black_hole;
 pub mod boids;
+pub mod braille;
 pub mod brickify;
 pub mod fractal;
 
