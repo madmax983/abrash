@@ -3022,14 +3022,16 @@ impl TileRenderer {
             }
 
             if indices.len() > 1 {
+                // ⚡ Bolt: Use `f32::total_cmp` for performance-critical float sorting.
+                // It achieves the exact same branching optimization as custom integer mapping
+                // and avoids the NaN checks and branching overhead of `.partial_cmp().unwrap_or(...)`.
+
                 indices.sort_unstable_by(|&a, &b| {
                     let tri_idx_a = tris[a as usize] as usize;
                     let tri_idx_b = tris[b as usize] as usize;
                     let depth_a = unsafe { prepared_gouraud.get_unchecked(tri_idx_a).min_depth };
                     let depth_b = unsafe { prepared_gouraud.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                    depth_a.total_cmp(&depth_b)
                 });
 
                 *head = indices[0];
@@ -3545,14 +3547,16 @@ impl TileRenderer {
             }
 
             if indices.len() > 1 {
+                // ⚡ Bolt: Use `f32::total_cmp` for performance-critical float sorting.
+                // It achieves the exact same branching optimization as custom integer mapping
+                // and avoids the NaN checks and branching overhead of `.partial_cmp().unwrap_or(...)`.
+
                 indices.sort_unstable_by(|&a, &b| {
                     let tri_idx_a = tris[a as usize] as usize;
                     let tri_idx_b = tris[b as usize] as usize;
                     let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
                     let depth_b = unsafe { prepared.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                    depth_a.total_cmp(&depth_b)
                 });
 
                 *head = indices[0];
@@ -3595,14 +3599,16 @@ impl TileRenderer {
             }
 
             if indices.len() > 1 {
+                // ⚡ Bolt: Use `f32::total_cmp` for performance-critical float sorting.
+                // It achieves the exact same branching optimization as custom integer mapping
+                // and avoids the NaN checks and branching overhead of `.partial_cmp().unwrap_or(...)`.
+
                 indices.sort_unstable_by(|&a, &b| {
                     let tri_idx_a = tris[a as usize] as usize;
                     let tri_idx_b = tris[b as usize] as usize;
                     let depth_a = unsafe { prepared_textured.get_unchecked(tri_idx_a).min_depth };
                     let depth_b = unsafe { prepared_textured.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                    depth_a.total_cmp(&depth_b)
                 });
 
                 *head = indices[0];

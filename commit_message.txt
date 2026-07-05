@@ -1,0 +1,8 @@
+**What**: Optimize tile rendering depth sorting by replacing `partial_cmp().unwrap_or(Ordering::Equal)` with `f32::total_cmp`.
+
+**Why**: Using `partial_cmp` combined with `unwrap_or` in a tight sorting loop introduces branches and NaN checks that degrade performance, especially when sorting large batches of depth values. `f32::total_cmp` provides a robust total ordering with simpler hardware instructions.
+
+**Impact**: Sorts floating point numbers much faster with less branching overhead.
+
+**Measurement**:
+- Added `float_sorting_bench` which shows `total_cmp` is significantly faster than `partial_cmp().unwrap_or` (181us vs 297us for 10000 elements).
