@@ -12,7 +12,7 @@ pub mod skin;
 pub mod skinning;
 
 pub use animator::{BoneAnimator, SkeletonAnimator};
-pub use clip::{AnimationChannel, AnimationClip, ChannelTarget, ChannelValues};
+pub use clip::{AnimationChannel, AnimationClip, ChannelValues};
 pub use pose::{Pose, SkinMatrices};
 pub use skeleton::{Joint, JointId, Skeleton};
 pub use skin::{SkinData, SkinnedMesh};

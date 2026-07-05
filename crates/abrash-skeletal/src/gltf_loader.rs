@@ -12,7 +12,7 @@ use abrash_core::quat::Quat;
 use abrash_core::texture::{FilterMode, Texture};
 use abrash_core::transform::Transform;
 
-use crate::clip::{AnimationChannel, AnimationClip, ChannelTarget, ChannelValues};
+use crate::clip::{AnimationChannel, AnimationClip, ChannelValues};
 use crate::skeleton::{Joint, JointId, Skeleton};
 use crate::skin::{SkinData, SkinnedMesh};
 
@@ -550,21 +550,21 @@ fn extract_clips(
                 continue;
             };
 
-            let (target, values) = match outputs {
+            let values = match outputs {
                 gltf::animation::util::ReadOutputs::Translations(iter) => {
                     let vals: Vec<Vec3> = iter.map(|t| Vec3::new(t[0], t[1], t[2])).collect();
-                    (ChannelTarget::Translation, ChannelValues::Translation(vals))
+                    ChannelValues::Translation(vals)
                 }
                 gltf::animation::util::ReadOutputs::Rotations(iter) => {
                     let iter = iter
                         .into_f32()
                         .map(|r| Quat::new(r[0], r[1], r[2], r[3]).normalize());
                     let vals: Vec<Quat> = iter.collect();
-                    (ChannelTarget::Rotation, ChannelValues::Rotation(vals))
+                    ChannelValues::Rotation(vals)
                 }
                 gltf::animation::util::ReadOutputs::Scales(iter) => {
                     let vals: Vec<Vec3> = iter.map(|s| Vec3::new(s[0], s[1], s[2])).collect();
-                    (ChannelTarget::Scale, ChannelValues::Scale(vals))
+                    ChannelValues::Scale(vals)
                 }
                 gltf::animation::util::ReadOutputs::MorphTargetWeights(_) => {
                     // Morph targets are not supported
@@ -577,7 +577,6 @@ fn extract_clips(
                 #[allow(clippy::cast_possible_truncation)]
                 channels.push(AnimationChannel {
                     joint: JointId(joint_idx as u16),
-                    target,
                     timestamps: timestamps_vec,
                     values,
                 });

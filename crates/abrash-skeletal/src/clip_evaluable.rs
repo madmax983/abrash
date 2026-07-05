@@ -72,7 +72,7 @@ pub fn channel_to_quat_evaluable(channel: &AnimationChannel) -> Evaluable<Quat> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::clip::{AnimationChannel, ChannelTarget, ChannelValues};
+    use crate::clip::{AnimationChannel, ChannelValues};
     use crate::skeleton::JointId;
     use std::f32::consts::FRAC_PI_2;
 
@@ -98,7 +98,6 @@ mod tests {
         // 0s: origin, 1s: (10,0,0), 2s: (10,10,0)
         let channel = AnimationChannel {
             joint: JointId(0),
-            target: ChannelTarget::Translation,
             timestamps: vec![0.0, 1.0, 2.0],
             values: ChannelValues::Translation(vec![
                 Vec3::ZERO,
@@ -130,7 +129,6 @@ mod tests {
         let rot90y = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), FRAC_PI_2);
         let channel = AnimationChannel {
             joint: JointId(0),
-            target: ChannelTarget::Rotation,
             timestamps: vec![0.0, 1.0],
             values: ChannelValues::Rotation(vec![Quat::identity(), rot90y]),
         };
@@ -163,7 +161,6 @@ mod tests {
         // Channel from 0s to 3s => natural_duration should be 3.0
         let channel = AnimationChannel {
             joint: JointId(0),
-            target: ChannelTarget::Translation,
             timestamps: vec![0.0, 1.0, 3.0],
             values: ChannelValues::Translation(vec![Vec3::ZERO, Vec3::ONE, Vec3::ONE]),
         };
@@ -181,7 +178,6 @@ mod tests {
     fn scale_channel_converts_to_vec3() {
         let channel = AnimationChannel {
             joint: JointId(0),
-            target: ChannelTarget::Scale,
             timestamps: vec![0.0, 1.0],
             values: ChannelValues::Scale(vec![Vec3::ONE, Vec3::new(2.0, 2.0, 2.0)]),
         };
@@ -196,7 +192,6 @@ mod tests {
     fn vec3_evaluable_panics_on_rotation_values() {
         let channel = AnimationChannel {
             joint: JointId(0),
-            target: ChannelTarget::Rotation,
             timestamps: vec![0.0, 1.0],
             values: ChannelValues::Rotation(vec![Quat::identity(), Quat::identity()]),
         };
@@ -208,7 +203,6 @@ mod tests {
     fn quat_evaluable_panics_on_translation_values() {
         let channel = AnimationChannel {
             joint: JointId(0),
-            target: ChannelTarget::Translation,
             timestamps: vec![0.0, 1.0],
             values: ChannelValues::Translation(vec![Vec3::ZERO, Vec3::ONE]),
         };
