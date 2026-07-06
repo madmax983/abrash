@@ -1,11 +1,11 @@
-1.  **Refactor Heat Vision to Fixed Point Math**
-    - The current `heat_vision.rs` uses floating-point math (`(normalized - 0.25) * 4.0`, etc.) inside a hot pixel loop to map depths to colors.
-    - We will follow the `[Posterize Float to Integer Math Optimization]` learning from `.jules/bolt.md` to map `0.0..1.0` depth range into integer `0..255`, and calculate RGB entirely using integer math (`t * 255 / scale`, etc.).
-    - We will pre-calculate `min_z` and `max_z` like before, calculate a `z_range` integer mapping multiplier, and use simple `(depth - min_z) * scale` to avoid floats in the main loop.
-2.  **Ensure Correctness**
-    - Ensure all existing tests in `heat_vision.rs` pass.
-3.  **Run Benchmark**
-    - Ensure `cargo bench --bench heat_vision_bench` runs successfully and shows performance improvements.
-4.  **Complete pre commit steps**
-    - Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done.
-5.  **Submit PR**
+1. **Optimize TileBins clear overhead with generational indices**
+   - The current `TileBins::clear()` function takes O(N) memory bandwidth because it has to `fill(u32::MAX)` on the `heads` and `tails` vectors. This is particularly expensive for high resolutions where there are many tiles.
+   - I will change `TileBins` to include a `generations: Vec<u32>` and a `current_generation: u32`.
+   - In `clear()`, I will increment `current_generation`. If it overflows, I will reset `generations` to 0. This makes `clear()` an O(1) operation most of the time instead of O(N) memory memset.
+   - I will update `push()`, `iter()`, `sort_bins_flat()`, `sort_bins_textured()`, `sort_bins_gouraud()`, `clear_tile_bounds()`, and parallel bin iterations to respect the generation counter.
+2. **Pre-commit Steps**
+   - Execute `cargo fmt --all`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test --workspace --features "parallel nova"`.
+   - Update `.jules/bolt.md` with the new learning.
+   - Run `pre_commit_instructions` to ensure proper testing, verification, review, and reflection are done.
+3. **Submit the PR**
+   - Submit the PR with the title "⚡ Bolt: [TileBins generation optimization]" and a description detailing the impact.

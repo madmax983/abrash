@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Eliminate O(N) Clearing Overhead with Generational Indices]**
+**Learning:** Calling `.fill()` or clearing multiple vectors (like `heads` and `tails`) of size equal to the number of screen tiles on every frame (`begin_frame`) creates a significant O(N) memory bandwidth overhead, especially at high resolutions like 4K (e.g., thousands of tiles).
+**Action:** Replace `O(N)` buffer resets with a `generation: Vec<u32>` and a `current_generation: u32` counter. Increment the counter on clear, and when accessing the bin, compare the tile's generation against `current_generation`. This reduces clearing to a single integer increment (and a fast `Vec::clear()` on the dense data buffers), making `TileBins::clear()` O(1) in practice.
