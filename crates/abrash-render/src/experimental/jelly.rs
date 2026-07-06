@@ -199,7 +199,10 @@ impl SoftBody {
         // ⚡ Bolt: Pre-allocate vectors and sets to prevent dynamic heap reallocations.
         // We know exactly the maximum possible number of edges/springs (3 per triangle).
         let max_edges = mesh.indices.len() * 3;
-        let mut edges = HashSet::with_capacity(max_edges);
+        let mut edges = foldhash::HashSet::with_capacity_and_hasher(
+            max_edges,
+            foldhash::fast::RandomState::default(),
+        );
         let mut spring_indices_a = Vec::with_capacity(max_edges);
         let mut spring_indices_b = Vec::with_capacity(max_edges);
         let mut spring_rest_lengths = Vec::with_capacity(max_edges);
@@ -313,11 +316,14 @@ impl SoftBody {
             let v_b = self.velocities[idx_b];
 
             let delta = p_b - p_a;
-            let current_length = delta.length();
+            // ⚡ Bolt: Fast inverse square root
+            let dist_sq = delta.length_sq();
+            let inv_len = crate::math::funcs::fast_inv_sqrt(dist_sq);
+            let current_length = dist_sq * inv_len;
 
             if current_length > 0.0001 {
                 // Optimization: reuse current_length to normalize, avoiding rsqrt/sqrt
-                let direction = delta * (1.0 / current_length);
+                let direction = delta * inv_len;
 
                 // Hooke's Law: F = -k * (x - x0)
                 let displacement = current_length - rest_len;
@@ -584,10 +590,13 @@ impl SoftBody {
             let v_b = self.velocities[idx_b];
 
             let delta = p_b - p_a;
-            let current_length = delta.length();
+            // ⚡ Bolt: Fast inverse square root
+            let dist_sq = delta.length_sq();
+            let inv_len = crate::math::funcs::fast_inv_sqrt(dist_sq);
+            let current_length = dist_sq * inv_len;
 
             if current_length > 0.0001 {
-                let direction = delta * (1.0 / current_length);
+                let direction = delta * inv_len;
                 let displacement = current_length - rest_len;
                 let spring_force_mag = -self.stiffness * displacement;
                 let v_rel = v_b - v_a;
