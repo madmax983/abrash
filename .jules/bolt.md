@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Pre-allocated Loops vs Iter.Extend overhead]**
+**Learning:** Using `out.extend(points.iter().map(|&p| ...))` causes the iterator chain to continuously check bounds/capacity if the optimizer fails to infer the exact size properly for complex mappings. Using `out.resize(points.len(), T::ZERO);` followed directly by `for (dst, &p) in out.iter_mut().zip(points.iter())` bypasses these overheads completely by using exact pointers and bounds, yielding measurably faster execution on heavy transformations like vector array processing.
+**Action:** Replace `extend` with `resize` and `iter_mut().zip(...)` in performance-critical hot loops involving collection mappings.

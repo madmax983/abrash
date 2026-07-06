@@ -213,6 +213,9 @@ impl Transform {
 
     /// Transform a batch of points and write into `out`.
     ///
+    /// ⚡ Bolt: Uses `resize` and `iter_mut().zip` to elide bounds checking overhead
+    /// when batch processing large arrays compared to `.extend(iter.map)`.
+    ///
     /// This hoists quaternion basis expansion outside the loop.
     pub fn transform_points_into(&self, points: &[Vec3], out: &mut Vec<Vec3>) {
         let basis = self.scaled_rotation_basis();
@@ -227,14 +230,14 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
-        // We iterate by value (using `&p`) to avoid dereferencing inside the closure.
-        out.extend(points.iter().map(|&p| {
-            Vec3::new(
+        out.resize(points.len(), Vec3::ZERO);
+        for (dst, &p) in out.iter_mut().zip(points.iter()) {
+            *dst = Vec3::new(
                 p.x * m00 + p.y * m10 + p.z * m20 + self.position.x,
                 p.x * m01 + p.y * m11 + p.z * m21 + self.position.y,
                 p.x * m02 + p.y * m12 + p.z * m22 + self.position.z,
-            )
-        }));
+            );
+        }
     }
 
     /// Transform points in place (scale + rotate + translate).
@@ -271,6 +274,9 @@ impl Transform {
     }
 
     /// Transform a batch of direction vectors and write into `out`.
+    ///
+    /// ⚡ Bolt: Uses `resize` and `iter_mut().zip` to elide bounds checking overhead
+    /// when batch processing large arrays compared to `.extend(iter.map)`.
     pub fn transform_vectors_into(&self, vectors: &[Vec3], out: &mut Vec<Vec3>) {
         let basis = self.scaled_rotation_basis();
         let m00 = basis[0][0];
@@ -284,14 +290,14 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
-        // We iterate by value (using `&v`) to avoid dereferencing inside the closure.
-        out.extend(vectors.iter().map(|&v| {
-            Vec3::new(
+        out.resize(vectors.len(), Vec3::ZERO);
+        for (dst, &v) in out.iter_mut().zip(vectors.iter()) {
+            *dst = Vec3::new(
                 v.x * m00 + v.y * m10 + v.z * m20,
                 v.x * m01 + v.y * m11 + v.z * m21,
                 v.x * m02 + v.y * m12 + v.z * m22,
-            )
-        }));
+            );
+        }
     }
 
     /// Transform vectors in place (scale + rotate, no translation).
@@ -328,6 +334,9 @@ impl Transform {
     }
 
     /// Apply the inverse transform to a batch of points and write into `out`.
+    ///
+    /// ⚡ Bolt: Uses `resize` and `iter_mut().zip` to elide bounds checking overhead
+    /// when batch processing large arrays compared to `.extend(iter.map)`.
     pub fn inverse_transform_points_into(&self, points: &[Vec3], out: &mut Vec<Vec3>) {
         let inv_scale = Vec3::new(1.0 / self.scale.x, 1.0 / self.scale.y, 1.0 / self.scale.z);
         let basis = Self::inverse_rotation_matrix(self.rotation);
@@ -342,14 +351,15 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
-        out.extend(points.iter().map(|p| {
+        out.resize(points.len(), Vec3::ZERO);
+        for (dst, p) in out.iter_mut().zip(points.iter()) {
             let local = *p - self.position;
-            Vec3::new(
+            *dst = Vec3::new(
                 (local.x * m00 + local.y * m10 + local.z * m20) * inv_scale.x,
                 (local.x * m01 + local.y * m11 + local.z * m21) * inv_scale.y,
                 (local.x * m02 + local.y * m12 + local.z * m22) * inv_scale.z,
-            )
-        }));
+            );
+        }
     }
 
     /// Apply the inverse transform to points in place.
