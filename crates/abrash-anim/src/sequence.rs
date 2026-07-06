@@ -52,6 +52,21 @@ impl<T: Animatable + Send + Sync> Sequence<T> {
 }
 
 impl<T: Animatable + Send + Sync> Sequence<T> {
+    /// Samples the sequence at a specific point in time (0.0 - 1.0).
+    ///
+    /// Under the hood, this finds the active segment for the requested phase
+    /// and maps the global phase into a local 0.0-1.0 phase for that segment.
+    ///
+    /// ## Examples
+    /// ```
+    /// use abrash_anim::{Sequence, Evaluable, Keyframe, Hold, Easing};
+    /// let seq = Sequence::new(vec![
+    ///     Evaluable::Keyframe(Keyframe::new(0.0_f32, 10.0, Easing::Linear, 1.0)),
+    ///     Evaluable::Hold(Hold::new(10.0_f32, 1.0)),
+    /// ]);
+    /// // Halfway through the 2 second sequence puts us exactly at the end of the first segment.
+    /// assert_eq!(seq.evaluate(0.5).value, 10.0);
+    /// ```
     #[must_use]
     pub fn evaluate(&self, phase: f32) -> Sample<T> {
         let phase = phase.clamp(0.0, 1.0);
@@ -73,6 +88,7 @@ impl<T: Animatable + Send + Sync> Sequence<T> {
         )
     }
 
+    /// The sum of the durations of all contained segments.
     #[must_use]
     pub const fn natural_duration(&self) -> f32 {
         self.total_duration

@@ -9,13 +9,24 @@ use crate::evaluable::Sample;
 ///
 /// Velocity is derived analytically from the easing function's derivative.
 pub struct Keyframe<T: Animatable> {
+    /// The value at phase 0.0.
     pub from: T,
+    /// The target value at phase 1.0.
     pub to: T,
+    /// The mathematical curve defining how to interpolate over time.
     pub easing: Easing,
+    /// The time this transition takes.
     pub duration: f32,
 }
 
 impl<T: Animatable> Keyframe<T> {
+    /// Defines a transition between two states.
+    ///
+    /// ## Examples
+    /// ```
+    /// use abrash_anim::{Keyframe, Easing};
+    /// let slide = Keyframe::new(0.0_f32, 100.0, Easing::EaseOut, 0.5);
+    /// ```
     #[must_use]
     pub const fn new(from: T, to: T, easing: Easing, duration: f32) -> Self {
         Self {
@@ -28,6 +39,7 @@ impl<T: Animatable> Keyframe<T> {
 }
 
 impl<T: Animatable + Send + Sync> Keyframe<T> {
+    /// Interpolates the value and calculates its instantaneous velocity.
     pub fn evaluate(&self, phase: f32) -> Sample<T> {
         let phase = phase.clamp(0.0, 1.0);
         let eased = self.easing.apply(phase);
@@ -44,6 +56,7 @@ impl<T: Animatable + Send + Sync> Keyframe<T> {
         Sample::new(value, velocity)
     }
 
+    /// Returns the length of time this segment occupies in a [`Sequence`].
     pub const fn natural_duration(&self) -> f32 {
         self.duration
     }

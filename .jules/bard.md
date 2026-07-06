@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2024-05-20 - [Missing Documentation for abrash-anim and abrash-raycast Crate Public Items]
+**Confusion:** Several public types and their fields/variants in `abrash-anim` and `abrash-raycast` lacked proper documentation, producing `clippy::missing_docs` warnings and obscuring their meaning. For example, `Evaluable`, `Keyframe`, `Hold`, `Sequence`, `BspMapData`, `Visplane`, `Vec2Fixed`, and `Side`.
+**Clarification:** Added missing struct field, enum variant, and method `///` docs to `clock.rs`, `easing.rs`, `evaluable.rs`, `hold.rs`, `keyframe.rs`, `sequence.rs`, `bsp.rs`, `bsp_visplane.rs`, `bsp_lighting.rs`, and `types.rs`.

@@ -8,11 +8,21 @@ use crate::evaluable::Sample;
 ///
 /// Always returns `Sample::at_rest(value)` — zero velocity.
 pub struct Hold<T: Animatable> {
+    /// The constant value to hold during the pause.
     pub value: T,
+    /// How long the pause lasts in seconds.
     pub duration: f32,
 }
 
 impl<T: Animatable> Hold<T> {
+    /// Create a segment that pauses animation on a specific value.
+    ///
+    /// ## Examples
+    /// ```
+    /// use abrash_anim::Hold;
+    /// let pause = Hold::new(42.0_f32, 1.5);
+    /// assert_eq!(pause.natural_duration(), 1.5);
+    /// ```
     #[must_use]
     pub const fn new(value: T, duration: f32) -> Self {
         Self { value, duration }
@@ -20,10 +30,12 @@ impl<T: Animatable> Hold<T> {
 }
 
 impl<T: Animatable + Send + Sync> Hold<T> {
+    /// Returns the held value at rest (velocity is exactly zero), regardless of phase.
     pub fn evaluate(&self, _phase: f32) -> Sample<T> {
         Sample::at_rest(self.value.clone())
     }
 
+    /// Returns the length of time this segment occupies in a [`Sequence`].
     pub const fn natural_duration(&self) -> f32 {
         self.duration
     }

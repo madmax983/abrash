@@ -3,9 +3,13 @@
 /// Standard easing curves.
 #[derive(Debug, Clone, Copy)]
 pub enum Easing {
+    /// Constant speed from start to finish. Best for continuous rotations.
     Linear,
+    /// Starts slow and accelerates (quadratic). Best for objects falling or entering the screen.
     EaseIn,
+    /// Starts fast and decelerates (quadratic). Best for UI elements sliding into place.
     EaseOut,
+    /// Starts slow, accelerates, then decelerates (quadratic). Best for smooth organic motion.
     EaseInOut,
     /// Cubic Bezier curve with control points (x1, y1, x2, y2).
     CubicBezier(f32, f32, f32, f32),

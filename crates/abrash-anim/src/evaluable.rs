@@ -12,7 +12,10 @@ use crate::sequence::Sequence;
 /// future velocity-preserving spring interruption.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Sample<T: Animatable> {
+    /// The current state of the animated value at this exact moment in time.
     pub value: T,
+    /// The instantaneous rate of change of the value. Preserving this allows
+    /// seamless transitions if the animation is interrupted (e.g. by a spring).
     pub velocity: T,
 }
 
@@ -38,8 +41,31 @@ impl<T: Animatable> Sample<T> {
 /// This is the core animation abstraction. Evaluables are composable:
 /// `Keyframe`, `Hold`, and `Sequence` are available variants.
 pub enum Evaluable<T: Animatable> {
+    /// A tween segment that interpolates from one value to another.
+    ///
+    /// ## Examples
+    /// ```
+    /// use abrash_anim::{Evaluable, Keyframe, Easing};
+    /// let segment = Evaluable::Keyframe(Keyframe::new(0.0_f32, 10.0, Easing::Linear, 1.0));
+    /// ```
     Keyframe(Keyframe<T>),
+    /// A segment that holds a constant value for a duration.
+    ///
+    /// ## Examples
+    /// ```
+    /// use abrash_anim::{Evaluable, Hold};
+    /// let segment = Evaluable::Hold(Hold::new(10.0_f32, 2.0));
+    /// ```
     Hold(Hold<T>),
+    /// A chained sequence of evaluable segments.
+    ///
+    /// ## Examples
+    /// ```
+    /// use abrash_anim::{Evaluable, Sequence, Keyframe, Easing};
+    /// let seq = Evaluable::Sequence(Sequence::new(vec![
+    ///     Evaluable::Keyframe(Keyframe::new(0.0_f32, 10.0, Easing::Linear, 1.0))
+    /// ]));
+    /// ```
     Sequence(Sequence<T>),
 }
 

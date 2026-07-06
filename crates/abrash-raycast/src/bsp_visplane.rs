@@ -20,10 +20,15 @@ const UNUSED_BOTTOM: i32 = i32::MIN;
 /// `i32::MIN` for bottom).
 #[derive(Clone, Debug)]
 pub struct Visplane {
+    /// World-space height of this plane (negative for floors, positive for ceilings).
     pub height: i16,
+    /// The flat texture index used to draw this surface.
     pub texture: u16,
+    /// The light level (0-255) affecting the brightness of this plane.
     pub light_level: u16,
+    /// The leftmost screen column this visplane touches.
     pub min_x: i32,
+    /// The rightmost screen column this visplane touches.
     pub max_x: i32,
     top: Vec<i32>,
     bottom: Vec<i32>,

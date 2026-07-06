@@ -53,7 +53,11 @@ pub struct BspSector {
 /// The raycaster calls [`traverse_front_to_back`](BspMapData::traverse_front_to_back)
 /// to visit subsectors in painter's-algorithm order.
 pub struct BspMapData {
+    /// The sector properties (floor/ceiling heights, textures, lighting)
+    /// for this region of the BSP tree.
     pub sector: BspSector,
+    /// The walls defining the boundary of this subsector. During rendering,
+    /// these are projected and drawn front-to-back.
     pub segs: Vec<BspSeg>,
 }
 

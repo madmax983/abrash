@@ -27,7 +27,11 @@ pub enum ClockEvent {
     /// Normal phase advance within a cycle.
     Normal,
     /// One or more cycles completed this tick.
-    CycleBoundary { completed: u64 },
+    CycleBoundary {
+        /// The number of complete cycles that elapsed since the last tick.
+        /// Used to trigger looping sound effects or game logic events.
+        completed: u64,
+    },
 }
 
 /// A drift-free animation clock.

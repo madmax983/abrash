@@ -114,13 +114,16 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 #[repr(C)]
 #[derive(bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GpuVertex {
+    /// 3D position of the vertex (X, Y, Z).
     pub position: [f32; 3],
+    /// RGB color of the vertex.
     pub color: [f32; 3],
 }
 
 /// A single triangle for GPU rasterization.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GpuTriangle {
+    /// The three vertices comprising the triangle.
     pub vertices: [GpuVertex; 3],
 }
 
