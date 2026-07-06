@@ -684,6 +684,10 @@ pub struct TileBins {
     pub heads: Vec<u32>,
     /// The tail indices into the nexts and tris vectors for each bin. `u32::MAX` = None.
     pub tails: Vec<u32>,
+    /// Generational counters to avoid O(N) array clears.
+    pub generations: Vec<u32>,
+    /// Current generation.
+    pub current_generation: u32,
     /// Links to the next node in the linked list.
     pub nexts: Vec<u32>,
     /// The triangle indices for each node.
@@ -701,15 +705,26 @@ impl TileBins {
         Self {
             heads: vec![u32::MAX; num_tiles],
             tails: vec![u32::MAX; num_tiles],
+            generations: vec![0; num_tiles],
+            current_generation: 1,
             nexts: Vec::with_capacity(capacity),
             tris: Vec::with_capacity(capacity),
         }
     }
 
     /// Clears the bin structure for the next frame.
+    ///
+    /// ⚡ Bolt: Generational arrays avoid O(N) tile buffer fills every frame.
+    /// By incrementing a generation counter instead of filling arrays with `u32::MAX`,
+    /// we turn an O(N) operation per frame into an O(1) operation, saving memory bandwidth.
     pub fn clear(&mut self) {
-        self.heads.fill(u32::MAX);
-        self.tails.fill(u32::MAX);
+        self.current_generation = self.current_generation.wrapping_add(1);
+        if self.current_generation == 0 {
+            // Unlikely wraparound; reset all
+            self.generations.fill(0);
+            self.current_generation = 1;
+        }
+
         self.nexts.clear();
         self.tris.clear();
     }
@@ -721,12 +736,12 @@ impl TileBins {
         self.tris.push(tri_idx as u32);
         self.nexts.push(u32::MAX);
 
-        let head = self.heads[tile_idx];
-        if head == u32::MAX {
-            self.heads[tile_idx] = node_idx;
-        } else {
+        if self.generations[tile_idx] == self.current_generation {
             let tail = self.tails[tile_idx];
             self.nexts[tail as usize] = node_idx;
+        } else {
+            self.generations[tile_idx] = self.current_generation;
+            self.heads[tile_idx] = node_idx;
         }
         self.tails[tile_idx] = node_idx;
     }
@@ -735,10 +750,12 @@ impl TileBins {
     #[inline]
     #[must_use]
     pub fn iter(&self, tile_idx: usize) -> TileBinIter<'_> {
-        TileBinIter {
-            bins: self,
-            curr: self.heads[tile_idx],
-        }
+        let curr = if self.generations[tile_idx] == self.current_generation {
+            self.heads[tile_idx]
+        } else {
+            u32::MAX
+        };
+        TileBinIter { bins: self, curr }
     }
 }
 

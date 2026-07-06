@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Tile Bins Generational Array Optimization]**
+**Learning:** In software rendering, clearing large tile bin metadata arrays (heads/tails) with `fill(u32::MAX)` every frame scales linearly (O(N)) with the number of tiles, consuming significant memory bandwidth unnecessarily when only a subset of tiles might be touched.
+**Action:** Replace `fill()` with a generational index approach: increment a single generation counter per frame and compare it against a per-tile `generations` array. This turns an O(N) array fill into an O(1) counter increment, significantly improving performance for high-resolution tile grids.
