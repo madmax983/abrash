@@ -72,6 +72,8 @@ pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &Directiona
         // to pass into the parallel iterator safely since `RefMut` doesn't implement `Sync`.
         let source_slice: &[u32] = &source_pixels;
 
+        let can_swar = config.num_samples <= 256;
+
         let process_row = |(y, row): (usize, &mut [u32])| {
             // Start Y at pixel center + 0.5 (32768) for rounding equivalent
             let start_y = (y << 16) as i32 + 32768;
@@ -80,40 +82,80 @@ pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &Directiona
                 let mut cur_x = (x << 16) as i32 + 32768;
                 let mut cur_y = start_y;
 
-                let mut r_sum = 0;
-                let mut g_sum = 0;
-                let mut b_sum = 0;
+                if can_swar {
+                    let mut rb_sum = 0;
+                    let mut g_sum = 0;
 
-                for _ in 0..config.num_samples {
-                    // Nearest neighbor sampling by shifting down the fixed-point coordinate
-                    let px = cur_x >> 16;
-                    let py = cur_y >> 16;
+                    for _ in 0..config.num_samples {
+                        // Nearest neighbor sampling by shifting down the fixed-point coordinate
+                        let px = cur_x >> 16;
+                        let py = cur_y >> 16;
 
-                    // Clamp to edges
-                    let px = px.clamp(0, width as i32 - 1) as usize;
-                    let py = py.clamp(0, height as i32 - 1) as usize;
+                        // Clamp to edges
+                        let px = px.clamp(0, width as i32 - 1) as usize;
+                        let py = py.clamp(0, height as i32 - 1) as usize;
 
-                    let color = source_slice[py * width + px];
-                    let r = (color >> 16) & 0xFF;
-                    let g = (color >> 8) & 0xFF;
-                    let b = color & 0xFF;
+                        let color = source_slice[py * width + px];
 
-                    r_sum += r;
-                    g_sum += g;
-                    b_sum += b;
+                        // ⚡ Bolt: If samples <= 256, we can accumulate R and B channels in a single u32 register (SWAR)
+                        // without the B channel (bits 0-7) overflowing into the R channel (bits 16-23)
+                        // because the gap (bits 8-15) can hold exactly 256 accumulations of the max 8-bit value (255).
+                        rb_sum += color & 0x00FF_00FF;
+                        g_sum += (color >> 8) & 0x0000_00FF;
 
-                    // ⚡ Bolt: Use `wrapping_add` to prevent overflow panics in debug mode when fuzz testing
-                    // injects extreme boundary values that trigger massive deltas.
-                    cur_x = cur_x.wrapping_add(dx_step_fixed);
-                    cur_y = cur_y.wrapping_add(dy_step_fixed);
+                        // ⚡ Bolt: Use `wrapping_add` to prevent overflow panics in debug mode when fuzz testing
+                        // injects extreme boundary values that trigger massive deltas.
+                        cur_x = cur_x.wrapping_add(dx_step_fixed);
+                        cur_y = cur_y.wrapping_add(dy_step_fixed);
+                    }
+
+                    // For R, we extract the top 16 bits (r_sum is shifted by 16 relative to original color).
+                    // final_r needs to be r_sum * inv_samples_fixed >> 16.
+                    // r_sum in rb_sum is actually (r_acc << 16).
+                    // We extract it first to avoid overflow during multiplication.
+                    let r_acc = rb_sum >> 16;
+                    let b_acc = rb_sum & 0xFFFF;
+
+                    // Multiply by fixed-point inverse and shift down
+                    let final_r = (r_acc * inv_samples_fixed) >> 16;
+                    let final_g = (g_sum * inv_samples_fixed) >> 16;
+                    let final_b = (b_acc * inv_samples_fixed) >> 16;
+
+                    *pixel = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
+                } else {
+                    let mut r_sum = 0;
+                    let mut g_sum = 0;
+                    let mut b_sum = 0;
+
+                    for _ in 0..config.num_samples {
+                        // Nearest neighbor sampling by shifting down the fixed-point coordinate
+                        let px = cur_x >> 16;
+                        let py = cur_y >> 16;
+
+                        // Clamp to edges
+                        let px = px.clamp(0, width as i32 - 1) as usize;
+                        let py = py.clamp(0, height as i32 - 1) as usize;
+
+                        let color = source_slice[py * width + px];
+                        let r = (color >> 16) & 0xFF;
+                        let g = (color >> 8) & 0xFF;
+                        let b = color & 0xFF;
+
+                        r_sum += r;
+                        g_sum += g;
+                        b_sum += b;
+
+                        cur_x = cur_x.wrapping_add(dx_step_fixed);
+                        cur_y = cur_y.wrapping_add(dy_step_fixed);
+                    }
+
+                    // Multiply by fixed-point inverse and shift down
+                    let final_r = (r_sum * inv_samples_fixed) >> 16;
+                    let final_g = (g_sum * inv_samples_fixed) >> 16;
+                    let final_b = (b_sum * inv_samples_fixed) >> 16;
+
+                    *pixel = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
                 }
-
-                // Multiply by fixed-point inverse and shift down
-                let final_r = (r_sum * inv_samples_fixed) >> 16;
-                let final_g = (g_sum * inv_samples_fixed) >> 16;
-                let final_b = (b_sum * inv_samples_fixed) >> 16;
-
-                *pixel = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
             }
         };
 
@@ -183,5 +225,20 @@ mod tests {
 
         // At x=1, samples at x=1, 2, 3. (Black, Black, Black) -> Black
         assert_eq!(p1, 0xFF00_0000);
+    }
+
+    #[test]
+    fn test_directional_blur_swar_boundary() {
+        let mut fb = Framebuffer::new(2, 2).unwrap();
+        fb.set_pixel(0, 0, 0xFF00_0000);
+
+        let config = DirectionalBlurConfig {
+            dx: 10.0,
+            dy: 0.0,
+            num_samples: 256, // Exactly tests the boundary condition of SWAR
+        };
+        apply_directional_blur(&mut fb, &config);
+
+        assert_eq!(fb.get_pixel(0, 0), Some(0xFF00_0000));
     }
 }

@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Title] Fast Directional Blur via SWAR Optimization
+**Learning:** In hot pixel processing loops, if the number of samples is guaranteed to be 256 or fewer, use SWAR (SIMD Within A Register) to accumulate the Red and Blue (8-bit) channels into a single `u32` variable. Because the maximum accumulated value (255 * 256 = 65,280) fits perfectly within a 16-bit gap, the Blue channel won't overflow into Red, halving the number of additions required.
+**Action:** Applied this SWAR optimization to `apply_directional_blur` in `crates/abrash-render/src/experimental/directional_blur.rs`, reducing benchmark execution time by ~13%.
