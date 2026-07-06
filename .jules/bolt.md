@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Optimal HashSet initialization for integer keys]**
+**Learning:** Replacing `std::collections::HashSet` with `foldhash::HashSet` for simple integer data types (like mesh edges in `SoftBody`) avoids SipHash overhead. When paired with `HashSet::with_capacity()`, it prevents dynamic heap reallocations during initialization.
+**Action:** Replaced `std::collections::HashSet` with `foldhash::HashSet` and imported `foldhash::HashSetExt` in `crates/abrash-render/src/experimental/jelly.rs`.

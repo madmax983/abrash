@@ -1,7 +1,7 @@
 use abrash::experimental::jelly::SoftBody;
 use abrash::math::Vec3;
 use abrash::mesh::Mesh;
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn create_grid_mesh(size: usize) -> Mesh {
     let mut mesh = Mesh::new();
@@ -43,5 +43,18 @@ fn bench_softbody_update(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_softbody_update);
+fn bench_softbody_creation(c: &mut Criterion) {
+    let size = 50; // 50x50 = 2500 vertices, 4900 triangles
+    let mesh = create_grid_mesh(size);
+    let mut group = c.benchmark_group("softbody");
+    group.bench_function("creation_50x50", |b| {
+        b.iter(|| {
+            let body = SoftBody::new(black_box(mesh.clone()), 1.0, 10.0, 0.5);
+            let _ = black_box(body);
+        });
+    });
+    group.finish();
+}
+
+criterion_group!(benches, bench_softbody_update, bench_softbody_creation);
 criterion_main!(benches);
