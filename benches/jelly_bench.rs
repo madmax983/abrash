@@ -6,7 +6,7 @@ use abrash::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene};
 use abrash::math::Vec3;
 #[cfg(feature = "nova")]
 use abrash::mesh::Mesh;
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BatchSize, Criterion, black_box, criterion_group, criterion_main};
 
 #[cfg(feature = "nova")]
 fn create_grid_mesh(size: usize) -> Mesh {
@@ -27,6 +27,21 @@ fn create_grid_mesh(size: usize) -> Mesh {
         }
     }
     mesh
+}
+
+#[cfg(feature = "nova")]
+fn bench_jelly_new(c: &mut Criterion) {
+    let mut group = c.benchmark_group("jelly");
+    group.bench_function("new_30x30", |b| {
+        b.iter_batched(
+            || create_grid_mesh(30),
+            |mesh| {
+                black_box(SoftBody::new(mesh, 1.0, 10.0, 0.5).unwrap());
+            },
+            BatchSize::SmallInput,
+        );
+    });
+    group.finish();
 }
 
 #[cfg(feature = "nova")]
@@ -55,7 +70,7 @@ fn bench_jelly_collide_sdf(c: &mut Criterion) {
 }
 
 #[cfg(feature = "nova")]
-criterion_group!(benches, bench_jelly_collide_sdf);
+criterion_group!(benches, bench_jelly_collide_sdf, bench_jelly_new);
 
 #[cfg(not(feature = "nova"))]
 fn bench_jelly_collide_sdf(c: &mut Criterion) {}

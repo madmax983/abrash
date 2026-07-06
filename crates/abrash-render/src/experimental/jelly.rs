@@ -8,7 +8,7 @@
 use super::sdf::SdfScene;
 use crate::math::{Vec3, Vec4};
 use crate::mesh::Mesh;
-use std::collections::HashSet;
+use foldhash::{HashSet, HashSetExt};
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[target_feature(enable = "avx2")]
@@ -199,6 +199,7 @@ impl SoftBody {
         // ⚡ Bolt: Pre-allocate vectors and sets to prevent dynamic heap reallocations.
         // We know exactly the maximum possible number of edges/springs (3 per triangle).
         let max_edges = mesh.indices.len() * 3;
+        // ⚡ Bolt: Uses `foldhash::HashSet` instead of the standard library `HashSet` for integer pairs to eliminate SipHash cryptographic overhead during edge deduplication.
         let mut edges = HashSet::with_capacity(max_edges);
         let mut spring_indices_a = Vec::with_capacity(max_edges);
         let mut spring_indices_b = Vec::with_capacity(max_edges);
@@ -787,21 +788,26 @@ mod tests {
 
     #[test]
     fn test_jelly_creation() {
-        // Create a simple triangle
+        // Create a simple quad
         let mut mesh = Mesh::new();
         mesh.vertices.extend([
             Vec3::new(0.0, 0.0, 0.0),
             Vec3::new(1.0, 0.0, 0.0),
             Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(1.0, 1.0, 0.0),
         ]);
         mesh.indices.push([0, 1, 2]);
+        mesh.indices.push([1, 3, 2]);
 
         let jelly = SoftBody::new(mesh, 1.0, 10.0, 0.5).unwrap();
 
-        // Should have 3 vertices
-        assert_eq!(jelly.mesh.vertices.len(), 3);
-        // Should have 3 edges (0-1, 1-2, 2-0) -> 3 springs
-        assert_eq!(jelly.spring_rest_lengths.len(), 3);
+        // Should have 4 vertices
+        assert_eq!(jelly.mesh.vertices.len(), 4);
+        // Should have 5 edges -> 5 springs
+        assert_eq!(jelly.spring_rest_lengths.len(), 5);
+        assert_eq!(jelly.mass, 1.0);
+        assert_eq!(jelly.stiffness, 10.0);
+        assert_eq!(jelly.damping, 0.5);
     }
 
     #[test]
