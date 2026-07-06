@@ -21,3 +21,8 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+
+## [Reduction]
+**Bloat:** `ChannelTarget` enum in `abrash-skeletal/src/clip.rs` containing variants `Translation`, `Rotation`, and `Scale` alongside `ChannelValues` containing the same variants with data.
+**Cut:** Deleted the `ChannelTarget` enum and removed it from `AnimationChannel`. Refactored matches to only look at `ChannelValues` directly.
+**Saved:** Removed duplicate abstraction around animation channels and reduced pattern matching complexity.
