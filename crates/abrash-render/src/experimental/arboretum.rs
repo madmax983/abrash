@@ -199,6 +199,7 @@ impl LSystem {
             /// Moving the `next` String allocation out of the loop and reusing it via `swap`
             /// and `clear`/`reserve` eliminates continuous string re-allocations on every iteration.
             next.clear();
+            next.reserve(current.len() * 2);
             for c in current.chars() {
                 let u = c as usize;
                 if u < 128 {

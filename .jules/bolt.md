@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Reserve Capacity for L-System String Expansion]**
+**Learning:** Exponentially growing strings (like L-Systems) within hot loops must pre-allocate capacity to eliminate intermediate heap reallocations. Unlike arrays where `resize` or `reserve_exact` can be used to set explicit lengths, standard string appends natively rely on the allocator growing naturally. However, proactively `reserve()`-ing the required length (`current.len() * 2`) prevents reallocation on each iteration pass without over-allocating upfront.
+**Action:** When a loop involves mapping, extending, or string concatenations whose final capacity is proportional to the input, invoke `.reserve(input.len() * factor)` before the loop and avoid initializing `Vec` or `String` capacities with arbitrary large max bounds.
