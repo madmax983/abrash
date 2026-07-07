@@ -232,3 +232,15 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**[Tile Iteration Assume Init]**
+**Learning:** When manually implementing parallel iterators over an array of `MaybeUninit` containing initialized elements, using `.assume_init()` directly can lead to strict stacked borrow undefined behaviors when extracting elements, as it might take ownership or bitwise copy the uninitialized wrapper context.
+**Action:** Replace `.assume_init()` with `.assume_init_read()` to explicitly extract a bitwise copy of the correctly initialized element and satisfy strict memory rules in Miri.
+
+**[Miri & Rayon Compatibility]**
+**Learning:** Running Miri on test suites that initialize Rayon thread pools frequently triggers Stacked Borrows undefined behavior violations inside `crossbeam-epoch` (e.g., retagging for SharedReadWrite permission).
+**Action:** Recognize this as a known incompatibility. If standard `cargo test` passes cleanly and the specific code under test is isolated from the concurrency core, the Miri error inside crossbeam is expected behavior and does not block the patch.
+
+**[Foldhash for Performance]**
+**Learning:** Replacing `std::collections::HashSet` with `foldhash::HashSet` for simple primitive pairs (like edge coordinate tuples in SoftBody mesh processing) significantly reduces overhead associated with the default SipHash.
+**Action:** Used `foldhash::HashSet` in `SoftBody::new` to track unique edges, yielding a measurable performance improvement in structural initialization times.
