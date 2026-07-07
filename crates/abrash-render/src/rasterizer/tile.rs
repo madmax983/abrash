@@ -484,7 +484,7 @@ impl Iterator for PreparedGouraudTrianglesIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.list.count {
-            let item = unsafe { self.list.tris[self.index].assume_init() };
+            let item = unsafe { self.list.tris[self.index].assume_init_read() };
             self.index += 1;
             Some(item)
         } else {
@@ -585,7 +585,7 @@ impl rayon::iter::IntoParallelIterator for PreparedGouraudTrianglesList {
         // ⚡ Bolt: Elides dynamic heap allocation by mapping directly over a stack array
         let mut arr: [Option<PreparedGouraudTriangle>; 8] = [None; 8];
         for i in 0..self.count {
-            arr[i] = Some(unsafe { self.tris[i].assume_init() });
+            arr[i] = Some(unsafe { self.tris[i].assume_init_read() });
         }
         arr.into_par_iter().flatten()
     }
@@ -602,7 +602,7 @@ impl Iterator for PreparedTrianglesIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.list.count {
-            let item = unsafe { self.list.tris[self.index].assume_init() };
+            let item = unsafe { self.list.tris[self.index].assume_init_read() };
             self.index += 1;
             Some(item)
         } else {
@@ -668,7 +668,7 @@ impl Iterator for PreparedTexturedTrianglesIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.list.count {
-            let item = unsafe { self.list.tris[self.index].assume_init() };
+            let item = unsafe { self.list.tris[self.index].assume_init_read() };
             self.index += 1;
             Some(item)
         } else {
