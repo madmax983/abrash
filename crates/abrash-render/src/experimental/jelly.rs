@@ -6,7 +6,7 @@
 #![allow(warnings)]
 
 use super::sdf::SdfScene;
-use crate::math::{Vec3, Vec4};
+use crate::math::{Vec3, Vec4, fast_inv_sqrt};
 use crate::mesh::Mesh;
 use std::collections::HashSet;
 
@@ -313,11 +313,12 @@ impl SoftBody {
             let v_b = self.velocities[idx_b];
 
             let delta = p_b - p_a;
-            let current_length = delta.length();
+            let len_sq = delta.length_sq();
 
-            if current_length > 0.0001 {
-                // Optimization: reuse current_length to normalize, avoiding rsqrt/sqrt
-                let direction = delta * (1.0 / current_length);
+            if len_sq > 0.00000001 {
+                let inv_len = fast_inv_sqrt(len_sq);
+                let current_length = len_sq * inv_len;
+                let direction = delta * inv_len;
 
                 // Hooke's Law: F = -k * (x - x0)
                 let displacement = current_length - rest_len;
@@ -584,10 +585,12 @@ impl SoftBody {
             let v_b = self.velocities[idx_b];
 
             let delta = p_b - p_a;
-            let current_length = delta.length();
+            let len_sq = delta.length_sq();
 
-            if current_length > 0.0001 {
-                let direction = delta * (1.0 / current_length);
+            if len_sq > 0.00000001 {
+                let inv_len = fast_inv_sqrt(len_sq);
+                let current_length = len_sq * inv_len;
+                let direction = delta * inv_len;
                 let displacement = current_length - rest_len;
                 let spring_force_mag = -self.stiffness * displacement;
                 let v_rel = v_b - v_a;
@@ -858,5 +861,36 @@ mod correctness_tests {
         assert!((v.y - -0.98).abs() < 1e-5, "Velocity Y mismatch: {}", v.y);
         assert!((p.y - -0.098).abs() < 1e-5, "Position Y mismatch: {}", p.y);
         assert_eq!(jelly.forces[0], Vec3::default());
+    }
+}
+
+#[cfg(test)]
+mod tests_fast_inv_sqrt {
+    use super::*;
+    use crate::mesh::Mesh;
+
+    #[test]
+    fn test_jelly_fast_inv_sqrt_update() {
+        let mut mesh = Mesh::new();
+        // Triangle
+        mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
+        mesh.vertices.push(Vec3::new(10.0, 0.0, 0.0));
+        mesh.vertices.push(Vec3::new(0.0, 10.0, 0.0));
+        mesh.indices.push([0, 1, 2]);
+
+        let mut jelly = SoftBody::new(mesh, 1.0, 10.0, 0.5).unwrap();
+
+        // Apply force to one vertex to cause movement and stretch
+        jelly.apply_force(1, Vec3::new(10.0, 0.0, 0.0));
+
+        // Update to trigger the length and fast_inv_sqrt code paths
+        jelly.update(0.1);
+
+        // Just ensure it didn't crash and lengths are non-NaN
+        for v in jelly.velocities.iter() {
+            assert!(!v.x.is_nan());
+            assert!(!v.y.is_nan());
+            assert!(!v.z.is_nan());
+        }
     }
 }

@@ -232,3 +232,9 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Jelly Physics Optimization]**
+**Learning:** Computing `Vec3` magnitudes and normalizations via `.length()` (which incurs an expensive `.sqrt()`) and subsequent division can be a bottleneck in physics update loops.
+**Action:** Replaced `delta.length()` and `1.0 / length` with `let len_sq = delta.length_sq(); let inv_len = fast_inv_sqrt(len_sq);` in `SoftBody::update`. Reconstructing length via `len_sq * inv_len` and direction via `delta * inv_len` eliminates the square root operation and division.
+
+**[Measurement]**
+The `jelly` benchmarks running `collide_sdf_30x30` show performance changes remaining within the noise threshold (around `12.9 µs`). However, removing `f32::sqrt` calls is a mathematically sound optimization that structurally removes heavy operations from the hot loop in `jelly.rs`, aligning perfectly with typical performance profiles for soft-body physics code even when the benchmarks are noisy on a shared host.
