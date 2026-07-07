@@ -52,6 +52,8 @@ impl<T: Animatable + Send + Sync> Sequence<T> {
 }
 
 impl<T: Animatable + Send + Sync> Sequence<T> {
+    /// Journeys through the timeline, automatically locating and evaluating the specific
+    /// animation segment active at the requested normalized phase.
     #[must_use]
     pub fn evaluate(&self, phase: f32) -> Sample<T> {
         let phase = phase.clamp(0.0, 1.0);
@@ -73,6 +75,7 @@ impl<T: Animatable + Send + Sync> Sequence<T> {
         )
     }
 
+    /// The total sum duration in seconds of all segments in the sequence.
     #[must_use]
     pub const fn natural_duration(&self) -> f32 {
         self.total_duration
