@@ -55,12 +55,32 @@ fn bench_jelly_collide_sdf(c: &mut Criterion) {
 }
 
 #[cfg(feature = "nova")]
-criterion_group!(benches, bench_jelly_collide_sdf);
+fn bench_softbody_new(c: &mut Criterion) {
+    use criterion::BatchSize;
+    let size = 30; // 30x30 = 900 vertices
+    let mut group = c.benchmark_group("jelly");
+    group.bench_function("softbody_new_30x30", |b| {
+        b.iter_batched(
+            || create_grid_mesh(size),
+            |mesh| {
+                black_box(SoftBody::new(mesh, 1.0, 10.0, 0.5).expect("Failed to create SoftBody"));
+            },
+            BatchSize::SmallInput,
+        );
+    });
+    group.finish();
+}
+
+#[cfg(feature = "nova")]
+criterion_group!(benches, bench_jelly_collide_sdf, bench_softbody_new);
 
 #[cfg(not(feature = "nova"))]
 fn bench_jelly_collide_sdf(c: &mut Criterion) {}
 
 #[cfg(not(feature = "nova"))]
-criterion_group!(benches, bench_jelly_collide_sdf);
+fn bench_softbody_new(c: &mut Criterion) {}
+
+#[cfg(not(feature = "nova"))]
+criterion_group!(benches, bench_jelly_collide_sdf, bench_softbody_new);
 
 criterion_main!(benches);
