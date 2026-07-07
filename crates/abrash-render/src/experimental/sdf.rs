@@ -48,12 +48,27 @@ impl SdfObject {
     /// Evaluate the signed distance to this object.
     #[must_use]
     pub fn distance(&self, p: Vec3) -> f32 {
+        // ⚡ Bolt: Using `length_sq()` and `fast_inv_sqrt` to avoid expensive `length()` (sqrt) calls
         match self.primitive {
-            SdfPrimitive::Sphere { radius, center } => (p - center).length() - radius,
+            SdfPrimitive::Sphere { radius, center } => {
+                let p_sq = (p - center).length_sq();
+                let p_len = if p_sq > 1e-8 {
+                    p_sq * crate::math::fast_inv_sqrt(p_sq)
+                } else {
+                    0.0
+                };
+                p_len - radius
+            }
             SdfPrimitive::Box { size, center } => {
                 let d = vec3_abs(p - center) - size;
                 let inside_dist = d.x.max(d.y).max(d.z).min(0.0);
-                let outside_dist = vec3_max(d, 0.0).length();
+                let od = vec3_max(d, 0.0);
+                let od_sq = od.length_sq();
+                let outside_dist = if od_sq > 1e-8 {
+                    od_sq * crate::math::fast_inv_sqrt(od_sq)
+                } else {
+                    0.0
+                };
                 inside_dist + outside_dist
             }
             SdfPrimitive::Torus {
@@ -62,15 +77,38 @@ impl SdfObject {
                 center,
             } => {
                 let p = p - center;
-                let q = Vec2::new(Vec2::new(p.x, p.z).length() - major_radius, p.y);
-                q.length() - minor_radius
+                let p_xz_sq = Vec2::new(p.x, p.z).length_sq();
+                let p_xz_len = if p_xz_sq > 1e-8 {
+                    p_xz_sq * crate::math::fast_inv_sqrt(p_xz_sq)
+                } else {
+                    0.0
+                };
+                let q = Vec2::new(p_xz_len - major_radius, p.y);
+                {
+                    let q_sq = q.length_sq();
+                    let q_len = if q_sq > 1e-8 {
+                        q_sq * crate::math::fast_inv_sqrt(q_sq)
+                    } else {
+                        0.0
+                    };
+                    q_len - minor_radius
+                }
             }
             SdfPrimitive::Plane { normal, distance } => p.dot(normal) + distance,
             SdfPrimitive::Capsule { start, end, radius } => {
                 let pa = p - start;
                 let ba = end - start;
                 let h = (pa.dot(ba) / ba.dot(ba)).clamp(0.0, 1.0);
-                (pa - ba * h).length() - radius
+                {
+                    let pa_ba = pa - ba * h;
+                    let pa_ba_sq = pa_ba.length_sq();
+                    let pa_ba_len = if pa_ba_sq > 1e-8 {
+                        pa_ba_sq * crate::math::fast_inv_sqrt(pa_ba_sq)
+                    } else {
+                        0.0
+                    };
+                    pa_ba_len - radius
+                }
             }
         }
     }
