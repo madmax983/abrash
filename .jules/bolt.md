@@ -232,3 +232,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+
+**Generational Indexing in Tile Bins**
+**Learning:** In hot loops resetting sparse data structures (like bin heads/tails), standard `fill()` operations can introduce significant memory bandwidth overhead.
+**Action:** When resetting arrays to default values each frame, employ a generational index (a `current_generation` counter and a parallel `generations` array). This avoids `O(N)` `fill()` operations by lazily validating elements against the current generation.

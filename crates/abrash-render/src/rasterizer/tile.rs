@@ -688,6 +688,10 @@ pub struct TileBins {
     pub nexts: Vec<u32>,
     /// The triangle indices for each node.
     pub tris: Vec<u32>,
+    /// Current generation used to avoid O(N) memset on clear.
+    pub current_generation: u32,
+    /// Generation array tracking the last time each bin was cleared.
+    pub generations: Vec<u32>,
 }
 
 impl TileBins {
@@ -703,13 +707,19 @@ impl TileBins {
             tails: vec![u32::MAX; num_tiles],
             nexts: Vec::with_capacity(capacity),
             tris: Vec::with_capacity(capacity),
+            current_generation: 1,
+            generations: vec![0; num_tiles],
         }
     }
 
     /// Clears the bin structure for the next frame.
     pub fn clear(&mut self) {
-        self.heads.fill(u32::MAX);
-        self.tails.fill(u32::MAX);
+        if self.current_generation == u32::MAX {
+            self.generations.fill(0);
+            self.current_generation = 1;
+        } else {
+            self.current_generation += 1;
+        }
         self.nexts.clear();
         self.tris.clear();
     }
@@ -721,8 +731,9 @@ impl TileBins {
         self.tris.push(tri_idx as u32);
         self.nexts.push(u32::MAX);
 
-        let head = self.heads[tile_idx];
-        if head == u32::MAX {
+        let is_empty = self.generations[tile_idx] != self.current_generation;
+        if is_empty {
+            self.generations[tile_idx] = self.current_generation;
             self.heads[tile_idx] = node_idx;
         } else {
             let tail = self.tails[tile_idx];
@@ -735,9 +746,16 @@ impl TileBins {
     #[inline]
     #[must_use]
     pub fn iter(&self, tile_idx: usize) -> TileBinIter<'_> {
-        TileBinIter {
-            bins: self,
-            curr: self.heads[tile_idx],
+        if self.generations[tile_idx] == self.current_generation {
+            TileBinIter {
+                bins: self,
+                curr: self.heads[tile_idx],
+            }
+        } else {
+            TileBinIter {
+                bins: self,
+                curr: u32::MAX,
+            }
         }
     }
 }
@@ -779,7 +797,7 @@ fn render_single_tile(
     clear_color: u32,
 ) -> Option<(i32, i32)> {
     let bin_idx = (ty * tiles_x + tx) as usize;
-    if tile_bins.heads[bin_idx] == u32::MAX {
+    if tile_bins.generations[bin_idx] != tile_bins.current_generation {
         return None;
     }
 
@@ -910,7 +928,7 @@ fn render_single_tile_textured(
     clear_color: u32,
 ) -> Option<(i32, i32)> {
     let bin_idx = (ty * tiles_x + tx) as usize;
-    if tile_bins.heads[bin_idx] == u32::MAX {
+    if tile_bins.generations[bin_idx] != tile_bins.current_generation {
         return None;
     }
 
@@ -2105,7 +2123,7 @@ impl TileRenderer {
                         .for_each(|(tx, ty)| {
                             let bin_idx = (ty * tiles_x + tx) as usize;
 
-                            if tile_bins.heads[bin_idx] == u32::MAX {
+                            if tile_bins.generations[bin_idx] != tile_bins.current_generation {
                                 if has_integrated_clear {
                                     let tile_x0 = tx * TILE_SIZE;
                                     let tile_y0 = ty * TILE_SIZE;
@@ -2481,7 +2499,7 @@ impl TileRenderer {
                     .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
                     .for_each(|(tx, ty)| {
                         let bin_idx = (ty * tiles_x + tx) as usize;
-                        if tile_bins.heads[bin_idx] == u32::MAX {
+                        if tile_bins.generations[bin_idx] != tile_bins.current_generation {
                             if has_integrated_clear {
                                 let tile_x0 = tx * TILE_SIZE;
                                 let tile_y0 = ty * TILE_SIZE;
@@ -2730,7 +2748,7 @@ impl TileRenderer {
                     .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
                     .for_each(|(tx, ty)| {
                         let bin_idx = (ty * tiles_x + tx) as usize;
-                        if tile_bins.heads[bin_idx] == u32::MAX {
+                        if tile_bins.generations[bin_idx] != tile_bins.current_generation {
                             if has_integrated_clear {
                                 let tile_x0 = tx * TILE_SIZE;
                                 let tile_y0 = ty * TILE_SIZE;
@@ -3010,7 +3028,7 @@ impl TileRenderer {
         // This eliminates frequent dynamic heap allocations on the hot sorting path.
         let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
-            if *head == u32::MAX {
+            if self.tile_bins.generations[tile_idx] != self.tile_bins.current_generation {
                 continue;
             }
 
@@ -3533,7 +3551,7 @@ impl TileRenderer {
         // This eliminates frequent dynamic heap allocations on the hot sorting path.
         let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
-            if *head == u32::MAX {
+            if self.tile_bins.generations[tile_idx] != self.tile_bins.current_generation {
                 continue;
             }
 
@@ -3583,7 +3601,7 @@ impl TileRenderer {
         // This eliminates frequent dynamic heap allocations on the hot sorting path.
         let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
-            if *head == u32::MAX {
+            if self.tile_bins.generations[tile_idx] != self.tile_bins.current_generation {
                 continue;
             }
 
@@ -3836,7 +3854,7 @@ fn render_single_tile_gouraud(
     clear_color: u32,
 ) -> Option<(i32, i32)> {
     let bin_idx = (ty * tiles_x + tx) as usize;
-    if tile_bins.heads[bin_idx] == u32::MAX {
+    if tile_bins.generations[bin_idx] != tile_bins.current_generation {
         return None;
     }
 
