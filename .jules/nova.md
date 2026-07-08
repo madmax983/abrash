@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## draw_line_2d Feature
+**Concept:** Implement a fast 2D line drawing algorithm (Bresenham's) independent of the 3D Z-buffer to support UI, overlays, and general 2D drawing capabilities in the graphics engine.
+**Fate:** Implemented, tested, and benchmarked successfully in `abrash-render/src/rasterizer/line.rs`.
+**Lesson:** Providing foundational 2D drawing primitives significantly increases the utility of a rasterizer for non-3D applications.
