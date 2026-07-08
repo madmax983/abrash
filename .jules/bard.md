@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2026-07-08 - [Fixing doctests]
+**Confusion:** The TUI doctest failed because it tried to import from abrash_render instead of abrash.
+**Clarification:** Use abrash::platform::tui::TuiWindow.
