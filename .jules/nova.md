@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [Strange Attractor]
+**Concept:** A mathematical renderer that visualizes Peter de Jong strange attractors by iteratively plotting points on a 2D plane and rendering the density using a logarithmic colormap.
+**Fate:** Implemented
+**Lesson:** Iteratively calculating 2D trigonometric points and accumulating their densities in a 1D vector provides a very fast way to render highly complex and beautiful chaotic systems, avoiding any per-pixel math entirely until the final color mapping step.

@@ -984,3 +984,13 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[example]]
+name = "strange_attractor_demo"
+path = "examples/strange_attractor_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "strange_attractor_bench"
+harness = false
+required-features = ["nova"]
