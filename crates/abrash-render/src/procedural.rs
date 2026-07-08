@@ -108,31 +108,68 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
 /// assert_eq!(tex.width(), 32);
 /// assert_eq!(tex.height(), 32);
 /// ```
+const fn generate_plasma_procedural_lut() -> [u32; 1024] {
+    let mut lut = [0u32; 1024];
+    let mut i = 0;
+    while i < 1024 {
+        let normalized = i as f32 / 1023.0;
+
+        let mut angle_r = normalized * std::f32::consts::PI;
+        while angle_r > std::f32::consts::PI { angle_r -= 2.0 * std::f32::consts::PI; }
+        while angle_r < -std::f32::consts::PI { angle_r += 2.0 * std::f32::consts::PI; }
+
+        let x2 = angle_r * angle_r;
+        let sin_r = angle_r * (1.0 - x2 * (1.0/6.0 - x2 * (1.0/120.0 - x2 * (1.0/5040.0))));
+        let r = (if sin_r < 0.0 { -sin_r } else { sin_r } * 255.0) as u32;
+
+        let mut angle_g = normalized * std::f32::consts::PI + 2.0;
+        while angle_g > std::f32::consts::PI { angle_g -= 2.0 * std::f32::consts::PI; }
+        while angle_g < -std::f32::consts::PI { angle_g += 2.0 * std::f32::consts::PI; }
+        let x2_g = angle_g * angle_g;
+        let sin_g = angle_g * (1.0 - x2_g * (1.0/6.0 - x2_g * (1.0/120.0 - x2_g * (1.0/5040.0))));
+        let g = (if sin_g < 0.0 { -sin_g } else { sin_g } * 255.0) as u32;
+
+        let mut angle_b = normalized * std::f32::consts::PI + 4.0;
+        while angle_b > std::f32::consts::PI { angle_b -= 2.0 * std::f32::consts::PI; }
+        while angle_b < -std::f32::consts::PI { angle_b += 2.0 * std::f32::consts::PI; }
+        let x2_b = angle_b * angle_b;
+        let sin_b = angle_b * (1.0 - x2_b * (1.0/6.0 - x2_b * (1.0/120.0 - x2_b * (1.0/5040.0))));
+        let b = (if sin_b < 0.0 { -sin_b } else { sin_b } * 255.0) as u32;
+
+        lut[i as usize] = 0xFF00_0000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
+        i += 1;
+    }
+    lut
+}
+const PROCEDURAL_PLASMA_LUT: [u32; 1024] = generate_plasma_procedural_lut();
+
 pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
     let mut tex = Texture::new(width, height)?;
 
+    let mut u_sins = std::vec::Vec::with_capacity(width as usize);
+    for x in 0..width {
+        let (v1, _) = fast_sin_cos((x as f32) * 0.1);
+        u_sins.push(v1);
+    }
+
     for y in 0..height {
+        let v = y as f32;
+        let (v2, _) = fast_sin_cos(v * 0.1);
+        let v_sq = v * v;
+
         for x in 0..width {
             let u = x as f32;
-            let v = y as f32;
-
-            let (v1, _) = fast_sin_cos(u * 0.1);
-            let (v2, _) = fast_sin_cos(v * 0.1);
+            let v1 = u_sins[x as usize];
             let (v3, _) = fast_sin_cos((u + v) * 0.1);
-            let (v4, _) = fast_sin_cos(u.mul_add(u, v * v).sqrt() * 0.1);
+            let (v4, _) = fast_sin_cos(u.mul_add(u, v_sq).sqrt() * 0.1);
 
             let val = (v1 + v2 + v3 + v4) * 0.25; // -1 to 1
             let normalized = (val + 1.0) * 0.5; // 0 to 1
 
-            // Map to a psychedelic palette
-            let (r_sin, _) = fast_sin_cos(normalized * std::f32::consts::PI);
-            let r = (r_sin.abs() * 255.0) as u32;
-            let (g_sin, _) = fast_sin_cos((normalized * std::f32::consts::PI) + 2.0);
-            let g = (g_sin.abs() * 255.0) as u32;
-            let (b_sin, _) = fast_sin_cos((normalized * std::f32::consts::PI) + 4.0);
-            let b = (b_sin.abs() * 255.0) as u32;
+            let t = (normalized * 1023.0) as u32;
+            let t = t.min(1023);
+            let color = unsafe { *PROCEDURAL_PLASMA_LUT.get_unchecked(t as usize) };
 
-            let color = 0xFF00_0000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
             tex.set_pixel(x, y, color);
         }
     }

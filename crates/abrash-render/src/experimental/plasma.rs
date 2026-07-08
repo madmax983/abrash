@@ -16,6 +16,28 @@ use rayon::prelude::*;
 /// * `fb`: The Framebuffer to modify.
 /// * `time`: A time variable used to animate the plasma.
 /// * `scale`: A scaling factor for the sine waves (e.g., 0.05).
+
+const fn generate_plasma_lut() -> [u32; 1024] {
+    let mut lut = [0u32; 1024];
+    let mut i = 0;
+    while i < 1024 {
+        let r = (i * 255) / 1023;
+
+        let mut g_c = i + 338;
+        if g_c >= 1024 { g_c -= 1024; }
+        let g = (g_c * 255) / 1023;
+
+        let mut b_c = i + 676;
+        if b_c >= 1024 { b_c -= 1024; }
+        let b = (b_c * 255) / 1023;
+
+        lut[i as usize] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+        i += 1;
+    }
+    lut
+}
+const PLASMA_LUT: [u32; 1024] = generate_plasma_lut();
+
 pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
     if fb.width() == 0 || fb.height() == 0 {
         return;
@@ -28,6 +50,14 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
 
     let pixels = fb.as_mut_slice();
 
+    // Precalculate x_sin for all x columns
+    let mut x_sins = std::vec::Vec::with_capacity(width);
+    for x in 0..width {
+        let x_f32 = x as f32;
+        let x_scaled_time = (x_f32 * scale + time) % std::f32::consts::TAU;
+        x_sins.push(fast_sin_cos(x_scaled_time).0);
+    }
+
     #[cfg(feature = "parallel")]
     let row_iter = pixels.par_chunks_exact_mut(width).enumerate();
     #[cfg(not(feature = "parallel"))]
@@ -39,9 +69,7 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
         let (y_sin, y_cos) = fast_sin_cos(y_scaled_time);
 
         for (x, pixel) in row.iter_mut().enumerate().take(width) {
-            let x_f32 = x as f32;
-            let x_scaled_time = (x_f32 * scale + time) % std::f32::consts::TAU;
-            let (x_sin, _) = fast_sin_cos(x_scaled_time);
+            let x_sin = x_sins[x];
 
             // Calculate plasma value using multiple sine waves
             let mut v = 0.0;
@@ -55,13 +83,10 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
             let (c_sin, _) = fast_sin_cos(v * std::f32::consts::PI);
             let c = c_sin * 0.5 + 0.5;
 
-            // Map the normalized value to RGB colors
-            // Simple color palette generation based on the phase
-            let r = ((c * 255.0) as u32).min(255);
-            let g = (((c + 0.33) % 1.0 * 255.0) as u32).min(255);
-            let b = (((c + 0.66) % 1.0 * 255.0) as u32).min(255);
-
-            *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+            // Use the precomputed LUT for color mapping
+            let t = (c * 1023.0) as u32;
+            let t = t.min(1023);
+            *pixel = unsafe { *PLASMA_LUT.get_unchecked(t as usize) };
         }
     });
 }
