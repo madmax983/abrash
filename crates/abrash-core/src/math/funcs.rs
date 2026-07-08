@@ -8538,4 +8538,50 @@ pub fn smith_g_schlick_ggx(n_dot_v: f32, roughness: f32) -> f32 {
     n_dot_v / (n_dot_v * (1.0 - k) + k)
 }
 
+#[cfg(test)]
+mod tests2 {
+    use super::*;
+    use crate::math::Vec3;
+
+    #[test]
+    fn test_project_triangle_to_screen_avx2() {
+        #[cfg(target_arch = "x86_64")]
+        if std::is_x86_feature_detected!("sse4.1") {
+            // It uses SSE/AVX
+            let v0 = Vec3::new(1.0, 1.0, 10.0);
+            let v1 = Vec3::new(-1.0, -1.0, 10.0);
+            let v2 = Vec3::new(2.0, -2.0, 5.0);
+            let (p0, p1, p2) = project_triangle_to_screen(v0, 1.0, v1, 1.0, v2, 1.0, 400.0, 300.0);
+            assert_eq!(p0.x, 800);
+            assert_eq!(p0.y, 0);
+            assert_eq!(p1.x, 0);
+            assert_eq!(p1.y, 600);
+            assert_eq!(p2.x, 1200);
+            assert_eq!(p2.y, 900);
+        }
+    }
+
+    #[test]
+    fn test_project_quad_to_screen_avx2() {
+        #[cfg(target_arch = "x86_64")]
+        if std::is_x86_feature_detected!("sse4.1") {
+            let v0 = Vec3::new(1.0, 1.0, 10.0);
+            let v1 = Vec3::new(-1.0, -1.0, 10.0);
+            let v2 = Vec3::new(2.0, -2.0, 5.0);
+            let v3 = Vec3::new(-2.0, 2.0, 5.0);
+            let (p0, p1, p2, p3) =
+                project_quad_to_screen(v0, 1.0, v1, 1.0, v2, 1.0, v3, 1.0, 400.0, 300.0);
+            assert_eq!(p0.x, 800);
+            assert_eq!(p0.y, 0);
+            assert_eq!(p1.x, 0);
+            assert_eq!(p1.y, 600);
+            assert_eq!(p2.x, 1200);
+            assert_eq!(p2.y, 900);
+            // Floating point approximation issues
+            assert!((p3.x - -400).abs() <= 1);
+            assert!((p3.y - -300).abs() <= 1);
+        }
+    }
+}
+
 // ── Pass 59 tests ─────────────────────────────────────────────────────────────

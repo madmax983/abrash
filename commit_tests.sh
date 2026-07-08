@@ -1,0 +1,1 @@
+git add crates/abrash-core/src/culling.rs crates/abrash-core/src/framebuffer.rs crates/abrash-core/src/zbuffer.rs crates/abrash-core/src/texture.rs crates/abrash-core/src/math/funcs.rs crates/abrash-render/src/heat_vision.rs

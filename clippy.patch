@@ -1,0 +1,9 @@
+<<<<<<< SEARCH
+                } else if let Some(depth) = zb.get_depth(x, y) {
+                    assert_eq!(depth, 1.0);
+                }
+=======
+                } else if let Some(depth) = zb.get_depth(x, y) {
+                    assert!((depth - 1.0).abs() < 1e-5);
+                }
+>>>>>>> REPLACE

@@ -484,6 +484,18 @@ mod tests {
     }
 
     #[test]
+    fn test_get_pixel_unchecked_out_of_bounds() {
+        let mut fb = Framebuffer::new(2, 2).unwrap();
+        fb.set_pixel(0, 0, 0x11111111);
+        fb.set_pixel(1, 1, 0x22222222);
+
+        unsafe {
+            assert_eq!(fb.get_pixel_unchecked(0, 0), 0x11111111);
+            assert_eq!(fb.get_pixel_unchecked(1, 1), 0x22222222);
+        }
+    }
+
+    #[test]
     fn test_clear_rect_full_width() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
 

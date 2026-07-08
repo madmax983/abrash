@@ -1,0 +1,24 @@
+<<<<<<< SEARCH
+    #[test]
+    fn test_heat_vision_gradient() {
+=======
+    #[test]
+    fn test_apply_heat_vision_simd_direct() {
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        if std::is_x86_feature_detected!("avx2") {
+            let mut pixels = vec![0u32; 10];
+            let depths = vec![0.0, 1.0, 5.0, 10.0, 20.0, 50.0, 100.0, 150.0, 200.0, 250.0];
+
+            unsafe {
+                apply_heat_vision_simd(&mut pixels, &depths, 0.0, 1.0, &generate_lut());
+            }
+
+            for &p in &pixels {
+                assert_eq!(p & 0xFF000000, 0xFF000000);
+            }
+        }
+    }
+
+    #[test]
+    fn test_heat_vision_gradient() {
+>>>>>>> REPLACE

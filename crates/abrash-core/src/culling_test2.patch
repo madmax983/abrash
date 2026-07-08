@@ -1,0 +1,9 @@
+<<<<<<< SEARCH
+        // We use deterministic loop to avoid randomness dependency in test
+        let mut spheres = Vec::with_capacity(101); // 100 random + 1 definitely outside
+        for i in 0..100 {
+=======
+        // We use deterministic loop to avoid randomness dependency in test
+        let mut spheres = Vec::with_capacity(101); // 100 random + 1 definitely outside
+        for i in 0..100 {
+>>>>>>> REPLACE
