@@ -8,6 +8,7 @@
 
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, Vec2, Vec3};
+use abrash_core::math::fast_inv_sqrt;
 use crate::zbuffer::ZBuffer;
 
 /// Supported SDF Primitives.
@@ -49,11 +50,16 @@ impl SdfObject {
     #[must_use]
     pub fn distance(&self, p: Vec3) -> f32 {
         match self.primitive {
-            SdfPrimitive::Sphere { radius, center } => (p - center).length() - radius,
+            SdfPrimitive::Sphere { radius, center } => {
+                let len_sq = (p - center).length_sq();
+                (len_sq * fast_inv_sqrt(len_sq.max(0.0001))) - radius
+            }
             SdfPrimitive::Box { size, center } => {
                 let d = vec3_abs(p - center) - size;
                 let inside_dist = d.x.max(d.y).max(d.z).min(0.0);
-                let outside_dist = vec3_max(d, 0.0).length();
+                let m = vec3_max(d, 0.0);
+                let len_sq = m.length_sq();
+                let outside_dist = len_sq * fast_inv_sqrt(len_sq.max(0.0001));
                 inside_dist + outside_dist
             }
             SdfPrimitive::Torus {
@@ -62,15 +68,20 @@ impl SdfObject {
                 center,
             } => {
                 let p = p - center;
-                let q = Vec2::new(Vec2::new(p.x, p.z).length() - major_radius, p.y);
-                q.length() - minor_radius
+                let v = Vec2::new(p.x, p.z);
+                let len_sq = v.length_sq();
+                let q = Vec2::new((len_sq * fast_inv_sqrt(len_sq.max(0.0001))) - major_radius, p.y);
+                let q_len_sq = q.length_sq();
+                (q_len_sq * fast_inv_sqrt(q_len_sq.max(0.0001))) - minor_radius
             }
             SdfPrimitive::Plane { normal, distance } => p.dot(normal) + distance,
             SdfPrimitive::Capsule { start, end, radius } => {
                 let pa = p - start;
                 let ba = end - start;
                 let h = (pa.dot(ba) / ba.dot(ba)).clamp(0.0, 1.0);
-                (pa - ba * h).length() - radius
+                let pb = pa - ba * h;
+                let len_sq = pb.length_sq();
+                (len_sq * fast_inv_sqrt(len_sq.max(0.0001))) - radius
             }
         }
     }
