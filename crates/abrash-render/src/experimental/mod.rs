@@ -35,6 +35,7 @@ pub mod brickify;
 pub mod fractal;
 
 pub mod blueprint;
+pub mod braille;
 pub mod cel_shade;
 pub mod chroma_key;
 pub mod cloth;

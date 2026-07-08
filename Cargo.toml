@@ -984,3 +984,14 @@ harness = false
 [[bench]]
 name = "plasma_procedural_bench"
 harness = false
+
+[[bench]]
+name = "braille_bench"
+harness = false
+required-features = ["nova"]
+
+
+[[example]]
+name = "braille_demo"
+path = "examples/braille_demo.rs"
+required-features = ["nova"]
