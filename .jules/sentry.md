@@ -51,3 +51,7 @@
 **[Validating Time/Tick Loop Logic Without Flakiness]**
 **Learning:** Testing frame-time loops using `std::thread::sleep` introduces severe flakiness because CI runners or test threads can delay execution unpredictably. Instead of testing "real" time elapsed, test the internal response to elapsed time by directly simulating it on the structure (e.g. `timer.last_time = Instant::now()`, `timer.accumulator += 50ms`).
 **Action:** Never use `std::thread::sleep` for unit testing timing systems. Always manipulate the simulated time state directly to test logic boundaries.
+
+**[Handles `get_mut` Vacant Entry Coverage]**
+**Learning:** Functions that return options based on internal state matching (like `ResourcePool::get_mut` checking for `PoolEntry::Occupied`) often lack coverage for the negative `Vacant` path if normal operations only query active handles.
+**Action:** When auditing resource pools or custom allocators, ensure explicit tests exist that insert, remove, and then immediately query (`get` or `get_mut`) the removed handle to verify the `None` path is safely triggered without panicking.
