@@ -1,0 +1,20 @@
+🎨 Mosaic: UI Polish for Examples
+
+🖌️ **Before:**
+Many examples (like `dither_demo`, `fractal_demo`, `gamma_demo`, `pencil_sketch_demo`, `selective_color_demo`, etc.) were missing the `UTF8_ROUND_CORNERS` modifier on their `comfy_table` outputs, making them look visually inconsistent with the rest of the codebase.
+Furthermore, examples like `fractal_demo` and `steganography_demo` lacked graceful fallbacks for missing `nova` feature, which caused confusing crashes and panics about missing wayland sockets or winit event loops instead of explaining the requirement.
+
+✨ **After:**
+Standardized all `comfy_table` usages that rely on `UTF8_FULL` to explicitly chain the `.apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)` call so the terminal UI looks uniform across the board.
+Added explicit `#[cfg(not(feature = "nova"))]` fallback `main` functions to `fractal_demo` and `steganography_demo` that use the same styled tables to print a human-readable explanation when features are missing. Removed the static `required-features = ["nova"]` from `Cargo.toml` for these binaries so `cargo run --example` actually compiles the fallback instead of just erroring out upfront.
+
+🖼️ **Visuals:**
+Now, running `cargo run --example fractal_demo` without `--features nova` produces a clean, rounded table:
+╭──────────────────────────────────────────────────╮
+│ ⚠️  Missing Feature: Nova                        │
+╞══════════════════════════════════════════════════╡
+│ This example requires the 'nova' feature to run. │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Try running with:                                │
+│ cargo run --example fractal_demo --features nova │
+╰──────────────────────────────────────────────────╯

@@ -781,7 +781,6 @@ required-features = ["nova"]
 [[example]]
 name = "steganography_demo"
 path = "examples/steganography_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "reaction_diffusion_demo"
@@ -791,7 +790,6 @@ required-features = ["nova"]
 [[example]]
 name = "fractal_demo"
 path = "examples/fractal_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "jelly_bench"

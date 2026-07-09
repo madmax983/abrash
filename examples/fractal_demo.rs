@@ -1,24 +1,34 @@
 #![cfg(feature = "backend-winit")]
 
+#[cfg(feature = "nova")]
 use abrash::framebuffer::Framebuffer;
+#[cfg(feature = "nova")]
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
+#[cfg(feature = "nova")]
 use abrash_render::experimental::fractal::render_mandelbrot;
 
+#[cfg(feature = "nova")]
 use comfy_table::{Cell, Color, Table, presets};
+#[cfg(feature = "nova")]
 use crossterm::style::Stylize;
 
+#[cfg(feature = "nova")]
 const WIDTH: u32 = 640;
+#[cfg(feature = "nova")]
 const HEIGHT: u32 = 480;
+#[cfg(feature = "nova")]
 const TITLE: &str = "Nova: Fractal Explorer Demo";
 
+#[cfg(feature = "nova")]
 struct FractalDemoApp {
     presenter: Option<SoftwarePresenter>,
     framebuffer: Framebuffer,
     time: f32,
 }
 
+#[cfg(feature = "nova")]
 impl FractalDemoApp {
     fn new() -> Result<Self, HostError> {
         Ok(Self {
@@ -40,6 +50,7 @@ impl FractalDemoApp {
     }
 }
 
+#[cfg(feature = "nova")]
 fn print_banner() {
     println!("\n{}", "🌟 Fractal Explorer Demo".bold().cyan());
     println!("{}", "========================".dark_grey());
@@ -47,6 +58,7 @@ fn print_banner() {
     let mut table = Table::new();
     table
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Property").fg(Color::Cyan),
             Cell::new("Value").fg(Color::Cyan),
@@ -67,6 +79,7 @@ fn print_banner() {
     let mut controls = Table::new();
     controls
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Input").fg(Color::Cyan),
             Cell::new("Action").fg(Color::Cyan),
@@ -76,6 +89,7 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
+#[cfg(feature = "nova")]
 impl WindowApp for FractalDemoApp {
     type Error = HostError;
 
@@ -117,7 +131,33 @@ impl WindowApp for FractalDemoApp {
     }
 }
 
+#[cfg(feature = "nova")]
 fn main() {
     print_banner();
     run_windowed(FractalDemoApp::new().unwrap());
+}
+
+#[cfg(not(feature = "nova"))]
+fn main() {
+    let mut error_table = comfy_table::Table::new();
+    error_table
+        .load_preset(comfy_table::presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            comfy_table::Cell::new("⚠️  Missing Feature: Nova")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(comfy_table::Color::Red),
+        ])
+        .add_row(vec![
+            comfy_table::Cell::new("This example requires the 'nova' feature to run.")
+                .fg(comfy_table::Color::White),
+        ])
+        .add_row(vec![
+            comfy_table::Cell::new(
+                "Try running with:\ncargo run --example fractal_demo --features nova",
+            )
+            .fg(comfy_table::Color::Green),
+        ]);
+    eprintln!("\n{error_table}");
+    std::process::exit(1);
 }

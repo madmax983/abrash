@@ -10,6 +10,7 @@ fn print_banner(width: u32, height: u32) {
     let mut table = Table::new();
     table
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Property").fg(Color::Cyan),
             Cell::new("Value").fg(Color::Cyan),
@@ -31,6 +32,7 @@ fn print_success(width: u32, height: u32) {
     let mut table = Table::new();
     table
         .load_preset(presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("✅ Status")
                 .fg(Color::Green)
