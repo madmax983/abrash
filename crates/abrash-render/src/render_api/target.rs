@@ -171,4 +171,14 @@ mod tests {
         target.pixels_mut()[0] = 0xDEAD_BEEF;
         assert_eq!(target.pixels()[0], 0xDEAD_BEEF);
     }
+
+    #[test]
+    #[should_panic(expected = "owned render target has matching color and depth buffers")]
+    fn test_render_target_borrow_mut_guard() {
+        let mut target = RenderTarget::new(10, 10).unwrap();
+        // Sentry Defense: Artificially corrupt the internal framebuffer to verify
+        // that the panicking guard correctly fires when the slices no longer match.
+        target.framebuffer = Framebuffer::new(2, 2).unwrap();
+        let _ = target.borrow_mut();
+    }
 }
