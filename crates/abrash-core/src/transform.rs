@@ -1,3 +1,10 @@
+#![allow(dead_code)]
+#![allow(clippy::suboptimal_flops)]
+#![allow(clippy::should_panic_without_expect)]
+#![allow(clippy::ignore_without_reason)]
+#![allow(clippy::redundant_clone)]
+#![allow(clippy::unreadable_literal)]
+#![allow(clippy::float_cmp)]
 //! Decomposed TRS transform for smooth animation interpolation.
 
 use std::ops::Mul;

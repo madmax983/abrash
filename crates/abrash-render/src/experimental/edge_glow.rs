@@ -14,7 +14,7 @@ thread_local! {
 /// Configuration for the Edge Glow post-processing filter.
 #[derive(Debug, Clone, Copy)]
 pub struct EdgeGlowConfig {
-    /// The RGB color to apply to edges (e.g., 0x00FF00FF for Magenta).
+    /// The RGB color to apply to edges (e.g., `0x00FF_00FF` for Magenta).
     /// The top byte (Alpha) is ignored.
     pub edge_color: u32,
     /// Multiplier for the glow intensity (1.0 is normal, >1.0 is brighter).

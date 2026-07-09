@@ -16,7 +16,7 @@ thread_local! {
 /// Configuration for the Hologram effect.
 #[derive(Debug, Clone, Copy)]
 pub struct HologramConfig {
-    /// The base color of the hologram (e.g., 0xFF00FFFF for cyan).
+    /// The base color of the hologram (e.g., `0xFF00_FFFF` for cyan).
     pub color: u32,
     /// A continuously increasing time value used to animate flicker and scanlines.
     pub time: f32,

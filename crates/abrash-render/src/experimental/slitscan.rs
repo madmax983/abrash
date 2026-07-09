@@ -141,11 +141,11 @@ mod tests {
 
         let mut fb = Framebuffer::new(width as u32, height as u32).unwrap();
 
-        // Frame 0: Fill with 0x00000001
+        // Frame 0: Fill with 0x0000_0001
         fb.clear(0x0000_0001);
         filter.apply(&mut fb);
 
-        // Frame 1: Fill with 0x00000002
+        // Frame 1: Fill with 0x0000_0002
         fb.clear(0x0000_0002);
         filter.apply(&mut fb);
 

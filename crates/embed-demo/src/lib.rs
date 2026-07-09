@@ -1,3 +1,5 @@
+#![allow(clippy::verbose_bit_mask)]
+#![allow(clippy::unnecessary_struct_initialization)]
 //! Offscreen rendering adapter — abrash embedded with no platform dependency.
 //!
 //! This crate is the integration proof for ADR 005. It depends only on
@@ -372,7 +374,7 @@ mod tests {
         pixels[0] = 0x1234_5678;
         depths[0] = 42.0;
         assert_eq!(pixels[0], 0x1234_5678);
-        assert_eq!(depths[0], 42.0);
+        assert!((depths[0] - 42.0).abs() < 1e-5);
     }
 
     #[test]
@@ -499,11 +501,7 @@ mod tests {
         for i in 0..3u32 {
             let angle = i as f32 * std::f32::consts::FRAC_PI_4;
             let pixels = backend.render(&EmbedScene {
-                camera: EmbedCamera {
-                    position: camera.position,
-                    target: camera.target,
-                    fov_y: camera.fov_y,
-                },
+                camera: camera.clone(),
                 draws: &[EmbedDraw {
                     mesh_index: cube,
                     transform: Mat4::rotation_y(angle),

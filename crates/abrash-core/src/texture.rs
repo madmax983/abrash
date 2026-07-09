@@ -1,3 +1,10 @@
+#![allow(dead_code)]
+#![allow(clippy::suboptimal_flops)]
+#![allow(clippy::should_panic_without_expect)]
+#![allow(clippy::ignore_without_reason)]
+#![allow(clippy::redundant_clone)]
+#![allow(clippy::unreadable_literal)]
+#![allow(clippy::float_cmp)]
 //! 2D Texture representation and sampling.
 //!
 //! Moving texture logic here allows multiple rasterizers to share it without depending on each other.

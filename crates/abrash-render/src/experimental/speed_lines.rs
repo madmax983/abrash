@@ -205,7 +205,7 @@ mod tests {
         let mut has_blend = false;
         for &p in fb.as_slice() {
             if p != 0xFF00_0000 {
-                // It should be a blended dark red, e.g., 0xFF800000
+                // It should be a blended dark red, e.g., 0xFF80_0000
                 let r = (p >> 16) & 0xFF;
                 assert!(r > 0 && r < 255);
                 has_blend = true;

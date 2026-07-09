@@ -1,3 +1,4 @@
+#![allow(clippy::items_after_test_module)]
 //! Final composition and debug visualization pass.
 //!
 //! Combines all render results (deferred lighting, RT reflections, skybox) into

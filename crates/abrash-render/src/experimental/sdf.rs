@@ -476,7 +476,7 @@ mod tests {
                 radius: 1.0,
                 center: Vec3::new(0.0, 0.0, 0.0),
             },
-            color: 0xFF0000FF, // Red
+            color: 0xFF00_00FF, // Red
         });
 
         // Far away

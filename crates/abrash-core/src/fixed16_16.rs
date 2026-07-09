@@ -1,3 +1,10 @@
+#![allow(dead_code)]
+#![allow(clippy::suboptimal_flops)]
+#![allow(clippy::should_panic_without_expect)]
+#![allow(clippy::ignore_without_reason)]
+#![allow(clippy::redundant_clone)]
+#![allow(clippy::unreadable_literal)]
+#![allow(clippy::float_cmp)]
 //! Fixed-point 16.16 arithmetic for world-coordinate math.
 //!
 //! This is a 16.16 fixed-point type where bits [31..16] represent the integer

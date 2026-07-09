@@ -93,7 +93,7 @@ pub fn apply_radial_blur(
 
                                 let color = src_fb[y_idx * width + x_idx];
 
-                                // Accumulate R and B channels simultaneously. The 0x00FF00FF mask isolates R and B.
+                                // Accumulate R and B channels simultaneously. The 0x00FF_00FF mask isolates R and B.
                                 rb_acc += color & 0x00FF_00FF;
                                 // Accumulate G channel separately.
                                 g_acc += (color >> 8) & 0x0000_00FF;
@@ -158,7 +158,7 @@ pub fn apply_radial_blur(
 
                             let color = src_fb[y_idx * width + x_idx];
 
-                            // Accumulate R and B channels simultaneously. The 0x00FF00FF mask isolates R and B.
+                            // Accumulate R and B channels simultaneously. The 0x00FF_00FF mask isolates R and B.
                             rb_acc += color & 0x00FF_00FF;
                             // Accumulate G channel separately.
                             g_acc += (color >> 8) & 0x0000_00FF;

@@ -1,3 +1,4 @@
+#![allow(clippy::items_after_test_module)]
 //! G-Buffer: Multiple Render Targets for deferred rendering.
 //!
 //! The G-Buffer stores per-pixel geometric and material data written during

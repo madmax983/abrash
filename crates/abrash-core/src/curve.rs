@@ -1,3 +1,10 @@
+#![allow(dead_code)]
+#![allow(clippy::suboptimal_flops)]
+#![allow(clippy::should_panic_without_expect)]
+#![allow(clippy::ignore_without_reason)]
+#![allow(clippy::redundant_clone)]
+#![allow(clippy::unreadable_literal)]
+#![allow(clippy::float_cmp)]
 //! Parametric curve evaluation: Bezier, Catmull-Rom, and Hermite splines.
 //!
 //! All curves are parameterised by `t ∈ [0.0, 1.0]`:

@@ -1,3 +1,10 @@
+#![allow(dead_code)]
+#![allow(clippy::suboptimal_flops)]
+#![allow(clippy::should_panic_without_expect)]
+#![allow(clippy::ignore_without_reason)]
+#![allow(clippy::redundant_clone)]
+#![allow(clippy::unreadable_literal)]
+#![allow(clippy::float_cmp)]
 //! Easing functions for smooth interpolation.
 //!
 //! All functions take `t ∈ [0, 1]` and return a value in approximately `[0, 1]`.

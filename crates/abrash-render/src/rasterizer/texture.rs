@@ -4928,7 +4928,7 @@ mod tests {
         let mut tex = Texture::new(2, 2).unwrap();
         tex.filter_mode = crate::texture::FilterMode::Bilinear;
 
-        // 0,0: Black (0x00000000)
+        // 0,0: Black (0x0000_0000)
         // 1,0: White (0xFFFF_FFFF)
         tex.set_pixel(0, 0, 0xFF00_0000);
         tex.set_pixel(1, 0, 0xFFFF_FFFF);

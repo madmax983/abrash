@@ -1744,7 +1744,7 @@ unsafe fn draw_scanline_phong_simd(
                 let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 // blendv_epi8 blends based on the high bit of each byte.
-                // Our mask is 32-bit 0x00FF_FFFFFF or 0x00000000, so it works for bytes too.
+                // Our mask is 32-bit 0x00FF_FFFFFF or 0x0000_0000, so it works for bytes too.
                 let new_color = _mm256_blendv_epi8(old_color, pixel_val, mask_int);
                 _mm256_storeu_si256(fb_ptr, new_color);
             }

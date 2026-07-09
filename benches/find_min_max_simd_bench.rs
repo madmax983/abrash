@@ -39,13 +39,13 @@ fn bench_find_min_max(c: &mut Criterion) {
             }
         }
 
-        group.bench_function(format!("Scalar {}x{}", w, h), |b| {
+        group.bench_function(format!("Scalar {w}x{h}"), |b| {
             b.iter(|| {
                 black_box(find_min_max_scalar(black_box(&depths)));
             });
         });
 
-        group.bench_function(format!("SIMD {}x{}", w, h), |b| {
+        group.bench_function(format!("SIMD {w}x{h}"), |b| {
             b.iter(|| {
                 let min_max = find_min_max_scalar_vs_simd(black_box(&depths));
                 black_box(min_max);
@@ -87,9 +87,7 @@ unsafe fn find_min_max_simd_isolated(depths: &[f32]) -> (f32, f32, bool) {
 
             if _mm256_movemask_ps(mask) != 0 {
                 has_content = true;
-                let blended_for_min = _mm256_blendv_ps(_mm256_set1_ps(f32::MAX), depth_val, mask);
-                min_vec = _mm256_min_ps(min_vec, blended_for_min);
-
+                min_vec = _mm256_min_ps(min_vec, depth_val);
                 let blended_for_max = _mm256_blendv_ps(_mm256_set1_ps(f32::MIN), depth_val, mask);
                 max_vec = _mm256_max_ps(max_vec, blended_for_max);
             }

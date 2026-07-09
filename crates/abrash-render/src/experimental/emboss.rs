@@ -102,7 +102,7 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
                 // ⚡ Bolt Performance Optimization:
                 // SIMD Within A Register (SWAR)
                 // Process Red and Blue channels simultaneously.
-                // 0x00FF00FF leaves 16 bits of headroom per channel. Max sum is 4*255=1020, which easily fits.
+                // 0x00FF_00FF leaves 16 bits of headroom per channel. Max sum is 4*255=1020, which easily fits.
                 let tl_rb = tl & 0x00FF_00FF;
                 let tl_g = tl & 0x0000_FF00;
 

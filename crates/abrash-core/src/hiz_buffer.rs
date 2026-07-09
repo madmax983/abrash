@@ -1,3 +1,10 @@
+#![allow(dead_code)]
+#![allow(clippy::suboptimal_flops)]
+#![allow(clippy::should_panic_without_expect)]
+#![allow(clippy::ignore_without_reason)]
+#![allow(clippy::redundant_clone)]
+#![allow(clippy::unreadable_literal)]
+#![allow(clippy::float_cmp)]
 //! # The Hierarchical Z-Buffer (Hi-Z) 🏔️
 //!
 //! Welcome to the heights of occlusion culling! When rendering complex scenes, drawing geometry

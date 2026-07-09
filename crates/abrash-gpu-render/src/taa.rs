@@ -1,3 +1,4 @@
+#![allow(clippy::items_after_test_module)]
 //! Temporal Anti-Aliasing (TAA).
 //!
 //! Jitters the projection matrix each frame by a sub-pixel offset (Halton sequence),
