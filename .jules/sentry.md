@@ -59,3 +59,7 @@
 **[Validating Unreachable Guards on BorrowedRenderTarget]**
 **Learning:** `RenderTarget::borrow_mut()` contains a protective `.expect("owned render target has matching color and depth buffers")` guard when converting its owned memory into a borrowed view. While theoretically impossible during normal usage, validating this explicit panic boundary requires artificially mutating internal slice boundaries (e.g. `target.framebuffer = Framebuffer::new(2, 2).unwrap()`) and then calling `borrow_mut()` to confirm it crashes correctly.
 **Action:** When a struct provides an explicit boundary or conversion guard utilizing `.expect()` or `unreachable!()`, always write a dedicated `#[should_panic]` test that intentionally breaks internal invariants to guarantee the crash occurs as intended.
+
+**HiZBuffer Safety Checks**
+**Learning:** `HiZBuffer` operations involve several strict internal safety assertions (`assert_eq!` for dimensions, `assert!` for size bounds and slice lengths) to prevent downstream index out of bounds or allocation errors. These are vital for safe rendering paths.
+**Action:** Always ensure that structural parameter verification (like `assert!(width > 0)`) and cross-component dimension checks (like matching width/height between `HiZBuffer` and a given `ZBuffer` slice) are explicitly covered by `#[should_panic]` unit tests.
