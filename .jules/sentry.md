@@ -63,3 +63,6 @@
 **HiZBuffer Safety Checks**
 **Learning:** `HiZBuffer` operations involve several strict internal safety assertions (`assert_eq!` for dimensions, `assert!` for size bounds and slice lengths) to prevent downstream index out of bounds or allocation errors. These are vital for safe rendering paths.
 **Action:** Always ensure that structural parameter verification (like `assert!(width > 0)`) and cross-component dimension checks (like matching width/height between `HiZBuffer` and a given `ZBuffer` slice) are explicitly covered by `#[should_panic]` unit tests.
+**[Total Ordering for Floats - Testing Transitivity Panics]**
+**Learning:** When testing for 'strict weak ordering' panics (e.g., incorrect float sorting handling `NaN`s with `unwrap_or(Equal)`), small or uniform arrays may pass by chance. To reliably trigger the standard library's transitivity panic in `sort_unstable_by`, use a sufficiently large array (e.g., 100+ elements) with an alternating pattern of `NaN`s and distinct valid numbers.
+**Action:** When writing tests to verify that `total_cmp` correctly replaced `unwrap_or(Equal)`, ensure the test data creates a specific sequence (like alternating NaNs and differing valid floats) to reliably trigger the transitivity violation that causes sorting algorithms to panic.
