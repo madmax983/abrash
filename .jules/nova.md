@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Strange Attractor]
+**Concept:** Implemented a math-art generator for Clifford attractors by iterating 2D chaotic equations and accumulating density in screen-space, yielding intricate procedural wisps.
+**Fate:** Implemented
+**Lesson:** Iterating points millions of times is fast enough for real-time visualization on modern CPUs if the math is simple enough (just sin/cos/mul), creating beautiful emergent chaotic patterns. Fading the previous frame instead of clearing creates natural trails and density accumulation over time.
