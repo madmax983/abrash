@@ -211,6 +211,8 @@ fn apply_ssao_scalar(
     let p11 = proj.m[1][1];
     let p22 = proj.m[2][2];
     let p32 = proj.m[3][2];
+    let inv_p00 = 1.0 / p00;
+    let inv_p11 = 1.0 / p11;
 
     if width == 0 {
         return;
@@ -242,8 +244,8 @@ fn apply_ssao_scalar(
             let z_view = -p32 / (depth_val + p22);
             let x_ndc = (x as f32 / half_width) - 1.0;
             let y_ndc = 1.0 - (y as f32 / half_height);
-            let x_view = x_ndc * (-z_view) / p00;
-            let y_view = y_ndc * (-z_view) / p11;
+            let x_view = x_ndc * (-z_view) * inv_p00;
+            let y_view = y_ndc * (-z_view) * inv_p11;
             let pos_view = Vec3::new(x_view, y_view, z_view);
 
             let rx = random_vec.x;
