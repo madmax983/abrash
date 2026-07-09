@@ -98,8 +98,8 @@ pub fn apply_radial_blur(
                                 // Accumulate G channel separately.
                                 g_acc += (color >> 8) & 0x0000_00FF;
 
-                                cur_x += step_x;
-                                cur_y += step_y;
+                                cur_x = cur_x.saturating_add(step_x);
+                                cur_y = cur_y.saturating_add(step_y);
                             }
 
                             let r = (rb_acc >> 16) / inv_samples;
@@ -121,8 +121,8 @@ pub fn apply_radial_blur(
                                 g_acc += (color >> 8) & 0xFF;
                                 b_acc += color & 0xFF;
 
-                                cur_x += step_x;
-                                cur_y += step_y;
+                                cur_x = cur_x.saturating_add(step_x);
+                                cur_y = cur_y.saturating_add(step_y);
                             }
 
                             let r = (r_acc / inv_samples) & 0xFF;
@@ -163,8 +163,8 @@ pub fn apply_radial_blur(
                             // Accumulate G channel separately.
                             g_acc += (color >> 8) & 0x0000_00FF;
 
-                            cur_x += step_x;
-                            cur_y += step_y;
+                            cur_x = cur_x.saturating_add(step_x);
+                            cur_y = cur_y.saturating_add(step_y);
                         }
 
                         let r = (rb_acc >> 16) / inv_samples;
@@ -186,8 +186,8 @@ pub fn apply_radial_blur(
                             g_acc += (color >> 8) & 0xFF;
                             b_acc += color & 0xFF;
 
-                            cur_x += step_x;
-                            cur_y += step_y;
+                            cur_x = cur_x.saturating_add(step_x);
+                            cur_y = cur_y.saturating_add(step_y);
                         }
 
                         let r = (r_acc / inv_samples) & 0xFF;
