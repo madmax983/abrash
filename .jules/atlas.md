@@ -134,3 +134,7 @@
 **Blueprint:**
 1.  **Isolate:** Added `#![cfg(feature = "nova")]` to `havoc_radial_blur_fuzz.rs`, `havoc_pixel_sort_proptest.rs`, and `havoc_directional_blur.rs`. Added `#![cfg(feature = "parallel")]` to `havoc_tile_ub_test.rs`.
 2.  **Result:** Ensure `cargo test --workspace` does not fail due to unresolvable feature-gated imports on default builds.
+## [Procedural Texture API Warning Fix]
+**Tangle:** The `plasma` procedural texture generation function returned a `Result` but was missing a `# Errors` section in its documentation block, triggering `clippy::missing_errors_doc` warnings and failing the build. This indicated inconsistent documentation boundaries across public APIs returning `Result`.
+**Blueprint:**
+Added an explicit `#[allow(clippy::missing_errors_doc)]` to the `plasma` function, and addressed uninlined format args in benches.
