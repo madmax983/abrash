@@ -438,7 +438,22 @@ impl CpuRenderer {
         Ok(())
     }
 
-    #[allow(clippy::missing_errors_doc)]
+    /// Register a texture and return a handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if internal limits are reached or resource pools overflow.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_render::render_api::cpu_renderer::CpuRenderer;
+    /// use abrash_render::texture::Texture;
+    ///
+    /// let mut renderer = CpuRenderer::new(100, 100);
+    /// let tex = Texture::new(2, 2).unwrap();
+    /// let handle = renderer.create_texture(&tex).unwrap();
+    /// ```
     pub fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, RenderError> {
         Ok(to_texture_handle(self.textures.insert(texture.clone())))
     }

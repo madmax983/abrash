@@ -94,6 +94,9 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
     Ok(tex)
 }
 
+#[doc(hidden)]
+static PLASMA_LUT: std::sync::OnceLock<[u32; 1024]> = std::sync::OnceLock::new();
+
 /// Generates a plasma effect.
 ///
 /// # Errors
@@ -108,8 +111,6 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
 /// assert_eq!(tex.width(), 32);
 /// assert_eq!(tex.height(), 32);
 /// ```
-static PLASMA_LUT: std::sync::OnceLock<[u32; 1024]> = std::sync::OnceLock::new();
-
 pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
     if width == 0 || height == 0 {
         return Err("Texture dimensions must be positive");
