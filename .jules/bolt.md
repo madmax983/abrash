@@ -240,3 +240,8 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+
+## [Maddubs SIMD Optimization for Color Mapping]
+**Concept:** Replacing standard `_mm256_madd_epi16` sequences (which require expanding 8-bit pixels to 16-bits via `_mm256_cvtepu8_epi16`) with `_mm256_maddubs_epi16`. This intrinsic multiplies unsigned 8-bit data by signed 8-bit weights and performs horizontal addition in one go, processing 32 bytes per instruction directly.
+**Fate:** Implemented for `apply_grayscale_avx2` and `apply_sepia_avx2`.
+**Lesson:** By halving/scaling down integer weights so they fit within an `i8` boundary (<128) and shifting accordingly later, we eliminate unpacking instructions and effectively double the SIMD throughput for per-pixel matrix operations.

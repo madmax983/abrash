@@ -923,66 +923,30 @@ mod simd {
 
     #[target_feature(enable = "avx2")]
     pub unsafe fn apply_grayscale_avx2(pixels: &mut [u32]) {
-        // Weights: B=29, G=150, R=77, A=0
-        // Memory layout: B G R A
-        // Pair 1: B, G -> Weights 29, 150
-        // Pair 2: R, A -> Weights 77, 0
-        // _mm256_set1_epi64x replicates 64-bit value to all 4 positions.
-        // 64 bits = 4 * 16 bits: W3 W2 W1 W0
-        // W0=29, W1=150, W2=77, W3=0
-        // 0x0000_004D_0096_001D (hex)
-        // 77=0x4D, 150=0x96, 29=0x1D
-        let weights = _mm256_set1_epi64x(0x0000_004D_0096_001D);
         let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+        // Weights: B=15, G=75, R=38, A=0 (Fits in i8 for _mm256_maddubs_epi16)
+        let weights = _mm256_set1_epi32(0x0026_4B0F);
+        let ones = _mm256_set1_epi16(1);
 
         let len = pixels.len();
         let simd_len = len & !7;
         let mut ptr = pixels.as_mut_ptr();
-
-        // SAFETY: We perform pointer arithmetic within bounds of the slice.
         let end_ptr = unsafe { ptr.add(simd_len) };
 
         while ptr < end_ptr {
             let chunk = unsafe { _mm256_loadu_si256(ptr.cast()) };
-
-            // Extract Alpha
             let alphas = _mm256_and_si256(chunk, alpha_mask);
 
-            // Unpack to i16 (0..255)
-            let lo_128 = _mm256_castsi256_si128(chunk);
-            let hi_128 = _mm256_extracti128_si256(chunk, 1);
+            let prod = _mm256_maddubs_epi16(chunk, weights);
+            let sums = _mm256_madd_epi16(prod, ones);
 
-            let v_lo = _mm256_cvtepu8_epi16(lo_128);
-            let v_hi = _mm256_cvtepu8_epi16(hi_128);
+            // Shift right by 7 to divide by 128
+            let luma = _mm256_srai_epi32(sums, 7);
 
-            // Multiply and horizontal add pairs
-            // Result: 32-bit integers.
-            // E.g. low dword: (B*29 + G*150)
-            // Next dword: (R*77 + A*0)
-            let prod_lo = _mm256_madd_epi16(v_lo, weights);
-            let prod_hi = _mm256_madd_epi16(v_hi, weights);
-
-            // Horizontal add to combine (BG) + (RA)
-            // hadd_epi32(a, b) -> a0+a1, a2+a3, b0+b1, b2+b3 ...
-            let sums_scrambled = _mm256_hadd_epi32(prod_lo, prod_hi);
-
-            // Fix order: Swap (P4, P5) with (P2, P3).
-            // P4, P5 is Low Lane High Part (Idx 1).
-            // P2, P3 is High Lane Low Part (Idx 2).
-            // Target: Idx 0, Idx 2, Idx 1, Idx 3.
-            // Control: 0xD8 (11 01 10 00).
-            let sums = _mm256_permute4x64_epi64(sums_scrambled, 0xD8);
-
-            // Shift right by 8 to divide by 256
-            let luma = _mm256_srai_epi32(sums, 8);
-
-            // Reconstruct pixel: 0x00LLLLLL
             let luma8 = _mm256_slli_epi32(luma, 8);
             let luma16 = _mm256_slli_epi32(luma, 16);
 
             let gray_pixels = _mm256_or_si256(luma, _mm256_or_si256(luma8, luma16));
-
-            // Combine with Alpha
             let result = _mm256_or_si256(gray_pixels, alphas);
 
             unsafe { _mm256_storeu_si256(ptr.cast(), result) };
@@ -1064,32 +1028,14 @@ mod simd {
 
     #[target_feature(enable = "avx2")]
     pub unsafe fn apply_sepia_avx2(pixels: &mut [u32]) {
-        // Weights for Sepia
-        // NewR = (402 * R + 787 * G + 194 * B) >> 10
-        // NewG = (357 * R + 702 * G + 172 * B) >> 10
-        // NewB = (279 * R + 547 * G + 134 * B) >> 10
-
-        // Memory layout: B G R A (little endian)
-        // Madd takes pairs: (B, G) and (R, A)
-        // Weights are stored as i16 in 64-bit blocks: W3 W2 W1 W0
-
-        // Weights for Red
-        // B*194 + G*787 -> W0=194(0xC2), W1=787(0x313)
-        // R*402 + A*0   -> W2=402(0x192), W3=0
-        let w_r = _mm256_set1_epi64x(0x0000_0192_0313_00C2);
-
-        // Weights for Green
-        // B*172 + G*702 -> W0=172(0xAC), W1=702(0x2BE)
-        // R*357 + A*0   -> W2=357(0x165), W3=0
-        let w_g = _mm256_set1_epi64x(0x0000_0165_02BE_00AC);
-
-        // Weights for Blue
-        // B*134 + G*547 -> W0=134(0x86), W1=547(0x223)
-        // R*279 + A*0   -> W2=279(0x117), W3=0
-        let w_b = _mm256_set1_epi64x(0x0000_0117_0223_0086);
-
         let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
         let max_val = _mm256_set1_epi32(255);
+
+        // Weights: B G R A (little endian)
+        let w_r = _mm256_set1_epi32(0x0032_6218); // A: 0, R: 50, G: 98, B: 24
+        let w_g = _mm256_set1_epi32(0x002D_5816); // A: 0, R: 45, G: 88, B: 22
+        let w_b = _mm256_set1_epi32(0x0023_4411); // A: 0, R: 35, G: 68, B: 17
+        let ones = _mm256_set1_epi16(1);
 
         let len = pixels.len();
         let simd_len = len & !7;
@@ -1098,39 +1044,21 @@ mod simd {
 
         while ptr < end_ptr {
             let chunk = unsafe { _mm256_loadu_si256(ptr.cast()) };
-
-            // Extract Alpha
             let alphas = _mm256_and_si256(chunk, alpha_mask);
 
-            // Unpack to i16 (0..255)
-            let lo_128 = _mm256_castsi256_si128(chunk);
-            let hi_128 = _mm256_extracti128_si256(chunk, 1);
-
-            let v_lo = _mm256_cvtepu8_epi16(lo_128);
-            let v_hi = _mm256_cvtepu8_epi16(hi_128);
-
-            // Compute Red
-            let r_lo = _mm256_madd_epi16(v_lo, w_r);
-            let r_hi = _mm256_madd_epi16(v_hi, w_r);
-            let r_sum = _mm256_hadd_epi32(r_lo, r_hi);
-            let r_ord = _mm256_permute4x64_epi64(r_sum, 0xD8);
-            let r_val = _mm256_srai_epi32(r_ord, 10);
+            let r_prod = _mm256_maddubs_epi16(chunk, w_r);
+            let r_sum = _mm256_madd_epi16(r_prod, ones);
+            let r_val = _mm256_srai_epi32(r_sum, 7);
             let r_clamped = _mm256_min_epi32(r_val, max_val);
 
-            // Compute Green
-            let g_lo = _mm256_madd_epi16(v_lo, w_g);
-            let g_hi = _mm256_madd_epi16(v_hi, w_g);
-            let g_sum = _mm256_hadd_epi32(g_lo, g_hi);
-            let g_ord = _mm256_permute4x64_epi64(g_sum, 0xD8);
-            let g_val = _mm256_srai_epi32(g_ord, 10);
+            let g_prod = _mm256_maddubs_epi16(chunk, w_g);
+            let g_sum = _mm256_madd_epi16(g_prod, ones);
+            let g_val = _mm256_srai_epi32(g_sum, 7);
             let g_clamped = _mm256_min_epi32(g_val, max_val);
 
-            // Compute Blue
-            let b_lo = _mm256_madd_epi16(v_lo, w_b);
-            let b_hi = _mm256_madd_epi16(v_hi, w_b);
-            let b_sum = _mm256_hadd_epi32(b_lo, b_hi);
-            let b_ord = _mm256_permute4x64_epi64(b_sum, 0xD8);
-            let b_val = _mm256_srai_epi32(b_ord, 10);
+            let b_prod = _mm256_maddubs_epi16(chunk, w_b);
+            let b_sum = _mm256_madd_epi16(b_prod, ones);
+            let b_val = _mm256_srai_epi32(b_sum, 7);
             let b_clamped = _mm256_min_epi32(b_val, max_val);
 
             // Pack: B | G<<8 | R<<16 | A
