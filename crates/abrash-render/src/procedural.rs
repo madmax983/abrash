@@ -108,40 +108,78 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
 /// assert_eq!(tex.width(), 32);
 /// assert_eq!(tex.height(), 32);
 /// ```
+static PLASMA_LUT: std::sync::OnceLock<[u32; 1024]> = std::sync::OnceLock::new();
+
 pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
+    if width == 0 || height == 0 {
+        return Err("Texture dimensions must be positive");
+    }
+
     let mut tex = Texture::new(width, height)?;
-
-    for y in 0..height {
-        for x in 0..width {
-            let u = x as f32;
-            let v = y as f32;
-
-            let (v1, _) = fast_sin_cos(u * 0.1);
-            let (v2, _) = fast_sin_cos(v * 0.1);
-            let (v3, _) = fast_sin_cos((u + v) * 0.1);
-            let (v4, _) = fast_sin_cos(u.mul_add(u, v * v).sqrt() * 0.1);
-
-            let val = (v1 + v2 + v3 + v4) * 0.25; // -1 to 1
-            let normalized = (val + 1.0) * 0.5; // 0 to 1
-
-            // Map to a psychedelic palette
-            let (r_sin, _) = fast_sin_cos(normalized * std::f32::consts::PI);
+    let lut = PLASMA_LUT.get_or_init(|| {
+        let mut local_lut = [0u32; 1024];
+        for t in 0..1024 {
+            let normalized = t as f32 / 1023.0;
+            let r_sin = (normalized * std::f32::consts::PI).sin();
             let r = (r_sin.abs() * 255.0) as u32;
-            let (g_sin, _) = fast_sin_cos((normalized * std::f32::consts::PI) + 2.0);
+
+            let g_sin = ((normalized * std::f32::consts::PI) + 2.0).sin();
             let g = (g_sin.abs() * 255.0) as u32;
-            let (b_sin, _) = fast_sin_cos((normalized * std::f32::consts::PI) + 4.0);
+
+            let b_sin = ((normalized * std::f32::consts::PI) + 4.0).sin();
             let b = (b_sin.abs() * 255.0) as u32;
 
-            let color = 0xFF00_0000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
-            tex.set_pixel(x, y, color);
+            local_lut[t] = 0xFF00_0000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
+        }
+        local_lut
+    });
+
+    let width_usize = width as usize;
+    let mut x_sincos = Vec::with_capacity(width_usize);
+    for x in 0..width {
+        let u = x as f32;
+        let (sin_u, cos_u) = fast_sin_cos(u * 0.1);
+        let u_v1 = sin_u;
+        x_sincos.push((u, u_v1, sin_u, cos_u));
+    }
+
+    for (y, row) in tex.pixels_mut().chunks_exact_mut(width_usize).enumerate() {
+        let v = y as f32;
+        let (sin_v, cos_v) = fast_sin_cos(v * 0.1);
+        let v_v2 = sin_v;
+        let v_sq = v * v;
+
+        for (x, p) in row.iter_mut().enumerate() {
+            let (u, u_v1, sin_u, cos_u) = unsafe { *x_sincos.get_unchecked(x) };
+
+            // v3 = sin((u + v) * 0.1) = sin_u*cos_v + cos_u*sin_v
+            let v3 = sin_u * cos_v + cos_u * sin_v;
+
+            let (v4, _) = fast_sin_cos(u.mul_add(u, v_sq).sqrt() * 0.1);
+
+            let val = (u_v1 + v_v2 + v3 + v4) * 0.25; // -1 to 1
+            let normalized = (val + 1.0) * 0.5; // 0 to 1
+
+            let lut_idx = (normalized * 1023.0) as usize;
+            let lut_idx = lut_idx.min(1023);
+
+            *p = unsafe { *lut.get_unchecked(lut_idx) };
         }
     }
+
     Ok(tex)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_plasma_zero_dimensions() {
+        assert!(plasma(0, 10).is_err());
+        assert!(plasma(10, 0).is_err());
+        assert!(plasma(0, 0).is_err());
+    }
 
     #[test]
     fn test_grid_pattern() {
