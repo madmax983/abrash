@@ -236,3 +236,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **Optimize min/max reductions with SIMD**
 **Learning:** Scalar `min`/`max` reductions over large buffers (like `f32` Z-buffers) can become severe bottlenecks due to bounds checking, scalar floating-point math, and potential branching inside the loop.
 **Action:** Extract the `min`/`max` scan into an `unsafe fn` with `#[target_feature(enable = "avx2")]` and use AVX2 vector instructions (e.g. `_mm256_max_ps`, `_mm256_min_ps`) combined with bitmasks to safely elide specific floating point values (like `f32::INFINITY`) without branching.
+
+## [Fix `assume_init()` UB in `PreparedTrianglesList`]
+**Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
+**Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
