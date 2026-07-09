@@ -232,3 +232,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 **[Loop Fusion Optimization]**
 **Learning:** In hot rendering paths, sequentially iterating over the same collection multiple times (e.g., first to validate and count totals, second to calculate subset bounds or ranges) introduces redundant memory accesses, redundant resource lookups (like mesh fetching), and bounds checking.
 **Action:** Fuse sequential iteration passes over the same collection into a single pass when the calculations are mathematically independent but contextually aligned.
+**[Eliding Bounds Checks with Array Destructuring and Collection Initialization]**
+**Learning:** Replaced `HashMap` with `foldhash::HashMap` in `crates/abrash-render/src/experimental/jelly.rs`. Pre-allocating `Vec` explicitly inside closures of `map().collect()` (via `.extend`) avoids bounds checking in the hot path of `crates/abrash-skeletal/src/gltf_loader.rs`.
+**Action:** When working with collections and maps in hot loops, use `foldhash::HashMap` for smaller sets of integer/tuple keys, and preallocate vectors `Vec::with_capacity` paired with `.extend()` to prevent implicit bounds checking overhead present in `.collect()`.

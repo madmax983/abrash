@@ -8,7 +8,7 @@
 use super::sdf::SdfScene;
 use crate::math::{Vec3, Vec4};
 use crate::mesh::Mesh;
-use std::collections::HashSet;
+use foldhash::{HashSet, HashSetExt};
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[target_feature(enable = "avx2")]
