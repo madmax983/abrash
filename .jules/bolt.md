@@ -240,3 +240,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+
+**[Optimal Steganography Decoding]**
+**Learning:** In hot bitwise decoding loops (like `steganography.rs`), repeatedly calling `.push()` on a `Vec::with_capacity()` incurs capacity checks. Allocating `vec![0u8; len]` and using `.iter_mut()` allows the compiler to elide bounds checks on the output buffer and eliminates reallocation overhead entirely.
+**Action:** Pre-allocate vectors with default values using `vec![0u8; len]` when size is exactly known and use `.iter_mut()`.
