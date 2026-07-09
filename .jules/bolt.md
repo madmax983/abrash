@@ -240,3 +240,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+
+**[GpuBlitter upload_atlas Optimization]**
+**Learning:** When a function called repeatedly (like `upload_atlas` in `GpuBlitter`) creates a temporary `Vec` dynamically matching the size of the texture pixels, it incurs an O(N) heap allocation overhead.
+**Action:** Wrapping the buffer initialization in a `thread_local!` `RefCell<Vec<u8>>` and dynamically resizing it to `required_len` effectively eliminates the per-call allocation, replacing it with a safe `resize` on an existing capacity.
