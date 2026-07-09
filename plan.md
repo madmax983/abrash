@@ -1,17 +1,15 @@
-1. **Fix `AsciiConverter` integer overflow in `to_colored_string`**
-   - The capacity calculation `((width * 20) * height) as usize` can overflow a 32-bit integer when `width` and `height` are very large (as exposed by the `havoc_ascii_proptest.rs` test).
-   - *Fix*: Calculate the capacity using `usize` up front with saturating multiplication to avoid panic: `(width as usize).saturating_mul(20).saturating_mul(height as usize)`.
-
-2. **Fix `apply_radial_blur` coordinate calculation overflow**
-   - The `cur_x += step_x;` and `cur_y += step_y;` loops could overflow `i32` bounds if the variables got extremely large.
-   - *Fix*: Use `saturating_add` for `cur_x` and `cur_y` updates to prevent panic.
-
-3. **Fix `PreparedTrianglesList::into_par_iter` Use-After-Free/UB**
-   - The parallel iterator for `PreparedTrianglesList` calls `assume_init()` on uninitialized portions of the inner array, and then returns them via `flatten()`. Since `PreparedTriangle` is trivially copyable, using `assume_init_read()` instead safely extracts values out of the `MaybeUninit` union without executing a potentially dangerous move that invalidates the state.
-   - *Fix*: Change `assume_init()` to `assume_init_read()` in `into_par_iter` for both `PreparedTrianglesList` and `PreparedTexturedTrianglesList`.
-
-4. **Complete Pre-Commit Steps**
-   - Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
-
-5. **Submit the PR**
-   - I will submit the PR to close out this issue.
+1. **Optimize TileBins clear**
+   - In `crates/abrash-render/src/rasterizer/tile.rs`, replace the `.fill(u32::MAX)` clear logic in `TileBins` with a generational index approach. This avoids O(N) operations when clearing tile bins every frame.
+   - We will add `generations: Vec<u32>` and `current_generation: u32` fields to the `TileBins` struct.
+   - When calling `clear()`, simply increment `current_generation`.
+   - Update `push()`, `iter()`, and direct array access checks to compare generations.
+2. **Update Bolt journal**
+   - Pre-commit rule: log the optimization to `.jules/bolt.md` explaining the generational index approach for the tile bins.
+3. **Verify**
+   - Run tests (`cargo test --workspace --features "parallel nova backend-tui"`).
+   - Ensure formatting and lints pass (`cargo fmt --all`, `cargo clippy --all-targets --all-features -- -D warnings`).
+   - Run benchmarks `tile_rendering_sorting` and `clear_rect_bench` to measure improvements.
+4. **Pre-commit**
+   - Follow pre-commit instructions using `pre_commit_instructions`.
+5. **Submit**
+   - Commit the changes and request user approval using the `submit` tool.

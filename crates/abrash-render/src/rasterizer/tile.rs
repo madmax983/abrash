@@ -685,6 +685,10 @@ pub struct TileBins {
     pub heads: Vec<u32>,
     /// The tail indices into the nexts and tris vectors for each bin. `u32::MAX` = None.
     pub tails: Vec<u32>,
+    /// The generation of each head to track if it's been cleared.
+    pub generations: Vec<u32>,
+    /// The current generation.
+    pub current_generation: u32,
     /// Links to the next node in the linked list.
     pub nexts: Vec<u32>,
     /// The triangle indices for each node.
@@ -702,6 +706,8 @@ impl TileBins {
         Self {
             heads: vec![u32::MAX; num_tiles],
             tails: vec![u32::MAX; num_tiles],
+            generations: vec![0; num_tiles],
+            current_generation: 1,
             nexts: Vec::with_capacity(capacity),
             tris: Vec::with_capacity(capacity),
         }
@@ -709,8 +715,7 @@ impl TileBins {
 
     /// Clears the bin structure for the next frame.
     pub fn clear(&mut self) {
-        self.heads.fill(u32::MAX);
-        self.tails.fill(u32::MAX);
+        self.current_generation = self.current_generation.wrapping_add(1);
         self.nexts.clear();
         self.tris.clear();
     }
@@ -722,8 +727,10 @@ impl TileBins {
         self.tris.push(tri_idx as u32);
         self.nexts.push(u32::MAX);
 
-        let head = self.heads[tile_idx];
-        if head == u32::MAX {
+        let current_gen = self.generations[tile_idx];
+        #[allow(clippy::if_not_else)]
+        if current_gen != self.current_generation {
+            self.generations[tile_idx] = self.current_generation;
             self.heads[tile_idx] = node_idx;
         } else {
             let tail = self.tails[tile_idx];
@@ -736,10 +743,12 @@ impl TileBins {
     #[inline]
     #[must_use]
     pub fn iter(&self, tile_idx: usize) -> TileBinIter<'_> {
-        TileBinIter {
-            bins: self,
-            curr: self.heads[tile_idx],
-        }
+        let curr = if self.generations[tile_idx] == self.current_generation {
+            self.heads[tile_idx]
+        } else {
+            u32::MAX
+        };
+        TileBinIter { bins: self, curr }
     }
 }
 
@@ -780,7 +789,7 @@ fn render_single_tile(
     clear_color: u32,
 ) -> Option<(i32, i32)> {
     let bin_idx = (ty * tiles_x + tx) as usize;
-    if tile_bins.heads[bin_idx] == u32::MAX {
+    if tile_bins.generations[bin_idx] != tile_bins.current_generation {
         return None;
     }
 
@@ -911,7 +920,7 @@ fn render_single_tile_textured(
     clear_color: u32,
 ) -> Option<(i32, i32)> {
     let bin_idx = (ty * tiles_x + tx) as usize;
-    if tile_bins.heads[bin_idx] == u32::MAX {
+    if tile_bins.generations[bin_idx] != tile_bins.current_generation {
         return None;
     }
 
@@ -2106,7 +2115,7 @@ impl TileRenderer {
                         .for_each(|(tx, ty)| {
                             let bin_idx = (ty * tiles_x + tx) as usize;
 
-                            if tile_bins.heads[bin_idx] == u32::MAX {
+                            if tile_bins.generations[bin_idx] != tile_bins.current_generation {
                                 if has_integrated_clear {
                                     let tile_x0 = tx * TILE_SIZE;
                                     let tile_y0 = ty * TILE_SIZE;
@@ -2482,7 +2491,7 @@ impl TileRenderer {
                     .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
                     .for_each(|(tx, ty)| {
                         let bin_idx = (ty * tiles_x + tx) as usize;
-                        if tile_bins.heads[bin_idx] == u32::MAX {
+                        if tile_bins.generations[bin_idx] != tile_bins.current_generation {
                             if has_integrated_clear {
                                 let tile_x0 = tx * TILE_SIZE;
                                 let tile_y0 = ty * TILE_SIZE;
@@ -2731,7 +2740,7 @@ impl TileRenderer {
                     .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
                     .for_each(|(tx, ty)| {
                         let bin_idx = (ty * tiles_x + tx) as usize;
-                        if tile_bins.heads[bin_idx] == u32::MAX {
+                        if tile_bins.generations[bin_idx] != tile_bins.current_generation {
                             if has_integrated_clear {
                                 let tile_x0 = tx * TILE_SIZE;
                                 let tile_y0 = ty * TILE_SIZE;
@@ -3011,7 +3020,7 @@ impl TileRenderer {
         // This eliminates frequent dynamic heap allocations on the hot sorting path.
         let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
-            if *head == u32::MAX {
+            if self.tile_bins.generations[tile_idx] != self.tile_bins.current_generation {
                 continue;
             }
 
@@ -3532,7 +3541,7 @@ impl TileRenderer {
         // This eliminates frequent dynamic heap allocations on the hot sorting path.
         let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
-            if *head == u32::MAX {
+            if self.tile_bins.generations[tile_idx] != self.tile_bins.current_generation {
                 continue;
             }
 
@@ -3580,7 +3589,7 @@ impl TileRenderer {
         // This eliminates frequent dynamic heap allocations on the hot sorting path.
         let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
-            if *head == u32::MAX {
+            if self.tile_bins.generations[tile_idx] != self.tile_bins.current_generation {
                 continue;
             }
 
@@ -3831,7 +3840,7 @@ fn render_single_tile_gouraud(
     clear_color: u32,
 ) -> Option<(i32, i32)> {
     let bin_idx = (ty * tiles_x + tx) as usize;
-    if tile_bins.heads[bin_idx] == u32::MAX {
+    if tile_bins.generations[bin_idx] != tile_bins.current_generation {
         return None;
     }
 
@@ -4350,7 +4359,11 @@ mod tests {
             .tile_bins
             .heads
             .iter()
-            .filter(|&&h| h != u32::MAX)
+            .enumerate()
+            .filter(|&(idx, _)| {
+                tr.tile_bins.generations[idx] == tr.tile_bins.current_generation
+            })
+            .map(|(_, &h)| h)
             .count();
         assert_eq!(
             binned_count, 1,
@@ -4377,7 +4390,11 @@ mod tests {
             .tile_bins
             .heads
             .iter()
-            .filter(|&&h| h != u32::MAX)
+            .enumerate()
+            .filter(|&(idx, _)| {
+                tr.tile_bins.generations[idx] == tr.tile_bins.current_generation
+            })
+            .map(|(_, &h)| h)
             .count();
         assert!(
             binned_count > 1,

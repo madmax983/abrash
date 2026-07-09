@@ -240,3 +240,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+
+## [TileBins Clear Optimization]
+**Learning:** In `TileBins::clear`, clearing the large sparse arrays `heads` and `tails` using `.fill(u32::MAX)` is a noticeable overhead on every frame, as it scales with `O(num_tiles)`.
+**Action:** Replaced the `.fill()` operations with a generational index approach: we maintain `current_generation` and a `generations` vector. During a clear, we only increment `current_generation`. Checking a bin requires verifying `generations[idx] == current_generation`. This transforms clearing `TileBins` into an `O(1)` operation.
