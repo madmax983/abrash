@@ -4077,6 +4077,34 @@ mod tests {
 
     // --- Step 1: Infrastructure + prepare ---
 
+    // SENTRY DEFENSE: Explicitly test validate_target_slices panic logic
+    #[test]
+    #[should_panic(expected = "Framebuffer slice too small")]
+    fn validate_target_slices_panics_on_fb_slice_too_small() {
+        let tr = TileRenderer::new(100, 100);
+        let pixels = vec![0; 50]; // Too small
+        let depths = vec![0.0; 10000];
+        tr.validate_target_slices(100, 100, &pixels, &depths);
+    }
+
+    #[test]
+    #[should_panic(expected = "ZBuffer slice too small")]
+    fn validate_target_slices_panics_on_zb_slice_too_small() {
+        let tr = TileRenderer::new(100, 100);
+        let pixels = vec![0; 10000];
+        let depths = vec![0.0; 50]; // Too small
+        tr.validate_target_slices(100, 100, &pixels, &depths);
+    }
+
+    #[test]
+    #[should_panic(expected = "Framebuffer width must match TileRenderer width")]
+    fn validate_target_slices_panics_on_mismatched_width() {
+        let tr = TileRenderer::new(100, 100);
+        let pixels = vec![0; 10000];
+        let depths = vec![0.0; 10000];
+        tr.validate_target_slices(50, 100, &pixels, &depths);
+    }
+
     #[test]
     #[should_panic(expected = "TileRenderer dimensions overflow")]
     fn new_panics_on_dimensions_overflow() {

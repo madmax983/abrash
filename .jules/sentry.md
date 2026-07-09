@@ -74,3 +74,7 @@
 **[Missing Tests for Handle Error Propagation]**
 **Learning:** Even when errors like `StaleHandle` are correctly propagated from internal handle lookup failure via `ok_or()`, there might not be explicit tests verifying the exact enum variant of the returned `Result`. The existing test suite was heavily verifying stale `Mesh` handles, but silently lacked mirror tests for `Material` handles, leaving a logic path untested.
 **Action:** Audit functions that interact with multiple types of resource handles (e.g. `Mesh` and `Material`) to ensure that *every* handle type has a corresponding failure test, rather than relying on a single representative test case.
+
+**[Validating Target Slices for Buffer Overflows]**
+**Learning:** `TileRenderer::validate_target_slices` protects against Out-Of-Bounds panics when merging tiles. It expects slices to at least be equal to `width * height`. It enforces boundaries and prevents buffer overflows.
+**Action:** Always write a corresponding `#[should_panic]` test for bounds checking logic covering allocation counts by testing the explicit limits to verify the crash occurs.
