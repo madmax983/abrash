@@ -66,3 +66,7 @@
 **[Total Ordering for Floats - Testing Transitivity Panics]**
 **Learning:** When testing for 'strict weak ordering' panics (e.g., incorrect float sorting handling `NaN`s with `unwrap_or(Equal)`), small or uniform arrays may pass by chance. To reliably trigger the standard library's transitivity panic in `sort_unstable_by`, use a sufficiently large array (e.g., 100+ elements) with an alternating pattern of `NaN`s and distinct valid numbers.
 **Action:** When writing tests to verify that `total_cmp` correctly replaced `unwrap_or(Equal)`, ensure the test data creates a specific sequence (like alternating NaNs and differing valid floats) to reliably trigger the transitivity violation that causes sorting algorithms to panic.
+
+## [Bounds Check Panic on apply_fire]
+**Learning:** Functions that accept parallel slices for reading (e.g. `cooling_map`) and map over the primary framebuffer dimensions MUST assert that the provided slices have sufficient length to cover the entire framebuffer before starting iteration. Otherwise, out-of-bounds indexing will cause panics in multithreaded loops, which can crash the entire application instantly.
+**Action:** Always add an explicit bounds check (e.g. `if map.len() < width * height { return; }`) at the start of array-processing functions to prevent out-of-bounds access.
