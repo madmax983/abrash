@@ -241,6 +241,15 @@ fn benchmark_vignette(c: &mut Criterion) {
     });
 }
 
+fn benchmark_exposure(c: &mut Criterion) {
+    let mut fb = Framebuffer::new(1920, 1080).unwrap();
+    c.bench_function("apply_exposure 1080p", |b| {
+        b.iter(|| {
+            post_process::filters::apply_exposure(black_box(&mut fb), black_box(2.0));
+        });
+    });
+}
+
 fn benchmark_color_adjust(c: &mut Criterion) {
     let width = 1920;
     let height = 1080;
@@ -360,6 +369,7 @@ criterion_group!(
     benchmark_color_adjust,
     benchmark_pixel_sort,
     benchmark_halftone,
+    benchmark_exposure,
 );
 
 #[cfg(not(feature = "nova"))]
@@ -378,5 +388,6 @@ criterion_group!(
     benchmark_dof,
     benchmark_vignette,
     benchmark_color_adjust,
+    benchmark_exposure,
 );
 criterion_main!(benches);

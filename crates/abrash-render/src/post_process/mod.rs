@@ -79,6 +79,7 @@ pub mod ssao;
 pub use self::bloom::*;
 pub use self::blur::*;
 pub use self::filters::*;
+pub use filters::apply_exposure;
 pub use self::ssao::*;
 /// Depth of Field (`DoF`) implementation.
 pub mod dof;
