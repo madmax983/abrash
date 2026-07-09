@@ -20,6 +20,9 @@ use abrash_core::math::fast_sin_cos;
 /// assert_eq!(tex.width(), 32);
 /// assert_eq!(tex.height(), 32);
 /// ```
+/// # Errors
+///
+/// Returns an error if `width` or `height` is 0.
 pub fn xor_pattern(width: u32, height: u32) -> Result<Texture, &'static str> {
     let mut tex = Texture::new(width, height)?;
     for y in 0..height {
@@ -46,6 +49,9 @@ pub fn xor_pattern(width: u32, height: u32) -> Result<Texture, &'static str> {
 /// assert_eq!(tex.width(), 32);
 /// assert_eq!(tex.height(), 32);
 /// ```
+/// # Errors
+///
+/// Returns an error if `width` or `height` is 0.
 pub fn grid_pattern(
     width: u32,
     height: u32,
@@ -80,6 +86,9 @@ pub fn grid_pattern(
 /// assert_eq!(tex.width(), 32);
 /// assert_eq!(tex.height(), 32);
 /// ```
+/// # Errors
+///
+/// Returns an error if `width` or `height` is 0.
 pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'static str> {
     let mut tex = Texture::new(width, height)?;
     let mut rng = XorShift32::new(seed);
@@ -110,6 +119,9 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
 /// ```
 static PLASMA_LUT: std::sync::OnceLock<[u32; 1024]> = std::sync::OnceLock::new();
 
+/// # Errors
+///
+/// Returns an error if `width` or `height` is 0.
 pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
     if width == 0 || height == 0 {
         return Err("Texture dimensions must be positive");
