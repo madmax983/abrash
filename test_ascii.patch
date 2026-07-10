@@ -1,0 +1,7 @@
+--- crates/abrash-render/src/ascii.rs
++++ crates/abrash-render/src/ascii.rs
+@@ -151,3 +151,3 @@
+         let mut result = String::with_capacity(
+-            ((width * 20) * height) as usize,
++            (width as usize).saturating_mul(20).saturating_mul(height as usize),
+         );

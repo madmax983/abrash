@@ -1,0 +1,7 @@
+--- crates/abrash-render/src/procedural.rs
++++ crates/abrash-render/src/procedural.rs
+@@ -111,2 +111,4 @@
+
++/// # Errors
++/// Returns an error if dimensions are 0 or allocation fails.
+ pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {

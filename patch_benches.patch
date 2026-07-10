@@ -1,0 +1,12 @@
+--- benches/find_min_max_simd_bench.rs
++++ benches/find_min_max_simd_bench.rs
+@@ -41,3 +41,3 @@
+
+-        group.bench_function(format!("Scalar {}x{}", w, h), |b| {
++        group.bench_function(format!("Scalar {w}x{h}"), |b| {
+             b.iter(|| {
+@@ -47,3 +47,3 @@
+
+-        group.bench_function(format!("SIMD {}x{}", w, h), |b| {
++        group.bench_function(format!("SIMD {w}x{h}"), |b| {
+             b.iter(|| {
