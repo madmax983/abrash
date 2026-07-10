@@ -108,8 +108,15 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
 /// assert_eq!(tex.width(), 32);
 /// assert_eq!(tex.height(), 32);
 /// ```
+///
+/// # Errors
+///
+/// Returns an error if the dimensions are zero or if texture allocation fails.
 static PLASMA_LUT: std::sync::OnceLock<[u32; 1024]> = std::sync::OnceLock::new();
 
+/// # Errors
+///
+/// Returns an error if the dimensions are zero or if texture allocation fails.
 pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
     if width == 0 || height == 0 {
         return Err("Texture dimensions must be positive");
