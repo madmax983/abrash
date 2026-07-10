@@ -116,10 +116,7 @@ cargo run --example mandelbrot_demo --features nova",
             .fg(Color::Green),
         ]);
 
-    eprintln!(
-        "
-{error_table}"
-    );
+    eprintln!("\n{error_table}");
     std::process::exit(1);
 }
 
