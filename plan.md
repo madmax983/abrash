@@ -1,17 +1,7 @@
-1. **Fix `AsciiConverter` integer overflow in `to_colored_string`**
-   - The capacity calculation `((width * 20) * height) as usize` can overflow a 32-bit integer when `width` and `height` are very large (as exposed by the `havoc_ascii_proptest.rs` test).
-   - *Fix*: Calculate the capacity using `usize` up front with saturating multiplication to avoid panic: `(width as usize).saturating_mul(20).saturating_mul(height as usize)`.
+1. **Verify Test and Lint Status:**
+   - Run `cargo fmt --all`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test --all-targets --all-features` to ensure all tests pass and there are no lint warnings.
 
-2. **Fix `apply_radial_blur` coordinate calculation overflow**
-   - The `cur_x += step_x;` and `cur_y += step_y;` loops could overflow `i32` bounds if the variables got extremely large.
-   - *Fix*: Use `saturating_add` for `cur_x` and `cur_y` updates to prevent panic.
+2. **Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.**
 
-3. **Fix `PreparedTrianglesList::into_par_iter` Use-After-Free/UB**
-   - The parallel iterator for `PreparedTrianglesList` calls `assume_init()` on uninitialized portions of the inner array, and then returns them via `flatten()`. Since `PreparedTriangle` is trivially copyable, using `assume_init_read()` instead safely extracts values out of the `MaybeUninit` union without executing a potentially dangerous move that invalidates the state.
-   - *Fix*: Change `assume_init()` to `assume_init_read()` in `into_par_iter` for both `PreparedTrianglesList` and `PreparedTexturedTrianglesList`.
-
-4. **Complete Pre-Commit Steps**
-   - Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
-
-5. **Submit the PR**
-   - I will submit the PR to close out this issue.
+3. **Submit Pull Request:**
+   - Create a PR titled "⚡ Bolt: Replace SipHash with foldhash in Jelly simulation" with a description detailing the performance improvement by avoiding cryptographic hash overhead for integer keys.
