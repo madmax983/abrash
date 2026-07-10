@@ -11,3 +11,12 @@
 **Flaw:** The clock calculated `phase_advance` as `delta_secs / duration`. With near-zero subnormal floats, this resulted in a massively large float value. When added to the clock's current `phase` and then casting the integer portion (`whole_cycles`) to `u64` to accumulate into `self.cycle`, it caused a `u64` addition overflow (`attempt to add with overflow`) when the number of cycles exceeded `u64::MAX`.
 **Outcome:** Engine crashed via unhandled panic during animation evaluation.
 **Resolution:** Replaced the unchecked `self.cycle += whole_cycles` with `self.cycle = self.cycle.saturating_add(whole_cycles)`. The clock gracefully tops out at `u64::MAX` instead of crashing.
+
+## 2025-07-10 - [Gouraud Shading Overflow]
+**The Weak Point:** `crates/abrash-render/src/rasterizer/gouraud.rs` internal interpolation loop functions `step` and `step_n` used the `+=` operator directly.
+**The Trigger:** A proptest injecting arbitrary floating points as coordinates causing massive intermediate calculation values exceeding `f32` bounds or `i32` bounds upon casting and addition.
+**The Wreckage:** `thread 'havoc_gouraud_overflow' panicked at crates/abrash-render/src/rasterizer/gouraud.rs:600:9: attempt to add with overflow`
+**Comment:** You assumed the screen bounding box would protect your integer math. You were wrong.
+**[Test Integration]**
+**Learning:** When fulfilling the 'never fix the bug' rule by writing a failing test/fuzzer, use the `#[ignore = "👺 Havoc: ..."]` attribute on the test function. This preserves the reproducible crash logic (which can be triggered via `cargo test -- --ignored`) without causing the default CI `cargo test` suite to fail.
+**Action:** The test logic was verified, and then an ignore attribute was added.
