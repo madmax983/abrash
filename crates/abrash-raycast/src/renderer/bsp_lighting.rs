@@ -20,6 +20,15 @@ pub struct BspTextureCache {
 }
 
 impl BspTextureCache {
+    /// Creates a new texture cache with default textures and colormaps.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_raycast::renderer::bsp_lighting::BspTextureCache;
+    ///
+    /// let cache = BspTextureCache::new();
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         // Wall column: 128 texels, all palette index 1

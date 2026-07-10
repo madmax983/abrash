@@ -438,7 +438,32 @@ impl CpuRenderer {
         Ok(())
     }
 
-    #[allow(clippy::missing_errors_doc)]
+    /// Uploads a texture and returns a generation-tracked handle.
+    ///
+    /// The engine uses this handle system (instead of passing raw references or smart pointers)
+    /// to ensure that resources are centrally managed and to prevent use-after-free errors during
+    /// the asynchronous render phase.
+    ///
+    /// Note: This method `clone()`s the underlying texture buffer. If you are generating textures
+    /// procedurally or loading them once and throwing away the original, use [`create_texture_owned`](Self::create_texture_owned)
+    /// to avoid the allocation overhead.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_render::texture::Texture;
+    /// use abrash_render::render_api::cpu_renderer::CpuRenderer;
+    ///
+    /// let mut renderer = CpuRenderer::new(800, 600);
+    /// let tex = Texture::new(64, 64).unwrap();
+    ///
+    /// // The texture is cloned into the renderer.
+    /// let handle = renderer.create_texture(&tex).unwrap();
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`RenderError::Internal`] if internal storage allocation fails.
     pub fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, RenderError> {
         Ok(to_texture_handle(self.textures.insert(texture.clone())))
     }

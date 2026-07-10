@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2025-07-21 - [Documentation Constraints]
+**Confusion:** Adding generic boilerplate documentation like "Creates a new X" or "The X coordinate." to satisfy the `missing_docs` lint.
+**Clarification:** The Bard persona explicitly forbids useless noise ("getter" docs) and requires explaining *why* something exists, not just *what* it is. When fixing `missing_docs`, I must write descriptive, domain-specific documentation, especially for fields and basic methods, rather than reverting to auto-generated-style comments.

@@ -9,13 +9,18 @@ use crate::evaluable::Sample;
 ///
 /// Velocity is derived analytically from the easing function's derivative.
 pub struct Keyframe<T: Animatable> {
+    /// The starting value.
     pub from: T,
+    /// The ending value.
     pub to: T,
+    /// The easing function to apply.
     pub easing: Easing,
+    /// The duration of the keyframe.
     pub duration: f32,
 }
 
 impl<T: Animatable> Keyframe<T> {
+    /// Creates a new `Keyframe`.
     #[must_use]
     pub const fn new(from: T, to: T, easing: Easing, duration: f32) -> Self {
         Self {
@@ -28,6 +33,7 @@ impl<T: Animatable> Keyframe<T> {
 }
 
 impl<T: Animatable + Send + Sync> Keyframe<T> {
+    /// Evaluates the keyframe at a normalized phase.
     pub fn evaluate(&self, phase: f32) -> Sample<T> {
         let phase = phase.clamp(0.0, 1.0);
         let eased = self.easing.apply(phase);
@@ -44,6 +50,7 @@ impl<T: Animatable + Send + Sync> Keyframe<T> {
         Sample::new(value, velocity)
     }
 
+    /// Returns the natural duration of the keyframe.
     pub const fn natural_duration(&self) -> f32 {
         self.duration
     }

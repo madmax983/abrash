@@ -53,7 +53,9 @@ pub struct BspSector {
 /// The raycaster calls [`traverse_front_to_back`](BspMapData::traverse_front_to_back)
 /// to visit subsectors in painter's-algorithm order.
 pub struct BspMapData {
+    /// The sector this map data represents.
     pub sector: BspSector,
+    /// The segments in this sector.
     pub segs: Vec<BspSeg>,
 }
 
