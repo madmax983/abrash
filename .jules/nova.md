@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Content-Aware Seam Carving]
+**Concept:** Implemented a `carve_vertical_seams` function that intelligently scales down images by finding and removing the lowest-energy vertical seams using dynamic programming.
+**Fate:** Implemented
+**Lesson:** Utilizing a cumulative energy map calculated via dynamic programming allows for content-aware image resizing that preserves important features by only removing continuous paths of low-frequency (low-energy) pixels. Shifting pixels in-place before re-allocating a smaller framebuffer minimizes memory overhead during multi-seam carving.
