@@ -240,3 +240,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+
+**[Redundant SIMD Blend for Min]**
+**Learning:** In AVX2 floating-point min/max reductions (e.g. `_mm256_min_ps`), if the array contains `f32::INFINITY` that should be ignored, `f32::min(f32::MAX, f32::INFINITY)` natively evaluates to `f32::MAX`. Therefore, for the `min` reduction, explicit masking of `INFINITY` values using `_mm256_blendv_ps` is redundant and can be safely removed. However, for `max` reductions, `INFINITY` must still be explicitly masked.
+**Action:** Remove redundant `_mm256_blendv_ps` masking before `_mm256_min_ps` when ignoring `f32::INFINITY` values.

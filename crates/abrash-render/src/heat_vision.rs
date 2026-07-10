@@ -149,8 +149,8 @@ unsafe fn find_min_max_simd(depths: &[f32]) -> (f32, f32, bool) {
 
         if _mm256_movemask_ps(mask) != 0 {
             has_content = true;
-            let blended_for_min = _mm256_blendv_ps(_mm256_set1_ps(f32::MAX), depth_val, mask);
-            min_vec = _mm256_min_ps(min_vec, blended_for_min);
+
+            min_vec = _mm256_min_ps(min_vec, depth_val);
 
             let blended_for_max = _mm256_blendv_ps(_mm256_set1_ps(f32::MIN), depth_val, mask);
             max_vec = _mm256_max_ps(max_vec, blended_for_max);
