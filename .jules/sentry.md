@@ -74,3 +74,11 @@
 **[Missing Tests for Handle Error Propagation]**
 **Learning:** Even when errors like `StaleHandle` are correctly propagated from internal handle lookup failure via `ok_or()`, there might not be explicit tests verifying the exact enum variant of the returned `Result`. The existing test suite was heavily verifying stale `Mesh` handles, but silently lacked mirror tests for `Material` handles, leaving a logic path untested.
 **Action:** Audit functions that interact with multiple types of resource handles (e.g. `Mesh` and `Material`) to ensure that *every* handle type has a corresponding failure test, rather than relying on a single representative test case.
+
+**[Missing Panic Boundaries for Buffer Dimensions]**
+**Learning:** Functions that calculate dimensions (e.g. multiplying `width` and `height` in `HiZBuffer::build_pyramid_from_depths`) must include explicit safety limit checks to prevent buffer slice allocations from overflowing system capacity bounds (like `isize::MAX / 4`). While the `expect("Hi-Z dimensions overflow: capacity exceeded")` existed, there was no `#[should_panic]` test specifically validating that the capacity exceeded check was correctly triggered over standard usize overflows.
+**Action:** When a struct asserts a mathematical limit beyond basic `usize` overflow, write a dedicated `#[should_panic]` test that inputs values exceeding that explicit limit but bypassing standard `checked_mul()` overflows, thereby assuring the custom guard accurately triggers.
+
+**[Validating Capacity Guards on Render Constructs]**
+**Learning:** Structs like `DrawList`, `TileRenderer`, and `BorrowedRenderTarget` properly use explicit `.expect` or `assert` checks for overflow, but their `#[should_panic]` tests were not fully present or only evaluated basic standard library overflows.
+**Action:** Provide specific test cases with attributes like `#[should_panic(expected = "capacity overflow")]` or `#[should_panic(expected = "... dimensions overflow")]` for bounds guards that limit dynamic scaling for renderer structures.

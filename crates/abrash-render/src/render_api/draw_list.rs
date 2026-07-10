@@ -274,4 +274,10 @@ mod tests {
         assert_eq!(batch.indices.len(), 1);
         assert_eq!(batch.color, 0xFFFF_FFFF);
     }
+
+    #[test]
+    #[should_panic(expected = "capacity overflow")]
+    fn test_draw_list_capacity_overflow() {
+        let _ = DrawList::with_capacity(test_camera(), usize::MAX, 1, 1);
+    }
 }

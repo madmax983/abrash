@@ -127,6 +127,21 @@ mod tests {
     }
 
     #[test]
+    fn borrowed_target_capacity_overflow() {
+        // Try to create a target with extremely large dimensions
+        // that would overflow a standard usize multiplication.
+        let mut pixels = vec![0_u32; 1];
+        let mut depths = vec![f32::INFINITY; 1];
+        let result = BorrowedRenderTarget::new(
+            u32::MAX,
+            u32::MAX,
+            pixels.as_mut_slice(),
+            depths.as_mut_slice(),
+        );
+        assert_eq!(result.err(), Some("buffer dimensions overflow"));
+    }
+
+    #[test]
     fn borrowed_target_accepts_exact_length_slices() {
         let mut pixels = vec![0_u32; 4];
         let mut depths = vec![f32::INFINITY; 4];

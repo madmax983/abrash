@@ -4114,6 +4114,12 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "TileRenderer dimensions overflow")]
+    fn test_tile_renderer_capacity_overflow() {
+        let _ = TileRenderer::new(u32::MAX, u32::MAX);
+    }
+
+    #[test]
     #[should_panic(expected = "Dimensions must be positive")]
     fn new_panics_on_zero_width() {
         let _ = TileRenderer::new(0, 100);

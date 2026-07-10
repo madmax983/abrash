@@ -707,6 +707,17 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "Hi-Z dimensions overflow: capacity exceeded")]
+    fn test_build_pyramid_from_depths_capacity_exceeded_panic() {
+        let mut hiz = HiZBuffer::new(1, 1);
+        let width = 4_294_967_295; // u32::MAX
+        let height = 536_870_913; // Chosen so w * h is > (isize::MAX / 4)
+        hiz.width = width;
+        hiz.height = height;
+        hiz.build_pyramid_from_depths(width, height, &[]);
+    }
+
+    #[test]
     #[should_panic(expected = "Depth slice too small for Hi-Z pyramid build")]
     fn test_build_pyramid_from_depths_buffer_too_small_panic() {
         let mut hiz = HiZBuffer::new(800, 600);
