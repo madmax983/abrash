@@ -334,6 +334,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_new_valid() {
         let fb = Framebuffer::new(100, 200).expect("Should create valid buffer");
         assert_eq!(fb.width(), 100);
@@ -344,6 +345,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_new_overflow_dimensions() {
         assert!(Framebuffer::new(i32::MAX as u32 + 1, 10).is_err());
         assert!(Framebuffer::new(10, i32::MAX as u32 + 1).is_err());
@@ -352,6 +354,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_set_get_pixel_in_bounds() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
 
@@ -367,6 +370,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_set_get_pixel_out_of_bounds() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
 
@@ -391,6 +395,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_clear_entire_buffer() {
         let mut fb = Framebuffer::new(5, 5).unwrap();
         fb.clear(0x12345678);
@@ -403,6 +408,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_clear_rect_within_bounds() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
 
@@ -421,6 +427,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_clear_rect_partial_out_of_bounds() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
 
@@ -440,6 +447,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_clear_rect_negative_coordinates() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
 
@@ -459,6 +467,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_clear_rect_fully_out_of_bounds() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
 
@@ -474,6 +483,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_unsafe_set_get_pixel() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
 
@@ -484,6 +494,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_clear_rect_full_width() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
 
@@ -612,6 +623,7 @@ mod export_tests {
     use std::io::Read;
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_export_ppm() {
         let mut fb = Framebuffer::new(2, 2).unwrap();
         // Red, Green
@@ -648,6 +660,7 @@ mod export_tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_export_tga() {
         let mut fb = Framebuffer::new(2, 2).unwrap();
         // Red, Green

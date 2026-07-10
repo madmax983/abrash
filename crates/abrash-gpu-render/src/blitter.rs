@@ -1003,6 +1003,8 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn atlas_handle_is_copy_and_eq() {
         let a = AtlasHandle(0);
         let b = a;
@@ -1010,6 +1012,8 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn blit_mode_variants() {
         let opaque = BlitMode::Opaque;
         let key = BlitMode::ColorKey(0xFF00_FF00);
@@ -1019,11 +1023,15 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn sprite_instance_is_pod() {
         assert_eq!(std::mem::size_of::<SpriteInstance>(), 48);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn sprite_instance_zeroed() {
         let inst = SpriteInstance::zeroed();
         assert_eq!(inst.src_x, 0.0);
@@ -1031,6 +1039,8 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn shader_source_contains_entry_points() {
         assert!(BLITTER_SHADER_SRC.contains("fn vs_main"));
         assert!(BLITTER_SHADER_SRC.contains("fn fs_opaque"));
@@ -1039,6 +1049,8 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn blit_mode_to_u32() {
         assert_eq!(BlitMode::Opaque.as_u32(), 0);
         assert_eq!(BlitMode::ColorKey(0xFF00FF).as_u32(), 1);
@@ -1046,6 +1058,8 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn blit_mode_color_key_value() {
         assert_eq!(BlitMode::Opaque.color_key(), 0);
         assert_eq!(BlitMode::ColorKey(0xFF00FF).color_key(), 0xFF00FF);
@@ -1053,6 +1067,8 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn blit_mode_uses_alpha_pipeline() {
         assert!(!BlitMode::Opaque.uses_alpha_pipeline());
         assert!(!BlitMode::ColorKey(0).uses_alpha_pipeline());
@@ -1060,8 +1076,10 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn sort_commands_by_atlas_then_blend() {
-        let mut commands = vec![
+        let mut commands = [
             SpriteCommand {
                 atlas: AtlasHandle(1),
                 instance: SpriteInstance {
@@ -1121,6 +1139,8 @@ mod gpu_tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn gpu_blitter_new_succeeds() {
         let gpu = headless_device();
         let blitter = GpuBlitter::new(&gpu, 800, 600);
@@ -1130,6 +1150,8 @@ mod gpu_tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn queue_and_clear() {
         let gpu = headless_device();
         let mut blitter = GpuBlitter::new(&gpu, 800, 600);
@@ -1151,6 +1173,8 @@ mod gpu_tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn queue_negative_coords() {
         let gpu = headless_device();
         let mut blitter = GpuBlitter::new(&gpu, 800, 600);
@@ -1168,6 +1192,8 @@ mod gpu_tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn upload_atlas_returns_sequential_handles() {
         let gpu = headless_device();
         let mut blitter = GpuBlitter::new(&gpu, 64, 64);
@@ -1180,6 +1206,8 @@ mod gpu_tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn flush_renders_opaque_sprite() {
         let gpu = headless_device();
         let mut blitter = GpuBlitter::new(&gpu, 64, 64);
@@ -1215,6 +1243,8 @@ mod gpu_tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn flush_to_framebuffer_writes_pixels() {
         let gpu = headless_device();
         let mut blitter = GpuBlitter::new(&gpu, 64, 64);
@@ -1247,6 +1277,8 @@ mod gpu_tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn flush_zero_sprites_is_noop() {
         let gpu = headless_device();
         let mut blitter = GpuBlitter::new(&gpu, 64, 64);
@@ -1261,6 +1293,8 @@ mod gpu_tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn flush_colorkey_skips_key_pixels() {
         let gpu = headless_device();
         let mut blitter = GpuBlitter::new(&gpu, 64, 64);
@@ -1301,6 +1335,8 @@ mod gpu_tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn flush_alpha_blends_semitransparent() {
         let gpu = headless_device();
         let mut blitter = GpuBlitter::new(&gpu, 64, 64);
@@ -1334,6 +1370,8 @@ mod gpu_tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn flush_retains_instances_capacity() {
         let gpu = headless_device();
         let mut blitter = GpuBlitter::new(&gpu, 64, 64);
@@ -1357,6 +1395,8 @@ mod gpu_tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
+    #[allow(clippy::unreadable_literal)]
     fn flush_multiple_sprites_draw_order() {
         let gpu = headless_device();
         let mut blitter = GpuBlitter::new(&gpu, 64, 64);

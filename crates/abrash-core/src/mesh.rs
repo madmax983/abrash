@@ -626,6 +626,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_mesh_new_and_default() {
         let mesh = Mesh::new();
         assert!(mesh.vertices.is_empty());
@@ -639,6 +640,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_mesh_with_capacity() {
         let mesh = Mesh::with_capacity(10, 20);
         assert!(mesh.vertices.capacity() >= 10);
@@ -654,6 +656,7 @@ mod tests_generated {
     use super::*;
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn cube() {
         let size = 2.0;
         let cube = Mesh::cube(size);
@@ -678,6 +681,7 @@ mod tests_generated {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn sphere() {
         let sphere = Mesh::sphere(1.0, 10, 10);
 
@@ -697,6 +701,7 @@ mod tests_generated {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn plane() {
         let plane = Mesh::plane(10.0, 2);
 
@@ -710,6 +715,7 @@ mod tests_generated {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn cylinder() {
         let cylinder = Mesh::cylinder(1.0, 2.0, 10, 5);
 
@@ -729,6 +735,7 @@ mod tests_generated {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn torus() {
         let torus = Mesh::torus(2.0, 0.5, 10, 10);
 
@@ -747,6 +754,7 @@ mod tests_normals {
     use super::*;
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn compute_face_normals_simple_triangle() {
         let mut mesh = Mesh::new();
         // Counter-clockwise triangle should point towards +Z according to right hand rule
@@ -770,6 +778,7 @@ mod tests_bounding_sphere {
     use super::*;
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn calculate_bounding_sphere_empty() {
         let mesh = Mesh::new();
         let bounds = mesh.calculate_bounding_sphere();
@@ -778,6 +787,7 @@ mod tests_bounding_sphere {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn calculate_bounding_sphere_single_vertex() {
         let mut mesh = Mesh::new();
         mesh.vertices.push(Vec3::new(1.0, 2.0, 3.0));
@@ -787,6 +797,7 @@ mod tests_bounding_sphere {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn calculate_bounding_sphere_two_vertices() {
         let mut mesh = Mesh::new();
         mesh.vertices.push(Vec3::new(-1.0, -1.0, -1.0));
@@ -804,6 +815,7 @@ mod tests_tangents {
     use super::*;
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn compute_tangents_missing_data_early_exit() {
         let mut mesh = Mesh::new();
         // Missing uvs
@@ -820,6 +832,7 @@ mod tests_tangents {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn compute_tangents_simple_quad() {
         let mut mesh = Mesh::new();
 

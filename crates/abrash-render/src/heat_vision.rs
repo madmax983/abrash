@@ -305,6 +305,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_heat_vision_gradient() {
         let width = 5;
         let height = 1;
@@ -343,6 +344,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_heat_vision_empty() {
         let mut fb = Framebuffer::new(1, 1).unwrap();
         let zb = ZBuffer::new(1, 1).unwrap(); // Infinity
@@ -356,6 +358,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_heat_vision_out_of_bounds_depths() {
         let mut fb = Framebuffer::new(2, 1).unwrap();
         let mut zb = ZBuffer::new(2, 1).unwrap();
@@ -374,6 +377,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_heat_vision_same_depth() {
         let mut fb = Framebuffer::new(2, 1).unwrap();
         let mut zb = ZBuffer::new(2, 1).unwrap();
@@ -397,6 +401,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_heat_vision_mismatched_dimensions() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
         let zb = ZBuffer::new(5, 5).unwrap();
@@ -413,6 +418,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_find_min_max_simd_consistency() {
         let mut depths = vec![f32::INFINITY; 32];
         depths[0] = 10.0;

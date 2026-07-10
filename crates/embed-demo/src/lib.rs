@@ -269,6 +269,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_empty_scene_produces_clear_color() {
         let mut backend = AbrashBackend::new(100, 100);
         let pixels = backend.render(&EmbedScene {
@@ -282,6 +283,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_cube_produces_visible_pixels() {
         let mut backend = AbrashBackend::new(200, 200);
         let cube = backend.register_mesh(&Mesh::cube(1.0));
@@ -303,6 +305,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_render_into_external_buffers_produces_visible_pixels() {
         let mut backend = AbrashBackend::new(200, 200);
         let cube = backend.register_mesh(&Mesh::cube(1.0));
@@ -332,6 +335,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_render_into_external_buffers_preserves_host_ownership() {
         let mut backend = AbrashBackend::new(128, 128);
         let cube = backend.register_mesh(&Mesh::cube(1.0));
@@ -376,6 +380,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_render_into_external_buffers_matches_render_convenience_path() {
         let mut convenience_backend = AbrashBackend::new(160, 120);
         let convenience_cube = convenience_backend.register_mesh(&Mesh::cube(1.0));
@@ -414,6 +419,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_render_into_external_buffers_rejects_invalid_slices_before_rendering() {
         let mut backend = AbrashBackend::new(64, 64);
         let cube = backend.register_mesh(&Mesh::cube(1.0));
@@ -446,6 +452,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_two_objects_both_visible() {
         let mut backend = AbrashBackend::new(200, 200);
         let cube = backend.register_mesh(&Mesh::cube(1.0));
@@ -474,17 +481,18 @@ mod tests {
 
         let red_pixels = pixels
             .iter()
-            .filter(|&&p| (p >> 16) & 0xFF == 0xFF && (p >> 8) & 0xFF == 0)
+            .filter(|&&p| (p >> 16) & 0xFF == 0xFF && (p >> 8).trailing_zeros() >= 8)
             .count();
         let green_pixels = pixels
             .iter()
-            .filter(|&&p| (p >> 8) & 0xFF == 0xFF && (p >> 16) & 0xFF == 0)
+            .filter(|&&p| (p >> 8) & 0xFF == 0xFF && (p >> 16).trailing_zeros() >= 8)
             .count();
         assert!(red_pixels > 0, "should have red pixels from left cube");
         assert!(green_pixels > 0, "should have green pixels from right cube");
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_mesh_reused_across_frames() {
         let mut backend = AbrashBackend::new(100, 100);
         let cube = backend.register_mesh(&Mesh::cube(1.0));
@@ -499,11 +507,7 @@ mod tests {
         for i in 0..3u32 {
             let angle = i as f32 * std::f32::consts::FRAC_PI_4;
             let pixels = backend.render(&EmbedScene {
-                camera: EmbedCamera {
-                    position: camera.position,
-                    target: camera.target,
-                    fov_y: camera.fov_y,
-                },
+                camera: camera.clone(),
                 draws: &[EmbedDraw {
                     mesh_index: cube,
                     transform: Mat4::rotation_y(angle),
@@ -516,6 +520,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_culled_object_behind_camera_produces_no_pixels() {
         let mut backend = AbrashBackend::new(100, 100);
         let cube = backend.register_mesh(&Mesh::cube(1.0));
@@ -539,6 +544,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     #[should_panic(expected = "mesh indices must be in bounds")]
     fn test_register_mesh_panics_on_invalid_indices() {
         let mut backend = AbrashBackend::new(100, 100);

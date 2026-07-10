@@ -1375,6 +1375,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn value_noise_range_2d() {
         for i in 0..100 {
             let x = i as f32 * 0.37;
@@ -1385,6 +1386,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn value_noise_range_3d() {
         for i in 0..100 {
             let x = i as f32 * 0.23;
@@ -1396,6 +1398,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn gradient_noise_range_2d() {
         let mut min = f32::MAX;
         let mut max = f32::MIN;
@@ -1413,6 +1416,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn gradient_noise_range_3d() {
         for i in 0..100 {
             let x = i as f32 * 0.29;
@@ -1424,6 +1428,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn fbm_range_2d() {
         for i in 0..100 {
             let x = i as f32 * 0.41;
@@ -1434,6 +1439,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn fbm_range_3d() {
         for i in 0..50 {
             let x = i as f32 * 0.31;
@@ -1445,6 +1451,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn turbulence_range_2d() {
         for i in 0..100 {
             let x = i as f32 * 0.27;
@@ -1455,6 +1462,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn noise_is_deterministic() {
         let a = gradient_noise_2d(3.14, 2.71);
         let b = gradient_noise_2d(3.14, 2.71);
@@ -1462,6 +1470,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn value_noise_continuity() {
         // Noise should be C1 continuous — nearby points should be close in value
         let base = value_noise_2d(1.0, 1.0);
@@ -1473,6 +1482,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn gradient_noise_lattice_points_near_zero() {
         // Gradient noise tends toward 0 at integer lattice points
         // (not exactly 0 due to gradient dot product, but small)
@@ -1481,6 +1491,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn worley_2d_non_negative() {
         for i in 0..200 {
             let x = i as f32 * 0.37 - 3.7;
@@ -1491,6 +1502,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn worley_2d_jitter_zero_is_regular_grid() {
         // With jitter=0, every cell center is equidistant from the four
         // surrounding feature points (which sit at cell centers).
@@ -1500,6 +1512,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn worley_2d_deterministic() {
         let a = worley_noise_2d(1.23, 4.56, 0.8);
         let b = worley_noise_2d(1.23, 4.56, 0.8);
@@ -1507,6 +1520,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn worley_3d_non_negative() {
         for i in 0..200 {
             let x = i as f32 * 0.41 - 2.1;
@@ -1518,12 +1532,14 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn worley_3d_jitter_zero_is_regular_grid() {
         let d = worley_noise_3d(0.5, 0.5, 0.5, 0.0);
         assert!(d < 0.01, "distance at own cell center should be ~0: {d}");
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn worley_3d_deterministic() {
         let a = worley_noise_3d(7.1, -2.3, 0.9, 0.7);
         let b = worley_noise_3d(7.1, -2.3, 0.9, 0.7);
@@ -1533,6 +1549,7 @@ mod tests {
     // ── Simplex noise ─────────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn simplex_2d_range() {
         for i in 0..100 {
             let x = i as f32 * 0.17 - 8.0;
@@ -1546,6 +1563,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn simplex_2d_deterministic() {
         let a = simplex_2d(1.7, -0.9);
         let b = simplex_2d(1.7, -0.9);
@@ -1553,6 +1571,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn simplex_2d_not_constant() {
         // Should vary — two distant samples shouldn't be identical
         let a = simplex_2d(0.0, 0.0);
@@ -1564,6 +1583,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn simplex_3d_range() {
         for i in 0..100 {
             let x = i as f32 * 0.13 - 5.0;
@@ -1575,6 +1595,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn simplex_3d_deterministic() {
         let a = simplex_3d(0.7, -1.2, 0.3);
         let b = simplex_3d(0.7, -1.2, 0.3);
@@ -1582,6 +1603,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn ridge_range() {
         for i in 0..50 {
             let x = i as f32 * 0.13 - 3.0;
@@ -1592,6 +1614,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn billow_range() {
         for i in 0..50 {
             let x = i as f32 * 0.19 - 1.5;
@@ -1602,6 +1625,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn domain_warp_deterministic() {
         let a = domain_warp_fbm_2d(1.7, -0.9, 4, 2.0, 0.5, 0.5);
         let b = domain_warp_fbm_2d(1.7, -0.9, 4, 2.0, 0.5, 0.5);
@@ -1611,6 +1635,7 @@ mod tests {
     // ── fbm_simplex / curl_noise ──────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn fbm_simplex_2d_range() {
         for i in 0..80 {
             let x = i as f32 * 0.21 - 7.0;
@@ -1621,6 +1646,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn fbm_simplex_3d_range() {
         for i in 0..50 {
             let x = i as f32 * 0.17 - 4.0;
@@ -1632,6 +1658,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn fbm_simplex_deterministic() {
         let a = fbm_simplex_2d(3.1, -0.7, 4, 2.0, 0.5);
         let b = fbm_simplex_2d(3.1, -0.7, 4, 2.0, 0.5);
@@ -1639,6 +1666,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn curl_2d_nonzero() {
         // curl should produce non-trivial flow — two nearby points shouldn't
         // both be zero
@@ -1652,6 +1680,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn curl_2d_deterministic() {
         let a = curl_noise_2d(1.1, -0.3, 0.8);
         let b = curl_noise_2d(1.1, -0.3, 0.8);
@@ -1659,6 +1688,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn curl_3d_nonzero() {
         use crate::math::Vec3;
         let v = curl_noise_3d(Vec3::new(0.5, 0.3, -0.7), 1.0);
@@ -1667,6 +1697,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn curl_3d_deterministic() {
         use crate::math::Vec3;
         let a = curl_noise_3d(Vec3::new(1.1, -0.3, 0.9), 0.8);
@@ -1677,6 +1708,7 @@ mod tests {
     // ── Gabor noise ──────────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn gabor_in_range() {
         for (x, y) in [(0.5_f32, 0.7_f32), (1.3, -0.9), (-2.1, 1.6)] {
             let v = gabor_noise_2d(x, y, 3.0, 0.0, 0.3, 3);
@@ -1685,6 +1717,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn gabor_deterministic() {
         let a = gabor_noise_2d(0.7, -1.2, 5.0, 0.78, 0.2, 3);
         let b = gabor_noise_2d(0.7, -1.2, 5.0, 0.78, 0.2, 3);
@@ -1692,6 +1725,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn gabor_nonzero() {
         // Non-trivial sample should produce meaningful output
         let v = gabor_noise_2d(1.5, 2.3, 3.0, 0.0, 0.3, 4);
@@ -1699,6 +1733,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn gabor_orientation_differs() {
         // Two different orientations should produce different results at the same point
         let h = gabor_noise_2d(1.0, 0.5, 4.0, 0.0, 0.25, 3);
@@ -1712,6 +1747,7 @@ mod tests {
     // ── Voronoi noise ────────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn voronoi_f2_gte_f1() {
         for (x, y) in [(0.5_f32, 0.3_f32), (1.7, -0.9), (-3.2, 2.1)] {
             let (f1, f2, _) = voronoi_noise_2d(x, y, 1.0);
@@ -1720,6 +1756,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn voronoi_deterministic() {
         let (a, _, ia) = voronoi_noise_2d(0.7, -1.2, 0.8);
         let (b, _, ib) = voronoi_noise_2d(0.7, -1.2, 0.8);
@@ -1728,6 +1765,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn voronoi_cells_differ() {
         // Nearby but clearly different cells should have different ids
         let (_, _, id1) = voronoi_noise_2d(0.1, 0.1, 1.0);
@@ -1738,6 +1776,7 @@ mod tests {
     // ── billow_noise_3d ──────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn billow_3d_non_negative() {
         for (x, y, z) in [
             (0.0_f32, 0.0_f32, 0.0_f32),
@@ -1753,6 +1792,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn billow_3d_deterministic() {
         let a = billow_noise_3d(1.0, 2.0, 3.0, 4, 2.0, 0.5);
         let b = billow_noise_3d(1.0, 2.0, 3.0, 4, 2.0, 0.5);
@@ -1762,6 +1802,7 @@ mod tests {
     // ── turbulence_3d ────────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn turbulence_3d_in_range() {
         for (x, y, z) in [
             (0.0_f32, 0.0_f32, 0.0_f32),
@@ -1777,6 +1818,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn turbulence_3d_deterministic() {
         let a = turbulence_3d(0.5, -1.0, 2.0, 4, 2.0, 0.5);
         let b = turbulence_3d(0.5, -1.0, 2.0, 4, 2.0, 0.5);
@@ -1786,6 +1828,7 @@ mod tests {
     // ── domain_warp_fbm_3d ───────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn domain_warp_3d_deterministic() {
         let a = domain_warp_fbm_3d(1.7, -0.9, 0.4, 4, 2.0, 0.5, 0.8);
         let b = domain_warp_fbm_3d(1.7, -0.9, 0.4, 4, 2.0, 0.5, 0.8);
@@ -1793,6 +1836,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn domain_warp_3d_varies_with_strength() {
         // Zero strength should equal plain fbm_3d
         let plain = fbm_3d(1.0, 2.0, 3.0, 4, 2.0, 0.5);
@@ -1806,6 +1850,7 @@ mod tests {
     // ── voronoi_noise_3d ─────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn voronoi_3d_f2_gte_f1() {
         for (x, y, z) in [
             (0.5_f32, 0.3_f32, 0.7_f32),
@@ -1818,6 +1863,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn voronoi_3d_deterministic() {
         let (a, _, ia) = voronoi_noise_3d(0.7, -1.2, 0.5, 0.8);
         let (b, _, ib) = voronoi_noise_3d(0.7, -1.2, 0.5, 0.8);
@@ -1826,6 +1872,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn voronoi_3d_cells_differ() {
         let (_, _, id1) = voronoi_noise_3d(0.1, 0.1, 0.1, 1.0);
         let (_, _, id2) = voronoi_noise_3d(5.8, 5.8, 5.8, 1.0);
@@ -1833,6 +1880,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn voronoi_3d_zero_jitter_grid() {
         // With jitter=0, cell features are at grid centres: f1 = 0.5 everywhere
         // (nearest cell centre is always 0.5 away at most)
@@ -1843,6 +1891,7 @@ mod tests {
     // ── ridge_noise_3d ───────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn ridge_3d_in_range() {
         for (x, y, z) in [
             (0.0_f32, 0.0_f32, 0.0_f32),
@@ -1858,6 +1907,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn ridge_3d_deterministic() {
         let a = ridge_noise_3d(1.0, 2.0, 3.0, 4, 2.0, 0.5);
         let b = ridge_noise_3d(1.0, 2.0, 3.0, 4, 2.0, 0.5);
@@ -1865,6 +1915,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn ridge_3d_more_octaves_varies() {
         // More octaves should produce different (usually higher detail) values
         let v1 = ridge_noise_3d(0.5, 0.5, 0.5, 1, 2.0, 0.5);
@@ -1876,12 +1927,14 @@ mod tests {
 
     // ── fbm_value_3d ─────────────────────────────────────────────────────
     #[test]
+    #[allow(clippy::float_cmp)]
     fn fbm_value_3d_in_range() {
         let v = fbm_value_3d(1.23, 4.56, 7.89, 4, 2.0, 0.5);
         assert!((-1.0..=1.0).contains(&v), "fbm_value_3d out of [-1,1]: {v}");
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn fbm_value_3d_deterministic() {
         let a = fbm_value_3d(0.1, 0.2, 0.3, 4, 2.0, 0.5);
         let b = fbm_value_3d(0.1, 0.2, 0.3, 4, 2.0, 0.5);
@@ -1889,6 +1942,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn fbm_value_3d_single_octave_matches_value_noise() {
         // 1 octave = normalised value_noise_3d centred at 0
         let v1 = fbm_value_3d(0.5, 0.5, 0.5, 1, 2.0, 0.5);
@@ -1902,6 +1956,7 @@ mod tests {
 
     // ── cellular_noise_2d ─────────────────────────────────────────────────
     #[test]
+    #[allow(clippy::float_cmp)]
     fn cellular_noise_2d_in_range() {
         for (x, y) in [(0.0, 0.0), (1.5, 2.3), (-0.7, 4.1)] {
             let v = cellular_noise_2d(x, y, 1.0);
@@ -1910,6 +1965,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn cellular_noise_2d_deterministic() {
         let a = cellular_noise_2d(3.7, 1.2, 0.8);
         let b = cellular_noise_2d(3.7, 1.2, 0.8);
@@ -1917,6 +1973,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn cellular_noise_2d_zero_jitter_smooth() {
         // zero jitter → cells are perfectly regular, f1==f2 possible
         let v = cellular_noise_2d(0.5, 0.5, 0.0);
@@ -1925,6 +1982,7 @@ mod tests {
 
     // ── cellular_noise_3d ─────────────────────────────────────────────────
     #[test]
+    #[allow(clippy::float_cmp)]
     fn cellular_noise_3d_in_range() {
         for (x, y, z) in [(0.0, 0.0, 0.0), (1.5, 2.3, 3.7), (-0.7, 4.1, 0.5)] {
             let v = cellular_noise_3d(x, y, z, 1.0);
@@ -1933,6 +1991,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn cellular_noise_3d_deterministic() {
         let a = cellular_noise_3d(1.1, 2.2, 3.3, 0.9);
         let b = cellular_noise_3d(1.1, 2.2, 3.3, 0.9);

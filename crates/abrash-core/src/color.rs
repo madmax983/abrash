@@ -1203,6 +1203,7 @@ mod tests {
     const TOL: f32 = 0.001;
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn srgb_midgrey_encodes_correctly() {
         // #808080 ≈ 0.2158 linear
         let c = Color::from_srgb_u8(128, 128, 128, 255);
@@ -1211,6 +1212,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn roundtrip_argb_u32() {
         let original: u32 = 0xFF_88_44_22;
         let c = Color::from_argb_u32(original);
@@ -1225,12 +1227,14 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn black_and_white_round_trip() {
         assert_eq!(Color::BLACK.to_argb_u32(), 0xFF_00_00_00);
         assert_eq!(Color::WHITE.to_argb_u32(), 0xFF_FF_FF_FF);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn hsv_red_roundtrip() {
         let c = Color::from_hsv(0.0, 1.0, 1.0);
         assert!((c.r - 1.0).abs() < TOL);
@@ -1243,6 +1247,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn hsv_cyan_roundtrip() {
         let c = Color::from_hsv(180.0, 1.0, 1.0);
         assert!(c.r.abs() < TOL);
@@ -1255,6 +1260,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn hsl_roundtrip() {
         let c = Color::from_hsl(240.0, 1.0, 0.5); // Pure blue in HSL
         assert!(c.r.abs() < TOL, "r={}", c.r);
@@ -1267,6 +1273,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn lerp_midpoint() {
         let c = Color::BLACK.lerp(Color::WHITE, 0.5);
         assert!((c.r - 0.5).abs() < TOL);
@@ -1274,6 +1281,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn blend_over_opaque_src_covers_dst() {
         let blended = Color::blend_over(Color::RED, Color::BLUE);
         assert!((blended.r - 1.0).abs() < TOL);
@@ -1281,6 +1289,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn blend_over_transparent_src_is_dst() {
         let src = Color::RED.with_alpha(0.0);
         let blended = Color::blend_over(src, Color::BLUE);
@@ -1289,6 +1298,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn blend_over_half_alpha() {
         let src = Color::new(1.0, 0.0, 0.0, 0.5);
         let dst = Color::new(0.0, 0.0, 1.0, 1.0);
@@ -1298,12 +1308,14 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn luminance_white_is_one() {
         assert!((Color::WHITE.luminance() - 1.0).abs() < TOL);
         assert!(Color::BLACK.luminance().abs() < TOL);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn premultiply_scales_rgb() {
         let c = Color::new(1.0, 0.5, 0.0, 0.5).premultiply();
         assert!((c.r - 0.5).abs() < TOL);
@@ -1312,6 +1324,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn screen_blend_brightens() {
         let grey = Color::grey(0.5);
         let result = grey.blend_screen(grey);
@@ -1320,6 +1333,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn greyscale_matches_luminance() {
         let c = Color::rgb(0.4, 0.3, 0.2);
         let grey = c.to_greyscale();
@@ -1330,6 +1344,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn temperature_candle_is_warm() {
         // ~1850K candle — strong red, weak blue
         let c = Color::from_temperature(1850.0);
@@ -1343,6 +1358,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn temperature_daylight_is_neutral() {
         // ~6500K daylight — roughly balanced
         let c = Color::from_temperature(6500.0);
@@ -1351,6 +1367,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn temperature_clamps_extremes() {
         let low = Color::from_temperature(0.0);
         let high = Color::from_temperature(100_000.0);
@@ -1360,6 +1377,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn gradient_endpoints() {
         let stops = [(0.0, Color::BLACK), (1.0, Color::WHITE)];
         let start = Color::gradient(0.0, &stops);
@@ -1369,6 +1387,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn gradient_midpoint() {
         let stops = [(0.0, Color::BLACK), (1.0, Color::WHITE)];
         let mid = Color::gradient(0.5, &stops);
@@ -1376,6 +1395,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn gradient_multi_stop() {
         let stops = [(0.0, Color::BLACK), (0.5, Color::RED), (1.0, Color::WHITE)];
         // At 0.25 we're halfway between BLACK and RED
@@ -1385,12 +1405,14 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn gradient_empty_returns_black() {
         let c = Color::gradient(0.5, &[]);
         assert_eq!(c, Color::BLACK);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn gradient_clamps_out_of_range() {
         let stops = [(0.2, Color::BLACK), (0.8, Color::WHITE)];
         let under = Color::gradient(0.0, &stops);
@@ -1402,6 +1424,7 @@ mod tests {
     // ── Blend modes ──────────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn overlay_grey_is_grey() {
         let grey = Color::grey(0.5);
         let out = grey.blend_overlay(grey);
@@ -1409,18 +1432,21 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn overlay_white_stays_white() {
         let out = Color::WHITE.blend_overlay(Color::WHITE);
         assert!((out.r - 1.0).abs() < TOL);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn overlay_black_stays_black() {
         let out = Color::BLACK.blend_overlay(Color::BLACK);
         assert!(out.r.abs() < TOL);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn hard_light_is_swapped_overlay() {
         let a = Color::rgb(0.3, 0.5, 0.7);
         let b = Color::rgb(0.6, 0.4, 0.2);
@@ -1430,6 +1456,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn soft_light_grey_is_grey() {
         let grey = Color::grey(0.5);
         let out = grey.blend_soft_light(grey);
@@ -1439,12 +1466,14 @@ mod tests {
     // ── Adjustments ─────────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn brightness_up() {
         let c = Color::grey(0.4).adjust_brightness(0.2);
         assert!((c.r - 0.6).abs() < TOL);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn brightness_clamps() {
         let c = Color::WHITE.adjust_brightness(0.5);
         assert!((c.r - 1.0).abs() < TOL);
@@ -1453,6 +1482,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn contrast_midpoint_unchanged() {
         let grey = Color::grey(0.5);
         let c = grey.adjust_contrast(3.0);
@@ -1460,6 +1490,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn contrast_increases_spread() {
         let dark = Color::grey(0.3);
         let boosted = dark.adjust_contrast(2.0);
@@ -1471,6 +1502,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn saturation_zero_is_greyscale() {
         let red = Color::RED;
         let grey = red.adjust_saturation(0.0);
@@ -1479,6 +1511,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn saturation_one_is_noop() {
         let blue = Color::BLUE;
         let same = blue.adjust_saturation(1.0);
@@ -1489,6 +1522,7 @@ mod tests {
     // ── blend_dodge / blend_burn ─────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn dodge_brightens() {
         let base = Color::rgb(0.4, 0.4, 0.4);
         let factor = Color::rgb(0.5, 0.5, 0.5);
@@ -1497,6 +1531,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn burn_darkens() {
         let base = Color::rgb(0.6, 0.6, 0.6);
         let factor = Color::rgb(0.5, 0.5, 0.5);
@@ -1505,12 +1540,14 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn dodge_full_divisor_clamps() {
         let out = Color::rgb(0.5, 0.5, 0.5).blend_dodge(Color::WHITE);
         assert!((out.r - 1.0).abs() < 1e-5);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn burn_zero_divisor_clamps() {
         let out = Color::rgb(0.5, 0.5, 0.5).blend_burn(Color::BLACK);
         assert!(out.r < 1e-5);
@@ -1519,6 +1556,7 @@ mod tests {
     // ── blend_difference / blend_exclusion ───────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn difference_identical_is_black() {
         let c = Color::rgb(0.7, 0.3, 0.5);
         let out = c.blend_difference(c);
@@ -1528,6 +1566,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn difference_is_commutative() {
         let a = Color::rgb(0.8, 0.2, 0.6);
         let b = Color::rgb(0.3, 0.7, 0.1);
@@ -1538,6 +1577,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn exclusion_grey_is_midgrey() {
         let grey = Color::rgb(0.5, 0.5, 0.5);
         let out = grey.blend_exclusion(grey);
@@ -1550,6 +1590,7 @@ mod tests {
     // ── to_xyz / from_xyz ────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn xyz_white_point_d65() {
         let (x, y, z) = Color::WHITE.to_xyz();
         assert!((x - 0.9505).abs() < 0.003, "x={x}");
@@ -1558,6 +1599,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn xyz_roundtrip() {
         let c = Color::rgb(0.8, 0.3, 0.5);
         let (x, y, z) = c.to_xyz();
@@ -1568,6 +1610,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn xyz_black_is_zero() {
         let (x, y, z) = Color::BLACK.to_xyz();
         assert!(x < 1e-5 && y < 1e-5 && z < 1e-5);
@@ -1576,6 +1619,7 @@ mod tests {
     // ── to_oklch / from_oklch ────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn oklch_grey_zero_chroma() {
         let grey = Color::rgb(0.5, 0.5, 0.5);
         let (_l, c, _h) = grey.to_oklch();
@@ -1583,6 +1627,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn oklch_roundtrip() {
         let col = Color::rgb(0.9, 0.2, 0.4);
         let (l, c, h) = col.to_oklch();
@@ -1593,6 +1638,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn oklch_hue_in_range() {
         use std::f32::consts::TAU;
         for col in [Color::RED, Color::GREEN, Color::BLUE] {
@@ -1604,6 +1650,7 @@ mod tests {
     // ── adjust_hue ───────────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn adjust_hue_red_120_to_green() {
         let red = Color::new(1.0, 0.0, 0.0, 1.0);
         let green = red.adjust_hue(120.0);
@@ -1614,6 +1661,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn adjust_hue_360_identity() {
         let c = Color::new(0.5, 0.3, 0.8, 1.0);
         let back = c.adjust_hue(360.0);
@@ -1621,6 +1669,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn adjust_hue_preserves_alpha() {
         let c = Color::new(1.0, 0.0, 0.0, 0.7);
         let rotated = c.adjust_hue(90.0);
@@ -1630,6 +1679,7 @@ mod tests {
     // ── invert ───────────────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn invert_channels() {
         let c = Color::new(0.25, 0.5, 0.75, 1.0);
         let inv = c.invert();
@@ -1640,6 +1690,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn double_invert_is_identity() {
         let c = Color::new(0.3, 0.6, 0.9, 0.8);
         let back = c.invert().invert();
@@ -1649,6 +1700,7 @@ mod tests {
     // ── to_linear / from_linear ──────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn linear_roundtrip() {
         for v in [0.0_f32, 0.1, 0.5, 0.9, 1.0] {
             let c = Color::new(v, v, v, 1.0);
@@ -1658,6 +1710,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn mid_grey_linearises_darker() {
         // sRGB 0.5 corresponds to linear ~0.214 (gamma-expanded)
         let c = Color::new(0.5, 0.5, 0.5, 1.0);
@@ -1671,6 +1724,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn white_is_white_in_both_spaces() {
         let w = Color::new(1.0, 1.0, 1.0, 1.0);
         let lin = w.to_linear();
@@ -1681,17 +1735,20 @@ mod tests {
     // ── delta_e_oklab ────────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn delta_e_identical_is_zero() {
         let c = Color::new(0.3, 0.5, 0.7, 1.0);
         assert!(c.delta_e_oklab(c) < 1e-5);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn delta_e_red_vs_blue_large() {
         assert!(Color::RED.delta_e_oklab(Color::BLUE) > 0.1);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn delta_e_symmetric() {
         let a = Color::new(0.8, 0.2, 0.3, 1.0);
         let b = Color::new(0.1, 0.7, 0.5, 1.0);

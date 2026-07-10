@@ -10,8 +10,9 @@ fn metaballs_benchmark(c: &mut Criterion) {
         b.iter(|| {
             sim.update_and_render(&mut fb);
             std::hint::black_box(&fb);
-        })
+        });
     });
+
 }
 
 criterion_group!(benches, metaballs_benchmark);

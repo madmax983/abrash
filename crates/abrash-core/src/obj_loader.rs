@@ -500,6 +500,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_load_cube() {
         let obj = "
 v -1.0 -1.0 1.0
@@ -518,6 +519,7 @@ f 1 3 4
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_load_with_uvs() {
         let obj = "
 v 0 0 0
@@ -536,6 +538,7 @@ f 1/1 2/2 3/3
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_deduplication() {
         // Vertex 1 used twice with same UV
         let obj = "
@@ -551,6 +554,7 @@ f 1 3 2
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_split_vertices() {
         // Vertex 1 used with different UVs should split
         let obj = "
@@ -567,7 +571,8 @@ f 1/1 1/2 1/1
     }
 
     #[test]
-    #[ignore]
+    #[allow(clippy::unreadable_literal)]
+    #[ignore = "Slow running fuzzy tests"]
     fn test_load_normals() {
         let obj = "
 v 0 0 0
@@ -583,7 +588,8 @@ f 1//1 2//1 3//1
     }
 
     #[test]
-    #[ignore]
+    #[allow(clippy::unreadable_literal)]
+    #[ignore = "Slow running fuzzy tests"]
     fn test_load_mixed_normals() {
         let obj = "
 v 0 0 0
@@ -601,6 +607,7 @@ f 1//1 2 3
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_empty_input() {
         let mesh = load_obj("").unwrap();
         assert!(mesh.vertices.is_empty());
@@ -608,6 +615,7 @@ f 1//1 2 3
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_comments_only() {
         let obj = "
 # This is a comment
@@ -618,6 +626,7 @@ f 1//1 2 3
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_malformed_lines() {
         // Missing coordinates
         assert!(load_obj("v").is_err());
@@ -633,6 +642,7 @@ f 1//1 2 3
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_invalid_indices() {
         let obj_ok = "v 0 0 0\nv 1 0 0\nv 0 1 0\n";
 
@@ -646,6 +656,7 @@ f 1//1 2 3
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_invalid_uv_normal_indices() {
         let obj_ok = "v 0 0 0\nv 1 0 0\nv 0 1 0\nvt 0 0\nvn 0 1 0\n";
 
@@ -667,6 +678,7 @@ f 1//1 2 3
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_finite_checks() {
         // Infinity
         assert!(load_obj("v inf 0 0").is_err());
@@ -678,6 +690,7 @@ f 1//1 2 3
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_face_format_parsing() {
         // v//vn format checks
         // 3 vertices, 1 normal
@@ -711,6 +724,7 @@ mod extra_tests {
     use super::fast_parse_usize;
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_parse_large_integers() {
         // Safe 9 digits (u32 safe)
         assert_eq!(fast_parse_usize(b"999999999"), Some(999999999));

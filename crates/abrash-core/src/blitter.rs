@@ -247,7 +247,7 @@ pub unsafe fn blit_opaque_unchecked(
 /// destination.
 ///
 /// Use this for sprites with a designated transparent color (e.g. magenta
-/// `0xFFFF00FF`).
+/// `0xFFFF_00FF`).
 ///
 /// # Arguments
 ///
@@ -544,6 +544,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn clip_blit_no_clipping_needed() {
         let src = SrcRect {
             x: 0,
@@ -566,6 +567,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn clip_blit_left_overflow() {
         let src = SrcRect {
             x: 0,
@@ -580,6 +582,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn clip_blit_top_overflow() {
         let src = SrcRect {
             x: 0,
@@ -594,6 +597,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn clip_blit_right_overflow() {
         let src = SrcRect {
             x: 0,
@@ -607,6 +611,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn clip_blit_bottom_overflow() {
         let src = SrcRect {
             x: 0,
@@ -620,6 +625,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn clip_blit_fully_offscreen_left() {
         let src = SrcRect {
             x: 0,
@@ -631,6 +637,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn clip_blit_fully_offscreen_right() {
         let src = SrcRect {
             x: 0,
@@ -642,6 +649,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn clip_blit_fully_offscreen_top() {
         let src = SrcRect {
             x: 0,
@@ -653,6 +661,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn clip_blit_fully_offscreen_bottom() {
         let src = SrcRect {
             x: 0,
@@ -664,6 +673,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn clip_blit_zero_size_src() {
         let zero_w = SrcRect {
             x: 0,
@@ -683,6 +693,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn clip_blit_src_exceeds_texture() {
         let src = SrcRect {
             x: 60,
@@ -698,6 +709,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn clip_blit_src_fully_outside_texture() {
         let src = SrcRect {
             x: 64,
@@ -709,6 +721,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn clip_blit_corner_diagonal() {
         let src = SrcRect {
             x: 0,
@@ -731,6 +744,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn clip_blit_exact_fit() {
         let src = SrcRect {
             x: 0,
@@ -753,6 +767,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn clip_blit_1x1_sprite() {
         let src = SrcRect {
             x: 32,
@@ -775,6 +790,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn clip_blit_atlas_subregion() {
         let src = SrcRect {
             x: 32,
@@ -800,9 +816,9 @@ mod tests {
         for y in 0..h {
             for x in 0..w {
                 let color = if (x + y) % 2 == 0 {
-                    0xFFFF0000
+                    0xFFFF_0000
                 } else {
-                    0xFF00FF00
+                    0xFF00_FF00
                 };
                 tex.set_pixel(x, y, color);
             }
@@ -811,10 +827,11 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn blit_opaque_basic() {
         let tex = make_checkerboard_texture(4, 4);
         let mut fb = Framebuffer::new(16, 16).unwrap();
-        fb.clear(0xFF000000);
+        fb.clear(0xFF00_0000);
 
         let src = SrcRect {
             x: 0,
@@ -831,9 +848,9 @@ mod tests {
         for y in 0..4u32 {
             for x in 0..4u32 {
                 let expected = if (x + y) % 2 == 0 {
-                    0xFFFF0000
+                    0xFFFF_0000
                 } else {
-                    0xFF00FF00
+                    0xFF00_FF00
                 };
                 let idx = (3 + y as usize) * fb_w + (2 + x as usize);
                 assert_eq!(
@@ -847,24 +864,25 @@ mod tests {
         }
 
         // Verify surrounding pixels are untouched (black).
-        assert_eq!(fb_pixels[0], 0xFF000000, "top-left corner should be black");
+        assert_eq!(fb_pixels[0], 0xFF00_0000, "top-left corner should be black");
         assert_eq!(
             fb_pixels[fb_w - 1],
-            0xFF000000,
+            0xFF00_0000,
             "top-right corner should be black"
         );
         assert_eq!(
             fb_pixels[(fb_w * 16) - 1],
-            0xFF000000,
+            0xFF00_0000,
             "bottom-right should be black"
         );
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn blit_opaque_clipped_left() {
         let tex = make_checkerboard_texture(8, 8);
         let mut fb = Framebuffer::new(16, 16).unwrap();
-        fb.clear(0xFF000000);
+        fb.clear(0xFF00_0000);
 
         let src = SrcRect {
             x: 0,
@@ -882,9 +900,9 @@ mod tests {
             for col in 0..5u32 {
                 let src_x = col + 3; // skipped 3 columns
                 let expected = if (src_x + row) % 2 == 0 {
-                    0xFFFF0000
+                    0xFFFF_0000
                 } else {
-                    0xFF00FF00
+                    0xFF00_FF00
                 };
                 let idx = row as usize * fb_w + col as usize;
                 assert_eq!(
@@ -895,14 +913,15 @@ mod tests {
         }
 
         // Column 5 onward should be black.
-        assert_eq!(fb_pixels[5], 0xFF000000, "column 5 row 0 should be black");
+        assert_eq!(fb_pixels[5], 0xFF00_0000, "column 5 row 0 should be black");
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn blit_opaque_fully_offscreen() {
         let tex = make_checkerboard_texture(8, 8);
         let mut fb = Framebuffer::new(16, 16).unwrap();
-        fb.clear(0xFF000000);
+        fb.clear(0xFF00_0000);
 
         let src = SrcRect {
             x: 0,
@@ -914,15 +933,16 @@ mod tests {
 
         // Every pixel in the framebuffer should be untouched.
         for (i, &pixel) in fb.as_slice().iter().enumerate() {
-            assert_eq!(pixel, 0xFF000000, "Pixel {i} should be black");
+            assert_eq!(pixel, 0xFF00_0000, "Pixel {i} should be black");
         }
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn blit_opaque_atlas_subregion() {
         let tex = make_checkerboard_texture(16, 16);
         let mut fb = Framebuffer::new(32, 32).unwrap();
-        fb.clear(0xFF000000);
+        fb.clear(0xFF00_0000);
 
         // Blit the 4x4 sub-region starting at (4,4) to dst (10,10).
         let src = SrcRect {
@@ -941,9 +961,9 @@ mod tests {
                 let tex_x = x + 4;
                 let tex_y = y + 4;
                 let expected = if (tex_x + tex_y) % 2 == 0 {
-                    0xFFFF0000
+                    0xFFFF_0000
                 } else {
-                    0xFF00FF00
+                    0xFF00_FF00
                 };
                 let idx = (10 + y as usize) * fb_w + (10 + x as usize);
                 assert_eq!(
@@ -957,16 +977,17 @@ mod tests {
         }
 
         // Spot-check surrounding area is still black.
-        assert_eq!(fb_pixels[0], 0xFF000000);
-        assert_eq!(fb_pixels[9 * fb_w + 9], 0xFF000000);
-        assert_eq!(fb_pixels[14 * fb_w + 14], 0xFF000000);
+        assert_eq!(fb_pixels[0], 0xFF00_0000);
+        assert_eq!(fb_pixels[9 * fb_w + 9], 0xFF00_0000);
+        assert_eq!(fb_pixels[14 * fb_w + 14], 0xFF00_0000);
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn blit_opaque_unchecked_basic() {
         let tex = make_checkerboard_texture(4, 4);
         let mut fb = Framebuffer::new(16, 16).unwrap();
-        fb.clear(0xFF000000);
+        fb.clear(0xFF00_0000);
 
         let src = SrcRect {
             x: 0,
@@ -987,9 +1008,9 @@ mod tests {
         for y in 0..4u32 {
             for x in 0..4u32 {
                 let expected = if (x + y) % 2 == 0 {
-                    0xFFFF0000
+                    0xFFFF_0000
                 } else {
-                    0xFF00FF00
+                    0xFF00_FF00
                 };
                 let idx = (3 + y as usize) * fb_w + (2 + x as usize);
                 assert_eq!(
@@ -1003,10 +1024,10 @@ mod tests {
         }
 
         // Surrounding untouched.
-        assert_eq!(fb_pixels[0], 0xFF000000);
+        assert_eq!(fb_pixels[0], 0xFF00_0000);
         assert_eq!(
             fb_pixels[(fb_w * 16) - 1],
-            0xFF000000,
+            0xFF00_0000,
             "bottom-right should be black"
         );
     }
@@ -1014,10 +1035,11 @@ mod tests {
     // ── blit_colorkey / blit_colorkey_unchecked tests ────────────────────
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn blit_colorkey_skips_key_color() {
-        const RED: u32 = 0xFFFF0000;
-        const MAGENTA: u32 = 0xFFFF00FF; // color key
-        const BLUE: u32 = 0xFF0000FF;
+        const RED: u32 = 0xFFFF_0000;
+        const MAGENTA: u32 = 0xFFFF_00FF; // color key
+        const BLUE: u32 = 0xFF00_00FF;
 
         // 4x4 texture: top-left 2x2 = red, rest = magenta (transparent).
         let mut tex = Texture::new(4, 4).unwrap();
@@ -1078,9 +1100,10 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn blit_colorkey_all_transparent() {
-        const KEY: u32 = 0xFFFF00FF;
-        const BLUE: u32 = 0xFF0000FF;
+        const KEY: u32 = 0xFFFF_00FF;
+        const BLUE: u32 = 0xFF00_00FF;
 
         // 4x4 texture: all pixels match the key.
         let mut tex = Texture::new(4, 4).unwrap();
@@ -1108,9 +1131,10 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn blit_colorkey_clipped() {
-        const RED: u32 = 0xFFFF0000;
-        const BLUE: u32 = 0xFF0000FF;
+        const RED: u32 = 0xFFFF_0000;
+        const BLUE: u32 = 0xFF00_00FF;
 
         // 8x8 all-red texture (no pixel matches the key, so all are opaque).
         let mut tex = Texture::new(8, 8).unwrap();
@@ -1130,7 +1154,7 @@ mod tests {
             h: 8,
         };
         // dst_x = -3 means columns 0..5 of fb get src columns 3..8.
-        blit_colorkey(&mut fb, &tex, src, -3, 0, 0xFFFF00FF);
+        blit_colorkey(&mut fb, &tex, src, -3, 0, 0xFFFF_00FF);
 
         let fb_pixels = fb.as_slice();
         let fb_w = 16usize;
@@ -1151,10 +1175,11 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn blit_colorkey_unchecked_basic() {
-        const RED: u32 = 0xFFFF0000;
-        const MAGENTA: u32 = 0xFFFF00FF; // color key
-        const BLUE: u32 = 0xFF0000FF;
+        const RED: u32 = 0xFFFF_0000;
+        const MAGENTA: u32 = 0xFFFF_00FF; // color key
+        const BLUE: u32 = 0xFF00_00FF;
 
         // 4x4 texture: first column = red, rest = magenta (transparent).
         let mut tex = Texture::new(4, 4).unwrap();
@@ -1221,9 +1246,10 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn blit_alpha_fully_opaque() {
-        const RED: u32 = 0xFFFF0000; // alpha = 0xFF
-        const BLUE: u32 = 0xFF0000FF;
+        const RED: u32 = 0xFFFF_0000; // alpha = 0xFF
+        const BLUE: u32 = 0xFF00_00FF;
 
         let mut tex = Texture::new(4, 4).unwrap();
         for y in 0..4u32 {
@@ -1265,9 +1291,10 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn blit_alpha_fully_transparent() {
-        const TRANSPARENT_RED: u32 = 0x00FF0000; // alpha = 0x00
-        const BLUE: u32 = 0xFF0000FF;
+        const TRANSPARENT_RED: u32 = 0x00FF_0000; // alpha = 0x00
+        const BLUE: u32 = 0xFF00_00FF;
 
         let mut tex = Texture::new(4, 4).unwrap();
         for y in 0..4u32 {
@@ -1294,10 +1321,11 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn blit_alpha_50_percent() {
         // 50% alpha red over opaque blue.
-        const HALF_RED: u32 = 0x80FF0000; // alpha = 0x80 (128)
-        const BLUE: u32 = 0xFF0000FF;
+        const HALF_RED: u32 = 0x80FF_0000; // alpha = 0x80 (128)
+        const BLUE: u32 = 0xFF00_00FF;
 
         let mut tex = Texture::new(1, 1).unwrap();
         tex.set_pixel(0, 0, HALF_RED);
@@ -1333,9 +1361,10 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn blit_alpha_clipped() {
-        const RED: u32 = 0xFFFF0000; // fully opaque red
-        const BLUE: u32 = 0xFF0000FF;
+        const RED: u32 = 0xFFFF_0000; // fully opaque red
+        const BLUE: u32 = 0xFF00_00FF;
 
         let mut tex = Texture::new(8, 8).unwrap();
         for y in 0..8u32 {
@@ -1370,9 +1399,10 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn blit_alpha_unchecked_basic() {
-        const RED: u32 = 0xFFFF0000;
-        const BLUE: u32 = 0xFF0000FF;
+        const RED: u32 = 0xFFFF_0000;
+        const BLUE: u32 = 0xFF00_00FF;
 
         let mut tex = Texture::new(2, 2).unwrap();
         for y in 0..2u32 {
@@ -1426,9 +1456,10 @@ mod tests {
     // ── fill_rect / fill_rect_alpha tests ──────────────────────────────
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn fill_rect_basic() {
-        const RED: u32 = 0xFFFF0000;
-        const DEFAULT: u32 = 0xFF000000;
+        const RED: u32 = 0xFFFF_0000;
+        const DEFAULT: u32 = 0xFF00_0000;
 
         let mut fb = Framebuffer::new(16, 16).unwrap();
         fb.clear(DEFAULT);
@@ -1462,9 +1493,10 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn fill_rect_clipped_negative() {
-        const RED: u32 = 0xFFFF0000;
-        const DEFAULT: u32 = 0xFF000000;
+        const RED: u32 = 0xFFFF_0000;
+        const DEFAULT: u32 = 0xFF00_0000;
 
         let mut fb = Framebuffer::new(10, 10).unwrap();
         fb.clear(DEFAULT);
@@ -1490,13 +1522,14 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn fill_rect_fully_offscreen() {
-        const DEFAULT: u32 = 0xFF000000;
+        const DEFAULT: u32 = 0xFF00_0000;
 
         let mut fb = Framebuffer::new(10, 10).unwrap();
         fb.clear(DEFAULT);
 
-        fill_rect(&mut fb, 20, 20, 5, 5, 0xFFFF0000);
+        fill_rect(&mut fb, 20, 20, 5, 5, 0xFFFF_0000);
 
         // Every pixel should remain default.
         for (i, &pixel) in fb.as_slice().iter().enumerate() {
@@ -1505,9 +1538,10 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn fill_rect_alpha_blended() {
-        const BLUE: u32 = 0xFF0000FF;
-        const HALF_RED: u32 = 0x80FF0000; // alpha = 0x80 (128)
+        const BLUE: u32 = 0xFF00_00FF;
+        const HALF_RED: u32 = 0x80FF_0000; // alpha = 0x80 (128)
 
         let mut fb = Framebuffer::new(4, 4).unwrap();
         fb.clear(BLUE);

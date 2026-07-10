@@ -86,6 +86,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_xorshift_determinism() {
         let seed = 12345;
         let mut rng1 = XorShift32::new(seed);
@@ -97,6 +98,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_xorshift_zero_seed() {
         let mut rng = XorShift32::new(0);
         // Should not be 0, otherwise it stays 0
@@ -104,6 +106,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_pixel_luminance() {
         // Black
         assert_eq!(pixel_luminance(0xFF000000), 0);

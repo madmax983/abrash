@@ -227,6 +227,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_new_valid() {
         let zb = ZBuffer::new(100, 200).expect("Should create valid buffer");
         assert_eq!(zb.width(), 100);
@@ -237,6 +238,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_new_overflow() {
         // Test dimensions exceeding i32::MAX
         assert!(ZBuffer::new(i32::MAX as u32 + 1, 10).is_err());
@@ -248,6 +250,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_clear() {
         let mut zb = ZBuffer::new(2, 2).unwrap();
         zb.test_and_set(0, 0, 1.0);
@@ -258,6 +261,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_clear_rect() {
         let mut zb = ZBuffer::new(10, 10).unwrap();
         // Set all to 1.0
@@ -284,6 +288,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_clear_rect_oob() {
         let mut zb = ZBuffer::new(10, 10).unwrap();
         for y in 0..10 {
@@ -308,6 +313,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_test_and_set() {
         let mut zb = ZBuffer::new(2, 2).unwrap();
 
@@ -335,6 +341,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_get_depth() {
         let mut zb = ZBuffer::new(10, 10).unwrap();
         zb.test_and_set(5, 5, 0.5);
@@ -347,6 +354,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_test_and_set_unchecked() {
         let mut zb = ZBuffer::new(2, 2).unwrap();
         unsafe {
@@ -361,6 +369,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_as_slice_mut() {
         let mut zb = ZBuffer::new(2, 1).unwrap();
         let slice = zb.as_mut_slice();
@@ -372,6 +381,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_clear_rect_full_width() {
         let mut zb = ZBuffer::new(10, 10).unwrap();
         for y in 0..10 {
@@ -396,6 +406,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_clear_rect_extreme_bounds() {
         let mut zb = ZBuffer::new(10, 10).unwrap();
 

@@ -64,6 +64,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_fixed_timestep_init() {
         let timer = FixedTimestep::new(60);
         // Target dt for 60 fps is ~0.016666
@@ -71,6 +72,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_fixed_timestep_update() {
         let mut timer = FixedTimestep::new(60);
 

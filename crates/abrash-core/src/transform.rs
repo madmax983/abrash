@@ -640,7 +640,7 @@ mod tests {
             .iter()
             .map(|&v| transform.transform_vector(v))
             .collect();
-        let mut actual = vectors.clone();
+        let mut actual = vectors;
         transform.transform_vectors_in_place(&mut actual);
 
         assert_eq!(actual.len(), expected.len());
@@ -717,7 +717,7 @@ mod tests {
             .iter()
             .map(|&p| transform.transform_point(p))
             .collect();
-        let mut actual = points.clone();
+        let mut actual = points;
         transform.transform_points_in_place(&mut actual);
 
         assert_eq!(actual.len(), expected.len());

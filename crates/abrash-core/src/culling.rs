@@ -497,6 +497,7 @@ mod tests {
     use crate::math::{Mat4, Vec3};
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_cull_spheres_prealloc() {
         let m = Mat4::identity();
         let frustum = Frustum::from_matrix(m);
@@ -518,6 +519,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_aabb_intersection() {
         let m = Mat4::identity();
         let frustum = Frustum::from_matrix(m);
@@ -538,6 +540,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_cull_spheres_matches_scalar() {
         // Setup Frustum
         let view = Mat4::look_at(
@@ -587,6 +590,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_plane_normalize() {
         // Create a plane with a non-normalized normal (length 3)
         // Normal: (3, 0, 0), Distance: 3.0
@@ -605,6 +609,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_plane_distance() {
         // Plane with normal (0, 1, 0) and distance -2.0
         // Equation: y - 2 = 0 -> y = 2
@@ -630,6 +635,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_frustum_intersection() {
         // Identity matrix corresponds to canonical view volume [-1, 1]
         let m = Mat4::identity();
@@ -680,6 +686,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_cull_aabbs_matches_scalar() {
         // Setup Frustum
         let view = Mat4::look_at(

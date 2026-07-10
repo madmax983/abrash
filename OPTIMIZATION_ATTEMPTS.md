@@ -142,3 +142,15 @@ Previously, `TileRenderer` used a custom scalar loop for textured rendering.
 - Shifting to pure integer math for luminance calculation avoids f32 conversion overhead.
 
 **Conclusion**: Applied changes. Halftone rendering runs efficiently.
+
+## 8. ARGB to RGBA Byte Conversion using `chunks_exact_mut` + `zip`
+
+**Goal**: Accelerate full-image pixel format conversion loops (e.g., preparing RGBA bytes for `wgpu` from ARGB).
+
+**Implementation**:
+- Replaced `.flat_map().collect()` with a pre-allocated zeroed vector (`vec![0u8; len * 4]`) and `.chunks_exact_mut(4).zip(pixels.iter())`.
+
+**Result**: **Regression**
+- The zero-initialization overhead and loop bounds/chunking complexity outweighed the cost of `.flat_map().collect()`.
+
+**Conclusion**: Reverted changes. Using `.flat_map().collect()` remains the optimal approach in this context.
