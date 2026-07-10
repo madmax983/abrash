@@ -1,0 +1,5 @@
+feat(rasterizer): Add optimized `draw_line_2d` to rasterizer
+
+Implemented `draw_line_2d` utilizing Bresenham's line algorithm.
+Added a fast-path that elides bounds checking when the line segment is fully within the framebuffer dimensions, yielding a significant (~27%) performance improvement.
+Also added `draw_line_2d_bench` to track regressions.

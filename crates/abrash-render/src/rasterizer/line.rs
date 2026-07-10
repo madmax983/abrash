@@ -17,6 +17,65 @@ use crate::math::{Vec3, project_to_screen_optimized};
 use crate::rasterizer::core::assert_same_dimensions;
 use crate::zbuffer::ZBuffer;
 
+/// Draws a 2D line using Bresenham's algorithm.
+pub fn draw_line_2d(fb: &mut Framebuffer, mut x0: i32, mut y0: i32, x1: i32, y1: i32, color: u32) {
+    let dx = (x1 - x0).abs();
+    let sx = if x0 < x1 { 1 } else { -1 };
+    let dy = -(y1 - y0).abs();
+    let sy = if y0 < y1 { 1 } else { -1 };
+    let mut err = dx + dy;
+
+    // Fast path: line is completely on screen
+    let min_x = x0.min(x1);
+    let max_x = x0.max(x1);
+    let min_y = y0.min(y1);
+    let max_y = y0.max(y1);
+
+    let width = fb.width() as i32;
+    let height = fb.height() as i32;
+
+    if min_x >= 0 && max_x < width && min_y >= 0 && max_y < height {
+        let slice = fb.as_mut_slice();
+        let fb_width = width as usize;
+
+        loop {
+            // SAFETY: We checked that the entire line segment fits within the framebuffer
+            unsafe {
+                *slice.get_unchecked_mut((y0 as usize) * fb_width + (x0 as usize)) = color;
+            }
+            if x0 == x1 && y0 == y1 {
+                break;
+            }
+            let e2 = 2 * err;
+            if e2 >= dy {
+                err += dy;
+                x0 += sx;
+            }
+            if e2 <= dx {
+                err += dx;
+                y0 += sy;
+            }
+        }
+    } else {
+        // Safe path: clips against bounds
+        loop {
+            fb.set_pixel(x0, y0, color);
+            if x0 == x1 && y0 == y1 {
+                break;
+            }
+            let e2 = 2 * err;
+            if e2 >= dy {
+                err += dy;
+                x0 += sx;
+            }
+            if e2 <= dx {
+                err += dx;
+                y0 += sy;
+            }
+        }
+    }
+}
+
 /// Draws a 3D line between two clip-space vertices with depth testing.
 ///
 /// This is essential for wireframe rendering (`fill_triangle_wireframe`) and
@@ -180,6 +239,7 @@ pub fn fill_triangle_wireframe(
     draw_line_3d(fb, zb, v1, v2, color);
     draw_line_3d(fb, zb, v2, v0, color);
 }
+
 #[cfg(test)]
 mod tests {
     use crate::framebuffer::Framebuffer;
@@ -197,5 +257,30 @@ mod tests {
         let v1 = (Vec3::new(90.0, 90.0, 1.0), 1.0);
 
         draw_line_3d(&mut fb, &mut zb, v0, v1, 0x00FF_FFFFFF);
+    }
+}
+
+#[cfg(test)]
+mod tests2 {
+    use crate::framebuffer::Framebuffer;
+    use super::draw_line_2d;
+
+    #[test]
+    fn test_draw_line_2d() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        fb.clear(0x0000_0000);
+
+        // Draw diagonal line
+        draw_line_2d(&mut fb, 0, 0, 2, 2, 0xFFFF_FFFF);
+
+        assert_eq!(fb.get_pixel(0, 0), Some(0xFFFF_FFFF));
+        assert_eq!(fb.get_pixel(1, 1), Some(0xFFFF_FFFF));
+        assert_eq!(fb.get_pixel(2, 2), Some(0xFFFF_FFFF));
+        assert_eq!(fb.get_pixel(3, 3), Some(0x0000_0000));
+        assert_eq!(fb.get_pixel(0, 1), Some(0x0000_0000));
+
+        // Draw out of bounds
+        draw_line_2d(&mut fb, -2, -2, 2, 2, 0xFF00_FF00);
+        assert_eq!(fb.get_pixel(0, 0), Some(0xFF00_FF00));
     }
 }
