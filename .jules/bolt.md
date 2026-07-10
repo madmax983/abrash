@@ -240,3 +240,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+
+**[Thread-local Vector Reuse]**
+**Learning:** In procedural texture generation or hot loops that repeatedly allocate dynamically sized temporary vectors (like `Vec::with_capacity(width)`), the per-call heap allocation can add noticeable overhead.
+**Action:** Replace `Vec::with_capacity()` with a `thread_local!` `RefCell<Vec<T>>`, followed by `vec.clear()` and `vec.reserve(len)`. This safely reuses the vector's capacity across calls, eliminating allocation overhead entirely while keeping the function pure and safe.

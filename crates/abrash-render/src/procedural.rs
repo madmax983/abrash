@@ -94,6 +94,8 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
     Ok(tex)
 }
 
+static PLASMA_LUT: std::sync::OnceLock<[u32; 1024]> = std::sync::OnceLock::new();
+
 /// Generates a plasma effect.
 ///
 /// # Errors
@@ -108,8 +110,6 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
 /// assert_eq!(tex.width(), 32);
 /// assert_eq!(tex.height(), 32);
 /// ```
-static PLASMA_LUT: std::sync::OnceLock<[u32; 1024]> = std::sync::OnceLock::new();
-
 pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
     if width == 0 || height == 0 {
         return Err("Texture dimensions must be positive");
@@ -135,37 +135,46 @@ pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
     });
 
     let width_usize = width as usize;
-    let mut x_sincos = Vec::with_capacity(width_usize);
-    for x in 0..width {
-        let u = x as f32;
-        let (sin_u, cos_u) = fast_sin_cos(u * 0.1);
-        let u_v1 = sin_u;
-        x_sincos.push((u, u_v1, sin_u, cos_u));
+    // ⚡ Bolt: Eliminate per-call heap allocation overhead by using a thread-local reused vector
+    thread_local! {
+        static X_SINCOS: std::cell::RefCell<Vec<(f32, f32, f32, f32)>> = const { std::cell::RefCell::new(Vec::new()) };
     }
 
-    for (y, row) in tex.pixels_mut().chunks_exact_mut(width_usize).enumerate() {
-        let v = y as f32;
-        let (sin_v, cos_v) = fast_sin_cos(v * 0.1);
-        let v_v2 = sin_v;
-        let v_sq = v * v;
-
-        for (x, p) in row.iter_mut().enumerate() {
-            let (u, u_v1, sin_u, cos_u) = unsafe { *x_sincos.get_unchecked(x) };
-
-            // v3 = sin((u + v) * 0.1) = sin_u*cos_v + cos_u*sin_v
-            let v3 = sin_u * cos_v + cos_u * sin_v;
-
-            let (v4, _) = fast_sin_cos(u.mul_add(u, v_sq).sqrt() * 0.1);
-
-            let val = (u_v1 + v_v2 + v3 + v4) * 0.25; // -1 to 1
-            let normalized = (val + 1.0) * 0.5; // 0 to 1
-
-            let lut_idx = (normalized * 1023.0) as usize;
-            let lut_idx = lut_idx.min(1023);
-
-            *p = unsafe { *lut.get_unchecked(lut_idx) };
+    X_SINCOS.with(|sincos_cell| {
+        let mut x_sincos = sincos_cell.borrow_mut();
+        x_sincos.clear();
+        x_sincos.reserve(width_usize);
+        for x in 0..width {
+            let u = x as f32;
+            let (sin_u, cos_u) = fast_sin_cos(u * 0.1);
+            let u_v1 = sin_u;
+            x_sincos.push((u, u_v1, sin_u, cos_u));
         }
-    }
+
+        for (y, row) in tex.pixels_mut().chunks_exact_mut(width_usize).enumerate() {
+            let v = y as f32;
+            let (sin_v, cos_v) = fast_sin_cos(v * 0.1);
+            let v_v2 = sin_v;
+            let v_sq = v * v;
+
+            for (x, p) in row.iter_mut().enumerate() {
+                let (u, u_v1, sin_u, cos_u) = unsafe { *x_sincos.get_unchecked(x) };
+
+                // v3 = sin((u + v) * 0.1) = sin_u*cos_v + cos_u*sin_v
+                let v3 = sin_u * cos_v + cos_u * sin_v;
+
+                let (v4, _) = fast_sin_cos(u.mul_add(u, v_sq).sqrt() * 0.1);
+
+                let val = (u_v1 + v_v2 + v3 + v4) * 0.25; // -1 to 1
+                let normalized = (val + 1.0) * 0.5; // 0 to 1
+
+                let lut_idx = (normalized * 1023.0) as usize;
+                let lut_idx = lut_idx.min(1023);
+
+                *p = unsafe { *lut.get_unchecked(lut_idx) };
+            }
+        }
+    });
 
     Ok(tex)
 }
