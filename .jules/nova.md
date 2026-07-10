@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [Strange Attractor Generator]
+**Concept:** A module for generating and rendering mathematical strange attractors (like Clifford attractors) directly to the framebuffer over many iterations.
+**Fate:** Implemented
+**Lesson:** Iterating simple mathematical operations (like `sin` and `cos` for strange attractors) millions of times per frame is viable for real-time CPU rendering. Fading previous frame pixel values rather than clearing creates appealing particle-like trails.
