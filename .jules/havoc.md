@@ -11,3 +11,20 @@
 **Flaw:** The clock calculated `phase_advance` as `delta_secs / duration`. With near-zero subnormal floats, this resulted in a massively large float value. When added to the clock's current `phase` and then casting the integer portion (`whole_cycles`) to `u64` to accumulate into `self.cycle`, it caused a `u64` addition overflow (`attempt to add with overflow`) when the number of cycles exceeded `u64::MAX`.
 **Outcome:** Engine crashed via unhandled panic during animation evaluation.
 **Resolution:** Replaced the unchecked `self.cycle += whole_cycles` with `self.cycle = self.cycle.saturating_add(whole_cycles)`. The clock gracefully tops out at `u64::MAX` instead of crashing.
+
+## [Integer Overflow in blitter.rs clip_blit]
+**The Trigger:** A large `SrcRect` width/height combined with a small starting position triggers an `attempt to add with overflow` panic in `clip_blit`.
+**The Stack Trace:**
+```rust
+    if sx + w > tex_w { // panics when sx=5, w=u32::MAX
+        w = tex_w - sx;
+    }
+```
+**Reproduction:**
+```rust
+let mut fb = Framebuffer::new(100, 100).unwrap();
+let tex = Texture::new(10, 10).unwrap();
+let src = SrcRect { x: 5, y: 5, w: u32::MAX, h: 5 };
+blit_opaque(&mut fb, &tex, src, 0, 0);
+```
+**Comment:** We assumed the texture/source dimensions would always be nice and safe. We were wrong.

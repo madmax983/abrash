@@ -1548,3 +1548,28 @@ mod tests {
         assert_eq!(fb_pixels[2 * fb_w + 0], BLUE, "(0,2) should be blue");
     }
 }
+
+#[cfg(test)]
+mod havoc_tests {
+    use super::*;
+    use crate::framebuffer::Framebuffer;
+    use crate::texture::Texture;
+
+    #[test]
+    #[ignore = "👹 Havoc: Integer overflow in blitter clamping"]
+    #[should_panic(expected = "attempt to add with overflow")]
+    fn havoc_test_blitter_overflow() {
+        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let tex = Texture::new(10, 10).unwrap();
+
+        let src = SrcRect {
+            x: 5,
+            y: 5,
+            w: u32::MAX, // Trigger overflow: x + w > tex_w -> 5 + u32::MAX
+            h: 5,
+        };
+
+        // This will panic internally inside clip_blit
+        blit_opaque(&mut fb, &tex, src, 0, 0);
+    }
+}
