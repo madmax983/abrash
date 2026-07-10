@@ -240,3 +240,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+**[Foldhash for Jelly Soft-Body Setup]**
+**Learning:** Using `std::collections::HashSet` for small integer keys (like `(usize, usize)` edge pairs in mesh setup) incurs heavy cryptographic hashing overhead (SipHash).
+**Action:** Replace `std::collections::HashSet` with `foldhash::HashSet` (importing `foldhash::HashSetExt` for `with_capacity`) to drastically speed up edge deduplication during `Jelly` soft-body physics initialization.
