@@ -60,8 +60,8 @@ pub(crate) fn prepare_scanline<'a>(
     let mut xe = x_end;
 
     if xs < 0 {
-        let diff = -i64::from(xs) as f32;
-        z += diff * dz_dx;
+        let diff = -i64::from(xs);
+        z += (diff as f32) * dz_dx;
         xs = 0;
     }
 
@@ -74,16 +74,15 @@ pub(crate) fn prepare_scanline<'a>(
     }
 
     let width_usize = fb.width() as usize;
-    let y_offset = (y as usize) * width_usize;
-    let start_idx = y_offset + (xs as usize);
-    let end_idx = y_offset + (xe as usize);
+    let start_idx = (y as usize) * width_usize + (xs as usize);
+    let end_idx = start_idx + ((xe - xs) as usize);
 
     // SAFETY:
     // 1. xs and xe are clamped to [0, width-1].
     // 2. y is assumed to be within bounds by caller (clamped in fill_triangle).
     // 3. start_idx <= end_idx because xs <= xe.
-    let fb_slice = &mut fb.as_mut_slice()[start_idx..=end_idx];
-    let zb_slice = &mut zb.as_mut_slice()[start_idx..=end_idx];
+    let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+    let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
     Some((fb_slice, zb_slice, z))
 }

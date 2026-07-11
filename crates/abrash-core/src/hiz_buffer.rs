@@ -351,30 +351,30 @@ impl HiZBuffer {
             let row1_start = (src_y + 1) * sw;
 
             // Slice rows to avoid bounds checks in inner loop
-            let row0 = &source[row0_start..];
-            let row1 = &source[row1_start..];
-            let dst_row = &mut dest[(y * dest_width) as usize..];
+            let row0 = unsafe { source.get_unchecked(row0_start..) };
+            let row1 = unsafe { source.get_unchecked(row1_start..) };
+            let dst_row = unsafe { dest.get_unchecked_mut((y * dest_width) as usize..) };
 
             for x in 0..safe_width {
                 let sx = (x * 2) as usize;
 
                 // Direct access: we know sx+1 is valid because x < safe_width
-                let d00 = row0[sx];
-                let d10 = row0[sx + 1];
-                let d01 = row1[sx];
-                let d11 = row1[sx + 1];
+                let d00 = unsafe { *row0.get_unchecked(sx) };
+                let d10 = unsafe { *row0.get_unchecked(sx + 1) };
+                let d01 = unsafe { *row1.get_unchecked(sx) };
+                let d11 = unsafe { *row1.get_unchecked(sx + 1) };
 
-                dst_row[x as usize] = d00.min(d10).min(d01).min(d11);
+                unsafe { *dst_row.get_unchecked_mut(x as usize) = d00.min(d10).min(d01).min(d11) };
             }
 
             // Handle last column if odd width
             if odd_width {
                 let x = safe_width;
                 let sx = (x * 2) as usize;
-                let d00 = row0[sx];
-                let d01 = row1[sx];
+                let d00 = unsafe { *row0.get_unchecked(sx) };
+                let d01 = unsafe { *row1.get_unchecked(sx) };
                 // Clamp to left column
-                dst_row[x as usize] = d00.min(d01);
+                unsafe { *dst_row.get_unchecked_mut(x as usize) = d00.min(d01) };
             }
         }
 
@@ -383,22 +383,22 @@ impl HiZBuffer {
             let y = safe_height;
             let src_y = (y * 2) as usize;
             let row0_start = src_y * sw;
-            let row0 = &source[row0_start..];
-            let dst_row = &mut dest[(y * dest_width) as usize..];
+            let row0 = unsafe { source.get_unchecked(row0_start..) };
+            let dst_row = unsafe { dest.get_unchecked_mut((y * dest_width) as usize..) };
 
             for x in 0..safe_width {
                 let sx = (x * 2) as usize;
-                let d00 = row0[sx];
-                let d10 = row0[sx + 1];
+                let d00 = unsafe { *row0.get_unchecked(sx) };
+                let d10 = unsafe { *row0.get_unchecked(sx + 1) };
                 // Clamp to top row
-                dst_row[x as usize] = d00.min(d10);
+                unsafe { *dst_row.get_unchecked_mut(x as usize) = d00.min(d10) };
             }
 
             if odd_width {
                 let x = safe_width;
                 let sx = (x * 2) as usize;
-                let d00 = row0[sx];
-                dst_row[x as usize] = d00;
+                let d00 = unsafe { *row0.get_unchecked(sx) };
+                unsafe { *dst_row.get_unchecked_mut(x as usize) = d00 };
             }
         }
     }
