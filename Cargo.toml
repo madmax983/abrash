@@ -988,3 +988,8 @@ harness = false
 [[bench]]
 name = "find_min_max_simd_bench"
 harness = false
+
+[[bench]]
+name = "radial_blur_unchecked_bench"
+harness = false
+required-features = ["nova"]

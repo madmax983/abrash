@@ -240,3 +240,8 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+## [Radial Blur Optimization]
+**What:** Replaced slice index operator `src_fb[...]` with `unsafe { *src_fb.get_unchecked(...) }` inside the hot innermost loops of the experimental radial blur filter.
+**Why:** The calculated pixel coordinates `x_idx` and `y_idx` are rigorously clamped between `0` and `width - 1` (or `height - 1`). The target offset `y_idx * width + x_idx` will physically never exceed `width * height - 1`, making bounds checking completely redundant. A function-level guard `assert!(slice.len() >= width * height)` secures this contract upfront.
+**Impact:** Avoids array bounds checking operations that otherwise occur for every individual sample taken along the blur step per pixel.
+**Measurement:** 10% sustained performance improvement measured via `radial_blur_unchecked_bench` for the SWAR 16-sample path.

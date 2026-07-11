@@ -30,12 +30,16 @@ pub fn apply_radial_blur(
         return;
     }
 
+
     let width = fb.width() as usize;
     let height = fb.height() as usize;
 
     if width == 0 || height == 0 {
         return;
     }
+
+    assert!(fb.as_slice().len() >= width * height, "Framebuffer slice too small for stated dimensions");
+
 
     // We must copy the buffer to read from the original state while writing to the new state.
     // This avoids artifacts from reading already-blurred pixels.
@@ -91,7 +95,7 @@ pub fn apply_radial_blur(
                                 let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
                                 let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 
-                                let color = src_fb[y_idx * width + x_idx];
+                                let color = unsafe { *src_fb.get_unchecked(y_idx * width + x_idx) };
 
                                 // Accumulate R and B channels simultaneously. The 0x00FF00FF mask isolates R and B.
                                 rb_acc += color & 0x00FF_00FF;
@@ -116,7 +120,7 @@ pub fn apply_radial_blur(
                                 let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
                                 let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 
-                                let color = src_fb[y_idx * width + x_idx];
+                                let color = unsafe { *src_fb.get_unchecked(y_idx * width + x_idx) };
                                 r_acc += (color >> 16) & 0xFF;
                                 g_acc += (color >> 8) & 0xFF;
                                 b_acc += color & 0xFF;
@@ -156,7 +160,7 @@ pub fn apply_radial_blur(
                             let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
                             let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 
-                            let color = src_fb[y_idx * width + x_idx];
+                            let color = unsafe { *src_fb.get_unchecked(y_idx * width + x_idx) };
 
                             // Accumulate R and B channels simultaneously. The 0x00FF00FF mask isolates R and B.
                             rb_acc += color & 0x00FF_00FF;
@@ -171,7 +175,7 @@ pub fn apply_radial_blur(
                         let g = g_acc / inv_samples;
                         let b = (rb_acc & 0xFFFF) / inv_samples;
 
-                        dest_pixels[row_start + x] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                        unsafe { *dest_pixels.get_unchecked_mut(row_start + x) = 0xFF00_0000 | (r << 16) | (g << 8) | b; }
                     } else {
                         let mut r_acc = 0;
                         let mut g_acc = 0;
@@ -181,7 +185,7 @@ pub fn apply_radial_blur(
                             let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
                             let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 
-                            let color = src_fb[y_idx * width + x_idx];
+                            let color = unsafe { *src_fb.get_unchecked(y_idx * width + x_idx) };
                             r_acc += (color >> 16) & 0xFF;
                             g_acc += (color >> 8) & 0xFF;
                             b_acc += color & 0xFF;
@@ -194,10 +198,22 @@ pub fn apply_radial_blur(
                         let g = (g_acc / inv_samples) & 0xFF;
                         let b = (b_acc / inv_samples) & 0xFF;
 
-                        dest_pixels[row_start + x] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                        unsafe { *dest_pixels.get_unchecked_mut(row_start + x) = 0xFF00_0000 | (r << 16) | (g << 8) | b; }
                     }
                 }
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use abrash_core::framebuffer::Framebuffer;
+
+    #[test]
+    fn test_radial_blur_safety() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        apply_radial_blur(&mut fb, 5, 5, 1.0, 5);
+    }
 }
