@@ -364,7 +364,11 @@ impl HiZBuffer {
                 let d01 = row1[sx];
                 let d11 = row1[sx + 1];
 
-                dst_row[x as usize] = d00.min(d10).min(d01).min(d11);
+                // Bolt: Explicit inline of `min` without propagating NaN/Infinity handling
+                // overhead inside the hot loop.
+                let min_x = if d00 < d10 { d00 } else { d10 };
+                let min_y = if d01 < d11 { d01 } else { d11 };
+                dst_row[x as usize] = if min_x < min_y { min_x } else { min_y };
             }
 
             // Handle last column if odd width
@@ -374,7 +378,7 @@ impl HiZBuffer {
                 let d00 = row0[sx];
                 let d01 = row1[sx];
                 // Clamp to left column
-                dst_row[x as usize] = d00.min(d01);
+                dst_row[x as usize] = if d00 < d01 { d00 } else { d01 };
             }
         }
 
@@ -391,7 +395,7 @@ impl HiZBuffer {
                 let d00 = row0[sx];
                 let d10 = row0[sx + 1];
                 // Clamp to top row
-                dst_row[x as usize] = d00.min(d10);
+                dst_row[x as usize] = if d00 < d10 { d00 } else { d10 };
             }
 
             if odd_width {

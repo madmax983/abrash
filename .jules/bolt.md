@@ -240,3 +240,11 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+
+**[f32::min NaN Propagation Overhead]
+**Learning:** In extremely hot loops processing floating-point values where NaNs are not expected (such as Z-buffer depth reductions), standard `f32::min` introduces measurable overhead due to IEEE-754 NaN and Infinity propagation rules.
+**Action:** Replace `f32::min` with an explicit `if a < b { a } else { b }` conditional to safely bypass NaN handling and improve throughput.
+
+**[Auto-Vectorization Interference]
+**Learning:** Manually unrolling scalar loops (like 4x4 matrix multiplication) can cause significant performance regressions by confusing the compiler and preventing automatic SIMD vectorization.
+**Action:** Rely on the compiler for standard loop unrolling unless writing explicit SIMD intrinsics.
