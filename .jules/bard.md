@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2024-05-19 - [Core Math Primitives Documentation]
+**Confusion:** Basic math types (`Vec2`, `Vec3`, `Vec4`, `Quat`, `Mat2`, `Mat3`, `Mat4`, `Transform`, `AABB`, `BoundingSphere`, `Texture`) had `#[allow(missing_docs)]` suppressing documentation, leaving their exact use-cases and layouts unclear.
+**Clarification:** Removed `#[allow(missing_docs)]` and provided descriptive comments for fields, structs, and constants focusing on their specific role in the graphics pipeline (e.g. UV mapping vs homogenous coordinates vs Z-buffering depth).
