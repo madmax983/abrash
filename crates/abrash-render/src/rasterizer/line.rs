@@ -53,6 +53,43 @@ use crate::zbuffer::ZBuffer;
 /// * `fb` - Target framebuffer for pixel output.
 /// * `zb` - Target Z-buffer for depth testing.
 /// * `v0`, `v1` - Vertices defined as a tuple of `(Position, W)`.
+
+/// Draws a 2D line on the screen.
+pub fn draw_line_2d(fb: &mut Framebuffer, mut x0: i32, mut y0: i32, x1: i32, y1: i32, color: u32) {
+    let dx = (x1 - x0).abs();
+    let sx = if x0 < x1 { 1 } else { -1 };
+    let dy = -(y1 - y0).abs();
+    let sy = if y0 < y1 { 1 } else { -1 };
+    let mut err = dx + dy;
+
+    let min_x = x0.min(x1);
+    let max_x = x0.max(x1);
+    let min_y = y0.min(y1);
+    let max_y = y0.max(y1);
+
+    // Fast path: line is completely on-screen
+    if min_x >= 0 && max_x < fb.width() as i32 && min_y >= 0 && max_y < fb.height() as i32 {
+        loop {
+            unsafe { fb.set_pixel_unchecked(x0 as usize, y0 as usize, color); }
+            if x0 == x1 && y0 == y1 { break; }
+            let e2 = 2 * err;
+            if e2 >= dy { err += dy; x0 += sx; }
+            if e2 <= dx { err += dx; y0 += sy; }
+        }
+    } else {
+        // Safe path: line requires bounds checking
+        loop {
+            if x0 >= 0 && x0 < fb.width() as i32 && y0 >= 0 && y0 < fb.height() as i32 {
+                unsafe { fb.set_pixel_unchecked(x0 as usize, y0 as usize, color); }
+            }
+            if x0 == x1 && y0 == y1 { break; }
+            let e2 = 2 * err;
+            if e2 >= dy { err += dy; x0 += sx; }
+            if e2 <= dx { err += dx; y0 += sy; }
+        }
+    }
+}
+
 pub fn draw_line_3d(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
@@ -198,4 +235,12 @@ mod tests {
 
         draw_line_3d(&mut fb, &mut zb, v0, v1, 0x00FF_FFFFFF);
     }
+}
+
+#[test]
+fn test_draw_line_2d() {
+    use crate::framebuffer::Framebuffer;
+    let mut fb = Framebuffer::new(100, 100).unwrap();
+    draw_line_2d(&mut fb, 10, 10, 90, 90, 0xFFFFFFFF);
+    draw_line_2d(&mut fb, -10, -10, 50, 50, 0xFFFFFFFF);
 }

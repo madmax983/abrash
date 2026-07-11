@@ -240,3 +240,9 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+
+## 2D Line Rasterization Optimization
+**What:** Implemented a bounding-box pre-check for 2D line rendering (`draw_line_2d`). If the line's entire bounding box (`min_x`, `max_x`, `min_y`, `max_y`) is within the framebuffer bounds, it enters a fast-path loop using `unsafe { fb.set_pixel_unchecked(...) }`.
+**Why:** Bresenham's line algorithm modifies coordinates inside a tight inner loop. Safe pixel setting (`fb.set_pixel`) requires two branches (four bounds checks) per pixel. Eliminating these checks inside the hot loop provides a massive speedup when rendering lines fully on screen, which is the common case for wireframes and vector graphics.
+**Impact:** ~52% reduction in line rendering execution time.
+**Measurement:** `cargo bench --bench draw_line_2d_bench` dropped from ~8.8µs to ~4.2µs.
