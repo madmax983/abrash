@@ -1,0 +1,13 @@
+--- crates/abrash-render/src/procedural.rs
++++ crates/abrash-render/src/procedural.rs
+@@ -107,6 +107,9 @@
+
+ /// Generates a classic plasma effect texture.
+ ///
++/// # Errors
++///
++/// Returns an error if the texture dimensions are invalid (too large, exceeding `i32::MAX`).
++///
+ /// # Examples
+ ///
+ /// ```

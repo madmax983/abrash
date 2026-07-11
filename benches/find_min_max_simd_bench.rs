@@ -39,13 +39,13 @@ fn bench_find_min_max(c: &mut Criterion) {
             }
         }
 
-        group.bench_function(format!("Scalar {}x{}", w, h), |b| {
+        group.bench_function(format!("Scalar {w}x{h}"), |b| {
             b.iter(|| {
                 black_box(find_min_max_scalar(black_box(&depths)));
             });
         });
 
-        group.bench_function(format!("SIMD {}x{}", w, h), |b| {
+        group.bench_function(format!("SIMD {w}x{h}"), |b| {
             b.iter(|| {
                 let min_max = find_min_max_scalar_vs_simd(black_box(&depths));
                 black_box(min_max);
