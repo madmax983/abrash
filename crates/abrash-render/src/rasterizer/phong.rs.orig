@@ -41,7 +41,7 @@ unsafe fn draw_scanline_phong_shadowed_simd(
         __m256i, _CMP_GE_OQ, _CMP_GT_OQ, _CMP_LE_OQ, _CMP_LT_OQ, _mm256_add_epi32, _mm256_add_ps,
         _mm256_and_ps, _mm256_and_si256, _mm256_andnot_ps, _mm256_blendv_epi8, _mm256_blendv_ps,
         _mm256_castps_si256, _mm256_castsi256_ps, _mm256_cmp_ps, _mm256_cmpgt_epi32,
-        _mm256_cvtss_f32, _mm256_cvttps_epi32, _mm256_div_ps, _mm256_fmadd_ps, _mm256_i32gather_ps,
+        _mm256_cvtss_f32, _mm256_cvttps_epi32,  _mm256_fmadd_ps, _mm256_i32gather_ps,
         _mm256_loadu_ps, _mm256_loadu_si256, _mm256_max_epi32, _mm256_max_ps, _mm256_min_epi32,
         _mm256_min_ps, _mm256_movemask_ps, _mm256_mul_ps, _mm256_mullo_epi32, _mm256_or_si256,
         _mm256_rsqrt_ps, _mm256_set_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_ps,
@@ -140,7 +140,12 @@ unsafe fn draw_scanline_phong_shadowed_simd(
                     _CMP_GT_OQ,
                 );
                 let safe_q = _mm256_blendv_ps(one, q_vec, q_valid);
-                let w_recip = _mm256_div_ps(one, safe_q);
+
+                // ⚡ Bolt: Fast reciprocal with Newton-Raphson refinement
+                let rcp_approx = _mm256_rcp_ps(safe_q);
+                // x * (2 - q * x)
+                let nr_term = _mm256_sub_ps(_mm256_set1_ps(2.0), _mm256_mul_ps(safe_q, rcp_approx));
+                let w_recip = _mm256_mul_ps(rcp_approx, nr_term);
 
                 let world_x = _mm256_mul_ps(wx_vec, w_recip);
                 let world_y = _mm256_mul_ps(wy_vec, w_recip);
@@ -417,7 +422,7 @@ unsafe fn draw_scanline_point_lit_simd(
 ) {
     use std::arch::x86_64::{
         __m256i, _CMP_GT_OQ, _CMP_LT_OQ, _mm256_add_ps, _mm256_andnot_ps, _mm256_blendv_epi8,
-        _mm256_blendv_ps, _mm256_castps_si256, _mm256_cmp_ps, _mm256_cvttps_epi32, _mm256_div_ps,
+        _mm256_blendv_ps, _mm256_castps_si256, _mm256_cmp_ps, _mm256_cvttps_epi32,
         _mm256_fmadd_ps, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_max_ps, _mm256_min_ps,
         _mm256_movemask_ps, _mm256_mul_ps, _mm256_or_si256, _mm256_rcp_ps, _mm256_rsqrt_ps,
         _mm256_set_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_ps, _mm256_slli_epi32,

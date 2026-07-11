@@ -1,0 +1,39 @@
+--- crates/abrash-render/src/rasterizer/phong.rs
++++ crates/abrash-render/src/rasterizer/phong.rs
+@@ -420,7 +420,7 @@
+         _mm256_blendv_ps, _mm256_castps_si256, _mm256_cmp_ps, _mm256_cvttps_epi32, _mm256_div_ps,
+         _mm256_fmadd_ps, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_max_ps, _mm256_min_ps,
+         _mm256_movemask_ps, _mm256_mul_ps, _mm256_or_si256, _mm256_rsqrt_ps, _mm256_set_ps,
+-        _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_ps, _mm256_slli_epi32, _mm256_storeu_ps,
++        _mm256_rcp_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_ps, _mm256_slli_epi32, _mm256_storeu_ps,
+         _mm256_storeu_si256, _mm256_sub_ps,
+     };
+
+@@ -493,7 +493,12 @@
+                 let q_abs = _mm256_andnot_ps(_mm256_set1_ps(-0.0), q_vec);
+                 let q_valid = _mm256_cmp_ps(q_abs, epsilon, _CMP_GT_OQ);
+                 let safe_q = _mm256_blendv_ps(one, q_vec, q_valid);
+-                let w_recip = _mm256_div_ps(one, safe_q);
++
++                // ⚡ Bolt: Fast reciprocal with Newton-Raphson refinement
++                let rcp_approx = _mm256_rcp_ps(safe_q);
++                // x * (2 - q * x)
++                let nr_term = _mm256_sub_ps(_mm256_set1_ps(2.0), _mm256_mul_ps(safe_q, rcp_approx));
++                let w_recip = _mm256_mul_ps(rcp_approx, nr_term);
+
+                 let wx_real = _mm256_mul_ps(wx_vec, w_recip);
+                 let wy_real = _mm256_mul_ps(wy_vec, w_recip);
+@@ -528,7 +533,12 @@
+                     _mm256_fmadd_ps(att_l, dist, _mm256_mul_ps(att_q, dist_sq)),
+                 );
+                 let safe_denom = _mm256_max_ps(epsilon, denom);
+-                let att_factor = _mm256_div_ps(one, safe_denom);
++
++                // ⚡ Bolt: Fast reciprocal with Newton-Raphson refinement
++                let rcp_approx2 = _mm256_rcp_ps(safe_denom);
++                // x * (2 - denom * x)
++                let nr_term2 = _mm256_sub_ps(_mm256_set1_ps(2.0), _mm256_mul_ps(safe_denom, rcp_approx2));
++                let att_factor = _mm256_mul_ps(rcp_approx2, nr_term2);
+
+                 let len_sq = _mm256_fmadd_ps(
+                     nz_vec,
