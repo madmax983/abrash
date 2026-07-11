@@ -8,7 +8,8 @@
 use super::sdf::SdfScene;
 use crate::math::{Vec3, Vec4};
 use crate::mesh::Mesh;
-use std::collections::HashSet;
+use foldhash::HashSet;
+use foldhash::HashSetExt;
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[target_feature(enable = "avx2")]
@@ -199,6 +200,8 @@ impl SoftBody {
         // ⚡ Bolt: Pre-allocate vectors and sets to prevent dynamic heap reallocations.
         // We know exactly the maximum possible number of edges/springs (3 per triangle).
         let max_edges = mesh.indices.len() * 3;
+        // ⚡ Bolt: Uses `foldhash::HashSet` with a fast hasher instead of `std::collections::HashSet`
+        // to eliminate SipHash overhead on integer edge keys, significantly speeding up initialization.
         let mut edges = HashSet::with_capacity(max_edges);
         let mut spring_indices_a = Vec::with_capacity(max_edges);
         let mut spring_indices_b = Vec::with_capacity(max_edges);
