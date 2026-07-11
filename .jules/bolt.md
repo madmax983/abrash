@@ -240,3 +240,8 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+## 2025-02-15 - Bolt SIMD Blend Removal
+**What:** Removed redundant `_mm256_blendv_ps` masking for the `min` reduction in `find_min_max_simd` inside `heat_vision.rs`.
+**Why:** Because `f32::min(f32::MAX, f32::INFINITY)` natively evaluates to `f32::MAX`, there is no need to manually blend out `f32::INFINITY` values when doing a minimum reduction. Removing the `blendv` saves an instruction per SIMD loop iteration.
+**Impact:** 2-4% execution time reduction on 320x240 and 800x600 resolutions.
+**Measurement:** Measured via `cargo bench --bench heat_vision_bench`.

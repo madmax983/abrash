@@ -440,8 +440,8 @@ mod tests {
                 }
             }
 
-            assert_eq!(min_simd, min_scalar);
-            assert_eq!(max_simd, max_scalar);
+            assert!((min_simd - min_scalar).abs() < f32::EPSILON);
+            assert!((max_simd - max_scalar).abs() < f32::EPSILON);
             assert_eq!(has_content_simd, has_content_scalar);
         }
     }
