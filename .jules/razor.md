@@ -21,3 +21,8 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+
+## [Reduction]
+**Bloat:** The single-implementation `Lerp` trait in `benches/clipping_optimization.rs` created specifically for the legacy benchmark.
+**Cut:** Flattened the implementation by passing a generic interpolation closure `interpolate: impl Fn(V, V, f32) -> V` to the function instead of relying on a trait.
+**Saved:** ~20 lines of code and eliminated an unnecessary trait.
