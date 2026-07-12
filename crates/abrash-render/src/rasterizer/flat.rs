@@ -413,26 +413,13 @@ pub fn fill_triangle_3d(
         // Plane equation: Ax + By + Cz + D = 0
         // vectors p0->p1 and p0->p2
         // Use i64 for coordinate differences to prevent overflow with extreme coordinates
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-        let uz = p1.z - p0.z;
-
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        let vz = p2.z - p0.z;
-
-        // Cross product to get normal (A, B, C)
-        let nx = uy * vz - uz * vy;
-        // let ny = uz * vx - ux * vz;
-        let nz = ux * vy - uy * vx; // This is actually 2D cross product of XY (area) of SORTED triangle
-
-        // dz/dx = -A/C = -nx/nz
-        let dz_dx = if nz.abs() > 0.0001 { -nx / nz } else { 0.0 };
+        let base = crate::rasterizer::core::BaseTriangleSetup::compute(p0, p1, p2);
+        let dz_dx = base.dz_dx;
 
         // Determine if long edge is on the left or right
         // Optimization: Use the sign of the cross product (nz) to determine winding
         // If nz > 0, p1 is to the right of p0->p2, so long edge (p0->p2) is Left.
-        let long_edge_is_left = nz > 0.0;
+        let long_edge_is_left = base.nz > 0.0;
 
         let mut edge_a = EdgeWalker::new(p0, p2);
         if y_start > p0.y {

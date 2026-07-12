@@ -129,53 +129,18 @@ impl PbrGradients {
         w1: Vec3,
         w2: Vec3,
     ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-        let uz = p1.z - p0.z;
-        let unx = n1.x - n0.x;
-        let uny = n1.y - n0.y;
-        let unz = n1.z - n0.z;
-        let uwx = w1.x - w0.x;
-        let uwy = w1.y - w0.y;
-        let uwz = w1.z - w0.z;
+        let base = crate::rasterizer::core::BaseTriangleSetup::compute(p0, p1, p2);
 
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        let vz = p2.z - p0.z;
-        let vnx = n2.x - n0.x;
-        let vny = n2.y - n0.y;
-        let vnz = n2.z - n0.z;
-        let vwx = w2.x - w0.x;
-        let vwy = w2.y - w0.y;
-        let vwz = w2.z - w0.z;
-
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
-
-        let nx_z = uy * vz - uz * vy;
-        let dz_dx = nx_z * inv_nz;
-
-        let nx_nx = uy * vnx - unx * vy;
-        let dnx_dx = nx_nx * inv_nz;
-
-        let nx_ny = uy * vny - uny * vy;
-        let dny_dx = nx_ny * inv_nz;
-
-        let nx_nz = uy * vnz - unz * vy;
-        let dnz_dx = nx_nz * inv_nz;
-
-        let nx_wx = uy * vwx - uwx * vy;
-        let dwx_dx = nx_wx * inv_nz;
-
-        let nx_wy = uy * vwy - uwy * vy;
-        let dwy_dx = nx_wy * inv_nz;
-
-        let nx_wz = uy * vwz - uwz * vy;
-        let dwz_dx = nx_wz * inv_nz;
+        let dnx_dx = base.calc_dx(n1.x - n0.x, n2.x - n0.x);
+        let dny_dx = base.calc_dx(n1.y - n0.y, n2.y - n0.y);
+        let dnz_dx = base.calc_dx(n1.z - n0.z, n2.z - n0.z);
+        let dwx_dx = base.calc_dx(w1.x - w0.x, w2.x - w0.x);
+        let dwy_dx = base.calc_dx(w1.y - w0.y, w2.y - w0.y);
+        let dwz_dx = base.calc_dx(w1.z - w0.z, w2.z - w0.z);
 
         (
             Self {
-                dz_dx,
+                dz_dx: base.dz_dx,
                 dnx_dx,
                 dny_dx,
                 dnz_dx,
@@ -183,7 +148,7 @@ impl PbrGradients {
                 dwy_dx,
                 dwz_dx,
             },
-            nz > 0.0,
+            base.inv_nz < 0.0,
         )
     }
 }
