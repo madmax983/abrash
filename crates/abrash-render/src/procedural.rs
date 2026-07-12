@@ -94,6 +94,52 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
     Ok(tex)
 }
 
+/// Generates a checkerboard texture.
+///
+/// # Errors
+/// Returns an error if the texture dimensions are invalid or `cell_size` is 0.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_render::procedural::checkerboard;
+///
+/// let tex = checkerboard(32, 32, 8, 0xFFFFFFFF, 0xFF000000).unwrap();
+/// assert_eq!(tex.width(), 32);
+/// assert_eq!(tex.height(), 32);
+/// ```
+pub fn checkerboard(
+    width: u32,
+    height: u32,
+    cell_size: u32,
+    color1: u32,
+    color2: u32,
+) -> Result<Texture, &'static str> {
+    if cell_size == 0 {
+        return Err("Cell size must be positive");
+    }
+    let mut tex = Texture::new(width, height)?;
+    let pixels = tex.pixels_mut();
+
+    for y in 0..height {
+        let cy = y / cell_size;
+        let row_start = (y * width) as usize;
+        let row_end = row_start + width as usize;
+
+        let mut x = 0;
+        let row = &mut pixels[row_start..row_end];
+        for p in row.iter_mut() {
+            let cx = x / cell_size;
+            let is_color1 = (cx + cy) % 2 == 0;
+            *p = if is_color1 { color1 } else { color2 };
+            x += 1;
+        }
+    }
+    Ok(tex)
+}
+
+static PLASMA_LUT: std::sync::OnceLock<[u32; 1024]> = std::sync::OnceLock::new();
+
 /// Generates a plasma effect.
 ///
 /// # Errors
@@ -108,8 +154,6 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
 /// assert_eq!(tex.width(), 32);
 /// assert_eq!(tex.height(), 32);
 /// ```
-static PLASMA_LUT: std::sync::OnceLock<[u32; 1024]> = std::sync::OnceLock::new();
-
 pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
     if width == 0 || height == 0 {
         return Err("Texture dimensions must be positive");
@@ -173,6 +217,17 @@ pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_checkerboard() {
+        let tex = checkerboard(10, 10, 5, 0xFFFFFFFF, 0xFF000000).unwrap();
+        assert_eq!(tex.width(), 10);
+        assert_eq!(tex.height(), 10);
+        assert_eq!(tex.get_pixel(0, 0), Some(0xFFFFFFFF));
+        assert_eq!(tex.get_pixel(5, 0), Some(0xFF000000));
+        assert_eq!(tex.get_pixel(0, 5), Some(0xFF000000));
+        assert_eq!(tex.get_pixel(5, 5), Some(0xFFFFFFFF));
+    }
 
     #[test]
     fn test_plasma_zero_dimensions() {
