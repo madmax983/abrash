@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [CSS Art Exporter]
+**Concept:** A module that exports any 3D rendered Framebuffer to a completely valid, zero-dependency HTML file using a single `<div>` and the CSS `box-shadow` property to recreate every pixel of the rendered scene.
+**Fate:** Merged
+**Lesson:** Iterating over every pixel to construct a massive CSS string leverages standard web tech to display 3D output without Javascript or Canvas. By extracting RGBA channels individually, transparency is fully supported.

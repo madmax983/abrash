@@ -45,6 +45,7 @@ pub mod crepuscular;
 pub mod cross_stitch;
 pub mod crosshatch;
 pub mod crt;
+pub mod css_art;
 pub mod depth_fog;
 pub mod digital_rain;
 pub mod directional_blur;
