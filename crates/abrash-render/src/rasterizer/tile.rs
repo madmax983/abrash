@@ -5170,7 +5170,7 @@ mod sentry_tests {
                 (Vec3::new(10.0, 10.0, depth), 1.0),
                 (Vec3::new(20.0, 10.0, depth), 1.0),
                 (Vec3::new(10.0, 20.0, depth), 1.0),
-                0xFFFFFFFF,
+                0xFFFF_FFFF,
             ));
         }
 
