@@ -187,7 +187,13 @@ impl GpuDebugCapture {
     #[must_use]
     pub fn to_compact_text(&self) -> String {
         let render_time_ms = self.stats.render_time.as_secs_f64() * 1_000.0;
-        let mut output = String::new();
+
+        // ⚡ Bolt: Pre-allocate string capacity to eliminate dynamic heap resizing
+        // during frame diagnostic text generation.
+        // Base size ~64 bytes + ~32 bytes per batch
+        let estimated_capacity = 64 + self.stats.batches.len() * 32;
+        let mut output = String::with_capacity(estimated_capacity);
+
         let _ = writeln!(
             output,
             "FRAME {}x{} {} batches {} tris {:.1}ms",

@@ -240,3 +240,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+
+**[Eliminate dynamic string reallocation in diagnostic output]**
+**Learning:** `String::new()` combined with `writeln!` in diagnostic output methods (like `GpuDebugCapture::to_compact_text`) causes multiple expensive heap reallocations as the string dynamically resizes to fit formatting output.
+**Action:** Replace `String::new()` with `String::with_capacity(estimated_capacity)` when building diagnostic or debug text, where `estimated_capacity` is calculated linearly from batch counts or expected line lengths, ensuring a single allocation.
