@@ -1,0 +1,10 @@
+--- procedural.rs
++++ procedural.rs
+@@ -111,6 +111,9 @@
+ /// Generates a classic demoscene plasma texture.
+ ///
++/// # Errors
++///
++/// Returns an error if the texture creation fails (e.g. invalid dimensions).
+ pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
+     let mut tex = Texture::new(width, height)?;

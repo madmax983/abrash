@@ -95,11 +95,11 @@ pub(crate) const fn clip_blit(
     if sx >= tex_w || sy >= tex_h {
         return None;
     }
-    if w > tex_w.saturating_sub(sx) {
-        w = tex_w.saturating_sub(sx);
+    if sx + w > tex_w {
+        w = tex_w - sx;
     }
-    if h > tex_h.saturating_sub(sy) {
-        h = tex_h.saturating_sub(sy);
+    if sy + h > tex_h {
+        h = tex_h - sy;
     }
 
     // Left overflow: dst_x < 0 means we skip pixels on the left of the source.
@@ -132,16 +132,16 @@ pub(crate) const fn clip_blit(
     if dx >= fb_w {
         return None;
     }
-    if w > fb_w.saturating_sub(dx) {
-        w = fb_w.saturating_sub(dx);
+    if dx + w > fb_w {
+        w = fb_w - dx;
     }
 
     // Bottom overflow: clamp height to framebuffer bottom edge.
     if dy >= fb_h {
         return None;
     }
-    if h > fb_h.saturating_sub(dy) {
-        h = fb_h.saturating_sub(dy);
+    if dy + h > fb_h {
+        h = fb_h - dy;
     }
 
     // Final zero-size check after all clipping.

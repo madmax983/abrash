@@ -1,0 +1,1 @@
+sed -i 's/pub fn plasma(width: u32, height: u32) -> Result<Texture, \&'"'"'static str> {/\/\/\/ # Errors\n\/\/\/ Returns an error if dimensions are zero or allocation fails.\npub fn plasma(width: u32, height: u32) -> Result<Texture, \&'"'"'static str> {/g' crates/abrash-render/src/procedural.rs

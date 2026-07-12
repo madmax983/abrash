@@ -1,0 +1,28 @@
+--- crates/abrash-core/src/blitter.rs
++++ crates/abrash-core/src/blitter.rs
+@@ -131,14 +131,21 @@
+     // Right overflow: clamp width to framebuffer right edge.
+     if dx >= fb_w {
+         return None;
+     }
+-    if dx + w > fb_w {
+-        w = fb_w - dx;
++
++    if dx.checked_add(w).unwrap_or(u32::MAX) > fb_w {
++        if fb_w >= dx {
++            w = fb_w - dx;
++        }
+     }
+
+     // Bottom overflow: clamp height to framebuffer bottom edge.
+     if dy >= fb_h {
+         return None;
+     }
+-    if dy + h > fb_h {
+-        h = fb_h - dy;
++
++    if dy.checked_add(h).unwrap_or(u32::MAX) > fb_h {
++        if fb_h >= dy {
++            h = fb_h - dy;
++        }
+     }

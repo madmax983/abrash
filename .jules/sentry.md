@@ -74,3 +74,6 @@
 **[Missing Tests for Handle Error Propagation]**
 **Learning:** Even when errors like `StaleHandle` are correctly propagated from internal handle lookup failure via `ok_or()`, there might not be explicit tests verifying the exact enum variant of the returned `Result`. The existing test suite was heavily verifying stale `Mesh` handles, but silently lacked mirror tests for `Material` handles, leaving a logic path untested.
 **Action:** Audit functions that interact with multiple types of resource handles (e.g. `Mesh` and `Material`) to ensure that *every* handle type has a corresponding failure test, rather than relying on a single representative test case.
+**[Integer Overflow Panic in Blitter Bounds Checking]**
+**Learning:** Found potential overflow in `clip_blit` calculation (`dx + w > fb_w`) when both values are near `u32::MAX`.
+**Action:** Replaced direct addition with `saturating_sub` (e.g. `w > fb_w.saturating_sub(dx)`) to safely check and clamp coordinate bounds without risking arithmetic panics.

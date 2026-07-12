@@ -1,0 +1,18 @@
+--- crates/abrash-core/src/blitter.rs
++++ crates/abrash-core/src/blitter.rs
+@@ -149,6 +149,15 @@
+     if w == 0 || h == 0 {
+         return None;
+     }
++
++    // Integer overflow checks: Ensure w and h don't result in overflow when added to dst/src coords
++    if sx.checked_add(w).is_none() || sy.checked_add(h).is_none() {
++        return None;
++    }
++
++    if dx.checked_add(w).is_none() || dy.checked_add(h).is_none() {
++        return None;
++    }
+
+     Some(ClippedBlit {
+         src_x: sx,
