@@ -331,11 +331,18 @@ mod winit_demo {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = Args::parse();
 
+#[allow(clippy::missing_const_for_fn)]
+fn print_banner() {
     println!("\n{}", "🎨 Abrash OBJ Viewer".bold().cyan());
     println!("{}", "=====================".dark_grey());
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    print_banner();
+    let args = Args::parse();
+
+
 
     let (mesh_source, source_name) = args.input.map_or_else(
         || (SPACESHIP_OBJ.to_string(), "Built-in Spaceship".to_string()),
