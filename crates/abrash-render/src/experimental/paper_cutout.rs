@@ -163,15 +163,8 @@ pub fn apply_paper_cutout(fb: &mut Framebuffer, zb: &ZBuffer, config: &PaperCuto
             // Quantize the color to simulate flat paper
             // We reduce the color depth to simulate construction paper limited palette
             if current_layer != layers_count as i32 + 1 {
-                // if not infinity
-                let r = ((color >> 16) & 0xFF) & 0xE0; // Keep top 3 bits
-                let g = ((color >> 8) & 0xFF) & 0xE0;
-                let b = (color & 0xFF) & 0xE0;
-                // Add some brightness back to compensate for truncation
-                let r = r | (r >> 3);
-                let g = g | (g >> 3);
-                let b = b | (b >> 3);
-                color = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                let masked = color & 0x00E0_E0E0;
+                color = 0xFF00_0000 | masked | ((masked >> 3) & 0x001C_1C1C);
             }
 
             // Check if this pixel is in a shadow cast by a shallower layer
@@ -185,10 +178,9 @@ pub fn apply_paper_cutout(fb: &mut Framebuffer, zb: &ZBuffer, config: &PaperCuto
                 // If the layer casting the shadow is shallower (closer to camera / lower index)
                 // than the current pixel's layer, apply shadow.
                 if caster_layer < current_layer {
-                    let r = ((color >> 16) & 0xFF) * shadow_mult_fixed / 256;
-                    let g = ((color >> 8) & 0xFF) * shadow_mult_fixed / 256;
-                    let b = (color & 0xFF) * shadow_mult_fixed / 256;
-                    color = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                    let rb = (color & 0x00FF_00FF) * shadow_mult_fixed / 256;
+                    let g_val = ((color & 0x0000_FF00) * shadow_mult_fixed) / 256;
+                    color = 0xFF00_0000 | (rb & 0x00FF_00FF) | (g_val & 0x0000_FF00);
                 }
             }
 
