@@ -194,7 +194,7 @@ impl LSystem {
             }
         }
 
-        let mut next = String::new();
+        let mut next = String::with_capacity(current.len() * 2);
         for _ in 0..iterations {
             /// Moving the `next` String allocation out of the loop and reusing it via `swap`
             /// and `clear`/`reserve` eliminates continuous string re-allocations on every iteration.
