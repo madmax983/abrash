@@ -240,3 +240,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+
+**[Fast custom integer parsing]**
+**Learning:** Re-implementing a simple base-10 string-to-integer parser that uses basic multiplication (`n * 10 + digit`) inside a hot loop (like OBJ parsing) is measurably faster than relying on `.checked_mul()` and `.checked_add()`. Assuming the upper bounds are checked once by string length instead allows removing the branching in the loop.
+**Action:** Replace `checked_mul` and `checked_add` with unchecked operations inside hot-path integer parsers when lengths are strictly bounded upfront.

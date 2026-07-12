@@ -393,7 +393,7 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
         if d > 9 {
             return None;
         }
-        n = n.checked_mul(10)?.checked_add(d as usize)?;
+        n = n * 10 + d as usize;
     }
     Some(n)
 }
