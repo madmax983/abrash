@@ -240,3 +240,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+
+**[Optimize Mat2 transform_batch]**
+**Learning:** `Iterator::collect()` inherently relies on dynamic reallocation which can cause overhead in tight loops, especially when rendering or doing physics updates that process batches of vertices on every frame.
+**Action:** When a batch math function (like `transform_batch`) exists, provide an `_into` variant that accepts an explicit `&mut Vec` and uses `Vec::extend`. This allows the caller to pre-allocate once (`Vec::with_capacity`) and safely reuse that allocation frame-to-frame without triggering new allocations.
