@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2025-05-20 - [Procedural Plasma Missing Errors Doc]
+**Confusion:** The `plasma` function in `procedural.rs` was missing an `# Errors` section in its docstring despite returning a `Result`. This caused `clippy::missing_errors_doc` warnings and didn't document error paths clearly.
+**Clarification:** Added a proper `/// # Errors` section and documentation explaining when the function might return an error.
