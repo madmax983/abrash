@@ -129,7 +129,7 @@ impl CpuRenderer {
     /// Returns an error if any handle in the frame is stale. On success the
     /// returned `DrawList` is self-contained and can be executed or inspected
     /// independently of this renderer's internal pools.
-    #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+    #[allow(clippy::missing_panics_doc)]
     pub fn extract_draw_list(&self, frame: &Frame) -> Result<DrawList, RenderError> {
         let mut draw_list = DrawList::with_capacity(
             frame.camera,
@@ -146,7 +146,7 @@ impl CpuRenderer {
     ///
     /// # Errors
     /// Returns an error if any handle in the frame is stale.
-    #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+    #[allow(clippy::missing_panics_doc)]
     pub fn extract_draw_list_into(
         &self,
         frame: &Frame,
@@ -438,7 +438,9 @@ impl CpuRenderer {
         Ok(())
     }
 
-    #[allow(clippy::missing_errors_doc)]
+    /// # Errors
+    ///
+    /// Returns an error if texture creation fails.
     pub fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, RenderError> {
         Ok(to_texture_handle(self.textures.insert(texture.clone())))
     }
