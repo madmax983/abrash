@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Procedural Lightning Filter]
+**Concept:** A post-processing effect that generates a fractal branching lightning bolt using recursive midpoint displacement (an L-system variant) and an XorShift32 RNG.
+**Fate:** Implemented
+**Lesson:** Using recursive midpoint displacement with randomized perpendicular offsets allows for fast procedural generation of organic, branching lightning shapes directly on the framebuffer without needing complex asset pipelines or particle systems.
