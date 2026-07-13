@@ -317,14 +317,10 @@ impl Framebuffer {
             self.pixels[start_idx..end_idx].fill(color);
         } else {
             let len = ex - sx;
-            let mut offset = start_idx + sx;
-            let slice = self.pixels.as_mut_slice();
-            for _ in sy..ey {
-                unsafe {
-                    slice.get_unchecked_mut(offset..offset + len).fill(color);
-                }
-                offset += w;
-            }
+            // Hot path optimization: Use chunks_exact_mut to elide bounds checks safely
+            self.pixels[start_idx..end_idx]
+                .chunks_exact_mut(w)
+                .for_each(|row| unsafe { row.get_unchecked_mut(sx..ex).fill(color) });
         }
     }
 }

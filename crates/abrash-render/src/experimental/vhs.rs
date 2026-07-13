@@ -193,6 +193,7 @@ pub fn apply_vhs(fb: &mut Framebuffer, config: &VhsConfig) {
 /// Helper function to safely sample a specific color channel from the source buffer,
 /// clamping to the edges of the row if the shift goes out of bounds.
 #[inline(always)]
+#[must_use]
 fn get_channel_safe(src: &[u32], width: usize, _height: usize, x: i32, y: i32, shift: u8) -> u32 {
     let clamped_x = x.max(0).min(width as i32 - 1) as usize;
     let idx = y as usize * width + clamped_x;
