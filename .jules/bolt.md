@@ -240,3 +240,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+## ⚡ Bolt: Removed redundant reserve calls
+**Learning:** Calling `.reserve()` immediately before `.reserve_exact()` on a Vec is redundant and causes unnecessary capacity calculation and boundary check overhead. Use only `.reserve_exact()` when the target capacity is explicitly known.
+**Action:** Removed duplicate `.reserve()` calls in `scene.rs` that were followed by `.reserve_exact()` calls.
