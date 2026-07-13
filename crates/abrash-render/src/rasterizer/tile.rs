@@ -139,6 +139,7 @@ use std::ops::{Deref, DerefMut};
 ///
 /// SAFETY: This is safe because each thread writes to a non-overlapping region determined
 /// by its tile coordinates (tx, ty). The tile renderer ensures that no two tiles overlap.
+#[derive(Clone, Copy)]
 struct SendPtr<T>(*mut T, usize);
 
 #[cfg(feature = "parallel")]
@@ -2092,7 +2093,7 @@ impl TileRenderer {
                 let cc = self.clear_color.unwrap_or(0xFF00_0000);
                 let has_integrated_clear = self.clear_color.is_some();
 
-                unsafe {
+                {
                     let fb_ptr = SendPtr(pixels.as_mut_ptr(), pixels.len());
                     let zb_ptr = SendPtr(depths.as_mut_ptr(), depths.len());
                     let width = self.width;
@@ -2104,91 +2105,32 @@ impl TileRenderer {
                         .into_par_iter()
                         .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
                         .for_each(|(tx, ty)| {
-                            let bin_idx = (ty * tiles_x + tx) as usize;
-
-                            if tile_bins.heads[bin_idx] == u32::MAX {
-                                if has_integrated_clear {
-                                    let tile_x0 = tx * TILE_SIZE;
-                                    let tile_y0 = ty * TILE_SIZE;
-                                    let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                                    let tile_y_end = (tile_y0 + TILE_SIZE).min(height);
-                                    let tile_cols = (tile_x_end - tile_x0) as usize;
-                                    for row in tile_y0..tile_y_end {
-                                        let fb_start =
-                                            row as usize * width as usize + tile_x0 as usize;
-                                        for col in 0..tile_cols {
-                                            fb_ptr.write(fb_start + col, cc);
-                                            zb_ptr.write(fb_start + col, f32::INFINITY);
-                                        }
-                                    }
-                                }
-                                return;
-                            }
-
-                            std::thread_local! {
-                                static TILE_BUFFER: std::cell::RefCell<(AlignedBuffer<u32>, AlignedBuffer<f32>)> = std::cell::RefCell::new((AlignedBuffer::new(0), AlignedBuffer::new(0)));
-                            }
-                            TILE_BUFFER.with(|buf| {
-                                let mut buffers = buf.borrow_mut();
-                                let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                                if buffers.0.len() < tile_area {
-                                    buffers.0 = AlignedBuffer::new(tile_area);
-                                    buffers.1 = AlignedBuffer::new(tile_area);
-                                }
-                                let buffers_ref = &mut *buffers;
-                                let tile_pixels = &mut buffers_ref.0;
-                                let tile_depths = &mut buffers_ref.1;
-                                tile_pixels.fill(cc);
-                                tile_depths.fill(f32::INFINITY);
-                                if let Some((clear_y_min, clear_y_max)) = render_single_tile(
-                                    tx,
-                                    ty,
-                                    tile_bins,
-                                    prepared,
-                                    tiles_x,
-                                    width,
-                                    height,
-                                    tile_pixels,
-                                    tile_depths,
-                                    cc,
-                                ) {
-                                    let tile_x0 = tx * TILE_SIZE;
-                                    let tile_y0 = ty * TILE_SIZE;
-                                    let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                                    let tile_cols = (tile_x_end - tile_x0) as usize;
-
-                                    let row_begin = if has_integrated_clear {
-                                        tile_y0
-                                    } else {
-                                        clear_y_min.max(tile_y0 as i32) as u32
-                                    };
-                                    let row_end = if has_integrated_clear {
-                                        (tile_y0 + TILE_SIZE).min(height)
-                                    } else {
-                                        (clear_y_max as u32 + 1)
-                                            .min(tile_y0 + TILE_SIZE)
-                                            .min(height)
-                                    };
-
-                                    for row in row_begin..row_end {
-                                        let tile_row_offset =
-                                            ((row - tile_y0) * TILE_SIZE) as usize;
-                                        let fb_start =
-                                            row as usize * width as usize + tile_x0 as usize;
-
-                                        for col in 0..tile_cols {
-                                            fb_ptr.write(
-                                                fb_start + col,
-                                                tile_pixels[tile_row_offset + col],
-                                            );
-                                            zb_ptr.write(
-                                                fb_start + col,
-                                                tile_depths[tile_row_offset + col],
-                                            );
-                                        }
-                                    }
-                                }
-                            });
+                            process_tile_parallel(
+                                tx,
+                                ty,
+                                width,
+                                height,
+                                tiles_x,
+                                cc,
+                                has_integrated_clear,
+                                tile_bins,
+                                fb_ptr,
+                                zb_ptr,
+                                |tile_pixels, tile_depths| {
+                                    render_single_tile(
+                                        tx,
+                                        ty,
+                                        tile_bins,
+                                        prepared,
+                                        tiles_x,
+                                        width,
+                                        height,
+                                        tile_pixels,
+                                        tile_depths,
+                                        cc,
+                                    )
+                                },
+                            );
                         });
                 }
             }
@@ -2469,7 +2411,7 @@ impl TileRenderer {
             let cc = self.clear_color.unwrap_or(0xFF00_0000);
             let has_integrated_clear = self.clear_color.is_some();
 
-            unsafe {
+            {
                 let fb_ptr = SendPtr(pixels.as_mut_ptr(), pixels.len());
                 let zb_ptr = SendPtr(depths.as_mut_ptr(), depths.len());
                 let width = self.width;
@@ -2481,86 +2423,33 @@ impl TileRenderer {
                     .into_par_iter()
                     .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
                     .for_each(|(tx, ty)| {
-                        let bin_idx = (ty * tiles_x + tx) as usize;
-                        if tile_bins.heads[bin_idx] == u32::MAX {
-                            if has_integrated_clear {
-                                let tile_x0 = tx * TILE_SIZE;
-                                let tile_y0 = ty * TILE_SIZE;
-                                let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                                let tile_y_end = (tile_y0 + TILE_SIZE).min(height);
-                                let tile_cols = (tile_x_end - tile_x0) as usize;
-                                for row in tile_y0..tile_y_end {
-                                    let fb_start = row as usize * width as usize + tile_x0 as usize;
-                                    for col in 0..tile_cols {
-                                        fb_ptr.write(fb_start + col, cc);
-                                        zb_ptr.write(fb_start + col, f32::INFINITY);
-                                    }
-                                }
-                            }
-                            return;
-                        }
-
-                        std::thread_local! {
-                            static TILE_BUFFER: std::cell::RefCell<(AlignedBuffer<u32>, AlignedBuffer<f32>)> = std::cell::RefCell::new((AlignedBuffer::new(0), AlignedBuffer::new(0)));
-                        }
-                        TILE_BUFFER.with(|buf| {
-                            let mut buffers = buf.borrow_mut();
-                            let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                            if buffers.0.len() < tile_area {
-                                buffers.0 = AlignedBuffer::new(tile_area);
-                                buffers.1 = AlignedBuffer::new(tile_area);
-                            }
-                            let buffers_ref = &mut *buffers;
-                            let tile_pixels = &mut buffers_ref.0;
-                            let tile_depths = &mut buffers_ref.1;
-                            tile_pixels.fill(cc);
-                            tile_depths.fill(f32::INFINITY);
-                            if let Some((clear_y_min, clear_y_max)) = render_single_tile_textured(
-                                tx,
-                                ty,
-                                tile_bins,
-                                prepared,
-                                tiles_x,
-                                width,
-                                height,
-                                texture,
-                                tile_pixels,
-                                tile_depths,
-                                cc,
-                            ) {
-                                let tile_x0 = tx * TILE_SIZE;
-                                let tile_y0 = ty * TILE_SIZE;
-                                let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                                let tile_cols = (tile_x_end - tile_x0) as usize;
-
-                                let row_begin = if has_integrated_clear {
-                                    tile_y0
-                                } else {
-                                    clear_y_min.max(tile_y0 as i32) as u32
-                                };
-                                let row_end = if has_integrated_clear {
-                                    (tile_y0 + TILE_SIZE).min(height)
-                                } else {
-                                    (clear_y_max as u32 + 1).min(tile_y0 + TILE_SIZE).min(height)
-                                };
-
-                                for row in row_begin..row_end {
-                                    let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
-                                    let fb_start = row as usize * width as usize + tile_x0 as usize;
-
-                                    for col in 0..tile_cols {
-                                        fb_ptr.write(
-                                            fb_start + col,
-                                            tile_pixels[tile_row_offset + col],
-                                        );
-                                        zb_ptr.write(
-                                            fb_start + col,
-                                            tile_depths[tile_row_offset + col],
-                                        );
-                                    }
-                                }
-                            }
-                        });
+                        process_tile_parallel(
+                            tx,
+                            ty,
+                            width,
+                            height,
+                            tiles_x,
+                            cc,
+                            has_integrated_clear,
+                            tile_bins,
+                            fb_ptr,
+                            zb_ptr,
+                            |tile_pixels, tile_depths| {
+                                render_single_tile_textured(
+                                    tx,
+                                    ty,
+                                    tile_bins,
+                                    prepared,
+                                    tiles_x,
+                                    width,
+                                    height,
+                                    texture,
+                                    tile_pixels,
+                                    tile_depths,
+                                    cc,
+                                )
+                            },
+                        );
                     });
             }
         }
@@ -5176,4 +5065,93 @@ mod sentry_tests {
 
         tr.render_batch(&mut fb, &mut zb, &triangles);
     }
+}
+
+#[cfg(feature = "parallel")]
+#[inline(always)]
+fn process_tile_parallel<F>(
+    tx: u32,
+    ty: u32,
+    width: u32,
+    height: u32,
+    tiles_x: u32,
+    cc: u32,
+    has_integrated_clear: bool,
+    tile_bins: &TileBins,
+    fb_ptr: SendPtr<u32>,
+    zb_ptr: SendPtr<f32>,
+    render_fn: F,
+) where
+    F: FnOnce(&mut [u32], &mut [f32]) -> Option<(i32, i32)>,
+{
+    let bin_idx = (ty * tiles_x + tx) as usize;
+
+    if tile_bins.heads[bin_idx] == u32::MAX {
+        if has_integrated_clear {
+            let tile_x0 = tx * TILE_SIZE;
+            let tile_y0 = ty * TILE_SIZE;
+            let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+            let tile_y_end = (tile_y0 + TILE_SIZE).min(height);
+            let tile_cols = (tile_x_end - tile_x0) as usize;
+            for row in tile_y0..tile_y_end {
+                let fb_start = row as usize * width as usize + tile_x0 as usize;
+                for col in 0..tile_cols {
+                    unsafe {
+                        fb_ptr.write(fb_start + col, cc);
+                        zb_ptr.write(fb_start + col, f32::INFINITY);
+                    }
+                }
+            }
+        }
+        return;
+    }
+
+    std::thread_local! {
+        static TILE_BUFFER: std::cell::RefCell<(AlignedBuffer<u32>, AlignedBuffer<f32>)> = std::cell::RefCell::new((AlignedBuffer::new(0), AlignedBuffer::new(0)));
+    }
+    TILE_BUFFER.with(|buf| {
+        let mut buffers = buf.borrow_mut();
+        let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
+        if buffers.0.len() < tile_area {
+            buffers.0 = AlignedBuffer::new(tile_area);
+            buffers.1 = AlignedBuffer::new(tile_area);
+        }
+        let buffers_ref = &mut *buffers;
+        let tile_pixels = &mut buffers_ref.0;
+        let tile_depths = &mut buffers_ref.1;
+        tile_pixels.fill(cc);
+        tile_depths.fill(f32::INFINITY);
+
+        if let Some((clear_y_min, clear_y_max)) = render_fn(tile_pixels, tile_depths) {
+            let tile_x0 = tx * TILE_SIZE;
+            let tile_y0 = ty * TILE_SIZE;
+            let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+            let tile_cols = (tile_x_end - tile_x0) as usize;
+
+            let row_begin = if has_integrated_clear {
+                tile_y0
+            } else {
+                clear_y_min.max(tile_y0 as i32) as u32
+            };
+            let row_end = if has_integrated_clear {
+                (tile_y0 + TILE_SIZE).min(height)
+            } else {
+                (clear_y_max as u32 + 1)
+                    .min(tile_y0 + TILE_SIZE)
+                    .min(height)
+            };
+
+            for row in row_begin..row_end {
+                let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
+                let fb_start = row as usize * width as usize + tile_x0 as usize;
+
+                for col in 0..tile_cols {
+                    unsafe {
+                        fb_ptr.write(fb_start + col, tile_pixels[tile_row_offset + col]);
+                        zb_ptr.write(fb_start + col, tile_depths[tile_row_offset + col]);
+                    }
+                }
+            }
+        }
+    });
 }
