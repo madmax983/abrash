@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Stained Glass Filter]
+**Concept:** A post-processing effect that transforms an image into a procedural stained glass window. It partitions the screen into irregular "glass shards" using a procedural Voronoi cell grid and pseudo-random hash functions, sampling the original image color for each cell and drawing dark "leading" borders.
+**Fate:** Implemented
+**Lesson:** Using a procedural hash function (`hash_2d`) to generate pseudo-random points within a grid avoids the need to store and search a large array of random seed points. Evaluating distances within a local 3x3 neighborhood of cells provides an efficient O(1) way to compute the closest and second-closest points for Voronoi partitioning and border drawing per pixel. Thread-local caching of the source framebuffer prevents read/write aliasing when sampling cell colors.
