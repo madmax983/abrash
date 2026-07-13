@@ -388,12 +388,16 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
     }
 
     let mut n: usize = 0;
+    // ⚡ Bolt: Removed `.checked_mul()?.checked_add()?` here.
+    // Since we explicitly bounded the maximum digits above (`MAX_DIGITS`),
+    // it is mathematically impossible for this to overflow `usize`,
+    // eliminating branch overhead in this hot integer parsing loop.
     for &b in bytes {
         let d = b.wrapping_sub(b'0');
         if d > 9 {
             return None;
         }
-        n = n.checked_mul(10)?.checked_add(d as usize)?;
+        n = n * 10 + d as usize;
     }
     Some(n)
 }
