@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Oil Paint Filter]
+**Concept:** A non-photorealistic post-processing effect that simulates an oil painting. It works by computing an intensity histogram within a sliding neighborhood window and setting the center pixel to the average color of the most frequent intensity bin.
+**Fate:** Implemented
+**Lesson:** Calculating localized intensity histograms is expensive due to nested loops. Pre-allocating histogram arrays inside Rayon parallel chunks and using a large outer `thread_local!` source buffer eliminates read-after-write aliasing and heap allocation penalties without compromising the painterly look.

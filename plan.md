@@ -1,17 +1,14 @@
-1. **Fix `AsciiConverter` integer overflow in `to_colored_string`**
-   - The capacity calculation `((width * 20) * height) as usize` can overflow a 32-bit integer when `width` and `height` are very large (as exposed by the `havoc_ascii_proptest.rs` test).
-   - *Fix*: Calculate the capacity using `usize` up front with saturating multiplication to avoid panic: `(width as usize).saturating_mul(20).saturating_mul(height as usize)`.
-
-2. **Fix `apply_radial_blur` coordinate calculation overflow**
-   - The `cur_x += step_x;` and `cur_y += step_y;` loops could overflow `i32` bounds if the variables got extremely large.
-   - *Fix*: Use `saturating_add` for `cur_x` and `cur_y` updates to prevent panic.
-
-3. **Fix `PreparedTrianglesList::into_par_iter` Use-After-Free/UB**
-   - The parallel iterator for `PreparedTrianglesList` calls `assume_init()` on uninitialized portions of the inner array, and then returns them via `flatten()`. Since `PreparedTriangle` is trivially copyable, using `assume_init_read()` instead safely extracts values out of the `MaybeUninit` union without executing a potentially dangerous move that invalidates the state.
-   - *Fix*: Change `assume_init()` to `assume_init_read()` in `into_par_iter` for both `PreparedTrianglesList` and `PreparedTexturedTrianglesList`.
-
-4. **Complete Pre-Commit Steps**
-   - Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
-
-5. **Submit the PR**
-   - I will submit the PR to close out this issue.
+1. **Create Benchmark:** Run `cat << 'EOF' > benches/oil_paint_bench.rs` with the benchmark code for `apply_oil_paint`. Verify creation with `cat benches/oil_paint_bench.rs`.
+2. **Update Cargo.toml:** Run `cat << 'EOF' > modify.py` with a python script to append the bench and example lines to `Cargo.toml`. Run `python3 modify.py`. Verify with `tail -n 20 Cargo.toml`.
+3. **Create Module (Red Phase):** Run `cat << 'EOF' > crates/abrash-render/src/experimental/oil_paint.rs` containing `pub fn apply_oil_paint` and `mod tests`. Verify creation with `cat crates/abrash-render/src/experimental/oil_paint.rs`.
+4. **Update Mod:** Run `echo "pub mod oil_paint;" >> crates/abrash-render/src/experimental/mod.rs`. Verify with `tail crates/abrash-render/src/experimental/mod.rs`.
+5. **Run Red Phase:** Run `cargo test -p abrash-render --features nova -- oil_paint` to confirm the test fails.
+6. **Implement Module (Green Phase):** Run `cat << 'EOF' > crates/abrash-render/src/experimental/oil_paint.rs` with the implementation for `apply_oil_paint`. Verify with `cat crates/abrash-render/src/experimental/oil_paint.rs`.
+7. **Run Green Phase:** Run `cargo test -p abrash-render --features nova -- oil_paint` to confirm the test passes.
+8. **Optimize Module (Refactor Phase):** Run `cat << 'EOF' > crates/abrash-render/src/experimental/oil_paint.rs` to include the `rayon` parallel chunks optimization. Verify with `cat crates/abrash-render/src/experimental/oil_paint.rs`.
+9. **Run Benchmarks:** Run `cargo bench --bench oil_paint_bench --features nova`.
+10. **Create Demo:** Run `cat << 'EOF' > examples/oil_paint_demo.rs` with a procedural pattern example that applies the filter, without assuming the existence of `Mesh`, `Vertex`, `Mat4`, `Vec3`, `Camera`, or `Rasterizer`. Verify creation with `cat examples/oil_paint_demo.rs`.
+11. **Update Log:** Run `cat << 'EOF' >> .jules/nova.md` with the Concept, Fate, and Lesson.
+12. **Run Linters and Tests:** Run `cargo clippy --all-targets --all-features -- -D warnings`, `cargo fmt --all`, and `cargo test --all-features`.
+13. **Pre-commit:** Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
+14. **Submit:** Call `submit` tool with title "🌟 Nova: Oil Paint Filter" and the description format.
