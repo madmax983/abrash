@@ -6132,3 +6132,36 @@ mod tests_pass_37_sdf {
         assert!(s < 0.05, "ray blocked by sphere: {s}");
     }
 }
+
+/// A simple cross 3D SDF
+#[must_use]
+#[inline]
+pub fn simple_cross_3d(p: Vec3, size: f32) -> f32 {
+    let p_abs = Vec3::new(p.x.abs(), p.y.abs(), p.z.abs());
+    let w = size / 3.0;
+
+    // Max of two dimensions determines distance from infinite prism
+    let dxy = p_abs.x.max(p_abs.y) - w;
+    let dyz = p_abs.y.max(p_abs.z) - w;
+    let dxz = p_abs.x.max(p_abs.z) - w;
+
+    // Union of 3 infinite prisms
+    let prism = dxy.min(dyz).min(dxz);
+
+    // Intersect with a bounding box of size
+    let bbox = p_abs.x.max(p_abs.y).max(p_abs.z) - size;
+
+    prism.max(bbox)
+}
+
+#[cfg(test)]
+mod tests_nova {
+    use super::*;
+    use crate::math::Vec3;
+
+    #[test]
+    fn test_simple_cross_3d() {
+        let p = Vec3::new(0.0, 0.0, 0.0);
+        assert_eq!(simple_cross_3d(p, 1.0), -0.33333334);
+    }
+}

@@ -111,5 +111,19 @@ fn bench_sdf_imprecise_flops(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_sdf_imprecise_flops);
+fn simple_cross_3d_bench(c: &mut Criterion) {
+    let mut group = c.benchmark_group("sdf_imprecise_flops");
+
+    group.bench_function("simple_cross_3d", |b| {
+        let p = Vec3::new(10.0, 20.0, 30.0);
+        b.iter(|| {
+            black_box(abrash_core::sdf::simple_cross_3d(
+                black_box(p),
+                black_box(5.0),
+            ))
+        });
+    });
+}
+
+criterion_group!(benches, bench_sdf_imprecise_flops, simple_cross_3d_bench);
 criterion_main!(benches);
