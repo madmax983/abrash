@@ -240,3 +240,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+
+**[Bulk Vector Mapping Optimizations]
+**Learning:** Using `.collect()` on mapped iterators or extending previously cleared vectors can cause unnecessary mid-loop dynamic heap reallocations when processing large batches of geometry or signal data.
+**Action:** When the capacity of an array is explicitly mathematically known prior to transformation, eagerly reserve the required blocks of memory using `.reserve_exact(len)` or `Vec::with_capacity(len)` before extending it to minimize reallocation bounds-checking overhead on the hot path.

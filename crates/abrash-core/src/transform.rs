@@ -227,6 +227,7 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
+        out.reserve_exact(points.len());
         // We iterate by value (using `&p`) to avoid dereferencing inside the closure.
         out.extend(points.iter().map(|&p| {
             Vec3::new(
@@ -284,6 +285,7 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
+        out.reserve_exact(vectors.len());
         // We iterate by value (using `&v`) to avoid dereferencing inside the closure.
         out.extend(vectors.iter().map(|&v| {
             Vec3::new(
@@ -342,6 +344,7 @@ impl Transform {
         let m22 = basis[2][2];
 
         out.clear();
+        out.reserve_exact(points.len());
         out.extend(points.iter().map(|p| {
             let local = *p - self.position;
             Vec3::new(
