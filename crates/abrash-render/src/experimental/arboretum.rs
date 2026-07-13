@@ -19,7 +19,7 @@
 //! *   `]`: Pop state from stack.
 
 #![allow(warnings)]
-
+use crate::experimental::error::Error;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
 use foldhash::HashMap;
@@ -44,7 +44,8 @@ pub struct Turtle {
 
 impl Turtle {
     /// Creates a new turtle at the origin, facing Up (Y+).
-    pub fn new(step_length: f32, radius: f32) -> Self {
+    #[must_use]
+    pub const fn new(step_length: f32, radius: f32) -> Self {
         Self {
             position: Vec3::new(0.0, 0.0, 0.0),
             heading: Vec3::new(0.0, 1.0, 0.0), // Grow up
@@ -80,8 +81,8 @@ pub struct LSystem {
     /// The initial string.
     pub axiom: String,
     /// Production rules: Key -> Replacement String.
-    /// ⚡ Bolt: Uses `foldhash::HashMap` with a fast hasher instead of std::collections::HashMap.
-    /// This eliminates SipHash cryptographic overhead when looking up `char` keys during expansion.
+    /// ⚡ Bolt: Uses `foldhash::HashMap` with a fast hasher instead of `std::collections::HashMap`.
+    /// This eliminates `SipHash` cryptographic overhead when looking up `char` keys during expansion.
     pub rules: HashMap<char, String>,
     /// Angle increment for rotations (in radians).
     pub angle: f32,
@@ -93,6 +94,7 @@ pub struct LSystem {
 
 impl LSystem {
     /// Creates a new L-System.
+    #[must_use]
     pub fn new(axiom: &str, angle_degrees: f32, step_length: f32, radius: f32) -> Self {
         Self {
             axiom: axiom.to_string(),
@@ -115,7 +117,8 @@ impl LSystem {
     /// This method includes a fast-path for purely ASCII strings. It avoids the overhead of
     /// UTF-8 validation and the `String::push_str` method, operating directly on bytes.
     /// It also pre-calculates the exact capacity needed to avoid intermediate reallocations.
-    pub fn expand(&self, iterations: u32) -> Result<String, String> {
+    /// # Errors
+    pub fn expand(&self, iterations: u32) -> Result<String, Error> {
         if iterations == 0 {
             return Ok(self.axiom.clone());
         }
@@ -158,9 +161,9 @@ impl LSystem {
                 current_bytes.extend_from_slice(self.axiom.as_bytes());
 
                 for _ in 0..iterations {
-                    /// By moving `next_bytes` outside the loop, we can `clear` and `reserve` its capacity
-                    /// and then use `std::mem::swap`. This double-buffering completely eliminates O(N)
-                    /// memory allocations and drops that were previously happening on every single iteration.
+                    // By moving `next_bytes` outside the loop, we can `clear` and `reserve` its capacity
+                    // and then use `std::mem::swap`. This double-buffering completely eliminates O(N)
+                    // memory allocations and drops that were previously happening on every single iteration.
                     next_bytes.clear();
                     for &b in &*current_bytes {
                         if let Some(replacement) = rules_array[(b as usize) & 127] {
@@ -169,7 +172,9 @@ impl LSystem {
                             next_bytes.push(b);
                         }
                         if next_bytes.len() > limit {
-                            return Err("L-system exceeded memory limits".to_string());
+                            return Err(Error::CapacityExceeded(
+                                "L-system exceeded memory limits".to_string(),
+                            ));
                         }
                     }
                     std::mem::swap(current_bytes, next_bytes);
@@ -177,8 +182,8 @@ impl LSystem {
 
                 // Remove unsafe by converting back to string securely, though the ascii check guarantees safety.
                 std::str::from_utf8(current_bytes)
-                    .map(|s| s.to_string())
-                    .map_err(|e| e.to_string())
+                    .map(std::string::ToString::to_string)
+                    .map_err(|e| Error::InvalidData(e.to_string()))
             });
         }
 
@@ -196,8 +201,8 @@ impl LSystem {
 
         let mut next = String::new();
         for _ in 0..iterations {
-            /// Moving the `next` String allocation out of the loop and reusing it via `swap`
-            /// and `clear`/`reserve` eliminates continuous string re-allocations on every iteration.
+            // Moving the `next` String allocation out of the loop and reusing it via `swap`
+            // and `clear`/`reserve` eliminates continuous string re-allocations on every iteration.
             next.clear();
             for c in current.chars() {
                 let u = c as usize;
@@ -214,7 +219,9 @@ impl LSystem {
                 }
 
                 if next.len() > limit {
-                    return Err("L-system exceeded memory limits".to_owned());
+                    return Err(Error::CapacityExceeded(
+                        "L-system exceeded memory limits".to_string(),
+                    ));
                 }
             }
             std::mem::swap(&mut current, &mut next);
@@ -224,7 +231,8 @@ impl LSystem {
     }
 
     /// Generates a Mesh from the expanded L-System string.
-    pub fn generate_mesh(&self, iterations: u32) -> Result<Mesh, String> {
+    /// # Errors
+    pub fn generate_mesh(&self, iterations: u32) -> Result<Mesh, Error> {
         let instructions = self.expand(iterations)?;
 
         // Pre-flight check to count segments to avoid over-allocating memory for meshes
@@ -239,7 +247,9 @@ impl LSystem {
             } else if b == b'[' {
                 current_depth += 1;
                 if current_depth > max_stack_depth {
-                    return Err("L-system exceeded maximum stack depth".to_string());
+                    return Err(Error::ConstraintViolated(
+                        "L-system exceeded maximum stack depth".to_string(),
+                    ));
                 }
                 if current_depth > max_reached_depth {
                     max_reached_depth = current_depth;
@@ -266,7 +276,7 @@ impl LSystem {
                     let start = turtle.position;
                     let end = start + turtle.heading * turtle.step_length;
 
-                    self.add_segment(&mut mesh, &turtle, start, end);
+                    Self::add_segment(&mut mesh, &turtle, start, end);
 
                     turtle.position = end;
                 }
@@ -317,7 +327,9 @@ impl LSystem {
                 }
                 b'[' => {
                     if stack.len() >= max_stack_depth {
-                        return Err("L-system exceeded maximum stack depth".to_string());
+                        return Err(Error::ConstraintViolated(
+                            "L-system exceeded maximum stack depth".to_string(),
+                        ));
                     }
                     stack.push(turtle);
                 }
@@ -334,7 +346,7 @@ impl LSystem {
     }
 
     /// Adds a 4-sided prism segment to the mesh.
-    fn add_segment(&self, mesh: &mut Mesh, turtle: &Turtle, start: Vec3, end: Vec3) {
+    fn add_segment(mesh: &mut Mesh, turtle: &Turtle, start: Vec3, end: Vec3) {
         // Calculate corner offsets based on turtle's Up and Left vectors
         // We use a square cross-section aligned with the turtle's frame
         let r = turtle.radius;

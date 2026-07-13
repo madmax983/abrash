@@ -4,7 +4,7 @@
 //! It converts a standard `Mesh` into a physical system where vertices are particles and edges are springs.
 
 #![allow(warnings)]
-
+use crate::experimental::error::Error;
 use super::sdf::SdfScene;
 use crate::math::{Vec3, Vec4};
 use crate::mesh::Mesh;
@@ -86,7 +86,7 @@ unsafe fn store_vec3s_avx(
     }
 }
 
-/// Helper function to gather Vec3 components from SoA indices.
+/// Helper function to gather Vec3 components from `SoA` indices.
 /// Used for fetching positions/velocities of spring endpoints.
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[target_feature(enable = "avx2")]
@@ -139,11 +139,11 @@ pub struct SoftBody {
     pub velocities: Vec<Vec3>,
     /// Accumulated forces on each vertex for the current frame.
     pub forces: Vec<Vec3>,
-    /// SoA: Indices of the first vertex in each spring.
+    /// `SoA`: Indices of the first vertex in each spring.
     pub(crate) spring_indices_a: Vec<usize>,
-    /// SoA: Indices of the second vertex in each spring.
+    /// `SoA`: Indices of the second vertex in each spring.
     pub(crate) spring_indices_b: Vec<usize>,
-    /// SoA: Rest length of each spring.
+    /// `SoA`: Rest length of each spring.
     pub(crate) spring_rest_lengths: Vec<f32>,
     /// Mass of each vertex (uniform for now).
     pub mass: f32,
@@ -157,18 +157,18 @@ pub struct SoftBody {
 
 impl SoftBody {
     /// Adds a structural or constraint spring between two existing vertices.
+    /// # Errors
     pub fn add_spring(
         &mut self,
         index_a: usize,
         index_b: usize,
         rest_length: f32,
-    ) -> Result<(), String> {
+    ) -> Result<(), Error> {
         let max_idx = self.mesh.vertices.len();
         if index_a >= max_idx || index_b >= max_idx {
-            return Err(format!(
-                "Spring indices out of bounds: {}, {}",
-                index_a, index_b
-            ));
+            return Err(Error::InvalidData(format!(
+                "Spring indices out of bounds: {index_a}, {index_b}"
+            )));
         }
         self.spring_indices_a.push(index_a);
         self.spring_indices_b.push(index_b);
@@ -179,19 +179,19 @@ impl SoftBody {
     /// Creates a new `SoftBody` from a Mesh.
     ///
     /// Automatically generates springs from the mesh's unique edges.
-    pub fn new(mesh: Mesh, mass: f32, stiffness: f32, damping: f32) -> Result<Self, String> {
+    /// # Errors
+    pub fn new(mesh: Mesh, mass: f32, stiffness: f32, damping: f32) -> Result<Self, Error> {
         let vertex_count = mesh.vertices.len();
         let velocities = vec![Vec3::default(); vertex_count];
         let forces = vec![Vec3::default(); vertex_count];
 
         // Validate indices to prevent panics
         for (tri_idx, tri) in mesh.indices.iter().enumerate() {
-            for &v_idx in tri.iter() {
+            for &v_idx in tri {
                 if v_idx >= vertex_count {
-                    return Err(format!(
-                        "Mesh index {} out of bounds (vertex count: {}) at triangle {}",
-                        v_idx, vertex_count, tri_idx
-                    ));
+                    return Err(Error::InvalidData(format!(
+                        "Mesh index {v_idx} out of bounds (vertex count: {vertex_count}) at triangle {tri_idx}"
+                    )));
                 }
             }
         }
@@ -271,7 +271,7 @@ impl SoftBody {
             .chain(self.spring_indices_b.iter())
         {
             if idx >= self.mesh.vertices.len() {
-                eprintln!("SoftBody Error: Spring index {} out of bounds", idx);
+                eprintln!("SoftBody Error: Spring index {idx} out of bounds");
                 return;
             }
         }
@@ -298,7 +298,7 @@ impl SoftBody {
             *force = *force + gravity_force - *velocity * self.drag;
         }
 
-        // Spring Forces (SoA Scalar)
+        // Spring Forces (`SoA` Scalar)
         for i in 0..self.spring_rest_lengths.len() {
             let idx_a = self.spring_indices_a[i];
             let idx_b = self.spring_indices_b[i];
@@ -698,6 +698,7 @@ impl SoftBody {
     ///
     /// Returns a vector of stress values corresponding to `mesh.vertices`.
     /// Positive values indicate stretching, negative values indicate compression (if implemented, but here length is unsigned so stress is abs error).
+    #[must_use]
     pub fn get_vertex_stress(&self) -> Vec<f32> {
         let mut stress = vec![0.0; self.mesh.vertices.len()];
         let mut counts = vec![0; self.mesh.vertices.len()];

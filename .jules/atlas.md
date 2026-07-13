@@ -134,3 +134,9 @@
 **Blueprint:**
 1.  **Isolate:** Added `#![cfg(feature = "nova")]` to `havoc_radial_blur_fuzz.rs`, `havoc_pixel_sort_proptest.rs`, and `havoc_directional_blur.rs`. Added `#![cfg(feature = "parallel")]` to `havoc_tile_ub_test.rs`.
 2.  **Result:** Ensure `cargo test --workspace` does not fail due to unresolvable feature-gated imports on default builds.
+## [Unified Experimental Error Handling]
+**Tangle:** Inconsistent error handling (mixing `String` and `&'static str`) across `experimental` modules like `lsystem`, `arboretum`, `jelly`, and `steganography`, creating an unpredictable API.
+**Blueprint:**
+1.  **Introduce Central Error:** Created a unified `Error` enum in `crates/abrash-render/src/experimental/error.rs` to encapsulate all experimental failure modes (e.g., `CapacityExceeded`, `InvalidData`, `ConstraintViolated`).
+2.  **Refactor Modules:** Updated experimental modules (`lsystem.rs`, `arboretum.rs`, `jelly.rs`, `steganography.rs`) to return `Result<T, crate::experimental::error::Error>` instead of primitive string errors.
+3.  **Stability:** Standardized error boundaries within the `experimental` module, improving maintainability and ensuring safe, idiomatic error propagation.

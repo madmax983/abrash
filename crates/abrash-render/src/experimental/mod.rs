@@ -32,6 +32,7 @@ pub mod autostereogram;
 pub mod black_hole;
 pub mod boids;
 pub mod brickify;
+pub mod error;
 pub mod fractal;
 
 pub mod blueprint;
