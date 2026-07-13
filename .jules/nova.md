@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [Synthwave Sun Filter]
+**Concept:** A post-processing effect that procedurally generates an 80s outrun-style sunset with a vertical gradient and horizontal scanline cutouts. Perfectly suited to combine with infinite grids.
+**Fate:** Implemented
+**Lesson:** Using sine waves mapped to the y-coordinate combined with a dynamic threshold based on the normalized height allows for resolution-independent cutouts that scale beautifully without complex texture sampling.
