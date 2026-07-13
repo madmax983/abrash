@@ -8,18 +8,17 @@ use abrash_core::math::fast_sin_cos;
 
 /// Generates a classic XOR texture.
 ///
-/// # Errors
 /// Returns an error if the texture dimensions are invalid.
-///
 /// # Examples
-///
 /// ```
 /// use abrash_render::procedural::xor_pattern;
-///
 /// let tex = xor_pattern(32, 32).unwrap();
 /// assert_eq!(tex.width(), 32);
 /// assert_eq!(tex.height(), 32);
 /// ```
+/// # Errors
+///
+/// Returns an error if dimensions are invalid.
 pub fn xor_pattern(width: u32, height: u32) -> Result<Texture, &'static str> {
     let mut tex = Texture::new(width, height)?;
     for y in 0..height {
@@ -33,19 +32,18 @@ pub fn xor_pattern(width: u32, height: u32) -> Result<Texture, &'static str> {
 }
 
 /// Generates a "Tech Grid" texture.
-///
 /// # Errors
 /// Returns an error if the texture dimensions are invalid or `cell_size` is 0.
-///
 /// # Examples
-///
 /// ```
 /// use abrash_render::procedural::grid_pattern;
-///
 /// let tex = grid_pattern(32, 32, 8, 0xFFFF_FFFF, 0xFF00_0000).unwrap();
 /// assert_eq!(tex.width(), 32);
 /// assert_eq!(tex.height(), 32);
 /// ```
+/// # Errors
+///
+/// Returns an error if dimensions are invalid.
 pub fn grid_pattern(
     width: u32,
     height: u32,
@@ -67,19 +65,18 @@ pub fn grid_pattern(
 }
 
 /// Generates static white noise.
-///
 /// # Errors
 /// Returns an error if the texture dimensions are invalid.
-///
 /// # Examples
-///
 /// ```
 /// use abrash_render::procedural::white_noise;
-///
 /// let tex = white_noise(32, 32, 12345).unwrap();
 /// assert_eq!(tex.width(), 32);
 /// assert_eq!(tex.height(), 32);
 /// ```
+/// # Errors
+///
+/// Returns an error if dimensions are invalid.
 pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'static str> {
     let mut tex = Texture::new(width, height)?;
     let mut rng = XorShift32::new(seed);
@@ -94,22 +91,22 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
     Ok(tex)
 }
 
+static PLASMA_LUT: std::sync::OnceLock<[u32; 1024]> = std::sync::OnceLock::new();
 /// Generates a plasma effect.
-///
 /// # Errors
 /// Returns an error if the texture dimensions are invalid.
-///
 /// # Examples
-///
 /// ```
 /// use abrash_render::procedural::plasma;
-///
 /// let tex = plasma(32, 32).unwrap();
 /// assert_eq!(tex.width(), 32);
 /// assert_eq!(tex.height(), 32);
 /// ```
-static PLASMA_LUT: std::sync::OnceLock<[u32; 1024]> = std::sync::OnceLock::new();
 
+/// # Errors
+/// # Errors
+///
+/// Returns an error if dimensions are invalid.
 pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
     if width == 0 || height == 0 {
         return Err("Texture dimensions must be positive");

@@ -274,4 +274,25 @@ mod tests {
         assert_eq!(batch.indices.len(), 1);
         assert_eq!(batch.color, 0xFFFF_FFFF);
     }
+
+    #[test]
+    #[should_panic(expected = "capacity overflow")]
+    fn test_draw_list_with_capacity_overflow_lights() {
+        let cam = test_camera();
+        let _dl = DrawList::with_capacity(cam, 10, 10, usize::MAX);
+    }
+
+    #[test]
+    #[should_panic(expected = "capacity overflow")]
+    fn test_draw_list_with_capacity_overflow_vertices() {
+        let cam = test_camera();
+        let _dl = DrawList::with_capacity(cam, 10, usize::MAX, 10);
+    }
+
+    #[test]
+    #[should_panic(expected = "capacity overflow")]
+    fn test_draw_list_with_capacity_overflow_commands() {
+        let cam = test_camera();
+        let _dl = DrawList::with_capacity(cam, usize::MAX, 10, 10);
+    }
 }

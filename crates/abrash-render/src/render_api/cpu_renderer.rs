@@ -695,6 +695,27 @@ mod tests {
         }
     }
 
+
+    #[test]
+    fn test_extract_draw_list_stale_mesh_handle_error() {
+        let mut renderer = CpuRenderer::new(100, 100);
+        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mat_h = renderer
+            .create_material(Material::flat(0xFFFF_0000))
+            .unwrap();
+
+        renderer.destroy_mesh(mesh_h);
+
+        let mut frame = Frame::new(test_camera());
+        frame.draw(mesh_h, mat_h, Mat4::identity());
+
+        let result = renderer.extract_draw_list(&frame);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            RenderError::StaleHandle(kind) => assert_eq!(kind, "mesh"),
+            other => panic!("Expected StaleHandle(mesh), got {other}"),
+        }
+    }
     #[test]
     fn test_extract_draw_list_stale_material_handle_error() {
         let mut renderer = CpuRenderer::new(100, 100);

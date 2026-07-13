@@ -74,3 +74,6 @@
 **[Missing Tests for Handle Error Propagation]**
 **Learning:** Even when errors like `StaleHandle` are correctly propagated from internal handle lookup failure via `ok_or()`, there might not be explicit tests verifying the exact enum variant of the returned `Result`. The existing test suite was heavily verifying stale `Mesh` handles, but silently lacked mirror tests for `Material` handles, leaving a logic path untested.
 **Action:** Audit functions that interact with multiple types of resource handles (e.g. `Mesh` and `Material`) to ensure that *every* handle type has a corresponding failure test, rather than relying on a single representative test case.
+**[Validating Handle Failure Paths]**
+**Learning:** Error handling paths testing stale handle behavior (e.g. `RenderError::StaleHandle`) can easily overlook specific handle types when the API supports multiple (e.g. a renderer that uses `MeshHandle`, `MaterialHandle`, and `TextureHandle`). A test suite might only verify `destroy_material` leaves a stale material handle, but completely miss testing `destroy_mesh` for a mesh handle, leaving that `ok_or` branch untested.
+**Action:** When auditing systems that manage multiple resource handle types, ensure that failure state tests are mirrored across all handle types to guarantee complete branch coverage of the error paths.
