@@ -56,6 +56,7 @@ pub mod emboss;
 pub mod falling_sand;
 pub mod fire;
 pub mod fisheye;
+pub mod flow_field;
 pub mod frosted_glass;
 pub mod glitch;
 pub mod halftone;

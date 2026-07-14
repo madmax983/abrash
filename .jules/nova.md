@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [Flow Field Filter]
+**Concept:** A procedural post-processing effect that simulates particles flowing through a vector field, drawing long glowing trails by partially fading the previous frame instead of completely clearing it.
+**Fate:** Implemented
+**Lesson:** Storing both particle positions and the previous frame buffer in `thread_local!` state allows complex, multi-frame accumulation effects (like trails) to be rendered entirely within a screen-space post-processing pass without any heap allocation during the hot loop. Sequential updates for particles ensure correct rasterization without race conditions, while fading the background can still be parallelized.

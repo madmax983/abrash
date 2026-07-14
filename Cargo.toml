@@ -988,3 +988,13 @@ harness = false
 [[bench]]
 name = "find_min_max_simd_bench"
 harness = false
+
+[[example]]
+name = "flow_field_demo"
+path = "examples/flow_field_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "flow_field_bench"
+harness = false
+required-features = ["nova"]
