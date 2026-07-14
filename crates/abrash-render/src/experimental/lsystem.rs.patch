@@ -1,0 +1,14 @@
+--- crates/abrash-render/src/experimental/lsystem.rs
++++ crates/abrash-render/src/experimental/lsystem.rs
+@@ -141,6 +141,11 @@
+         let mut next_string = String::new();
+
+         for _ in 0..iterations {
++            // Pre-reserve capacity to avoid continuous re-allocations
++            if next_string.capacity() < current_string.len() * 2 {
++                next_string.reserve_exact(current_string.len() * 2 - next_string.capacity());
++            }
++
+             next_string.clear();
+
+             // Bolt Performance Optimization:

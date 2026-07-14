@@ -1,0 +1,13 @@
+--- crates/abrash-render/src/procedural.rs
++++ crates/abrash-render/src/procedural.rs
+@@ -109,6 +109,9 @@
+     tex
+ }
+
++/// Generates a plasma texture
++///
++/// # Errors
++/// Returns an error if the texture fails to allocate.
+ pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
+     let mut tex = Texture::new(width, height)?;
+     let pixels = tex.as_mut_slice();

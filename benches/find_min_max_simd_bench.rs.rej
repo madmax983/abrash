@@ -1,0 +1,18 @@
+--- benches/find_min_max_simd_bench.rs
++++ benches/find_min_max_simd_bench.rs
+@@ -39,13 +39,13 @@
+     for &(w, h) in dimensions.iter() {
+         let fb = create_test_framebuffer(w, h);
+
+-        group.bench_function(format!("Scalar {}x{}", w, h), |b| {
++        group.bench_function(format!("Scalar {w}x{h}"), |b| {
+             b.iter(|| {
+                 let _ = find_min_max_scalar(&fb, 0, 0, w, h);
+             });
+         });
+
+-        group.bench_function(format!("SIMD {}x{}", w, h), |b| {
++        group.bench_function(format!("SIMD {w}x{h}"), |b| {
+             b.iter(|| {
+                 let _ = find_min_max_simd(&fb, 0, 0, w, h);
+             });

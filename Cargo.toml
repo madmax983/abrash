@@ -532,10 +532,6 @@ name = "run_film_grain"
 path = "benches/run_film_grain.rs"
 
 [[bench]]
-name = "clear_rect_bench"
-harness = false
-
-[[bench]]
 name = "lsystem_bench"
 harness = false
 required-features = ["nova"]
