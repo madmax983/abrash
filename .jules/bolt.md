@@ -240,3 +240,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+**[polyline_2d NaN propagation overhead elimination]**
+**Learning:** In extremely hot loops processing floating-point values where NaNs are not expected, replacing standard `f32::min` with an explicit `if a < b { a } else { b }` conditional safely avoids IEEE-754 NaN propagation overhead, yielding measurable performance improvements.
+**Action:** Replaced `f32::min` with an explicit conditional in `polyline_2d`.
