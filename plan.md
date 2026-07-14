@@ -1,17 +1,24 @@
-1. **Fix `AsciiConverter` integer overflow in `to_colored_string`**
-   - The capacity calculation `((width * 20) * height) as usize` can overflow a 32-bit integer when `width` and `height` are very large (as exposed by the `havoc_ascii_proptest.rs` test).
-   - *Fix*: Calculate the capacity using `usize` up front with saturating multiplication to avoid panic: `(width as usize).saturating_mul(20).saturating_mul(height as usize)`.
-
-2. **Fix `apply_radial_blur` coordinate calculation overflow**
-   - The `cur_x += step_x;` and `cur_y += step_y;` loops could overflow `i32` bounds if the variables got extremely large.
-   - *Fix*: Use `saturating_add` for `cur_x` and `cur_y` updates to prevent panic.
-
-3. **Fix `PreparedTrianglesList::into_par_iter` Use-After-Free/UB**
-   - The parallel iterator for `PreparedTrianglesList` calls `assume_init()` on uninitialized portions of the inner array, and then returns them via `flatten()`. Since `PreparedTriangle` is trivially copyable, using `assume_init_read()` instead safely extracts values out of the `MaybeUninit` union without executing a potentially dangerous move that invalidates the state.
-   - *Fix*: Change `assume_init()` to `assume_init_read()` in `into_par_iter` for both `PreparedTrianglesList` and `PreparedTexturedTrianglesList`.
-
-4. **Complete Pre-Commit Steps**
-   - Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
-
-5. **Submit the PR**
-   - I will submit the PR to close out this issue.
+1.  **Red Phase (Create Tests & Scaffold):**
+    *   Create `crates/abrash-render/src/experimental/datamosh.rs`.
+    *   Define `DatamoshConfig` struct.
+    *   Define `apply_datamosh` function.
+    *   Write a unit test in `datamosh.rs` that verifies motion vectors (gradients) correctly shift pixels from the previous frame.
+2.  **Green Phase (Implementation):**
+    *   Use `thread_local! { static I_FRAME: RefCell<Vec<u32>> = ... }` to store the persistent I-Frame state.
+    *   Calculate spatial luminance gradients of the current framebuffer (`dx` and `dy`).
+    *   Use these gradients to sample the `I_FRAME` at offset `(x - dx, y - dy)`.
+    *   Write the sampled pixel back to both the `I_FRAME` and the current framebuffer.
+    *   Add an `i_frame_refresh` property to the config to occasionally copy the real frame to `I_FRAME`, resetting the moshing.
+3.  **Refactor Phase (DRY/YAGNI):**
+    *   Ensure the code uses `rayon` for parallel processing if the `parallel` feature is enabled (or maybe thread locals make parallelization tricky? Actually, with thread locals, we usually copy the frame to a local buffer, then process row-by-row. Wait, `I_FRAME` needs to be read from AND written to. Read from `I_FRAME`, write to a temporary, then swap. I will maintain a `PREV_FRAME` and write to the actual FB, then copy the FB to `PREV_FRAME`).
+4.  **Integration:**
+    *   Add `pub mod datamosh;` to `crates/abrash-render/src/experimental/mod.rs`.
+    *   Create `examples/datamosh_demo.rs` to showcase the feature.
+    *   Update `Cargo.toml` to include the new demo.
+5.  **Pre-commit:**
+    *   Run `pre_commit_instructions`.
+    *   Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
+    *   Run `cargo clippy`, `cargo test`, and `cargo fmt`.
+6.  **Presentation (Submit):**
+    *   Log learning to `.jules/nova.md`.
+    *   Create the PR with the required Nova format.
