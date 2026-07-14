@@ -417,4 +417,46 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_clear_rect_extreme_bounds_loop() {
+        let mut zb = ZBuffer::new(10, 10).unwrap();
+
+        // Loop over extreme values to prove clamping logic prevents unsafe block panics
+        let ext_vals = vec![
+            -1,
+            -100,
+            -10000,
+            i32::MIN,
+            0,
+            5,
+            10,
+            11,
+            100,
+            10000,
+            i32::MAX,
+        ];
+
+        for &x in &ext_vals {
+            for &y in &ext_vals {
+                let widths = vec![0, 1, 5, 10, 100, u32::MAX];
+                for &w in &widths {
+                    for &h in &widths {
+                        // Just executing this without panicking is a success.
+                        zb.clear_rect(x, y, w, h);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_get_depth_unchecked_safety() {
+        let mut zb = ZBuffer::new(2, 2).unwrap();
+        zb.test_and_set(1, 1, 0.5);
+        unsafe {
+            let depth = zb.get_depth_unchecked(1, 1);
+            assert_eq!(depth, 0.5);
+        }
+    }
 }

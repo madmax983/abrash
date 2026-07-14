@@ -433,4 +433,15 @@ mod tests {
 
         std::fs::remove_file(path).unwrap();
     }
+
+    #[test]
+    fn test_to_colored_string_extreme() {
+        let mut fb = Framebuffer::new(1, 1).unwrap();
+        fb.set_pixel(0, 0, 0xFFFF_FFFF); // White
+
+        let converter = AsciiConverter::new(&fb, AsciiCharset::Standard);
+        let s = converter.to_colored_string();
+
+        assert!(s.contains("\x1b[38;2;255;255;255m"));
+    }
 }

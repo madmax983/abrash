@@ -5176,4 +5176,29 @@ mod sentry_tests {
 
         tr.render_batch(&mut fb, &mut zb, &triangles);
     }
+
+    #[test]
+    fn test_tile_renderer_hiz_unwrap_unchecked_safety() {
+        let width = 100;
+        let height = 100;
+        let mut fb = Framebuffer::new(width, height).unwrap();
+        let mut zb = ZBuffer::new(width, height).unwrap();
+
+        let mut tr = TileRenderer::new(width, height);
+
+        // explicitly ensure it is enabled first
+        tr.enable_hiz();
+
+        // draw one triangle
+        let v0 = (Vec3::new(10.0, 10.0, 5.0), 5.0);
+        let v1 = (Vec3::new(20.0, 10.0, 5.0), 5.0);
+        let v2 = (Vec3::new(15.0, 20.0, 5.0), 5.0);
+
+        // this will trigger prepare and execute, hitting the binning path
+        tr.render_batch(&mut fb, &mut zb, &[(v0, v1, v2, 0xFFFF_0000)]);
+
+        // disable it and render again to ensure no crashes
+        tr.hiz_buffer = None;
+        tr.render_batch(&mut fb, &mut zb, &[(v0, v1, v2, 0xFF00_FF00)]);
+    }
 }
