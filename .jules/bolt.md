@@ -240,3 +240,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+## L-System Pre-allocation
+**Learning:** The comment in `LSystem::expand` mentioned pre-allocating capacity for exponential growth, but the code lacked the `reserve` call, leading to frequent O(N) heap reallocations. Adding `reserve(len * 2)` yields ~19% performance gain.
+**Action:** Always verify that comments claiming an optimization is applied match the actual code execution, especially for buffer growth in hot loops.

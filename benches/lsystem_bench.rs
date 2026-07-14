@@ -1,4 +1,4 @@
-use abrash::experimental::lsystem::LSystem;
+use abrash_render::experimental::lsystem::LSystem;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn lsystem_benchmark(c: &mut Criterion) {
