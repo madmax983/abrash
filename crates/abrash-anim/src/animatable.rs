@@ -1,8 +1,8 @@
 //! Trait for types that can be smoothly interpolated in animations.
 
-use crate::math::{Vec2, Vec3};
-use crate::quat::Quat;
-use crate::transform::Transform;
+use abrash_core::math::{Vec2, Vec3};
+use abrash_core::quat::Quat;
+use abrash_core::transform::Transform;
 
 /// A type that supports interpolation, arithmetic, and distance for animation.
 ///
@@ -232,7 +232,7 @@ mod tests {
         assert!((a.distance_squared(&b) - 16.0).abs() < f32::EPSILON);
     }
 
-    use crate::math::{Vec2, Vec3};
+    use abrash_core::math::{Vec2, Vec3};
 
     #[test]
     fn vec2_interpolate_midpoint() {
@@ -278,7 +278,7 @@ mod tests {
         assert!((a.distance_squared(&b) - 25.0).abs() < f32::EPSILON);
     }
 
-    use crate::quat::Quat;
+    use abrash_core::quat::Quat;
 
     #[test]
     fn quat_interpolate_uses_slerp() {
@@ -302,7 +302,7 @@ mod tests {
         assert!(q.distance_squared(&q) < 1e-10);
     }
 
-    use crate::transform::Transform;
+    use abrash_core::transform::Transform;
 
     #[test]
     fn transform_interpolate_lerps_position() {

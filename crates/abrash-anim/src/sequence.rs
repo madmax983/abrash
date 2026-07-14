@@ -1,6 +1,6 @@
 //! Sequence — proportional end-to-end chaining of evaluable segments.
 
-use abrash_core::animatable::Animatable;
+use crate::animatable::Animatable;
 
 use crate::evaluable::{Evaluable, Sample};
 

@@ -5,7 +5,7 @@
 
 use std::time::Duration;
 
-use abrash_core::animatable::Animatable;
+use crate::animatable::Animatable;
 
 use crate::clock::{AnimationClock, ClockEvent, PlaybackMode};
 use crate::easing::Easing;

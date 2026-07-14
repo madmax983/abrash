@@ -1,6 +1,6 @@
 //! Hold — constant value for a duration (pause in sequences).
 
-use abrash_core::animatable::Animatable;
+use crate::animatable::Animatable;
 
 use crate::evaluable::Sample;
 

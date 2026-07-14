@@ -21,7 +21,6 @@ pub mod time;
 pub mod utils;
 pub mod zbuffer;
 
-pub mod animatable;
 pub mod bam;
 pub mod color;
 pub mod curve;

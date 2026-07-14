@@ -1,6 +1,6 @@
 //! Core animation evaluation trait and sample type.
 
-use abrash_core::animatable::Animatable;
+use crate::animatable::Animatable;
 
 use crate::hold::Hold;
 use crate::keyframe::Keyframe;

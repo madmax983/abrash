@@ -1,6 +1,6 @@
 //! Keyframe — tween between two values with easing.
 
-use abrash_core::animatable::Animatable;
+use crate::animatable::Animatable;
 
 use crate::easing::Easing;
 use crate::evaluable::Sample;

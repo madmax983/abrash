@@ -129,7 +129,7 @@ pub use abrash_core::fixed16_16;
 pub use abrash_raycast as raycast;
 
 // Animation-related re-exports from abrash-core.
-pub use abrash_core::animatable;
+pub use abrash_anim::animatable;
 pub use abrash_core::color;
 pub use abrash_core::curve;
 pub use abrash_core::easing;
