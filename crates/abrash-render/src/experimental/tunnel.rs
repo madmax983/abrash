@@ -45,7 +45,8 @@ pub fn apply_tunnel(framebuffer: &mut Framebuffer, time: f32, texture: &Texture)
                 let distance = (dx * dx + dy * dy).sqrt().max(1.0);
 
                 // Angle
-                let angle = f32::atan2(dy, dx);
+                // ⚡ Bolt: Replace f32::atan2 with fast_atan2 approximation to eliminate floating-point bottleneck in per-pixel hot loop.
+                let angle = super::kaleidoscope::fast_atan2(dy, dx);
 
                 // Map to U, V
                 // U maps around the cylinder (angle)
