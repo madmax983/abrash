@@ -33,6 +33,15 @@ pub struct Skeleton {
 }
 
 impl Skeleton {
+
+    /// Create a bind pose from the skeleton's rest transforms.
+    #[must_use]
+    pub fn bind_pose(&self) -> Pose {
+        // ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
+        let mut local_transforms = Vec::with_capacity(self.joints.len());
+        local_transforms.extend(self.joints.iter().map(|j| j.bind_transform));
+        Pose::new(local_transforms)
+    }
     /// Create a new skeleton, validating that parents precede children.
     ///
     /// # Panics
@@ -197,7 +206,7 @@ mod tests {
             bind_transform: Transform::identity(),
         }];
         let skel = Skeleton::new(joints);
-        let pose = Pose::from_bind(&skel);
+        let pose = skel.bind_pose();
         let globals = skel.compute_global_transforms(&pose);
 
         assert_eq!(globals.len(), 1);
@@ -222,7 +231,7 @@ mod tests {
             },
         ];
         let skel = Skeleton::new(joints);
-        let pose = Pose::from_bind(&skel);
+        let pose = skel.bind_pose();
         let globals = skel.compute_global_transforms(&pose);
 
         // Root is identity.
@@ -282,7 +291,7 @@ mod tests {
             },
         ];
         let skel = Skeleton::new(joints);
-        let pose = Pose::from_bind(&skel);
+        let pose = skel.bind_pose();
         let globals = skel.compute_global_transforms(&pose);
 
         // Root: just rot_y(90)
@@ -320,7 +329,7 @@ mod tests {
             bind_transform: Transform::identity(),
         }];
         let skel = Skeleton::new(joints);
-        let pose = Pose::from_bind(&skel);
+        let pose = skel.bind_pose();
         let globals = skel.compute_global_transforms(&pose);
         let skin = skel.compute_skin_matrices(&globals);
 
@@ -346,7 +355,7 @@ mod tests {
             bind_transform,
         }];
         let skel = Skeleton::new(joints);
-        let pose = Pose::from_bind(&skel);
+        let pose = skel.bind_pose();
         let globals = skel.compute_global_transforms(&pose);
         let skin = skel.compute_skin_matrices(&globals);
 
@@ -450,7 +459,7 @@ mod tests {
             },
         ];
         let skel = Skeleton::new(joints);
-        let pose = Pose::from_bind(&skel);
+        let pose = skel.bind_pose();
         let globals = skel.compute_global_transforms(&pose);
 
         let (child_world, _) = globals[1].transform_point(Vec3::ZERO);

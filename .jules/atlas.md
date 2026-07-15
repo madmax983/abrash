@@ -134,3 +134,11 @@
 **Blueprint:**
 1.  **Isolate:** Added `#![cfg(feature = "nova")]` to `havoc_radial_blur_fuzz.rs`, `havoc_pixel_sort_proptest.rs`, and `havoc_directional_blur.rs`. Added `#![cfg(feature = "parallel")]` to `havoc_tile_ub_test.rs`.
 2.  **Result:** Ensure `cargo test --workspace` does not fail due to unresolvable feature-gated imports on default builds.
+
+**[Skybox and Skeleton Dependency Cycles]
+**Tangle:** The `abrash-render` crate had a circular dependency between the `skybox` and `rasterizer` modules (`skybox` imported `rasterizer::texture::fill_quad_textured` while `rasterizer::reflection` imported `skybox::Cubemap`). Concurrently, the `abrash-skeletal` crate had a circular dependency between `pose` and `skeleton` (`pose` imported `Skeleton` for `Pose::from_bind` and `skeleton` imported `Pose`).
+**Blueprint:**
+1.  **Decoupled Skybox:** Extracted the `Cubemap` data structure down into `crates/abrash-core/src/texture.rs`. Re-exported it in `skybox.rs` via `pub use abrash_core::texture::Cubemap;` to maintain the public API, allowing `rasterizer::reflection` to depend on `abrash_core` instead of `skybox`.
+2.  **Decoupled Skeleton:** Moved `Pose::from_bind(&skeleton)` into `Skeleton::bind_pose(&self)`, removing `crate::skeleton::Skeleton` from `pose.rs` and cleanly breaking the module cycle.
+**Stability:** Enforced unidirectional module graphs, improving architecture health without breaking API consumers.
+**Verification:** Tests build and pass seamlessly without circular `use` statements.

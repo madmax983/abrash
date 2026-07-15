@@ -19,14 +19,6 @@ impl Pose {
         }
     }
 
-    /// Create a bind pose from a skeleton's rest transforms.
-    #[must_use]
-    pub fn from_bind(skeleton: &crate::skeleton::Skeleton) -> Self {
-        // ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
-        let mut local_transforms = Vec::with_capacity(skeleton.joints.len());
-        local_transforms.extend(skeleton.joints.iter().map(|j| j.bind_transform));
-        Self { local_transforms }
-    }
 }
 
 /// Joint matrices ready for vertex skinning.
@@ -63,7 +55,7 @@ mod tests {
             },
         ];
         let skel = Skeleton::new(joints);
-        let pose = Pose::from_bind(&skel);
+        let pose = skel.bind_pose();
 
         assert_eq!(pose.local_transforms.len(), 2);
         let epsilon = 1e-5;
