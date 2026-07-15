@@ -139,9 +139,34 @@ impl WindowApp for ChromaticAberrationDemo {
     }
 }
 
+#[cfg(feature = "nova")]
 fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
     run_windowed(ChromaticAberrationDemo::new().unwrap());
+}
+
+#[cfg(not(feature = "nova"))]
+fn main() {
+    let mut error_table = comfy_table::Table::new();
+    error_table
+        .load_preset(comfy_table::presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            comfy_table::Cell::new("⚠️  Missing Feature: Nova")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(comfy_table::Color::Red),
+        ])
+        .add_row(vec![
+            comfy_table::Cell::new("This example requires the 'nova' feature to run.")
+                .fg(comfy_table::Color::White),
+        ])
+        .add_row(vec![
+            comfy_table::Cell::new("Try running with:\ncargo run --example chromatic_aberration_demo --features nova")
+                .fg(comfy_table::Color::Green),
+        ]);
+
+    eprintln!("\n{error_table}");
+    std::process::exit(1);
 }

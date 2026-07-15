@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_imports)]
 //! Abrash Raytracer Demo
 //!
 //! Demonstrates the experimental CPU raytracer with reflections and shadows.
@@ -227,26 +228,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     winit_demo::run()
 }
 
-#[cfg(all(not(feature = "nova"), feature = "backend-winit"))]
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut error_table = Table::new();
+#[cfg(not(feature = "nova"))]
+fn main() {
+    let mut error_table = comfy_table::Table::new();
     error_table
-        .load_preset(presets::UTF8_FULL)
+        .load_preset(comfy_table::presets::UTF8_FULL)
         .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
-            Cell::new("⚠️  Missing Feature: Nova")
+            comfy_table::Cell::new("⚠️  Missing Feature: Nova")
                 .add_attribute(comfy_table::Attribute::Bold)
-                .fg(Color::Red),
+                .fg(comfy_table::Color::Red),
         ])
         .add_row(vec![
-            Cell::new("This example requires the 'nova' feature to run.").fg(Color::White),
+            comfy_table::Cell::new("This example requires the 'nova' feature to run.")
+                .fg(comfy_table::Color::White),
         ])
         .add_row(vec![
-            Cell::new("Try running with:\ncargo run --example raytracer_demo --features nova")
-                .fg(Color::Green),
+            comfy_table::Cell::new("Try running with:
+cargo run --example raytracer_demo --features nova")
+                .fg(comfy_table::Color::Green),
         ]);
 
-    eprintln!("\n{error_table}");
+    eprintln!("
+{error_table}");
     std::process::exit(1);
 }
 

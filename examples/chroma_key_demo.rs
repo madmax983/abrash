@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_imports)]
 #[cfg(feature = "nova")]
 use abrash::experimental::chroma_key::smooth_chroma_key;
 use abrash::framebuffer::Framebuffer;
@@ -97,6 +98,7 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
+#[cfg(feature = "nova")]
 fn main() {
     print_banner();
 
@@ -167,4 +169,28 @@ fn main() {
             _ => {}
         }
     });
+}
+
+#[cfg(not(feature = "nova"))]
+fn main() {
+    let mut error_table = comfy_table::Table::new();
+    error_table
+        .load_preset(comfy_table::presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            comfy_table::Cell::new("⚠️  Missing Feature: Nova")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(comfy_table::Color::Red),
+        ])
+        .add_row(vec![
+            comfy_table::Cell::new("This example requires the 'nova' feature to run.")
+                .fg(comfy_table::Color::White),
+        ])
+        .add_row(vec![
+            comfy_table::Cell::new("Try running with:\ncargo run --example chroma_key_demo --features nova")
+                .fg(comfy_table::Color::Green),
+        ]);
+
+    eprintln!("\n{error_table}");
+    std::process::exit(1);
 }

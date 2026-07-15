@@ -224,19 +224,25 @@ fn main() {
 
     #[cfg(not(feature = "nova"))]
     {
-        use comfy_table::{Cell, Color, Table, presets};
-        let mut table = Table::new();
-        table
-            .load_preset(presets::UTF8_FULL)
+        let mut error_table = comfy_table::Table::new();
+        error_table
+            .load_preset(comfy_table::presets::UTF8_FULL)
             .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
             .set_header(vec![
-                Cell::new("Missing Feature").fg(Color::Red),
-                Cell::new("Required Flag").fg(Color::Yellow),
+                comfy_table::Cell::new("⚠️  Missing Feature: Nova")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(comfy_table::Color::Red),
             ])
             .add_row(vec![
-                Cell::new("Depth Fog Filter Demo requires the `nova` feature."),
-                Cell::new("--features nova"),
+                comfy_table::Cell::new("This example requires the 'nova' feature to run.")
+                    .fg(comfy_table::Color::White),
+            ])
+            .add_row(vec![
+                comfy_table::Cell::new("Try running with:\ncargo run --example depth_fog_demo --features nova")
+                    .fg(comfy_table::Color::Green),
             ]);
-        println!("{table}");
+
+        eprintln!("\n{error_table}");
+        std::process::exit(1);
     }
 }
