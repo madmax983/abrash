@@ -6,6 +6,9 @@ use crate::framebuffer::Framebuffer;
 use crate::utils::pixel_luminance;
 use std::cell::RefCell;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 // Sepia weights (scaled by 1024)
 const SEPIA_R_R: u32 = 402;
 const SEPIA_R_G: u32 = 787;
@@ -409,23 +412,21 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberra
         }
     }
 
-    CA_BUFFER.with(|buf| {
-        let mut row_buffer = buf.borrow_mut();
-        if row_buffer.len() < width {
-            row_buffer.resize(width, 0);
-        }
+    #[cfg(feature = "parallel")]
+    let row_iter = pixels.par_chunks_exact_mut(width);
+    #[cfg(not(feature = "parallel"))]
+    let row_iter = pixels.chunks_exact_mut(width);
 
-        let row_scratch = &mut row_buffer[..width];
+    row_iter.for_each(|row_pixels| {
+        CA_BUFFER.with(|buf| {
+            let mut row_buffer = buf.borrow_mut();
+            if row_buffer.len() < width {
+                row_buffer.resize(width, 0);
+            }
+            let row_scratch = &mut row_buffer[..width];
 
-        // Process each row
-        // chunks_exact_mut gives us rows directly
-        for row_pixels in pixels.chunks_exact_mut(width) {
-            // Copy current row to scratch buffer
             row_scratch.copy_from_slice(row_pixels);
 
-            // Scalar implementation: Split loops to eliminate inner-loop bounds checks and conditions
-
-            // 1. Left Edge (x < offset): R is out of bounds (0)
             let left_limit = offset.min(width);
             for x in 0..left_limit {
                 let g = (row_scratch[x] >> 8) & 0xFF;
@@ -439,7 +440,6 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberra
                 row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
             }
 
-            // 2. Middle (offset <= x < width - offset): Both R and B are in bounds
             if width > offset {
                 let right_limit = width.saturating_sub(offset).max(left_limit);
                 for x in left_limit..right_limit {
@@ -450,7 +450,6 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberra
                     row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
                 }
 
-                // 3. Right Edge (width - offset <= x < width): B is out of bounds (0)
                 for x in right_limit..width {
                     let g = (row_scratch[x] >> 8) & 0xFF;
                     let a = (row_scratch[x] >> 24) & 0xFF;
@@ -459,7 +458,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberra
                     row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
                 }
             }
-        }
+        });
     });
 }
 
@@ -1151,28 +1150,26 @@ mod simd {
     pub unsafe fn apply_chromatic_aberration_avx2(
         pixels: &mut [u32],
         width: usize,
-        height: usize,
+        _height: usize,
         offset: usize,
     ) {
-        CA_BUFFER.with(|buf| {
-            let mut row_buffer = buf.borrow_mut();
-            if row_buffer.len() < width {
-                row_buffer.resize(width, 0);
-            }
+        #[cfg(feature = "parallel")]
+        let row_iter = pixels.par_chunks_exact_mut(width);
+        #[cfg(not(feature = "parallel"))]
+        let row_iter = pixels.chunks_exact_mut(width);
 
-            let mask_r = _mm256_set1_epi32(0x00FF_0000);
-            let mask_b = _mm256_set1_epi32(0x0000_00FF);
-            // Precompute masks combined for center: G | A
-            // G: 0x0000_FF00, A: 0xFF00_0000
-            let mask_ga = _mm256_set1_epi32(0xFF00_FF00u32 as i32);
+        row_iter.for_each(|row_pixels| {
+            CA_BUFFER.with(|buf| {
+                let mut row_buffer = buf.borrow_mut();
+                if row_buffer.len() < width {
+                    row_buffer.resize(width, 0);
+                }
 
-            unsafe {
-                for y in 0..height {
-                    let row_start = y * width;
-                    let row_end = row_start + width;
-                    let row_pixels = &mut pixels[row_start..row_end];
+                let mask_r = unsafe { _mm256_set1_epi32(0x00FF_0000) };
+                let mask_b = unsafe { _mm256_set1_epi32(0x0000_00FF) };
+                let mask_ga = unsafe { _mm256_set1_epi32(0xFF00_FF00u32 as i32) };
 
-                    // Copy to scratch
+                unsafe {
                     row_buffer[..width].copy_from_slice(row_pixels);
                     let src_ptr = row_buffer.as_ptr();
                     let dst_ptr = row_pixels.as_mut_ptr();
@@ -1185,10 +1182,8 @@ mod simd {
                         let g = (p_center >> 8) & 0xFF;
                         let a = (p_center >> 24) & 0xFF;
 
-                        // R is 0 (OOB)
                         let r = 0;
 
-                        // B from x+offset (might be OOB)
                         let b = if x.saturating_add(offset) < width {
                             *src_ptr.add(x + offset) & 0xFF
                         } else {
@@ -1203,7 +1198,6 @@ mod simd {
                     if offset + 32 <= width {
                         let simd_limit_unrolled = width - offset - 32;
                         while x <= simd_limit_unrolled {
-                            // Unroll 4x
                             let process_block = |off: usize| {
                                 let v_center = _mm256_loadu_si256(src_ptr.add(x + off).cast());
                                 let v_left =
@@ -1228,57 +1222,29 @@ mod simd {
                         }
                     }
 
-                    if offset + 8 <= width {
-                        let simd_limit = width - offset - 8;
-                        while x <= simd_limit {
-                            let v_center = _mm256_loadu_si256(src_ptr.add(x).cast());
-                            let v_left = _mm256_loadu_si256(src_ptr.add(x - offset).cast());
-                            let v_right = _mm256_loadu_si256(src_ptr.add(x + offset).cast());
-
-                            let ga = _mm256_and_si256(v_center, mask_ga);
-                            let r = _mm256_and_si256(v_left, mask_r);
-                            let b = _mm256_and_si256(v_right, mask_b);
-
-                            let res = _mm256_or_si256(ga, _mm256_or_si256(r, b));
-
-                            _mm256_storeu_si256(dst_ptr.add(x).cast(), res);
-                            x += 8;
-                        }
-                    }
-
-                    // 3. Middle Scalar Edge (x < width - offset)
-                    let middle_limit = width.saturating_sub(offset);
-                    while x < middle_limit {
-                        let p_center = *src_ptr.add(x);
-                        let g = (p_center >> 8) & 0xFF;
-                        let a = (p_center >> 24) & 0xFF;
-                        let r = (*src_ptr.add(x - offset) >> 16) & 0xFF;
-                        let b = *src_ptr.add(x + offset) & 0xFF;
-                        *dst_ptr.add(x) = (a << 24) | (r << 16) | (g << 8) | b;
-                        x += 1;
-                    }
-
-                    // 3. Right Edge (Scalar)
+                    // 3. Tail Loop (Scalar)
                     while x < width {
                         let p_center = *src_ptr.add(x);
                         let g = (p_center >> 8) & 0xFF;
                         let a = (p_center >> 24) & 0xFF;
 
-                        // R from x-offset
                         let r = if x >= offset {
                             (*src_ptr.add(x - offset) >> 16) & 0xFF
                         } else {
                             0
                         };
 
-                        // B is 0 (OOB)
-                        let b = 0;
+                        let b = if x + offset < width {
+                            *src_ptr.add(x + offset) & 0xFF
+                        } else {
+                            0
+                        };
 
                         *dst_ptr.add(x) = (a << 24) | (r << 16) | (g << 8) | b;
                         x += 1;
                     }
                 }
-            }
+            });
         });
     }
 
