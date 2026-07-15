@@ -240,3 +240,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+## Fast Atan2 for Tunnel Effect
+**Learning:** In per-pixel post-processing hot loops like the tunnel effect, `f32::atan2` is a CPU bottleneck. Replacing it with `fast_atan2` sacrifices imperceptible visual precision for substantial performance gains.
+**Action:** Replaced `f32::atan2` with `fast_atan2` in `crates/abrash-render/src/experimental/tunnel.rs`.
