@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2024-05-19 - [Procedural Module Documentation]
+**Confusion:** The `plasma` function in the `procedural` module was missing the `# Errors` section in its documentation, which is required for functions returning a `Result`. The static variable `PLASMA_LUT` was also placed between the docstring and the function, attaching the docs to the variable instead of the function.
+**Clarification:** Reordered the `static PLASMA_LUT` and the `pub fn plasma` function, and added the `# Errors` section to the `plasma` documentation. Also fixed unreadable long hex literals by adding underscores.

@@ -15,7 +15,7 @@ fn bench_fire(c: &mut Criterion) {
             fb.set_pixel(x as i32, (height - 1) as i32, 0x00FF0000);
         }
 
-        group.bench_function(format!("{}x{}", width, height), |b| {
+        group.bench_function(format!("{width}x{height}"), |b| {
             b.iter(|| apply_fire(black_box(&mut fb), black_box(&cooling_map)))
         });
     }
