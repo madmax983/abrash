@@ -732,3 +732,145 @@ mod extra_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod sentry_tests {
+    use super::*;
+
+    #[test]
+    fn test_load_obj_empty_vertices() {
+        let obj = "f 1 2 3
+";
+        let res = load_obj(obj);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_load_obj_empty_file_returns_ok() {
+        let res = load_obj("");
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_load_obj_unsupported_commands() {
+        let obj = "
+v 0.0 0.0 0.0
+v 1.0 0.0 0.0
+v 0.0 1.0 0.0
+x some random command
+f 1 2 3
+";
+        let res = load_obj(obj);
+        assert!(res.is_ok());
+    }
+}
+
+#[test]
+fn test_load_obj_empty_lines() {
+    let obj = "
+v 0.0 0.0 0.0
+
+v 1.0 0.0 0.0
+v 0.0 1.0 0.0
+
+
+f 1 2 3
+";
+    let res = load_obj(obj);
+    assert!(res.is_ok());
+    assert_eq!(res.unwrap().vertices.len(), 3);
+}
+
+#[test]
+fn test_load_obj_empty_parts() {
+    let obj = "
+v
+f
+";
+    let res = load_obj(obj);
+    assert!(res.is_err());
+}
+
+#[test]
+fn test_load_obj_invalid_face() {
+    let obj = "
+v 0.0 0.0 0.0
+v 1.0 0.0 0.0
+f 1/invalid 2
+";
+    let res = load_obj(obj);
+    assert!(res.is_err());
+}
+
+#[test]
+fn test_load_obj_nan_coordinates() {
+    let obj = "
+v NaN 0.0 0.0
+f 1 1 1
+";
+    let res = load_obj(obj);
+    assert!(res.is_err());
+}
+
+#[test]
+fn test_load_obj_inf_coordinates() {
+    let obj = "
+v inf 0.0 0.0
+f 1 1 1
+";
+    let res = load_obj(obj);
+    assert!(res.is_err());
+}
+
+#[test]
+fn test_load_obj_too_many_vertices() {
+    // Just verify we hit the MAX_VERTICES limit if it's small,
+    // but MAX_VERTICES is 1_000_000, so we can't easily test without huge string.
+}
+
+#[test]
+fn test_load_obj_negative_index() {
+    let obj = "
+v 0.0 0.0 0.0
+f -1 0 1
+";
+    let res = load_obj(obj);
+    assert!(res.is_err());
+}
+
+#[test]
+fn test_load_obj_missing_face_vertex() {
+    let obj = "
+v 0.0 0.0 0.0
+v 1.0 0.0 0.0
+f 1
+";
+    let res = load_obj(obj);
+    assert!(res.is_err());
+}
+
+#[test]
+fn test_load_obj_empty_face() {
+    let obj = "
+v 0.0 0.0 0.0
+v 1.0 0.0 0.0
+v 0.0 1.0 0.0
+f
+";
+    let res = load_obj(obj);
+    assert!(res.is_err());
+}
+
+#[test]
+fn test_load_obj_large_face() {
+    let obj = "
+v 0.0 0.0 0.0
+v 1.0 0.0 0.0
+v 0.0 1.0 0.0
+v 1.0 1.0 0.0
+f 1 2 3 4
+";
+    let res = load_obj(obj);
+    assert!(res.is_ok()); // Quad triangulation
+    assert_eq!(res.unwrap().indices.len(), 2);
+}

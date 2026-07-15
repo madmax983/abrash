@@ -762,3 +762,26 @@ mod tests {
         }
     }
 }
+
+#[test]
+#[should_panic(expected = "assertion `left == right` failed")]
+fn test_cull_spheres_prealloc_safety_avx2() {
+    let vp = Mat4::identity();
+    let frustum = Frustum::from_matrix(vp);
+    let spheres = vec![BoundingSphere {
+        center: Vec3::ZERO,
+        radius: 1.0,
+    }];
+    let mut results = vec![false; 0]; // Too small
+    frustum.cull_spheres_prealloc(&spheres, &mut results);
+}
+
+#[test]
+#[should_panic(expected = "assertion `left == right` failed")]
+fn test_cull_aabbs_prealloc_safety_avx2() {
+    let vp = Mat4::identity();
+    let frustum = Frustum::from_matrix(vp);
+    let aabbs = vec![AABB::new(Vec3::ZERO, Vec3::ZERO)];
+    let mut results = vec![false; 0]; // Too small
+    frustum.cull_aabbs_prealloc(&aabbs, &mut results);
+}
