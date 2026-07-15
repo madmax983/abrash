@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [Strange Attractor Simulator]
+**Concept:** Render complex chaotic systems like Clifford attractors using mathematical recurrence formulas directly mapped to the framebuffer.
+**Fate:** Implemented
+**Lesson:** Using a `run_steps` batched evaluation method successfully encapsulates loops and limits external jumping calls, though true optimization requires careful usage of standard `Vec` buffering compared to bare registers inline. Properly benchmarking inside `criterion` requires keeping `black_box()` wrapping outside of tight nested iterators to avoid artificial memory bottlenecks.

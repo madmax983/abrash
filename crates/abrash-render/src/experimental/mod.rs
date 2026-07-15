@@ -28,6 +28,7 @@
 pub mod anaglyph;
 pub mod arboretum;
 pub mod ascii_display;
+pub mod attractor;
 pub mod autostereogram;
 pub mod black_hole;
 pub mod boids;
