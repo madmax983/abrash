@@ -240,3 +240,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+
+**Batching Math Operations**
+**Learning:** By providing a batch `run_steps(count: usize)` method in the Lorenz Attractor instead of a single `step` method, we avoid the overhead of a hot-loop jump at the call site and can allow the compiler to autovectorize or unroll the loops.
+**Action:** Added `run_steps` to `LorenzAttractor`.
