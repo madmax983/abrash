@@ -8,3 +8,7 @@
 **Learning:** Functions like `execute_draw_list_owned` and `execute_draw_list_into` contained identical internal rendering logic causing duplication and reducing maintainability.
 **Action:** Extract this identical rendering logic into a single private helper function (e.g., `execute_draw_list_inner`) that both functions can delegate to. This adheres to DRY principles and eliminates duplication.
 **[Extract Shared EdgeWalker Init]**\n**Learning:** When implementing multiple struct variants that share similar primitive logic (e.g., `EdgeWalker` implementations across different rasterizers like Phong, Pbr, or Gouraud), screen-space delta math and setup routines (`inv_h`, `dx_dy`, `dz_dy`) are frequently duplicated in their `new()` constructors.\n**Action:** Extract this common 2D coordinate initialization into a shared helper struct (e.g., `BaseEdgeDelta`) in a common module (like `core.rs`) effectively eliminating these "Primitive Cluster" and "God Function" anti-patterns.
+
+**[Extract Render Pipeline]**
+**Learning:** Functions like `capture` and `render_to_surface` in `renderer.rs` contained an identical 50+ line execution of the rendering pipeline (Shadow, G-Buffer, Ray Tracing, Deferred, Tone Map, etc.), which led to maintenance overhead and a "God Function" code smell.
+**Action:** Extract this multi-pass execution block into a shared `encode_render_pipeline` helper function. This eliminates duplicated logic and greatly simplifies the high-level API wrapper functions.
