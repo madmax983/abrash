@@ -240,3 +240,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+
+## Fast Atan2 in Tunnel Effect
+**Optimization:** Replaced `f32::atan2` with `abrash_core::math::fast_atan2` in the per-pixel `apply_tunnel` loop.
+**Impact:** Reduced per-pixel instruction overhead by using a minimax rational approximation instead of the precise, but slower, standard library transcendental function, accelerating the post-processing filter.
