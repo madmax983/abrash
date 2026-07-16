@@ -201,10 +201,10 @@ impl<T> ResourcePool<T> {
     pub fn insert(&mut self, value: T) -> Handle<T> {
         if let Some(index) = self.free_list.pop() {
             let entry = &mut self.entries[index as usize];
-            let generation = match entry {
-                PoolEntry::Vacant { generation } => *generation,
-                PoolEntry::Occupied { .. } => unreachable!("free list pointed to occupied slot"),
+            let PoolEntry::Vacant { generation } = entry else {
+                unreachable!("free list pointed to occupied slot")
             };
+            let generation = *generation;
             *entry = PoolEntry::Occupied { value, generation };
             Handle::new(index, generation)
         } else {
@@ -218,25 +218,27 @@ impl<T> ResourcePool<T> {
     /// Look up a resource by handle. Returns `None` if handle is stale or invalid.
     #[must_use]
     pub fn get(&self, handle: Handle<T>) -> Option<&T> {
-        self.entries
-            .get(handle.index as usize)
-            .and_then(|entry| match entry {
-                PoolEntry::Occupied { value, generation } if *generation == handle.generation => {
-                    Some(value)
+        self.entries.get(handle.index as usize).and_then(|entry| {
+            if let PoolEntry::Occupied { value, generation } = entry {
+                if *generation == handle.generation {
+                    return Some(value);
                 }
-                _ => None,
-            })
+            }
+            None
+        })
     }
 
     /// Mutable lookup by handle.
     pub fn get_mut(&mut self, handle: Handle<T>) -> Option<&mut T> {
         self.entries
             .get_mut(handle.index as usize)
-            .and_then(|entry| match entry {
-                PoolEntry::Occupied { value, generation } if *generation == handle.generation => {
-                    Some(value)
+            .and_then(|entry| {
+                if let PoolEntry::Occupied { value, generation } = entry {
+                    if *generation == handle.generation {
+                        return Some(value);
+                    }
                 }
-                _ => None,
+                None
             })
     }
 
@@ -247,12 +249,13 @@ impl<T> ResourcePool<T> {
     #[allow(clippy::missing_panics_doc)]
     pub fn remove(&mut self, handle: Handle<T>) -> Option<T> {
         let entry = self.entries.get_mut(handle.index as usize)?;
-        let old_gen = match entry {
-            PoolEntry::Occupied { generation, .. } if *generation == handle.generation => {
-                *generation
-            }
-            _ => return None,
+        let PoolEntry::Occupied { generation, .. } = entry else {
+            return None;
         };
+        if *generation != handle.generation {
+            return None;
+        }
+        let old_gen = *generation;
 
         let new_gen = if old_gen == Generation::MAX {
             Generation::MAX
@@ -347,7 +350,6 @@ mod tests {
 
         assert_eq!(pool.get(h), Some(&"hello world".to_string()));
     }
-
 
     #[test]
     fn test_pool_get_mut_vacant() {
