@@ -74,3 +74,7 @@
 **[Missing Tests for Handle Error Propagation]**
 **Learning:** Even when errors like `StaleHandle` are correctly propagated from internal handle lookup failure via `ok_or()`, there might not be explicit tests verifying the exact enum variant of the returned `Result`. The existing test suite was heavily verifying stale `Mesh` handles, but silently lacked mirror tests for `Material` handles, leaving a logic path untested.
 **Action:** Audit functions that interact with multiple types of resource handles (e.g. `Mesh` and `Material`) to ensure that *every* handle type has a corresponding failure test, rather than relying on a single representative test case.
+
+**Safe Rectangle Bounds Calculation Optimization**
+**Learning:** When validating rectangular coordinate bounds (e.g., `x + width`), using intermediate `i64` casts to prevent overflow is computationally wasteful and requires branch logic.
+**Action:** Replaced the intermediate 64-bit bounds calculations with the intrinsic `saturating_add_unsigned` method on `i32` alongside `.min().max()`. This prevents integer overflow panics securely and improves execution efficiency.

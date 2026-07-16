@@ -55,48 +55,30 @@ fn clear_rect_optimized(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height
         return;
     }
 
-    let x1 = x;
-    let y1 = y;
+    let fb_width = fb.width() as i32;
+    let fb_height = fb.height() as i32;
 
-    let x2_i64 = i64::from(x) + i64::from(width);
-    let y2_i64 = i64::from(y) + i64::from(height);
+    let start_x = x.clamp(0, fb_width) as usize;
+    let start_y = y.clamp(0, fb_height) as usize;
 
-    let x2 = if x2_i64 > i64::from(i32::MAX) {
-        i32::MAX
-    } else {
-        x2_i64 as i32
-    };
-    let y2 = if y2_i64 > i64::from(i32::MAX) {
-        i32::MAX
-    } else {
-        y2_i64 as i32
-    };
-
-    let start_x = x1.max(0).min(fb.width() as i32) as u32;
-    let start_y = y1.max(0).min(fb.height() as i32) as u32;
-    let end_x = x2.max(0).min(fb.width() as i32) as u32;
-    let end_y = y2.max(0).min(fb.height() as i32) as u32;
+    let end_x = x.saturating_add_unsigned(width).clamp(0, fb_width) as usize;
+    let end_y = y.saturating_add_unsigned(height).clamp(0, fb_height) as usize;
 
     if start_x >= end_x || start_y >= end_y {
         return;
     }
 
-    let sx = start_x as usize;
-    let ex = end_x as usize;
-    let sy = start_y as usize;
-    let ey = end_y as usize;
     let w = fb.width() as usize;
+    let start_idx = start_y * w;
+    let end_idx = end_y * w;
 
-    let start_idx = sy * w;
-    let end_idx = ey * w;
-
-    if sx == 0 && ex == w {
+    if start_x == 0 && end_x == w {
         fb.as_mut_slice()[start_idx..end_idx].fill(color);
     } else {
-        let len = ex - sx;
-        let mut offset = start_idx + sx;
+        let len = end_x - start_x;
+        let mut offset = start_idx + start_x;
         let slice = fb.as_mut_slice();
-        for _ in sy..ey {
+        for _ in start_y..end_y {
             unsafe {
                 slice.get_unchecked_mut(offset..offset + len).fill(color);
             }
