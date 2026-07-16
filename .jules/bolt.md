@@ -240,3 +240,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+**[Parallelizing Independent Particle Simulation]**
+**Learning:** In mathematically chaotic simulations (like Lorenz attractors), updating tens of thousands of particles serially can be a CPU bottleneck. Because the next state of each particle only depends on its own current state and the static attractor parameters, we can use `par_iter_mut()` to achieve near-linear speedups on multi-core systems without any locking overhead.
+**Action:** Use `rayon::prelude::*` combined with `.for_each` on a parallel iterator (`par_iter_mut()`) for simulating bulk independent particles.

@@ -988,3 +988,7 @@ harness = false
 [[bench]]
 name = "find_min_max_simd_bench"
 harness = false
+
+[[bench]]
+name = "strange_attractor_bench"
+harness = false
