@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## Spirograph
+**Concept:** Mathematical roulette curves generated via paramaterized epicycloid and hypocycloid simulations.
+**Fate:** Integrated as an experimental visual generator.
+**Lesson:** Using a local 2D line drawing implementation prevents bloating core math modules for experimental viz.

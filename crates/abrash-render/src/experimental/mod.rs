@@ -97,6 +97,7 @@ pub mod sharpen;
 pub mod slitscan;
 pub mod sonar;
 pub mod speed_lines;
+pub mod spirograph;
 pub mod starfield;
 pub mod steganography;
 pub mod swirl;
