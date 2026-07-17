@@ -95,7 +95,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ReflectionParams {
+    /// 3].
     pub camera_pos: [f32; 3],
+    /// F32.
     pub max_distance: f32,
 }
 

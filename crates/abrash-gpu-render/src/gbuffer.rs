@@ -19,8 +19,13 @@ use std::num::NonZeroU64;
 
 /// G-Buffer format constants.
 pub const POSITION_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
+/// `wgpu::TextureFormat::Rgba16Float`
+/// High-precision format used to store XYZ normal vectors and a depth/roughness value.
 pub const NORMAL_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
+/// `wgpu::TextureFormat::Rgba16Float`
 pub const ALBEDO_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+/// `wgpu::TextureFormat::Depth32Float`
+/// Standard depth format ensuring geometry occlusion is handled correctly.
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth24Plus;
 
 /// G-Buffer render targets.

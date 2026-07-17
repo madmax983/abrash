@@ -271,6 +271,7 @@ pub struct RefractionSurface {
 
 impl RefractionSurface {
     #[must_use]
+    /// New.
     pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let size = wgpu::Extent3d {
             width,
@@ -403,6 +404,7 @@ pub struct RefractionOutput {
 
 impl RefractionOutput {
     #[must_use]
+    /// New.
     pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Refraction Output"),
@@ -436,10 +438,15 @@ impl RefractionOutput {
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct RefractionParams {
+    /// 16].
     pub view_proj: [f32; 16],
+    /// 4].
     pub camera_pos: [f32; 4],
+    /// 2].
     pub screen_size: [f32; 2],
+    /// F32.
     pub ior_fallback: f32,
+    /// U32.
     pub max_iterations: u32,
 }
 
@@ -456,6 +463,7 @@ pub struct RefractionResolvePass {
 
 impl RefractionResolvePass {
     #[must_use]
+    /// New.
     pub fn new(device: &wgpu::Device) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Refraction Resolve Shader"),

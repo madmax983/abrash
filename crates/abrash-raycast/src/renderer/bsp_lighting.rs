@@ -21,6 +21,8 @@ pub struct BspTextureCache {
 
 impl BspTextureCache {
     #[must_use]
+    /// New.
+    /// Initializes a new BSP lighting calculator with default ambient levels.
     pub fn new() -> Self {
         // Wall column: 128 texels, all palette index 1
         let wall_column_data = vec![1u8; 128];

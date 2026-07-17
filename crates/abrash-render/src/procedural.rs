@@ -110,6 +110,11 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
 /// ```
 static PLASMA_LUT: std::sync::OnceLock<[u32; 1024]> = std::sync::OnceLock::new();
 
+/// Plasma.
+/// # Errors
+/// Returns an error if the texture creation fails.
+/// # Errors
+/// Returns an error if the dimensions are zero or otherwise invalid, preventing the creation of the underlying buffer.
 pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
     if width == 0 || height == 0 {
         return Err("Texture dimensions must be positive");

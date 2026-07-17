@@ -8,6 +8,7 @@ use crate::framebuffer::Framebuffer;
 /// A struct holding an arbitrary set of ARGB colors.
 #[derive(Debug, Clone)]
 pub struct Palette {
+    /// `Vec<u32>.`
     pub colors: Vec<u32>,
 }
 

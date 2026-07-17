@@ -16,14 +16,23 @@ use rayon::prelude::*;
 /// Configuration parameters for the Boids simulation.
 #[derive(Clone, Debug)]
 pub struct FlockConfig {
+    /// F32.
     pub separation_weight: f32,
+    /// F32.
     pub alignment_weight: f32,
+    /// F32.
     pub cohesion_weight: f32,
+    /// F32.
     pub bound_weight: f32,
+    /// F32.
     pub perception_radius: f32,
+    /// F32.
     pub separation_radius: f32,
+    /// F32.
     pub max_speed: f32,
+    /// F32.
     pub min_speed: f32,
+    /// Vec3.
     pub bounds: Vec3,
 }
 
@@ -46,12 +55,15 @@ impl Default for FlockConfig {
 /// A single simulated entity.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Boid {
+    /// Vec3.
     pub position: Vec3,
+    /// Vec3.
     pub velocity: Vec3,
 }
 
 impl Boid {
     #[must_use]
+    /// New.
     pub const fn new(position: Vec3, velocity: Vec3) -> Self {
         Self { position, velocity }
     }
@@ -59,14 +71,17 @@ impl Boid {
 
 /// A manager for a collection of Boids.
 pub struct Flock {
+    /// `Vec<boid>.`
     pub boids: Vec<Boid>,
     /// Pre-allocated buffer to store the previous state of the flock without per-frame allocations.
     pub old_boids: Vec<Boid>,
+    /// Flockconfig.
     pub config: FlockConfig,
 }
 
 impl Flock {
     #[must_use]
+    /// New.
     pub const fn new(config: FlockConfig) -> Self {
         Self {
             boids: Vec::new(),
@@ -75,6 +90,7 @@ impl Flock {
         }
     }
 
+    /// Add boid.
     pub fn add_boid(&mut self, boid: Boid) {
         self.boids.push(boid);
     }

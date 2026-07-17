@@ -131,21 +131,29 @@ impl TuiWindow {
         })
     }
 
+    /// Returns whether the window is currently open.
+    /// Determines whether the user has closed the window or hit the escape key. Used in the main application loop to know when to gracefully terminate.
     #[must_use]
     pub const fn is_open(&self) -> bool {
         self.is_open
     }
 
+    /// Returns the width of the terminal window in characters.
+    /// The width of the drawing area in logical pixels, mapped to terminal cells.
     #[must_use]
     pub const fn width(&self) -> u32 {
         self.width
     }
 
+    /// Returns the height of the terminal window in characters.
+    /// The height of the drawing area in logical pixels.
     #[must_use]
     pub const fn height(&self) -> u32 {
         self.height
     }
 
+    /// Polls for window events, such as keyboard input or resize events.
+    /// Collects and clears all pending input events (like keystrokes or terminal resizing) since the last frame. Non-blocking.
     pub fn poll_events(&mut self) -> Vec<Event> {
         self.frame_start = Instant::now();
         let mut events = Vec::new();
@@ -169,6 +177,8 @@ impl TuiWindow {
         events
     }
 
+    /// Renders the given framebuffer to the terminal window.
+    /// Flushes the software framebuffer to the terminal UI, mapping RGB pixel data to ANSI colors and half-block characters.
     pub fn blit_framebuffer(&mut self, framebuffer: &Framebuffer) {
         self.frame_count += 1;
         self.frames_since_update += 1;

@@ -114,13 +114,16 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 #[repr(C)]
 #[derive(bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GpuVertex {
+    /// 3].
     pub position: [f32; 3],
+    /// 3].
     pub color: [f32; 3],
 }
 
 /// A single triangle for GPU rasterization.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GpuTriangle {
+    /// 3].
     pub vertices: [GpuVertex; 3],
 }
 
@@ -128,21 +131,37 @@ pub struct GpuTriangle {
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct GpuDemoConfig {
+    /// String.
     pub title: String,
+    /// U32.
     pub width: u32,
+    /// U32.
     pub height: u32,
+    /// Bool.
     pub enable_keyboard_input: bool,
+    /// Bool.
     pub enable_mouse_input: bool,
+    /// Bool.
     pub auto_rotate: bool,
+    /// F32.
     pub rotation_speed: f32,
+    /// F32.
     pub key_rotation_speed: f32,
+    /// F32.
     pub key_zoom_speed: f32,
+    /// F32.
     pub mouse_sensitivity: f32,
+    /// F32.
     pub initial_yaw: f32,
+    /// F32.
     pub initial_pitch: f32,
+    /// F32.
     pub initial_distance: f32,
+    /// F32.
     pub min_distance: f32,
+    /// F32.
     pub max_distance: f32,
+    /// 4].
     pub clear_color: [f64; 4],
 }
 
@@ -191,6 +210,7 @@ pub struct GpuInteractionController {
 #[cfg(feature = "windowed")]
 impl GpuInteractionController {
     #[must_use]
+    /// New.
     pub const fn new(config: &GpuDemoConfig) -> Self {
         Self {
             yaw: config.initial_yaw,
@@ -209,40 +229,49 @@ impl GpuInteractionController {
     }
 
     #[must_use]
+    /// Yaw radians.
     pub const fn yaw_radians(&self) -> f32 {
         self.yaw
     }
 
     #[must_use]
+    /// Pitch radians.
     pub const fn pitch_radians(&self) -> f32 {
         self.pitch
     }
 
     #[must_use]
+    /// Distance.
     pub const fn distance(&self) -> f32 {
         self.distance
     }
 
+    /// Set move left.
     pub const fn set_move_left(&mut self, pressed: bool) {
         self.move_left = pressed;
     }
 
+    /// Set move right.
     pub const fn set_move_right(&mut self, pressed: bool) {
         self.move_right = pressed;
     }
 
+    /// Set move up.
     pub const fn set_move_up(&mut self, pressed: bool) {
         self.move_up = pressed;
     }
 
+    /// Set move down.
     pub const fn set_move_down(&mut self, pressed: bool) {
         self.move_down = pressed;
     }
 
+    /// Adjust zoom.
     pub fn adjust_zoom(&mut self, delta: f32, config: &GpuDemoConfig) {
         self.distance = (self.distance + delta).clamp(config.min_distance, config.max_distance);
     }
 
+    /// Reset.
     pub const fn reset(&mut self, config: &GpuDemoConfig) {
         self.yaw = config.initial_yaw;
         self.pitch = config.initial_pitch;
@@ -251,10 +280,12 @@ impl GpuInteractionController {
             .clamp(config.min_distance, config.max_distance);
     }
 
+    /// Toggle auto rotate.
     pub const fn toggle_auto_rotate(&mut self) {
         self.auto_rotate_enabled = !self.auto_rotate_enabled;
     }
 
+    /// Update.
     pub fn update(&mut self, dt_seconds: f32, config: &GpuDemoConfig) {
         if self.auto_rotate_enabled {
             self.yaw += config.rotation_speed * dt_seconds;
@@ -287,6 +318,7 @@ impl GpuInteractionController {
             .clamp(config.min_distance, config.max_distance);
     }
 
+    /// Apply mouse drag.
     pub fn apply_mouse_drag(&mut self, dx: f32, dy: f32, config: &GpuDemoConfig) {
         self.yaw += dx * config.mouse_sensitivity;
         self.pitch -= dy * config.mouse_sensitivity;
@@ -294,6 +326,7 @@ impl GpuInteractionController {
     }
 
     #[cfg(feature = "windowed")]
+    /// Handle window event.
     pub fn handle_window_event(&mut self, event: &WindowEvent, config: &GpuDemoConfig) {
         match event {
             WindowEvent::KeyboardInput { event, .. } if config.enable_keyboard_input => {
@@ -351,10 +384,28 @@ impl GpuInteractionController {
 /// Validation errors for indexed triangle meshes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MeshValidationError {
+    /// Emptyvertices.
     EmptyVertices,
+    /// Emptyindices.
     EmptyIndices,
-    IndexCountNotMultipleOf3 { index_count: usize },
-    IndexOutOfBounds { index: u16, vertex_count: usize },
+    /// }.
+    /// }.
+    /// }.
+    IndexCountNotMultipleOf3 {
+        /// the index count
+        index_count: usize,
+    },
+    /// }.
+    /// }.
+    /// }.
+    /// }.
+    /// }.
+    IndexOutOfBounds {
+        /// index
+        index: u16,
+        /// vertex count
+        vertex_count: usize,
+    },
 }
 
 impl fmt::Display for MeshValidationError {
@@ -929,13 +980,21 @@ pub fn run_gpu_cube_with_config(config: GpuDemoConfig) -> Result<(), String> {
 /// Configuration for offscreen GPU renderer benchmarks.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GpuOffscreenBenchConfig {
+    /// U32.
     pub width: u32,
+    /// U32.
     pub height: u32,
+    /// F32.
     pub initial_yaw: f32,
+    /// F32.
     pub initial_pitch: f32,
+    /// F32.
     pub initial_distance: f32,
+    /// F32.
     pub rotation_speed: f32,
+    /// U32.
     pub draw_repeats: u32,
+    /// 4].
     pub clear_color: [f64; 4],
 }
 

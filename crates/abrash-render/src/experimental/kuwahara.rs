@@ -133,6 +133,7 @@ fn process_kuwahara_region(
     }
 }
 
+/// Apply kuwahara.
 pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
     if radius <= 0 {
         return;

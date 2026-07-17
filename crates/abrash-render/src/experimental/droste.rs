@@ -21,6 +21,7 @@ pub struct DrosteConfig {
     pub scale: f32,
     /// Offset of the inner picture relative to the center, normalized (e.g., (0.0, 0.0) is centered).
     pub offset_x: f32,
+    /// F32.
     pub offset_y: f32,
 }
 

@@ -53,6 +53,8 @@ impl<T: Animatable + Send + Sync> Sequence<T> {
 
 impl<T: Animatable + Send + Sync> Sequence<T> {
     #[must_use]
+    /// Evaluate.
+    /// Finds the active sub-animation based on the global phase, localizes the phase for that specific track, and returns the evaluated sample.
     pub fn evaluate(&self, phase: f32) -> Sample<T> {
         let phase = phase.clamp(0.0, 1.0);
 
@@ -74,6 +76,8 @@ impl<T: Animatable + Send + Sync> Sequence<T> {
     }
 
     #[must_use]
+    /// Natural duration.
+    /// Returns the total duration of the sequence, which is the sum of all its contained tracks.
     pub const fn natural_duration(&self) -> f32 {
         self.total_duration
     }

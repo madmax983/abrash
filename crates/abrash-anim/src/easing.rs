@@ -3,9 +3,17 @@
 /// Standard easing curves.
 #[derive(Debug, Clone, Copy)]
 pub enum Easing {
+    /// Linear.
+    /// Progresses at a constant speed, with no acceleration or deceleration.
     Linear,
+    /// Easein.
+    /// Starts slowly and accelerates towards the end of the animation.
     EaseIn,
+    /// Easeout.
+    /// Starts quickly and decelerates to a stop at the end.
     EaseOut,
+    /// Easeinout.
+    /// Accelerates halfway through the animation, then decelerates to a stop.
     EaseInOut,
     /// Cubic Bezier curve with control points (x1, y1, x2, y2).
     CubicBezier(f32, f32, f32, f32),

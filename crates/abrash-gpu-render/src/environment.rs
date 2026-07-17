@@ -50,6 +50,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct SkyboxUniforms {
+    /// 16].
     pub inv_view_proj: [f32; 16],
 }
 

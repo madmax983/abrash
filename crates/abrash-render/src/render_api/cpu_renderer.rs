@@ -439,6 +439,7 @@ impl CpuRenderer {
     }
 
     #[allow(clippy::missing_errors_doc)]
+    /// Create texture.
     pub fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, RenderError> {
         Ok(to_texture_handle(self.textures.insert(texture.clone())))
     }

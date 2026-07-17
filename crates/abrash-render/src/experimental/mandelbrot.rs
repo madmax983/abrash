@@ -6,9 +6,13 @@ use rayon::prelude::*;
 
 /// Configuration for rendering the Mandelbrot set.
 pub struct MandelbrotConfig {
+    /// F64.
     pub center_x: f64,
+    /// F64.
     pub center_y: f64,
+    /// F64.
     pub zoom: f64,
+    /// U32.
     pub max_iterations: u32,
 }
 

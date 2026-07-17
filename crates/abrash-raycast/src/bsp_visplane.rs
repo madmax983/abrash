@@ -20,10 +20,20 @@ const UNUSED_BOTTOM: i32 = i32::MIN;
 /// `i32::MIN` for bottom).
 #[derive(Clone, Debug)]
 pub struct Visplane {
+    /// I16.
+    /// The vertical world-space height of the flat plane (e.g., floor or ceiling altitude).
     pub height: i16,
+    /// U16.
+    /// The texture ID applied to this visplane. Visplanes with identical heights and textures are merged to save rendering time.
     pub texture: u16,
+    /// U16.
+    /// The brightness of the sector containing this plane, used for shading calculations.
     pub light_level: u16,
+    /// I32.
+    /// The leftmost screen-space horizontal coordinate where this plane is visible.
     pub min_x: i32,
+    /// I32.
+    /// The rightmost screen-space horizontal coordinate where this plane is visible.
     pub max_x: i32,
     top: Vec<i32>,
     bottom: Vec<i32>,

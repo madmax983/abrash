@@ -20,9 +20,13 @@ pub const fn aligned_bytes_per_row(width: u32) -> u32 {
 /// Configuration for a capture target.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaptureConfig {
+    /// U32.
     pub width: u32,
+    /// U32.
     pub height: u32,
+    /// U32.
     pub padded_bytes_per_row: u32,
+    /// U32.
     pub unpadded_bytes_per_row: u32,
 }
 
