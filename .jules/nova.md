@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Wavefront OBJ Exporter]
+**Concept:** A procedural feature to export meshes to the common Wavefront `.obj` format directly from the `Mesh` struct. It serializes vertices, UVs, normals, and indices into the text-based format.
+**Fate:** Implemented
+**Lesson:** Iterating over vertices, UVs, and normals and converting them using standard Rust string formatting (`std::fmt::Write`) is relatively fast. Important detail: OBJ files use 1-based indexing for faces, requiring `idx + 1` mappings.

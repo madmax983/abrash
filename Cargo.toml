@@ -20,7 +20,7 @@ description = "Host/demo facade crate for the Abrash headless software rasterize
 
 [features]
 default = ["backend-winit"]
-nova = ["abrash-render/nova"]
+nova = ["abrash-render/nova", "abrash-core/nova"]
 simd = []
 parallel = ["abrash-render/parallel", "abrash-core/parallel", "dep:rayon"]
 backend-winit = ["dep:winit", "dep:softbuffer"]
