@@ -147,24 +147,46 @@ pub fn smooth_chroma_key(
     #[cfg(feature = "parallel")]
     {
         use rayon::prelude::*;
+        let threshold_sq = threshold * threshold;
+        let tf_sq = (threshold + feather) * (threshold + feather);
         fg_pixels
             .par_chunks_exact_mut(fg_stride)
             .zip(bg_pixels.par_chunks_exact(bg_stride))
             .take(height)
             .for_each(|(fg_row, bg_row)| {
                 process_smooth_row(
-                    fg_row, bg_row, width, key_r, key_g, key_b, threshold, feather,
+                    fg_row,
+                    bg_row,
+                    width,
+                    key_r,
+                    key_g,
+                    key_b,
+                    threshold,
+                    feather,
+                    threshold_sq,
+                    tf_sq,
                 );
             });
     }
 
     #[cfg(not(feature = "parallel"))]
     {
+        let threshold_sq = threshold * threshold;
+        let tf_sq = (threshold + feather) * (threshold + feather);
         for y in 0..height {
             let fg_row = &mut fg_pixels[y * fg_stride..(y + 1) * fg_stride];
             let bg_row = &bg_pixels[y * bg_stride..(y + 1) * bg_stride];
             process_smooth_row(
-                fg_row, bg_row, width, key_r, key_g, key_b, threshold, feather,
+                fg_row,
+                bg_row,
+                width,
+                key_r,
+                key_g,
+                key_b,
+                threshold,
+                feather,
+                threshold_sq,
+                tf_sq,
             );
         }
     }
@@ -179,9 +201,11 @@ fn process_smooth_row(
     key_b: f32,
     threshold: f32,
     feather: f32,
+    threshold_sq: f32,
+    tf_sq: f32,
 ) {
     for x in 0..width {
-        let fg_pixel = fg_row[x];
+        let fg_pixel = unsafe { *fg_row.get_unchecked(x) };
         let fg_a = fg_pixel & 0xFF00_0000;
         let fg_r = ((fg_pixel >> 16) & 0xFF) as f32;
         let fg_g = ((fg_pixel >> 8) & 0xFF) as f32;
@@ -192,16 +216,17 @@ fn process_smooth_row(
         let db = fg_b - key_b;
 
         // Euclidean distance in RGB space
-        let dist = (dr * dr + dg * dg + db * db).sqrt();
+        let dist_sq = dr * dr + dg * dg + db * db;
 
-        if dist <= threshold {
-            fg_row[x] = bg_row[x];
-        } else if feather > 0.0 && dist < threshold + feather {
+        if dist_sq <= threshold_sq {
+            unsafe { *fg_row.get_unchecked_mut(x) = *bg_row.get_unchecked(x) };
+        } else if feather > 0.0 && dist_sq < tf_sq {
+            let dist = dist_sq.sqrt();
             // Calculate alpha for blending (0.0 = fully bg, 1.0 = fully fg)
             let alpha = (dist - threshold) / feather;
             let inv_alpha = 1.0 - alpha;
 
-            let bg_pixel = bg_row[x];
+            let bg_pixel = unsafe { *bg_row.get_unchecked(x) };
             let bg_r = ((bg_pixel >> 16) & 0xFF) as f32;
             let bg_g = ((bg_pixel >> 8) & 0xFF) as f32;
             let bg_b = (bg_pixel & 0xFF) as f32;
@@ -210,7 +235,7 @@ fn process_smooth_row(
             let out_g = (fg_g * alpha + bg_g * inv_alpha) as u32;
             let out_b = (fg_b * alpha + bg_b * inv_alpha) as u32;
 
-            fg_row[x] = fg_a | (out_r << 16) | (out_g << 8) | out_b;
+            unsafe { *fg_row.get_unchecked_mut(x) = fg_a | (out_r << 16) | (out_g << 8) | out_b };
         }
     }
 }
