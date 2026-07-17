@@ -34,6 +34,7 @@ pub mod boids;
 pub mod brickify;
 pub mod fractal;
 
+pub mod attractor;
 pub mod blueprint;
 pub mod cel_shade;
 pub mod chroma_key;

@@ -988,3 +988,13 @@ harness = false
 [[bench]]
 name = "find_min_max_simd_bench"
 harness = false
+
+[[bench]]
+name = "attractor_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "attractor_demo"
+path = "examples/attractor_demo.rs"
+required-features = ["nova"]
