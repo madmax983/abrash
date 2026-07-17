@@ -114,6 +114,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CompositionParams {
+    /// U32.
     pub debug_mode: u32,
     pub(crate) _pad: [u32; 3],
 }

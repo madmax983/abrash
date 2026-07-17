@@ -43,14 +43,19 @@ impl Default for MetaballsConfig {
 /// A single metaball entity.
 #[derive(Debug, Clone)]
 pub struct Metaball {
+    /// Vec2.
     pub position: Vec2,
+    /// Vec2.
     pub velocity: Vec2,
+    /// F32.
     pub size: f32,
 }
 
 /// State for the Metaballs simulation.
 pub struct Metaballs {
+    /// Metaballsconfig.
     pub config: MetaballsConfig,
+    /// `Vec<metaball>.`
     pub balls: Vec<Metaball>,
     initialized: bool,
 }
@@ -63,6 +68,7 @@ impl Default for Metaballs {
 
 impl Metaballs {
     #[must_use]
+    /// New.
     pub const fn new(config: MetaballsConfig) -> Self {
         Self {
             config,

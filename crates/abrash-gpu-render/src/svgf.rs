@@ -116,6 +116,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct AtrousParams {
+    /// I32.
     pub step_size: i32,
     pub(crate) _pad: [i32; 3],
 }

@@ -126,8 +126,11 @@ unsafe fn gather_vec3s_avx(
 /// A spring connecting two vertices.
 #[derive(Debug, Clone, Copy)]
 pub struct Spring {
+    /// Usize.
     pub index_a: usize,
+    /// Usize.
     pub index_b: usize,
+    /// F32.
     pub rest_length: f32,
 }
 

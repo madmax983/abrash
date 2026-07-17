@@ -72,7 +72,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct RtShadowLightData {
+    /// 3].
     pub direction: [f32; 3],
+    /// F32.
     pub max_distance: f32,
 }
 

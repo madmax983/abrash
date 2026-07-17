@@ -13,26 +13,43 @@ use crate::zbuffer::ZBuffer;
 /// Supported SDF Primitives.
 #[derive(Clone, Copy, Debug)]
 pub enum SdfPrimitive {
+    /// .
     Sphere {
+        /// F32.
         radius: f32,
+        /// Vec3.
         center: Vec3,
     },
+    /// .
     Box {
+        /// Vec3.
         size: Vec3,
+        /// Vec3.
         center: Vec3,
     },
+    /// .
     Torus {
+        /// F32.
         major_radius: f32,
+        /// F32.
         minor_radius: f32,
+        /// Vec3.
         center: Vec3,
     },
+    /// .
     Plane {
+        /// Vec3.
         normal: Vec3,
+        /// F32.
         distance: f32,
     },
+    /// .
     Capsule {
+        /// Vec3.
         start: Vec3,
+        /// Vec3.
         end: Vec3,
+        /// F32.
         radius: f32,
     },
 }
@@ -40,7 +57,9 @@ pub enum SdfPrimitive {
 /// An object in the SDF scene.
 #[derive(Clone, Copy, Debug)]
 pub struct SdfObject {
+    /// Sdfprimitive.
     pub primitive: SdfPrimitive,
+    /// U32.
     pub color: u32,
 }
 
@@ -87,6 +106,7 @@ fn vec3_max(v: Vec3, val: f32) -> Vec3 {
 
 /// A scene containing SDF objects.
 pub struct SdfScene {
+    /// `Vec<sdfobject>.`
     pub objects: Vec<SdfObject>,
 }
 
@@ -98,12 +118,14 @@ impl Default for SdfScene {
 
 impl SdfScene {
     #[must_use]
+    /// New.
     pub const fn new() -> Self {
         Self {
             objects: Vec::new(),
         }
     }
 
+    /// Add.
     pub fn add(&mut self, object: SdfObject) {
         self.objects.push(object);
     }

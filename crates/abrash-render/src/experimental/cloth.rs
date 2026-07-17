@@ -8,26 +8,38 @@ use crate::mesh::Mesh;
 /// A single particle in the cloth grid.
 #[derive(Clone, Copy, Debug)]
 pub struct Particle {
+    /// Vec3.
     pub pos: Vec3,
+    /// Vec3.
     pub old_pos: Vec3,
+    /// Vec3.
     pub acc: Vec3,
+    /// Bool.
     pub pinned: bool,
+    /// Vec2.
     pub uv: Vec2,
 }
 
 /// A structural constraint between two particles.
 #[derive(Clone, Copy, Debug)]
 pub struct Constraint {
+    /// Usize.
     pub p1: usize,
+    /// Usize.
     pub p2: usize,
+    /// F32.
     pub rest_length: f32,
 }
 
 /// A simulatable cloth object.
 pub struct Cloth {
+    /// `Vec<particle>.`
     pub particles: Vec<Particle>,
+    /// `Vec<constraint>.`
     pub constraints: Vec<Constraint>,
+    /// Usize.
     pub width: usize,
+    /// Usize.
     pub height: usize,
     /// Pre-calculated triangle indices for mesh generation.
     pub indices: Vec<[usize; 3]>,

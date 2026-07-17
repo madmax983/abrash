@@ -11,7 +11,9 @@ use bytemuck::{Pod, Zeroable};
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct LitVertex {
+    /// 3].
     pub position: [f32; 3],
+    /// 3].
     pub normal: [f32; 3],
 }
 
@@ -33,8 +35,11 @@ impl LitVertex {
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct TexturedVertex {
+    /// 3].
     pub position: [f32; 3],
+    /// 3].
     pub normal: [f32; 3],
+    /// 2].
     pub uv: [f32; 2],
 }
 
@@ -63,8 +68,11 @@ pub const MAX_LIGHTS: usize = 8;
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct FrameUniforms {
+    /// 16].
     pub view_proj: [f32; 16],
+    /// 4].
     pub camera_pos: [f32; 4],
+    /// U32.
     pub light_count: u32,
     pub(crate) _pad: [u32; 3],
 }
@@ -73,10 +81,15 @@ pub struct FrameUniforms {
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct GpuLightData {
+    /// 3].
     pub position_or_direction: [f32; 3],
+    /// U32.
     pub light_type: u32,
+    /// 3].
     pub color: [f32; 3],
+    /// F32.
     pub intensity: f32,
+    /// F32.
     pub radius: f32,
     pub(crate) _pad: [f32; 3],
 }
@@ -85,16 +98,23 @@ pub struct GpuLightData {
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct DrawUniforms {
+    /// 16].
     pub model: [f32; 16],
+    /// 4].
     pub color: [f32; 4],
+    /// F32.
     pub shininess: f32,
+    /// F32.
     pub specular_strength: f32,
+    /// F32.
     pub metallic: f32,
+    /// F32.
     pub roughness: f32,
 }
 
 impl DrawUniforms {
     #[must_use]
+    /// New.
     pub fn new(model: &Mat4, argb: u32, shininess: f32, specular_strength: f32) -> Self {
         let flat: [f32; 16] = bytemuck::cast(model.m);
         let a = ((argb >> 24) & 0xFF) as f32 / 255.0;

@@ -9,6 +9,7 @@ use crate::mesh::Mesh;
 
 /// A modifiable volumetric object.
 pub struct Volume {
+    /// Voxelgrid.
     pub grid: VoxelGrid,
 }
 

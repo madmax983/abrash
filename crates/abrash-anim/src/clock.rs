@@ -27,7 +27,11 @@ pub enum ClockEvent {
     /// Normal phase advance within a cycle.
     Normal,
     /// One or more cycles completed this tick.
-    CycleBoundary { completed: u64 },
+    /// }.
+    CycleBoundary {
+        /// the number of completed cycles
+        completed: u64,
+    },
 }
 
 /// A drift-free animation clock.

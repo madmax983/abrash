@@ -12,35 +12,55 @@ use std::cell::RefCell;
 /// The state of a single precipitation drop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DropState {
+    /// Falling.
     Falling,
+    /// Splashing.
     Splashing,
 }
 
 /// A single drop of precipitation.
 #[derive(Debug, Clone, Copy)]
 pub struct Drop {
+    /// F32.
     pub x: f32,
+    /// F32.
     pub y: f32,
+    /// F32.
     pub z: f32,
+    /// F32.
     pub velocity_x: f32,
+    /// F32.
     pub velocity_y: f32,
+    /// Dropstate.
     pub state: DropState,
+    /// Splash.
     pub life: f32, // Frames remaining for splash
+    /// U32.
     pub color: u32,
 }
 
 /// Configuration for the precipitation effect.
 #[derive(Debug, Clone, Copy)]
 pub struct PrecipitationConfig {
+    /// Usize.
     pub max_drops: usize,
+    /// U32.
     pub drop_color: u32,
+    /// U32.
     pub splash_color: u32,
+    /// F32.
     pub gravity: f32,
+    /// F32.
     pub wind: f32,
+    /// F32.
     pub drop_speed_min: f32,
+    /// F32.
     pub drop_speed_max: f32,
+    /// F32.
     pub z_min: f32,
+    /// F32.
     pub z_max: f32,
+    /// F32.
     pub splash_duration: f32,
 }
 
@@ -63,7 +83,9 @@ impl Default for PrecipitationConfig {
 
 /// The state of the precipitation simulation.
 pub struct PrecipitationState {
+    /// `Vec<drop>.`
     pub drops: Vec<Drop>,
+    /// Xorshift32.
     pub rng: XorShift32,
 }
 

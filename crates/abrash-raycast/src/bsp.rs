@@ -53,7 +53,11 @@ pub struct BspSector {
 /// The raycaster calls [`traverse_front_to_back`](BspMapData::traverse_front_to_back)
 /// to visit subsectors in painter's-algorithm order.
 pub struct BspMapData {
+    /// Bspsector.
+    /// The BSP sector associated with this leaf node, containing rendering properties like floor/ceiling height and light levels.
     pub sector: BspSector,
+    /// `Vec<bspseg>`.
+    /// The line segments (walls) contained within this sub-sector. Used during the recursive tree traversal to render walls back-to-front.
     pub segs: Vec<BspSeg>,
 }
 
