@@ -348,7 +348,6 @@ mod tests {
         assert_eq!(pool.get(h), Some(&"hello world".to_string()));
     }
 
-
     #[test]
     fn test_pool_get_mut_vacant() {
         let mut pool: ResourcePool<i32> = ResourcePool::new();
