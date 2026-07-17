@@ -240,3 +240,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+
+**2025-05-18 - Optimize clear_rect bounds math**
+**Learning:** When validating rectangular coordinate bounds, using `saturating_add_unsigned()` and `.clamp()` safely prevents integer overflow panics and noticeably improves execution efficiency over intermediate `i64` casts.
+**Action:** Replaced `i64` casts with `saturating_add_unsigned` and `.clamp` in `Framebuffer::clear_rect` and `ZBuffer::clear_rect`.
