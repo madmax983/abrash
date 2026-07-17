@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Strange Attractor Simulator]
+**Concept:** A mathematical simulation that computes and draws the chaotic movement of particles through strange attractors like Lorenz and Thomas over time.
+**Fate:** Implemented
+**Lesson:** Batching simulation steps inside a single function call allows the compiler to unroll or autovectorize loops per particle, while utilizing Rayon's `par_iter_mut()` distributes those particle iterations across threads, yielding massive speedups with zero locking overhead for stateless particle systems.
