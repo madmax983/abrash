@@ -1,0 +1,3219 @@
+   Compiling abrash v0.1.0 (/app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 32s
+     Running unittests src/lib.rs (target/debug/deps/abrash-0fd624363e38abe2)
+
+running 12 tests
+test platform::framebuffer_widget::tests::color_unpacking_pure_red ... ok
+test platform::framebuffer_widget::tests::color_unpacking_arbitrary_value ... ok
+test platform::framebuffer_widget::tests::color_unpacking_pure_green ... ok
+test platform::framebuffer_widget::tests::color_unpacking_pure_blue ... ok
+test platform::framebuffer_widget::tests::renders_known_color_pattern ... ok
+test platform::framebuffer_widget::tests::single_pixel_framebuffer ... ok
+test platform::framebuffer_widget::tests::scaling_large_framebuffer_to_small_area ... ok
+test platform::winit::tests::test_argb_to_softbuffer_pixel ... ok
+test platform::winit::tests::test_argb_to_softbuffer_ignores_alpha ... ok
+test platform::framebuffer_widget::tests::zero_size_area_is_noop ... ok
+test platform::winit::tests::test_frame_clock_dt_is_non_negative ... ok
+test platform::winit::tests::test_window_host_config_default ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/abrash-5c8bdafff2afd7b7)
+
+running 5 tests
+test tests::test_demo_command_preserves_nova_feature_in_tui_mode ... ok
+test tests::test_demo_command_uses_backend_tui_when_requested_for_cpu ... ok
+test tests::test_demo_command_keeps_gpu_render_feature_in_tui_mode ... ok
+test tests::test_demo_command_uses_default_features_for_cpu ... ok
+test tests::test_args_accepts_tui_flag ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests benches/run_film_grain.rs (target/debug/deps/run_film_grain-502e77bc0efd4df7)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests benches/simd_profiling.rs (target/debug/deps/simd_profiling-55e99b7c3267ce7c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/alpha_discontinuity.rs (target/debug/deps/alpha_discontinuity-2fdf48b5f4b9386a)
+
+running 1 test
+test test_alpha_discontinuity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bilinear_simd_test.rs (target/debug/deps/bilinear_simd_test-3460f6cfe83fabca)
+
+running 1 test
+test test_bilinear_scanline_output ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bloom_test.rs (target/debug/deps/bloom_test-9a81b77045090305)
+
+running 1 test
+test test_apply_bloom_effect ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/chromatic_aberration.rs (target/debug/deps/chromatic_aberration-8d2318406ea5ef44)
+
+running 2 tests
+test test_chromatic_aberration_boundary ... ok
+test test_chromatic_aberration_shift ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/clipping_3d_tests.rs (target/debug/deps/clipping_3d_tests-86e4c144b751a16a)
+
+running 2 tests
+test test_triangle_fully_behind_camera ... ok
+test test_triangle_straddling_near_plane ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/color_util_tests.rs (target/debug/deps/color_util_tests-d339a9303f22a2ca)
+
+running 1 test
+test test_color_to_u32 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/crosshatch_tests.rs (target/debug/deps/crosshatch_tests-e59b2ed078379f09)
+
+running 1 test
+test test_apply_crosshatch_basic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/crt_test.rs (target/debug/deps/crt_test-97568a66a2a818bd)
+
+running 1 test
+test test_apply_crt_distortion ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/emboss_tests.rs (target/debug/deps/emboss_tests-cf66705d81c5df88)
+
+running 1 test
+test test_apply_emboss ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/framebuffer_tests.rs (target/debug/deps/framebuffer_tests-e05ceb0e071f3ac6)
+
+running 7 tests
+test test_framebuffer_bounds_checking ... ok
+test test_framebuffer_clear ... ok
+test test_framebuffer_clear_rect ... ok
+test test_framebuffer_set_pixel ... ok
+test test_framebuffer_initialized_to_black ... ok
+test test_framebuffer_set_pixel_unchecked ... ok
+test test_framebuffer_new ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/frustum_culling_test.rs (target/debug/deps/frustum_culling_test-29a8233063b95aee)
+
+running 2 tests
+test test_frustum_culling_inside ... ok
+test test_frustum_culling_outside ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fuzz_target.rs (target/debug/deps/fuzz_target-d2683c0b75f34c88)
+
+running 1 test
+test does_not_crash ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.26s
+
+     Running tests/gamma_tests.rs (target/debug/deps/gamma_tests-a11673f3d7ef00c4)
+
+running 2 tests
+test test_gamma_correction_srgb ... ok
+test test_gamma_correction_identity ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/god_rays.rs (target/debug/deps/god_rays-8d56aa0fdd73da52)
+
+running 1 test
+test test_apply_god_rays ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gouraud_interp.rs (target/debug/deps/gouraud_interp-9388f7c30df69592)
+
+running 1 test
+test test_draw_scanline_textured_gouraud_correctness ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gouraud_quad_test.rs (target/debug/deps/gouraud_quad_test-51f20ee9f6e5ff8d)
+
+running 1 test
+test test_gouraud_quad_rendering ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gouraud_tile.rs (target/debug/deps/gouraud_tile-449648774d1faf2d)
+
+running 1 test
+test test_tile_renderer_gouraud_render ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gpu_engine_compare_feature.rs (target/debug/deps/gpu_engine_compare_feature-a6c5d4f2b8044a36)
+
+running 1 test
+test bevy_and_fyrox_dependencies_are_available ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gpu_render_api.rs (target/debug/deps/gpu_render_api-055cb904deb209df)
+
+running 10 tests
+test interaction_controller_clamps_distance ... ok
+test interaction_controller_updates_yaw_from_keyboard ... ok
+test offscreen_benchmark_types_are_exposed ... ok
+test offscreen_benchmark_config_exposes_draw_repeats ... ok
+test run_mesh_demo_is_exposed ... ok
+test validate_demo_config_rejects_invalid_distance_range ... ok
+test validate_demo_config_rejects_zero_dimensions ... ok
+test validate_mesh_accepts_unit_cube ... ok
+test validate_mesh_rejects_non_triangle_index_count ... ok
+test validate_mesh_rejects_out_of_bounds_index ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gpu_render_crate_extraction.rs (target/debug/deps/gpu_render_crate_extraction-24134599414da5bd)
+
+running 1 test
+test gpu_render_crate_is_available_and_reexported ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gpu_render_feature.rs (target/debug/deps/gpu_render_feature-fd9cf5a4cb233e9a)
+
+running 1 test
+test gpu_render_module_is_exposed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/graphics_math_loop.rs (target/debug/deps/graphics_math_loop-e248e91c2d0ba6c4)
+
+running 32 tests
+test aabb_from_center_extents_roundtrips ... ok
+test aabb_queries_cover_common_overlap_cases ... ok
+test aabb_ray_and_sphere_queries_hit_expected_ranges ... ok
+test aabb_union_and_include_point_expand_bounds ... ok
+test frustum_culls_objects_outside ... ok
+test fast_atan2_matches_std_within_tolerance ... ok
+test aabb_transform_matches_corner_sweep ... ok
+test inverse_transform_batch_roundtrips_points ... ok
+test inverse_transform_in_place_roundtrips_world_points ... ok
+test lerp_interpolates_correctly ... ok
+test mat3_inverse_cancels_rotation ... ok
+test mat3_normal_transform_matches_mat4_for_rotation ... ok
+test plane_signed_distance_is_correct ... ok
+test quat_inverse_undoes_rotation ... ok
+test quat_from_mat4_roundtrips_rotation ... ok
+test quat_nlerp_uses_shortest_arc ... ok
+test ray_at_returns_correct_point ... ok
+test ray_sphere_hit_nearest_root ... ok
+test ray_triangle_hit_at_origin ... ok
+test remap_maps_range_correctly ... ok
+test ray_aabb_intersection_roundtrips ... ok
+test transform_batch_path_matches_scalar_path ... ok
+test transform_in_place_paths_match_allocating_paths ... ok
+test smoothstep_is_smooth_and_bounded ... ok
+test transform_inverse_transform_point_roundtrips_points ... ok
+test transform_then_matches_matrix_composition ... ok
+test vec4_dot_and_length ... ok
+test transform_lerp_blends_all_components ... ok
+test transform_transform_point_matches_matrix_path ... ok
+test vec4_normalize_produces_unit_vector ... ok
+test vec4_xyz_extracts_vec3 ... ok
+test transform_vector_batch_matches_scalar_path ... ok
+
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/halftone_tests.rs (target/debug/deps/halftone_tests-8f60d077cc827c05)
+
+running 1 test
+test test_halftone_filter ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc.rs (target/debug/deps/havoc-dc080c171f7250cc)
+
+running 4 tests
+test fuzz_texture_sampling ... ok
+test fuzz_clipping_extremes ... ok
+test fuzz_obj_loader ... ok
+test fuzz_mat4_transform_points ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests/havoc_api_validation.rs (target/debug/deps/havoc_api_validation-112f193465605085)
+
+running 1 test
+test test_box_blur_api_validation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_arboretum.rs (target/debug/deps/havoc_arboretum-bf0c02a38997c753)
+
+running 1 test
+test test_arboretum_panic_bytes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_arboretum_oom.rs (target/debug/deps/havoc_arboretum_oom-8ab72672b420ab40)
+
+running 1 test
+test test_havoc_arboretum_oom ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.10s
+
+     Running tests/havoc_ascii_overflow.rs (target/debug/deps/havoc_ascii_overflow-ec776ab91e8d174f)
+
+running 1 test
+test havoc_ascii_converter_integer_overflow ... ignored, 👺 Havoc: Intentionally tests an Integer Overflow vulnerability leading to OOM/panic. Will SIGKILL runner if run.
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur.rs (target/debug/deps/havoc_box_blur-2b60379d398942c5)
+
+running 1 test
+test test_box_blur_horizontal_large_radius_dos ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_f32.rs (target/debug/deps/havoc_box_blur_f32-03d3abfa8acb6812)
+
+running 1 test
+test test_box_blur_f32_vertical_scalar_oob ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_fuzz.rs (target/debug/deps/havoc_box_blur_fuzz-2947baea07171347)
+
+running 1 test
+test fuzz_box_blur_horizontal ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/havoc_box_blur_fuzz2.rs (target/debug/deps/havoc_box_blur_fuzz2-24d4495c68c6b72f)
+
+running 1 test
+test fuzz_box_blur_vertical ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/havoc_box_blur_int_overflow.rs (target/debug/deps/havoc_box_blur_int_overflow-8748c2d232ab8fbe)
+
+running 1 test
+test test_box_blur_int_overflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_int_overflow2.rs (target/debug/deps/havoc_box_blur_int_overflow2-84383aaae95aa2fe)
+
+running 1 test
+test test_box_blur_int_overflow2 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_int_overflow3.rs (target/debug/deps/havoc_box_blur_int_overflow3-d1dd12a79fdd8268)
+
+running 1 test
+test test_box_blur_vertical_int_overflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_int_overflow4.rs (target/debug/deps/havoc_box_blur_int_overflow4-f050fbc8ad41b97c)
+
+running 1 test
+test test_box_blur_vertical_avx2_int_overflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_loop.rs (target/debug/deps/havoc_box_blur_loop-0c47af93fb6f83de)
+
+running 2 tests
+test test_box_blur_vertical_large_radius ... ok
+test test_box_blur_horizontal_large_radius ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_oom.rs (target/debug/deps/havoc_box_blur_oom-f258f21ccd401ef1)
+
+running 1 test
+test test_box_blur_oom ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_panic.rs (target/debug/deps/havoc_box_blur_panic-25d2e49aa2ef4dc3)
+
+running 1 test
+test test_box_blur_zero_width_height ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_box_blur_panic2.rs (target/debug/deps/havoc_box_blur_panic2-4187616928200fd5)
+
+running 1 test
+test test_box_blur_zero_width ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_chromatic.rs (target/debug/deps/havoc_chromatic-31c843df4d6e3d91)
+
+running 1 test
+test test_chromatic_aberration_out_of_bounds ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_chromatic_avx.rs (target/debug/deps/havoc_chromatic_avx-50968fe0e72c5632)
+
+running 1 test
+test test_chromatic_aberration_simd_bounds ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_circle_overflow.rs (target/debug/deps/havoc_circle_overflow-087b478f1316db8c)
+
+running 2 tests
+test test_draw_circle_overflow ... ok
+test test_fill_circle_overflow ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_clipping_torture.rs (target/debug/deps/havoc_clipping_torture-03fcd5f94ce5ff59)
+
+running 4 tests
+test test_clip_triangle_inf_panic ... ok
+test test_clip_triangle_nan_panic ... ok
+test test_clip_triangle_tricky_values ... ok
+test test_clip_triangle_torture ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/havoc_clock_exploit.rs (target/debug/deps/havoc_clock_exploit-580e6980af1e3eef)
+
+running 2 tests
+test havoc_clock_trigger ... ok
+test fuzz_clock_extreme_durations ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/havoc_draw_line_3d.rs (target/debug/deps/havoc_draw_line_3d-750b085f302b1c7a)
+
+running 1 test
+test havoc_test_draw_line_3d_zbuffer_oob - should panic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_exploit.rs (target/debug/deps/havoc_exploit-d967897ebc4ff0ab)
+
+running 3 tests
+test unsound_tile_renderer_parallel - should panic ... ok
+test exploit_tile_renderer_integer_overflow - should panic ... ok
+test fuzz_obj_loader ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/havoc_flat_raster.rs (target/debug/deps/havoc_flat_raster-b8624bd743334a6b)
+
+running 1 test
+test test_triangle_torture ... ignored, 👹 Havoc: Triggering panics in flat triangle rasterizer via f32 extremes
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_jelly_stress_panic.rs (target/debug/deps/havoc_jelly_stress_panic-6cfda0787a800053)
+
+running 1 test
+test test_havoc_jelly_stress_panic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_lsystem.rs (target/debug/deps/havoc_lsystem-a87e7af5adeda4fc)
+
+running 1 test
+test test_lsystem_utf8_corruption ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/havoc_lsystem_oom.rs (target/debug/deps/havoc_lsystem_oom-4f1be40b781b5fb0)
+
+running 1 test
+test havoc_lsystem_oom ... ignored, 👺 Havoc: Intentionally tests an OOM vulnerability. Will SIGKILL runner if run.
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_math_extreme.rs (target/debug/deps/havoc_math_extreme-81c0467c7b5f1075)
+
+running 4 tests
+test test_project_to_screen_extreme ... ok
+test test_project_triangle_to_screen_extreme ... ok
+test test_transform_point_extreme ... ok
+test test_transform_points_batch_extreme ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.28s
+
+     Running tests/havoc_math_props.rs (target/debug/deps/havoc_math_props-9e618bb4b1dbc6c3)
+
+running 3 tests
+test test_vec3_normalize_no_panic ... ok
+test test_project_to_screen_clamping ... ok
+test test_mat4_transform_no_panic ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/havoc_obj.rs (target/debug/deps/havoc_obj-928546d72b3546df)
+
+running 1 test
+test fuzz_load_obj ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/havoc_obj_dos.rs (target/debug/deps/havoc_obj_dos-e1ea7b4d74129c34)
+
+running 1 test
+test test_obj_dos_quadratic_blowup ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/havoc_obj_fuzz.rs (target/debug/deps/havoc_obj_fuzz-7cbc8eafac523374)
+
+running 3 tests
+test fuzz_obj_loader_huge_integers ... ok
+test fuzz_obj_loader_proptest ... ok
+test fuzz_obj_loader_structure ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.85s
+
+     Running tests/havoc_obj_load.rs (target/debug/deps/havoc_obj_load-c9950561c93d36ee)
+
+running 1 test
+test test_obj_load_dos ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_obj_load2.rs (target/debug/deps/havoc_obj_load2-6ea34538a68318ca)
+
+running 1 test
+test test_obj_load_dos_2 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_obj_load3.rs (target/debug/deps/havoc_obj_load3-92b26f3d4c5c783b)
+
+running 1 test
+test test_obj_load_dos_3 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/havoc_obj_load4.rs (target/debug/deps/havoc_obj_load4-32cdd0e1bfb8499e)
+
+running 1 test
+test test_obj_load_dos_4 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.83s
+
+     Running tests/havoc_obj_oom.rs (target/debug/deps/havoc_obj_oom-f67a7953353a472b)
+
+running 1 test
+test test_obj_deduplication_memory_explosion ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/havoc_obj_repro.rs (target/debug/deps/havoc_obj_repro-d681865a32f941a2)
+
+running 3 tests
+test test_havoc_obj_huge_face ... ok
+test test_havoc_obj_huge_input ... ok
+test test_havoc_obj_huge_line ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.87s
+
+     Running tests/havoc_overflow.rs (target/debug/deps/havoc_overflow-e5dc8cee236413e3)
+
+running 2 tests
+test havoc_framebuffer_overflow ... ok
+test havoc_zbuffer_overflow ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_pbr_simd.rs (target/debug/deps/havoc_pbr_simd-6699311715e80bba)
+
+running 1 test
+test test_pbr_simd_fuzz ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/havoc_pixel_sort_proptest.rs (target/debug/deps/havoc_pixel_sort_proptest-f6f471943c18a691)
+
+running 1 test
+test test_pixel_sort_no_panic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/havoc_post_process.rs (target/debug/deps/havoc_post_process-57e5c7dc5ca7ad57)
+
+running 2 tests
+test test_box_blur_horizontal_fuzz ... ok
+test test_box_blur_vertical_fuzz ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 24.97s
+
+     Running tests/havoc_post_process2.rs (target/debug/deps/havoc_post_process2-d44625de1ce6e03a)
+
+running 2 tests
+test test_box_blur_horizontal_large_radius ... ok
+test test_box_blur_vertical_large_radius ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_proptest.rs (target/debug/deps/havoc_proptest-436c0ec635185740)
+
+running 1 test
+test fuzz_load_obj ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests/havoc_radial_blur.rs (target/debug/deps/havoc_radial_blur-72f4bef7de0542ce)
+
+running 2 tests
+test test_apply_radial_blur_extreme_samples ... ok
+test test_apply_radial_blur_swar_equivalence ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_rasterizer.rs (target/debug/deps/havoc_rasterizer-d884accd5ee67cc9)
+
+running 1 test
+test test_havoc_scanline_oob ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_rasterizer_fuzz.rs (target/debug/deps/havoc_rasterizer_fuzz-fbe9b7f1b777582e)
+
+running 1 test
+test fuzz_rasterizer_safety ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running tests/havoc_resolution.rs (target/debug/deps/havoc_resolution-f6a92c53431e5922)
+
+running 1 test
+test test_havoc_resolution_no_overflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_scene_proptest.rs (target/debug/deps/havoc_scene_proptest-018df95809e2e690)
+
+running 1 test
+test test_scene_render_no_panic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running tests/havoc_scene_proptest2.rs (target/debug/deps/havoc_scene_proptest2-eab17f6c297bc115)
+
+running 1 test
+test test_scene_render_fuzz_params ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/havoc_softbody.rs (target/debug/deps/havoc_softbody-20bcff4f2f3acd37)
+
+running 2 tests
+test test_truncated_mesh_resilience ... ok
+test test_havoc_softbody_panic ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_softbody_panic.rs (target/debug/deps/havoc_softbody_panic-acf66630b1b9937d)
+
+running 1 test
+test test_havoc_softbody_panic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_texture_fastpath_exploit.rs (target/debug/deps/havoc_texture_fastpath_exploit-9edc5a04e4bddb79)
+
+running 1 test
+test fuzz_draw_span_nearest_fastpath ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/havoc_texture_invariant.rs (target/debug/deps/havoc_texture_invariant-e236e6631032f5c3)
+
+running 1 test
+test crash_texture_invariant_violation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/havoc_texture_overflow.rs (target/debug/deps/havoc_texture_overflow-fca433ab21de5be4)
+
+running 1 test
+test havoc_texture_integrity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/havoc_texture_panic.rs (target/debug/deps/havoc_texture_panic-30edbb46ff3905a4)
+
+running 2 tests
+test havoc_large_texture_panic_repro ... ok
+test havoc_texture_dimensions_rejected ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/havoc_threading.rs (target/debug/deps/havoc_threading-b37e042fdafcff1d)
+
+running 1 test
+test test_post_process_concurrency ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.69s
+
+     Running tests/havoc_tile_renderer.rs (target/debug/deps/havoc_tile_renderer-4611896014be67c0)
+
+running 2 tests
+test havoc_render_batch_crash_test ... ok
+test prop_render_random_triangles ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.16s
+
+     Running tests/havoc_tile_renderer_fuzz_indices2_proptest.rs (target/debug/deps/havoc_tile_renderer_fuzz_indices2_proptest-52e72394ec91c21b)
+
+running 1 test
+test test_tile_renderer_fuzz_indices ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/havoc_tile_renderer_fuzz_indices_proptest.rs (target/debug/deps/havoc_tile_renderer_fuzz_indices_proptest-2d197839e3d6fad7)
+
+running 1 test
+test test_tile_renderer_fuzz_indices ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/havoc_tile_renderer_panic.rs (target/debug/deps/havoc_tile_renderer_panic-678b34b88dfb5e73)
+
+running 1 test
+test test_tile_renderer_panic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/havoc_tile_renderer_proptest.rs (target/debug/deps/havoc_tile_renderer_proptest-086ef39191851f07)
+
+running 1 test
+test test_tile_renderer_mesh_no_panic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/hiz_integration.rs (target/debug/deps/hiz_integration-fa2ef22ffc51c5d5)
+
+running 5 tests
+test hiz_handles_empty_scene ... ok
+test hiz_culls_occluded_geometry_across_frames ... ok
+test hiz_produces_identical_output ... ok
+test hiz_no_false_negatives ... ok
+test hiz_handles_high_triangle_count ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests/kuwahara_tests.rs (target/debug/deps/kuwahara_tests-2034175cf3061bc2)
+
+running 2 tests
+test test_kuwahara_preserves_solid_color ... ok
+test test_kuwahara_smoothes_noise_preserves_edge ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/layout_check.rs (target/debug/deps/layout_check-296b0b2c5eef7405)
+
+running 5 tests
+test test_bounding_sphere_layout ... ok
+test test_vec3_layout ... ok
+test test_vec4_layout ... ok
+test test_mat4_layout ... ok
+test test_vec2_layout ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/math_extensions.rs (target/debug/deps/math_extensions-98fed9b8494ec529)
+
+running 8 tests
+test tests::test_mat4_transpose_determinant_and_affine_inverse ... ok
+test tests::test_vec2_normalize_or_zero_and_move_towards ... ok
+test tests::test_vec2_new_primitives ... ok
+test tests::test_vec3_additions ... ok
+test tests::test_vec2_projection_cross_angle ... ok
+test tests::test_vec3_distance_and_clamp_abs ... ok
+test tests::test_vec3_normalize_or_zero_and_move_towards ... ok
+test tests::test_vec3_projection_and_angle ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/math_tests.rs (target/debug/deps/math_tests-c90412a4f1de5b56)
+
+running 23 tests
+test test_mat2_rotation ... ok
+test test_mat4_default ... ok
+test test_mat4_identity ... ok
+test test_mat4_inverse ... ok
+test test_mat4_look_at_parallel ... ok
+test test_mat4_perspective ... ok
+test test_mat4_mul_operator ... ok
+test test_mat4_perspective_edge ... ok
+test test_mat4_transform_normal ... ok
+test test_mat4_translation ... ok
+test test_project_triangle_simd_precision ... ok
+test test_rotation_preserves_length ... ok
+test test_vec2_add ... ok
+test test_mat4_scale ... ok
+test test_vec2_new ... ok
+test test_vec2_scale ... ok
+test test_vec2_sub ... ok
+test test_vec3_cross ... ok
+test test_vec3_dot ... ok
+test test_vec3_mul_element_wise ... ok
+test test_vec3_new ... ok
+test test_vec3_normalize_tiny ... ok
+test test_vec3_normalize ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mesh_modifiers_test.rs (target/debug/deps/mesh_modifiers_test-ec8af8c8478726d4)
+
+running 3 tests
+test test_displace_noise_modifier ... ok
+test test_taper_modifier ... ok
+test test_twist_modifier ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mesh_tests.rs (target/debug/deps/mesh_tests-22af7cdb13475687)
+
+running 1 test
+test test_cube_face_normals ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mode7_test.rs (target/debug/deps/mode7_test-68d90e4cbc59e04a)
+
+running 1 test
+test test_mode7_rendering ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/nova_texture.rs (target/debug/deps/nova_texture-57f5237a89f81d29)
+
+running 1 test
+test test_textured_cube_rendering ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/obj_loader_integration.rs (target/debug/deps/obj_loader_integration-8cb8c7a5fac0dbdb)
+
+running 1 test
+test test_load_obj_integration ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/perspective_correction.rs (target/debug/deps/perspective_correction-7ab74c2e6de6345d)
+
+running 1 test
+test test_perspective_distortion ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/phong_shading.rs (target/debug/deps/phong_shading-2641daa635aa8024)
+
+running 2 tests
+test test_phong_shading_compiles_and_runs ... ok
+test test_phong_shading_gradient ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/pixelate_tests.rs (target/debug/deps/pixelate_tests-a0f944cf9d06a6ed)
+
+running 3 tests
+test test_apply_pixelate_no_effect ... ok
+test test_apply_pixelate_edge_case ... ok
+test test_apply_pixelate_basic ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/platform_tests.rs (target/debug/deps/platform_tests-bdfe8025d697dbc4)
+
+running 13 tests
+test event_clone ... ok
+test event_close_can_be_constructed ... ok
+test event_resize_carries_dimensions ... ok
+test event_debug_format ... ok
+test mock_window_backend_blit_framebuffer ... ok
+test mock_window_backend_new ... ok
+test window_app_trait_surface_compiles ... ok
+test mock_window_backend_poll_events ... ok
+test window_error_creation_failed_display ... ok
+test window_error_debug_format ... ok
+test window_error_implements_std_error ... ok
+test window_host_config_default_values ... ok
+test window_error_registration_failed_display ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/point_light_shading.rs (target/debug/deps/point_light_shading-02d9c8b993c7d882)
+
+running 1 test
+test test_point_light_attenuation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/post_process_test.rs (target/debug/deps/post_process_test-03ac8339c8101b34)
+
+running 2 tests
+test test_apply_bloom_no_change ... ok
+test test_apply_bloom_simple ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/procedural_tests.rs (target/debug/deps/procedural_tests-58a7895f88f7c61b)
+
+running 5 tests
+test test_grid_zero_cell_size ... ok
+test test_grid_pattern ... ok
+test test_white_noise ... ok
+test test_plasma ... ok
+test test_xor_pattern ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/proptest_obj.rs (target/debug/deps/proptest_obj-585f8001f430c2c4)
+
+running 2 tests
+test string_length_fuzz ... ok
+test integer_overflow_fuzz ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/radial_blur_tests.rs (target/debug/deps/radial_blur_tests-b9f29e282f187ca3)
+
+running 4 tests
+test test_apply_radial_blur_no_effect ... ok
+test test_apply_radial_blur_basic ... ok
+test test_apply_radial_blur_oob_center ... ok
+test test_apply_radial_blur_fixed_point_rounding ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/rasterizer_3d_tests.rs (target/debug/deps/rasterizer_3d_tests-9d3e5e969d13f52d)
+
+running 4 tests
+test test_fill_triangle_off_screen ... ok
+test test_fill_triangle_flat_basic ... ok
+test test_fill_triangle_lit_custom_lighting ... ok
+test test_fill_triangle_gouraud_basic ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/raytracer_tests.rs (target/debug/deps/raytracer_tests-baf8529312d076a0)
+
+running 2 tests
+test test_ray_aabb_intersection ... ok
+test test_ray_triangle_intersection ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/render_api_integration.rs (target/debug/deps/render_api_integration-03dd9b3d33c3d6d4)
+
+running 1 test
+test test_cpu_renderer_matches_direct_tile_renderer ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/security_exploit.rs (target/debug/deps/security_exploit-74395ac158607802)
+
+running 2 tests
+test tests::test_mismatched_buffers_gouraud - should panic ... ok
+test tests::test_mismatched_buffers_safety - should panic ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/security_limits.rs (target/debug/deps/security_limits-a8b733effc957363)
+
+running 3 tests
+test tests::test_framebuffer_rejects_huge_dimensions ... ok
+test tests::test_zbuffer_rejects_huge_dimensions ... ok
+test tests::test_buffer_size_overflow ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/security_obj_dos.rs (target/debug/deps/security_obj_dos-2c9db1a689b4e637)
+
+running 1 test
+test tests::test_dos_bucket_collision ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/security_obj_loader.rs (target/debug/deps/security_obj_loader-49ade765a45875cd)
+
+running 7 tests
+test test_huge_indices_no_panic ... ok
+test test_non_finite_coordinates_should_fail ... ok
+test test_huge_indices_should_fail ... ok
+test test_negative_indices_should_fail ... ok
+test test_uv_index_zero_should_fail ... ok
+test test_valid_obj ... ok
+test test_vertex_index_zero_should_fail ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/security_scanline_bounds.rs (target/debug/deps/security_scanline_bounds-c60fdbe6b8ffff4d)
+
+running 1 test
+test test_scanlines_handle_out_of_bounds_y_gracefully ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/security_scanline_oob.rs (target/debug/deps/security_scanline_oob-8b5d39426f50d1cc)
+
+running 2 tests
+test test_draw_scanline_textured_perspective_oob ... ok
+test test_draw_scanline_flat_oob ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/security_texture_limit.rs (target/debug/deps/security_texture_limit-f95679737ed4bdff)
+
+running 1 test
+test test_texture_size_limit_i32_overflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/security_texture_overflow.rs (target/debug/deps/security_texture_overflow-29d644447e335325)
+
+running 1 test
+test test_texture_overflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/sentry_clipping_fuzz.rs (target/debug/deps/sentry_clipping_fuzz-cee97ba1f6aa0521)
+
+running 1 test
+test fuzz_clipping ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/sentry_safety.rs (target/debug/deps/sentry_safety-bbefe497ac1d4bdf)
+
+running 5 tests
+test tests::test_look_at_coincident_eye_target ... ok
+test tests::test_clear_rect_overflow ... ok
+test tests::test_framebuffer_new_bounds ... ok
+test tests::test_perspective_matrix_safety ... ok
+test tests::test_trilinear_lod_safety ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/sentry_simd_consistency.rs (target/debug/deps/sentry_simd_consistency-39a27d90ed9b65ec)
+
+running 2 tests
+test fuzz_project_triangle_to_screen ... ok
+test fuzz_transform_points ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/shadow_mapping_test.rs (target/debug/deps/shadow_mapping_test-3f34be7db98bfa04)
+
+running 1 test
+test tests::test_shadow_mapping_scene ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/sharpen_tests.rs (target/debug/deps/sharpen_tests-dff99788241ab166)
+
+running 2 tests
+test test_apply_sharpen_amount_zero ... ok
+test test_apply_sharpen_basic ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/simd_consistency.rs (target/debug/deps/simd_consistency-7930c5eea14e2121)
+
+running 3 tests
+test test_simd_vs_scalar_overflow ... ok
+test test_simd_vs_scalar_underflow ... ok
+test test_project_triangle_consistency ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/simd_correctness.rs (target/debug/deps/simd_correctness-6b3eb0be0c1668bd)
+
+running 1 test
+test test_transform_point_simd_vs_scalar ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/simd_regression.rs (target/debug/deps/simd_regression-6949c7e482d55486)
+
+running 4 tests
+test test_hiz_culling_effectiveness ... ignored, hardware-sensitive perf smoke test; run manually in --release on controlled hardware
+test test_hiz_pyramid_performance_threshold ... ignored, hardware-sensitive perf smoke test; run manually in --release on controlled hardware
+test test_memory_access_efficiency ... ignored, hardware-sensitive perf smoke test; run manually in --release on controlled hardware
+test test_scanline_rasterization_performance ... ignored, hardware-sensitive perf smoke test; run manually in --release on controlled hardware
+
+test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/softbody_havoc.rs (target/debug/deps/softbody_havoc-0733b543422f8b59)
+
+running 1 test
+test test_softbody_invalid_indices_crash ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/softbody_verify.rs (target/debug/deps/softbody_verify-2cd379c5dc1cc8b1)
+
+running 2 tests
+test test_softbody_physics_step ... ok
+test test_softbody_spring_force ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/software_two_level_binning.rs (target/debug/deps/software_two_level_binning-542a4717eead23fb)
+
+running 1 test
+test test_software_two_level_matches_single_level ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/ssao.rs (target/debug/deps/ssao-7d548a0de034df2c)
+
+running 1 test
+test test_apply_ssao_darkens_occluded_pixels ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/test_pbr.rs (target/debug/deps/test_pbr-18eba1d8973f28fa)
+
+running 1 test
+test test_pbr_rasterization ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/texture_filtering.rs (target/debug/deps/texture_filtering-d987d9b7d3ed7af1)
+
+running 1 test
+test test_bilinear_filtering ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/tile_renderer_textured.rs (target/debug/deps/tile_renderer_textured-994caa589a4655e1)
+
+running 1 test
+test test_textured_triangle_rendering ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/transform_layout_check.rs (target/debug/deps/transform_layout_check-89bc53c77171117a)
+
+running 1 test
+test tests::test_vec3_f32_tuple_layout ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/transform_points_test.rs (target/debug/deps/transform_points_test-80ea4ab1f878f7c8)
+
+running 1 test
+test test_transform_points_batch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/transparency.rs (target/debug/deps/transparency-27a43db901a6c1ce)
+
+running 1 test
+test test_transparency_blending ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/trilinear_simd.rs (target/debug/deps/trilinear_simd-bc921faabad7ee5c)
+
+running 1 test
+test test_trilinear_simd_correctness ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/vec3_simd_correctness.rs (target/debug/deps/vec3_simd_correctness-48f9fa4addba3367)
+
+running 2 tests
+test test_vec3_cross_simd ... ok
+test test_vec3_dot_simd ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/verify_backface_culling.rs (target/debug/deps/verify_backface_culling-642cffbdb2215687)
+
+running 1 test
+test test_fill_triangle_textured_culling ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/verify_bilinear.rs (target/debug/deps/verify_bilinear-412e7155ba0475dd)
+
+running 1 test
+test test_bilinear_interpolation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/verify_gouraud.rs (target/debug/deps/verify_gouraud-b39a8544b7645188)
+
+running 1 test
+test test_gouraud_determinism ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/verify_scanlines.rs (target/debug/deps/verify_scanlines-c0e7ef36b5a04353)
+
+running 1 test
+test test_verify_scanlines_correctness ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/verify_scene_render.rs (target/debug/deps/verify_scene_render-a7d1985dc6b8520c)
+
+running 1 test
+test test_scene_render ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/verify_sobel.rs (target/debug/deps/verify_sobel-350e605a1196e0ef)
+
+running 1 test
+test test_apply_sobel_edge_detection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/verify_texture_culling.rs (target/debug/deps/verify_texture_culling-df45114112b3a2cf)
+
+running 1 test
+test verify_texture_culling ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/verify_textured_gouraud.rs (target/debug/deps/verify_textured_gouraud-ea464a2f0fc7e8bf)
+
+running 1 test
+test test_textured_gouraud_rendering ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/verify_textured_gouraud_bilinear.rs (target/debug/deps/verify_textured_gouraud_bilinear-f4682280023654c8)
+
+running 1 test
+test test_textured_gouraud_bilinear_rendering ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/verify_textured_rendering.rs (target/debug/deps/verify_textured_rendering-947b26cd771aa853)
+
+running 1 test
+test verify_textured_rendering_output ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/verify_transparency.rs (target/debug/deps/verify_transparency-66511b823025b04f)
+
+running 1 test
+test test_textured_transparency ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/vignette_test.rs (target/debug/deps/vignette_test-95cb4e2e4e15c20f)
+
+running 1 test
+test test_apply_vignette_darkens_corners ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/volume_test.rs (target/debug/deps/volume_test-c3c25451ddc179f9)
+
+running 3 tests
+test test_mesh_optimization ... ok
+test test_volume_creation_and_modification ... ok
+test test_from_mesh_integration ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/warden_repro.rs (target/debug/deps/warden_repro-30d9aa7573981932)
+
+running 1 test
+test reproduce_project_to_screen_min_int ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/wireframe.rs (target/debug/deps/wireframe-113389aa5c1fa1ff)
+
+running 1 test
+test test_fill_triangle_wireframe_draws_edges ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/zbuffer_tests.rs (target/debug/deps/zbuffer_tests-16390effdab60dac)
+
+running 4 tests
+test test_zbuffer_new ... ok
+test test_zbuffer_test_and_set_unchecked ... ok
+test test_zbuffer_test_and_set ... ok
+test test_zbuffer_clear ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running benches/arboretum_bench.rs (target/debug/deps/arboretum_bench-f3d4ae9246d7843c)
+Gnuplot not found, using plotters backend
+Testing arboretum_expand_15
+Success
+
+Testing arboretum_generate_mesh_normal
+Success
+
+Testing arboretum_generate_mesh_fast_fail
+Success
+
+     Running benches/ascii_display_bench.rs (target/debug/deps/ascii_display_bench-89981f99223aadf5)
+Gnuplot not found, using plotters backend
+Testing ascii_display_1080p
+Success
+
+     Running benches/attractor_bench.rs (target/debug/deps/attractor_bench-31c07d360d8fe3fb)
+Gnuplot not found, using plotters backend
+Testing attractor_serial_update
+Success
+
+Testing attractor_batched_update
+Success
+
+     Running benches/autostereogram_bench.rs (target/debug/deps/autostereogram_bench-4ef91f7fccecc8a2)
+Gnuplot not found, using plotters backend
+Testing autostereogram_800x600
+Success
+
+     Running benches/bam_bench.rs (target/debug/deps/bam_bench-c9188fc9446c521d)
+Gnuplot not found, using plotters backend
+Testing bam_sin_cos_fixed (table)
+Success
+
+Testing bam_sin_cos_f32 (polynomial)
+Success
+
+Testing f32::sin_cos (stdlib)
+Success
+
+Testing 1000x bam_sin_cos_fixed
+Success
+
+Testing 1000x f32::sin_cos (polynomial)
+Success
+
+     Running benches/bilinear.rs (target/debug/deps/bilinear-12508b41b1dda938)
+Gnuplot not found, using plotters backend
+Testing draw_scanline_bilinear_pot_256
+Success
+
+Testing draw_scanline_bilinear_npot_255
+Success
+
+     Running benches/black_hole_bench.rs (target/debug/deps/black_hole_bench-f9b771769fb2992b)
+Gnuplot not found, using plotters backend
+Testing black_hole/apply_black_hole_1080p
+Success
+
+     Running benches/cel_shade_bench.rs (target/debug/deps/cel_shade_bench-4e0b47cdc25b0458)
+Gnuplot not found, using plotters backend
+Testing cel_shade_800x600
+Success
+
+     Running benches/chromatic_aberration_bench.rs (target/debug/deps/chromatic_aberration_bench-11169eb7e042fba1)
+Gnuplot not found, using plotters backend
+Testing apply_chromatic_aberration_1080p
+Success
+
+     Running benches/circle_bench.rs (target/debug/deps/circle_bench-bdc394c0c79e8a3b)
+Gnuplot not found, using plotters backend
+Testing fill_circle_r100
+Success
+
+Testing draw_circle_r100
+Success
+
+     Running benches/circle_oob_bench.rs (target/debug/deps/circle_oob_bench-2707a3cf02b596d4)
+Gnuplot not found, using plotters backend
+Testing draw_circle_oob_r100
+Success
+
+Testing fill_circle_oob_r100
+Success
+
+     Running benches/clear_rect_bench.rs (target/debug/deps/clear_rect_bench-0c748dc4de08ff10)
+Gnuplot not found, using plotters backend
+Testing framebuffer/clear_rect_1080p
+Success
+
+Testing framebuffer/clear_rect_4k
+Success
+
+Testing zbuffer/clear_rect_1080p
+Success
+
+Testing zbuffer/clear_rect_4k
+Success
+
+Testing framebuffer/clear_rect_full_width_1080p
+Success
+
+Testing framebuffer/clear_rect_full_width_4k
+Success
+
+Testing zbuffer/clear_rect_full_width_1080p
+Success
+
+Testing zbuffer/clear_rect_full_width_4k
+Success
+
+     Running benches/clear_rect_opt_bench.rs (target/debug/deps/clear_rect_opt_bench-91361cfdd74ca37c)
+Gnuplot not found, using plotters backend
+Testing clear_rect_opt/original_1080p
+Success
+Testing clear_rect_opt/optimized_1080p
+Success
+
+     Running benches/clipping_benchmark.rs (target/debug/deps/clipping_benchmark-45286ee11633f215)
+Gnuplot not found, using plotters backend
+Testing fill_grid_clipping
+Success
+
+     Running benches/clipping_optimization.rs (target/debug/deps/clipping_optimization-9cdfa6c09aa54f2d)
+Gnuplot not found, using plotters backend
+Testing Clipping Microbenchmark/trivial_accept_legacy
+Success
+Testing Clipping Microbenchmark/trivial_accept_optimized
+Success
+Testing Clipping Microbenchmark/clipping_needed_legacy
+Success
+Testing Clipping Microbenchmark/clipping_needed_optimized
+Success
+
+     Running benches/color_splash_bench.rs (target/debug/deps/color_splash_bench-2eb4b14cfc383f01)
+Gnuplot not found, using plotters backend
+Testing color_splash_1080p
+Success
+
+     Running benches/cone_bench.rs (target/debug/deps/cone_bench-b4cc73ec1671f003)
+Gnuplot not found, using plotters backend
+Testing cone/intersects_ray
+Success
+
+     Running benches/conway_bench.rs (target/debug/deps/conway_bench-649f989896dda7b9)
+Gnuplot not found, using plotters backend
+Testing conway/apply_conway_1080p
+Success
+
+     Running benches/crosshatch_bench.rs (target/debug/deps/crosshatch_bench-2de224835131ca40)
+Gnuplot not found, using plotters backend
+Testing apply_crosshatch 1080p (spacing=5)
+Success
+
+Testing apply_crosshatch 1080p (spacing=10)
+Success
+
+     Running benches/crt_bench.rs (target/debug/deps/crt_bench-e75f4a824f9aa6ff)
+Gnuplot not found, using plotters backend
+Testing apply_crt 1080p (distortion=0.2)
+Success
+
+     Running benches/culling.rs (target/debug/deps/culling-a13cb1149b48748d)
+Gnuplot not found, using plotters backend
+Testing culling/frustum_cull_10k_aabbs_scalar
+Success
+Testing culling/frustum_cull_10k_aabbs_simd
+Success
+Testing culling/frustum_cull_10k_spheres_scalar
+Success
+Testing culling/frustum_cull_10k_spheres_simd
+Success
+Testing culling/aabb_transform
+Success
+
+     Running benches/culling_bench.rs (target/debug/deps/culling_bench-0391e16f7110f628)
+Gnuplot not found, using plotters backend
+Testing cull_spheres
+Success
+
+     Running benches/culling_optimization.rs (target/debug/deps/culling_optimization-d8124073bb4d8b03)
+Gnuplot not found, using plotters backend
+Testing aabb_transform/transform
+Success
+
+Testing sphere_transform/transform
+Success
+
+     Running benches/cylinder_bench.rs (target/debug/deps/cylinder_bench-cba50003387738a4)
+Gnuplot not found, using plotters backend
+Testing cylinder/intersects_ray
+Success
+
+     Running benches/directional_blur_bench.rs (target/debug/deps/directional_blur_bench-7e34d18124d784d3)
+Gnuplot not found, using plotters backend
+Testing directional_blur_1024x1024
+Success
+
+     Running benches/dither_bench.rs (target/debug/deps/dither_bench-67dc175f5b23c6e9)
+Gnuplot not found, using plotters backend
+Testing dither/apply_dither_ordered_4x4_1080p
+Success
+Testing dither/apply_dither_floyd_steinberg_1080p
+Success
+
+     Running benches/dof_bench.rs (target/debug/deps/dof_bench-604d99231d0115d0)
+Gnuplot not found, using plotters backend
+Testing apply_depth_of_field 1080p
+Success
+
+     Running benches/droste_bench.rs (target/debug/deps/droste_bench-e50c2502ccd27d70)
+Gnuplot not found, using plotters backend
+Testing apply_droste 800x600
+Success
+
+     Running benches/duotone_bench.rs (target/debug/deps/duotone_bench-9dc759e4f1eb0d91)
+Gnuplot not found, using plotters backend
+Testing duotone_1080p
+Success
+
+     Running benches/edge_glow_bench.rs (target/debug/deps/edge_glow_bench-7db78dfc946902b9)
+Gnuplot not found, using plotters backend
+Testing edge_glow/1080p
+Success
+
+     Running benches/ellipse_bench.rs (target/debug/deps/ellipse_bench-a6a8a9609e9f730c)
+Gnuplot not found, using plotters backend
+Testing draw_ellipse_100x50
+Success
+
+Testing draw_ellipse_oob
+Success
+
+Testing fill_ellipse_100x50
+Success
+
+Testing fill_ellipse_oob
+Success
+
+     Running benches/emboss_bench.rs (target/debug/deps/emboss_bench-07e4f908d1eb12ad)
+Gnuplot not found, using plotters backend
+Testing apply_emboss 1080p
+Success
+
+     Running benches/fast_atan2_bench.rs (target/debug/deps/fast_atan2_bench-9d2b2fe6d8162733)
+Gnuplot not found, using plotters backend
+Testing atan2/std_atan2
+Success
+Testing atan2/fast_atan2
+Success
+
+     Running benches/film_grain_bench.rs (target/debug/deps/film_grain_bench-c1574f07fdd84bb4)
+Gnuplot not found, using plotters backend
+Testing apply_film_grain (1080p)
+Success
+
+     Running benches/find_min_max_simd_bench.rs (target/debug/deps/find_min_max_simd_bench-7f941a2dc7ef59be)
+Gnuplot not found, using plotters backend
+Testing Heat Vision min_z/max_z Pre-Pass/Scalar 320x240
+Success
+Testing Heat Vision min_z/max_z Pre-Pass/SIMD 320x240
+Success
+Testing Heat Vision min_z/max_z Pre-Pass/Scalar 800x600
+Success
+Testing Heat Vision min_z/max_z Pre-Pass/SIMD 800x600
+Success
+Testing Heat Vision min_z/max_z Pre-Pass/Scalar 1920x1080
+Success
+Testing Heat Vision min_z/max_z Pre-Pass/SIMD 1920x1080
+Success
+
+     Running benches/flat_scanline.rs (target/debug/deps/flat_scanline-e0978af01bb989fd)
+Gnuplot not found, using plotters backend
+Testing draw_scanline_flat_16px
+Success
+
+Testing draw_scanline_flat_1000px
+Success
+
+     Running benches/fractal_bench.rs (target/debug/deps/fractal_bench-00b97006837f9c3f)
+Gnuplot not found, using plotters backend
+Testing fractal/render_mandelbrot_320x240
+Success
+
+     Running benches/gamma_bench.rs (target/debug/deps/gamma_bench-f55a31906eafc0a3)
+Gnuplot not found, using plotters backend
+Testing apply_gamma_correction 1080p (gamma=2.2)
+Success
+
+     Running benches/gouraud_scanline.rs (target/debug/deps/gouraud_scanline-172dcc3d3c467051)
+Gnuplot not found, using plotters backend
+Testing draw_scanline_gouraud_16px
+Success
+
+Testing draw_scanline_gouraud_100px
+Success
+
+Testing draw_scanline_gouraud_1000px
+Success
+
+     Running benches/gouraud_scanline_new.rs (target/debug/deps/gouraud_scanline_new-d149469e5f33d119)
+Gnuplot not found, using plotters backend
+Testing draw_scanline_gouraud_100px
+Success
+
+     Running benches/gpu_engine_compare.rs (target/debug/deps/gpu_engine_compare-c885414715dffdfb)
+Gnuplot not found, using plotters backend
+Testing gpu_engine_compare_wgpu/offscreen_1080p_cube_r2
+Success
+
+Testing gpu_engine_compare_bevy_update/entities/10000
+Success
+Testing gpu_engine_compare_bevy_update/entities/50000
+Success
+
+Testing gpu_engine_compare_fyrox_update/nodes/10000
+Success
+Testing gpu_engine_compare_fyrox_update/nodes/50000
+Success
+
+     Running benches/gpu_render.rs (target/debug/deps/gpu_render-5233f91fe6014f93)
+Gnuplot not found, using plotters backend
+Testing gpu_render_controller/update_60hz
+Success
+
+Testing gpu_render_offscreen/frame/1280x720
+Success
+Testing gpu_render_offscreen/frame/1920x1080
+Success
+
+Testing gpu_render_offscreen_heavy/frame/1080p_grid96_r4_18432tri
+Success
+Testing gpu_render_offscreen_heavy/frame/1080p_grid160_r8_51200tri
+Success
+Testing gpu_render_offscreen_heavy/frame/4k_grid160_r8_51200tri
+Success
+
+Testing gpu_vs_cpu/frame/1080p_20k_100draws_20000tri
+Success
+Testing gpu_vs_cpu/frame/1080p_80k_100draws_80000tri
+Success
+Testing gpu_vs_cpu/frame/4k_20k_100draws_20000tri
+Success
+Testing gpu_vs_cpu/frame/1080p_400k_500draws_400000tri
+Success
+
+     Running benches/halftone_bench.rs (target/debug/deps/halftone_bench-fef96a696ae410fc)
+Gnuplot not found, using plotters backend
+Testing halftone_800x600
+Success
+
+     Running benches/harmonograph_bench.rs (target/debug/deps/harmonograph_bench-e63c7fe1ee5f2d78)
+Gnuplot not found, using plotters backend
+Testing Harmonograph/harmonograph_render_10k_iters
+Success
+
+     Running benches/heat_vision_bench.rs (target/debug/deps/heat_vision_bench-39b892441b934440)
+Gnuplot not found, using plotters backend
+Testing Heat Vision/320x240
+Success
+Testing Heat Vision/800x600
+Success
+Testing Heat Vision/1920x1080
+Success
+
+     Running benches/hiz_benchmark.rs (target/debug/deps/hiz_benchmark-78326dd6727be71d)
+Gnuplot not found, using plotters backend
+Testing hiz_build_1080p
+Success
+
+Testing hiz_query_1000_aabbs
+Success
+
+     Running benches/jelly_bench.rs (target/debug/deps/jelly_bench-f14e694a5e0340b3)
+Gnuplot not found, using plotters backend
+Testing jelly/collide_sdf_30x30
+Success
+
+     Running benches/kaleidoscope_bench.rs (target/debug/deps/kaleidoscope_bench-5ce5a7eda37fade1)
+Gnuplot not found, using plotters backend
+Testing kaleidoscope/apply_kaleidoscope/6_segments/640x480
+Success
+
+     Running benches/kuwahara_bench.rs (target/debug/deps/kuwahara_bench-942e494ed480f21c)
+Gnuplot not found, using plotters backend
+Testing kuwahara_filter/radius_1
+Success
+Testing kuwahara_filter/radius_3
+Success
+Testing kuwahara_filter/radius_5
+Success
+
+     Running benches/laplacian_blend_bench.rs (target/debug/deps/laplacian_blend_bench-92e35e00b2df5314)
+Gnuplot not found, using plotters backend
+Testing laplacian_blend
+Success
+
+     Running benches/lsystem_bench.rs (target/debug/deps/lsystem_bench-6e4d1dd53031a1d9)
+Gnuplot not found, using plotters backend
+Testing lsystem_expand_15
+Success
+
+     Running benches/mandelbrot_bench.rs (target/debug/deps/mandelbrot_bench-5400be6440de22a1)
+Gnuplot not found, using plotters backend
+Testing Mandelbrot Renderer/render_mandelbrot
+Success
+
+     Running benches/math.rs (target/debug/deps/math-e708a8e7bbf8e78f)
+Gnuplot not found, using plotters backend
+Testing vec2_add
+Success
+
+Testing vec2_mul
+Success
+
+Testing vec3_normalize
+Success
+
+Testing vec3_fast_normalize
+Success
+
+Testing sin_cos_separate
+Success
+
+Testing sin_cos_combined
+Success
+
+Testing vec3_reflect
+Success
+
+Testing mat2_transform
+Success
+
+Testing mat2_batch_transform_100
+Success
+
+Testing mat2_transform_in_place_100
+Success
+
+Testing mat4_mul
+Success
+
+Testing mat4_transform_point
+Success
+
+Testing mat4_orthographic
+Success
+
+Testing mat4_inverse
+Success
+
+Testing transform_to_mat4
+Success
+
+Testing transform_point_direct
+Success
+
+Testing transform_point_via_matrix
+Success
+
+Testing fast_atan2
+Success
+
+Testing std_atan2
+Success
+
+Testing smoothstep
+Success
+
+Testing lerp_scalar
+Success
+
+Testing mat3_transform
+Success
+
+Testing mat3_inverse
+Success
+
+Testing mat3_inverse_transpose
+Success
+
+Testing vec4_normalize
+Success
+
+Testing ray_intersect_aabb
+Success
+
+Testing ray_intersect_triangle
+Success
+
+Testing frustum_contains_aabb
+Success
+
+Testing frustum_contains_sphere
+Success
+
+Testing color/from_srgb_u8
+Success
+Testing color/to_argb_u32
+Success
+Testing color/blend_over
+Success
+Testing color/to_hsv
+Success
+Testing color/from_hsv
+Success
+
+Testing noise/value_noise_2d
+Success
+Testing noise/gradient_noise_2d
+Success
+Testing noise/fbm_2d_6oct
+Success
+
+Testing curve/bezier_cubic_eval
+Success
+Testing curve/bezier_arc_length_64
+Success
+Testing curve/bezier_split
+Success
+Testing curve/catmull_rom_evaluate
+Success
+Testing curve/catmull_rom_sample_64
+Success
+
+Testing ivec/ivec2_add
+Success
+Testing ivec/ivec2_dot
+Success
+Testing ivec/ivec2_cross
+Success
+Testing ivec/ivec2_length
+Success
+Testing ivec/ivec2_manhattan
+Success
+Testing ivec/ivec2_to_index
+Success
+Testing ivec/ivec3_cross
+Success
+Testing ivec/ivec3_dot
+Success
+Testing ivec/ivec3_to_index_3d
+Success
+
+Testing irect/intersect
+Success
+Testing irect/union
+Success
+Testing irect/contains_point
+Success
+Testing irect/translate
+Success
+Testing irect/inflate
+Success
+
+Testing random/u32
+Success
+Testing random/f32
+Success
+Testing random/u32_below_6
+Success
+Testing random/f32_range
+Success
+Testing random/gradient_sample
+Success
+
+Testing easing/cubic_in_out
+Success
+Testing easing/quint_in_out
+Success
+Testing easing/sine_in_out
+Success
+Testing easing/expo_in_out
+Success
+Testing easing/elastic_out
+Success
+Testing easing/bounce_out
+Success
+
+Testing sdf/circle_2d
+Success
+Testing sdf/rect_2d
+Success
+Testing sdf/sphere_3d
+Success
+Testing sdf/box_3d
+Success
+Testing sdf/capsule_3d
+Success
+Testing sdf/smooth_union
+Success
+
+     Running benches/math_bench.rs (target/debug/deps/math_bench-0a5de3f9f96a4afb)
+Gnuplot not found, using plotters backend
+Testing std_sin_loop
+Success
+
+Testing std_sin_cos_loop
+Success
+
+Testing std_sin_cos_pair_loop
+Success
+
+Testing fast_sin_cos_loop
+Success
+
+     Running benches/mesh_modifiers_bench.rs (target/debug/deps/mesh_modifiers_bench-8aba6ffdf8c0366f)
+Gnuplot not found, using plotters backend
+Testing mesh_modifiers/twist
+Success
+Testing mesh_modifiers/taper
+Success
+Testing mesh_modifiers/displace_noise
+Success
+
+     Running benches/mipmapping.rs (target/debug/deps/mipmapping-4cba34644471825a)
+Gnuplot not found, using plotters backend
+Testing mipmapping/trilinear
+Success
+Testing mipmapping/bilinear
+Success
+
+     Running benches/mode7_bench.rs (target/debug/deps/mode7_bench-75ac0d112714d6d5)
+Gnuplot not found, using plotters backend
+Testing render_mode7_baseline
+Success
+
+     Running benches/mosaic_bench.rs (target/debug/deps/mosaic_bench-a30fbd6648bbe5f8)
+Gnuplot not found, using plotters backend
+Testing mosaic_800x600
+Success
+
+     Running benches/neon_outline_bench.rs (target/debug/deps/neon_outline_bench-5d77a01893ff55f1)
+Gnuplot not found, using plotters backend
+Testing neon_outline_640x480
+Success
+
+     Running benches/night_vision_bench.rs (target/debug/deps/night_vision_bench-09110481ed28c7b4)
+Gnuplot not found, using plotters backend
+Testing night_vision/apply_night_vision
+Success
+
+     Running benches/normal_mapping.rs (target/debug/deps/normal_mapping-7b358e749f938174)
+Gnuplot not found, using plotters backend
+Testing fill_triangle_normal_mapped
+Success
+
+     Running benches/obj_loading.rs (target/debug/deps/obj_loading-b2f44eec7adaa0bd)
+Gnuplot not found, using plotters backend
+Testing obj_loading/load_sphere_50x50
+Success
+
+     Running benches/object_culling.rs (target/debug/deps/object_culling-356029ec8236a31b)
+Gnuplot not found, using plotters backend
+Testing render_scene_naive
+Success
+
+Testing render_scene_optimized
+Success
+
+     Running benches/offscreen_rect_bench.rs (target/debug/deps/offscreen_rect_bench-9a0ef11877927f05)
+Gnuplot not found, using plotters backend
+Testing fill_rounded_rect_massive_offscreen
+Success
+
+     Running benches/parallel_tile_rendering.rs (target/debug/deps/parallel_tile_rendering-3dac97914f085047)
+Gnuplot not found, using plotters backend
+Testing parallel_tile_rendering/100
+Success
+Testing parallel_tile_rendering/500
+Success
+Testing parallel_tile_rendering/1000
+Success
+
+     Running benches/particle_color_benchmark.rs (target/debug/deps/particle_color_benchmark-39c4edbff4b0fea4)
+Gnuplot not found, using plotters backend
+Testing colored_particles_render_50k
+Success
+
+     Running benches/particles_benchmark.rs (target/debug/deps/particles_benchmark-95f131a323621962)
+Gnuplot not found, using plotters backend
+Testing particles_render_50k
+Success
+
+     Running benches/pbr_shading.rs (target/debug/deps/pbr_shading-91db6a332bff5541)
+Gnuplot not found, using plotters backend
+Testing pbr/fill_triangle_pbr_1080p
+Success
+
+     Running benches/pencil_sketch_bench.rs (target/debug/deps/pencil_sketch_bench-a5fac8b9109ed020)
+Gnuplot not found, using plotters backend
+Testing pencil_sketch_640x480
+Success
+
+     Running benches/phase1_simd.rs (target/debug/deps/phase1_simd-1c64fbe07576dce2)
+Gnuplot not found, using plotters backend
+Testing scene1_sparse_4k/baseline
+Success
+
+Testing scene2_medium_1080p/baseline
+Success
+Testing scene2_medium_1080p/with_hiz
+Success
+
+Testing scene3_dense_4k/baseline
+Success
+Testing scene3_dense_4k/with_hiz
+Success
+
+Testing hiz_pyramid_build/1080p
+Success
+Testing hiz_pyramid_build/4k
+Success
+
+     Running benches/phong_scanline.rs (target/debug/deps/phong_scanline-50bbbf47a7edf496)
+Gnuplot not found, using plotters backend
+Testing phong_scanline_heavy
+Success
+
+     Running benches/phong_shading.rs (target/debug/deps/phong_shading-a108b882fd7d61ee)
+Gnuplot not found, using plotters backend
+Testing fill_triangle_phong
+Success
+
+     Running benches/physarum_bench.rs (target/debug/deps/physarum_bench-f46755d395ba2159)
+Gnuplot not found, using plotters backend
+Testing physarum_step
+Success
+
+     Running benches/pixelate_bench.rs (target/debug/deps/pixelate_bench-cc2aa234ebccdab6)
+Gnuplot not found, using plotters backend
+Testing apply_pixelate 1080p (block_size=8)
+Success
+
+Testing apply_pixelate 1080p (block_size=16)
+Success
+
+     Running benches/plasma_bench.rs (target/debug/deps/plasma_bench-2be1a194b2c6e390)
+Gnuplot not found, using plotters backend
+Testing plasma_800x600
+Success
+
+     Running benches/plasma_procedural_bench.rs (target/debug/deps/plasma_procedural_bench-6b7293a958d0b17c)
+Gnuplot not found, using plotters backend
+Testing plasma_procedural/64x64
+Success
+Testing plasma_procedural/128x128
+Success
+
+     Running benches/point_light.rs (target/debug/deps/point_light-72bc33912a63caa6)
+Gnuplot not found, using plotters backend
+Testing fill_triangle_point_lit
+Success
+
+     Running benches/point_light_simd_vs_scalar.rs (target/debug/deps/point_light_simd_vs_scalar-15f14b5aff38996b)
+Gnuplot not found, using plotters backend
+Testing Point Light Rasterization/Optimized SIMD Point Lit
+Success
+
+     Running benches/pop_art_bench.rs (target/debug/deps/pop_art_bench-299363bbeebc7805)
+Gnuplot not found, using plotters backend
+Testing apply_pop_art 1080p
+Success
+
+     Running benches/post_process.rs (target/debug/deps/post_process-16eefb958e6d812e)
+Gnuplot not found, using plotters backend
+Testing apply_grayscale 1080p
+Success
+
+Testing apply_scanlines 1080p
+Success
+
+Testing apply_invert 1080p
+Success
+
+Testing apply_sepia 1080p
+Success
+
+Testing apply_chromatic_aberration 1080p
+Success
+
+Testing apply_bloom 1080p (r=10)
+Success
+
+Testing apply_ssao 1080p
+Success
+
+Testing box_blur_f32 1080p
+Success
+
+Testing box_blur_horizontal 1080p
+Success
+
+Testing apply_sobel 1080p
+Success
+
+Testing apply_depth_of_field 1080p
+Success
+
+Testing apply_vignette 1080p
+Success
+
+Testing apply_color_adjust 1080p
+Success
+
+Testing apply_pixel_sort 1080p horizontal
+Success
+
+Testing apply_pixel_sort 1080p vertical
+Success
+
+Testing apply_halftone 1080p
+Success
+
+     Running benches/posterize_bench.rs (target/debug/deps/posterize_bench-0e77e95b87ff0d38)
+Gnuplot not found, using plotters backend
+Testing apply_posterize_800x600
+Success
+
+     Running benches/prepare_triangle.rs (target/debug/deps/prepare_triangle-6c10a62bde9740f2)
+Gnuplot not found, using plotters backend
+Testing prepare_10k_triangles
+Success
+
+     Running benches/project_points.rs (target/debug/deps/project_points-5191a4c83cfe8229)
+Gnuplot not found, using plotters backend
+Testing project_triangle_scalar
+Success
+
+Testing project_triangle_simd
+Success
+
+     Running benches/quat_nlerp_bench.rs (target/debug/deps/quat_nlerp_bench-b96f0b8d7a48ea25)
+Gnuplot not found, using plotters backend
+Testing quat_nlerp
+Success
+
+     Running benches/radial_blur_bench.rs (target/debug/deps/radial_blur_bench-10ce0d2a3090bfe2)
+Gnuplot not found, using plotters backend
+Testing radial_blur/swar_16_samples
+Success
+Testing radial_blur/scalar_fallback_257_samples
+Success
+
+     Running benches/rasterization.rs (target/debug/deps/rasterization-62022052b44ada45)
+Gnuplot not found, using plotters backend
+Testing fill_triangle_3d_large
+Success
+
+Testing fill_triangle_3d_small
+Success
+
+Testing fill_triangle_3d_transparent
+Success
+
+Testing fill_triangle_gouraud
+Success
+
+Testing fill_triangle_textured
+Success
+
+Testing fill_triangle_textured_gouraud
+Success
+
+Testing fill_triangle_textured_perspective_stress
+Success
+
+Testing fill_triangle_textured_bilinear
+Success
+
+Testing fill_triangle_clipped
+Success
+
+Testing fill_triangle_textured_small_batch
+Success
+
+Testing get_pixel_bilinear_fixed
+Success
+
+Testing fill_triangle_wireframe
+Success
+
+     Running benches/raycast_bench.rs (target/debug/deps/raycast_bench-1a32d324036d2854)
+Gnuplot not found, using plotters backend
+Testing cast_ray 64x64
+Success
+
+Testing cast_ray_detailed 64x64
+Success
+
+Testing cast_los diagonal 64x64
+Success
+
+Testing batch 1000 rays 64x64
+Success
+
+Testing cast_ray map scaling/16x16
+Success
+Testing cast_ray map scaling/64x64
+Success
+Testing cast_ray map scaling/128x128
+Success
+Testing cast_ray map scaling/256x256
+Success
+
+     Running benches/rect_bench.rs (target/debug/deps/rect_bench-8dcd4908b5f55aae)
+Gnuplot not found, using plotters backend
+Testing draw_rect_100
+Success
+
+Testing fill_rect_100
+Success
+
+Testing draw_rounded_rect_100
+Success
+
+Testing fill_rounded_rect_100
+Success
+
+     Running benches/reflection_mapping.rs (target/debug/deps/reflection_mapping-4a8ee6dcfd33a0f4)
+Gnuplot not found, using plotters backend
+Testing reflection_mapping_textured
+Success
+
+     Running benches/scanline.rs (target/debug/deps/scanline-4ce5ca88719313f3)
+Gnuplot not found, using plotters backend
+Testing draw_scanline_flat_16px
+Success
+
+Testing draw_scanline_flat_100px
+Success
+
+Testing draw_scanline_flat_1000px
+Success
+
+Testing draw_scanline_flat_blended_100px
+Success
+
+     Running benches/scanline_jitter_bench.rs (target/debug/deps/scanline_jitter_bench-21a73001c10c68a8)
+Gnuplot not found, using plotters backend
+Testing scanline_jitter_1080p
+Success
+
+     Running benches/scanline_micro.rs (target/debug/deps/scanline_micro-a679c15268863b5a)
+Gnuplot not found, using plotters backend
+Testing scanline_micro/large_triangle_1080p
+Success
+
+     Running benches/scene_render.rs (target/debug/deps/scene_render-92dd5aa599333354)
+Gnuplot not found, using plotters backend
+Testing scene_render_100_objects
+Success
+
+Testing scene_render_integrated_clear_100_objects
+Success
+
+Testing scene_extract_only_100_objects
+Success
+
+Testing scene_clear_only
+Success
+
+Testing scene_rasterize_only_100_objects
+Success
+
+Testing scene_rasterize_integrated_clear_100_objects
+Success
+
+Testing submit_mesh_only_20k_tris
+Success
+
+Testing 1080p_20k_tris_100obj
+Success
+
+Testing 1080p_80k_tris_400obj
+Success
+
+Testing 1080p_80k_tris_dense_100obj
+Success
+
+Testing 4k_20k_tris_100obj
+Success
+
+     Running benches/sdf_imprecise_flops.rs (target/debug/deps/sdf_imprecise_flops-453a1b0ad6e0282e)
+Gnuplot not found, using plotters backend
+Testing sdf_imprecise_flops/rounded_star_2d
+Success
+Testing sdf_imprecise_flops/revolution_z
+Success
+Testing sdf_imprecise_flops/mandelbrot_dist
+Success
+Testing sdf_imprecise_flops/lens_2d
+Success
+Testing sdf_imprecise_flops/spiral_2d
+Success
+Testing sdf_imprecise_flops/polyline_2d
+Success
+Testing sdf_imprecise_flops/disk_3d
+Success
+Testing sdf_imprecise_flops/diamond_3d
+Success
+Testing sdf_imprecise_flops/lemniscate_2d
+Success
+Testing sdf_imprecise_flops/rounded_cylinder_3d
+Success
+Testing sdf_imprecise_flops/hexagonal_prism_3d
+Success
+Testing sdf_imprecise_flops/rhombus_3d
+Success
+
+     Running benches/shadow_mapping.rs (target/debug/deps/shadow_mapping-b2ae67b50aa3282f)
+Gnuplot not found, using plotters backend
+Testing shadow_mapping/phong_standard
+Success
+Testing shadow_mapping/phong_shadowed_pcf
+Success
+
+     Running benches/sharpen_bench.rs (target/debug/deps/sharpen_bench-50b4a321064527e8)
+Gnuplot not found, using plotters backend
+Testing sharpen_1024x1024
+Success
+
+     Running benches/simd_micro.rs (target/debug/deps/simd_micro-77a69bcbd7397867)
+Gnuplot not found, using plotters backend
+Testing hiz_reduction_cycles/pyramid_build/1920x1080
+Success
+Hi-Z 1920×1080: 45001665 cycles/build (21.70 cycles/pixel)
+Testing hiz_reduction_cycles/pyramid_build/3840x2160
+Success
+Hi-Z 3840×2160: 182023430 cycles/build (21.95 cycles/pixel)
+
+Testing scanline_rasterization_cycles/scanline/4_pixels
+Success
+Scanline length 4: 45467207 cycles/frame (227336.04 cycles/pixel)
+Testing scanline_rasterization_cycles/scanline/8_pixels
+Success
+Scanline length 8: 45415537 cycles/frame (113538.84 cycles/pixel)
+Testing scanline_rasterization_cycles/scanline/16_pixels
+Success
+Scanline length 16: 45645821 cycles/frame (57057.28 cycles/pixel)
+Testing scanline_rasterization_cycles/scanline/32_pixels
+Success
+Scanline length 32: 46370925 cycles/frame (28981.83 cycles/pixel)
+Testing scanline_rasterization_cycles/scanline/64_pixels
+Success
+Scanline length 64: 46289015 cycles/frame (14465.32 cycles/pixel)
+Testing scanline_rasterization_cycles/scanline/128_pixels
+Success
+Scanline length 128: 45934513 cycles/frame (7177.27 cycles/pixel)
+
+Testing memory_patterns/sequential_write
+Success
+Testing memory_patterns/random_access
+Success
+
+Testing tile_locality/small_scene_tiled
+Success
+Testing tile_locality/large_scene_tiled
+Success
+
+     Running benches/skybox_benchmark.rs (target/debug/deps/skybox_benchmark-74bf3261f532f0ed)
+Gnuplot not found, using plotters backend
+Testing skybox_render_full_hd
+Success
+
+     Running benches/softbody_bench.rs (target/debug/deps/softbody_bench-4df6795d7af627bb)
+Gnuplot not found, using plotters backend
+Testing softbody/update_20x20
+Success
+
+     Running benches/software_two_level_binning.rs (target/debug/deps/software_two_level_binning-c9530c419fc7339b)
+Gnuplot not found, using plotters backend
+Testing software_binning/single_level_large_occluded
+Success
+Testing software_binning/two_level_large_occluded
+Success
+Testing software_binning/single_level_layered/1000
+Success
+Testing software_binning/two_level_layered/1000
+Success
+
+     Running benches/solarize_bench.rs (target/debug/deps/solarize_bench-7ed5a303759bdb9f)
+Gnuplot not found, using plotters backend
+Testing solarize
+Success
+
+Testing solarize_branchless
+Success
+
+Testing solarize_simd_avx2
+Success
+
+     Running benches/sonar_bench.rs (target/debug/deps/sonar_bench-f1f93eda8e9e35ce)
+Gnuplot not found, using plotters backend
+Testing apply_sonar_1080p
+Success
+
+     Running benches/sorting_bench.rs (target/debug/deps/sorting_bench-df1af639939af21e)
+Gnuplot not found, using plotters backend
+Testing tile_render_overdraw_500
+Success
+
+     Running benches/speed_lines_bench.rs (target/debug/deps/speed_lines_bench-78002d54ed8344a2)
+Gnuplot not found, using plotters backend
+Testing apply_speed_lines_800x600
+Success
+
+     Running benches/speed_lines_hypot_bench.rs (target/debug/deps/speed_lines_hypot_bench-84257a25fbaba286)
+Gnuplot not found, using plotters backend
+Testing speed_lines_distance_calc/hypot
+Success
+Testing speed_lines_distance_calc/sqrt
+Success
+
+     Running benches/swirl_bench.rs (target/debug/deps/swirl_bench-e5d2e408767f1dc6)
+Gnuplot not found, using plotters backend
+Testing apply_swirl_1080p
+Success
+
+Testing apply_swirl_720p
+Success
+
+     Running benches/tangent_space_bench.rs (target/debug/deps/tangent_space_bench-3461bec63fe4fe67)
+Gnuplot not found, using plotters backend
+Testing tangent_space_calculation/normalize
+Success
+Testing tangent_space_calculation/fast_normalize
+Success
+
+     Running benches/texture_nearest_bench.rs (target/debug/deps/texture_nearest_bench-049913f0e97ea0d4)
+Gnuplot not found, using plotters backend
+Testing fill_triangle_textured_nearest_large
+Success
+
+     Running benches/texture_scanline.rs (target/debug/deps/texture_scanline-d88ce8c97cc2d129)
+Gnuplot not found, using plotters backend
+Testing scanline_perspective_bilinear/len_16
+Success
+Testing scanline_perspective_bilinear/len_32
+Success
+Testing scanline_perspective_bilinear/len_64
+Success
+Testing scanline_perspective_bilinear/len_100
+Success
+Testing scanline_perspective_bilinear/len_500
+Success
+Testing scanline_perspective_bilinear/len_1920
+Success
+
+     Running benches/textured_gouraud_scanline.rs (target/debug/deps/textured_gouraud_scanline-8a8591d541ff1d35)
+Gnuplot not found, using plotters backend
+Testing draw_scanline_textured_gouraud_nearest
+Success
+
+Testing draw_scanline_textured_gouraud_bilinear
+Success
+
+     Running benches/tile_rendering.rs (target/debug/deps/tile_rendering-96ba4c1620ee449c)
+Gnuplot not found, using plotters backend
+Testing fill_cube_tiled
+Success
+
+Testing fill_cube_scanline
+Success
+
+Testing tiled_800x600/10
+Success
+Testing tiled_800x600/50
+Success
+Testing tiled_800x600/100
+Success
+Testing tiled_800x600/200
+Success
+Testing tiled_800x600/500
+Success
+
+Testing tiled_1920x1080/10
+Success
+Testing tiled_1920x1080/50
+Success
+Testing tiled_1920x1080/100
+Success
+Testing tiled_1920x1080/200
+Success
+Testing tiled_1920x1080/500
+Success
+
+Testing tiled_3840x2160/10
+Success
+Testing tiled_3840x2160/50
+Success
+Testing tiled_3840x2160/100
+Success
+Testing tiled_3840x2160/200
+Success
+Testing tiled_3840x2160/500
+Success
+
+Testing scanline_800x600/10
+Success
+Testing scanline_800x600/50
+Success
+Testing scanline_800x600/100
+Success
+Testing scanline_800x600/200
+Success
+Testing scanline_800x600/500
+Success
+
+Testing scanline_1920x1080/10
+Success
+Testing scanline_1920x1080/50
+Success
+Testing scanline_1920x1080/100
+Success
+Testing scanline_1920x1080/200
+Success
+Testing scanline_1920x1080/500
+Success
+
+Testing scanline_3840x2160/10
+Success
+Testing scanline_3840x2160/50
+Success
+Testing scanline_3840x2160/100
+Success
+Testing scanline_3840x2160/200
+Success
+Testing scanline_3840x2160/500
+Success
+
+     Running benches/tile_rendering_sorting.rs (target/debug/deps/tile_rendering_sorting-d2d0fe5b9fbc0734)
+Gnuplot not found, using plotters backend
+Testing tile_rendering_sorting/front_to_back
+Success
+Testing tile_rendering_sorting/back_to_front
+Success
+Testing tile_rendering_sorting/random
+Success
+
+     Running benches/tile_rendering_textured.rs (target/debug/deps/tile_rendering_textured-5756006826a543e0)
+Gnuplot not found, using plotters backend
+Testing fill_cube_tiled_textured
+Success
+
+Testing fill_cube_scanline_textured
+Success
+
+Testing tiled_textured_800x600/10
+Success
+Testing tiled_textured_800x600/50
+Success
+Testing tiled_textured_800x600/100
+Success
+Testing tiled_textured_800x600/200
+Success
+Testing tiled_textured_800x600/500
+Success
+
+Testing tiled_textured_1920x1080/10
+Success
+Testing tiled_textured_1920x1080/50
+Success
+Testing tiled_textured_1920x1080/100
+Success
+Testing tiled_textured_1920x1080/200
+Success
+Testing tiled_textured_1920x1080/500
+Success
+
+Testing tiled_textured_3840x2160/10
+Success
+Testing tiled_textured_3840x2160/50
+Success
+Testing tiled_textured_3840x2160/100
+Success
+Testing tiled_textured_3840x2160/200
+Success
+Testing tiled_textured_3840x2160/500
+Success
+
+Testing scanline_textured_800x600/10
+Success
+Testing scanline_textured_800x600/50
+Success
+Testing scanline_textured_800x600/100
+Success
+Testing scanline_textured_800x600/200
+Success
+Testing scanline_textured_800x600/500
+Success
+
+Testing scanline_textured_1920x1080/10
+Success
+Testing scanline_textured_1920x1080/50
+Success
+Testing scanline_textured_1920x1080/100
+Success
+Testing scanline_textured_1920x1080/200
+Success
+Testing scanline_textured_1920x1080/500
+Success
+
+Testing scanline_textured_3840x2160/10
+Success
+Testing scanline_textured_3840x2160/50
+Success
+Testing scanline_textured_3840x2160/100
+Success
+Testing scanline_textured_3840x2160/200
+Success
+Testing scanline_textured_3840x2160/500
+Success
+
+     Running benches/tilt_shift_bench.rs (target/debug/deps/tilt_shift_bench-9aeb7cee714e20f8)
+Gnuplot not found, using plotters backend
+Testing apply_tilt_shift_1080p
+Success
+
+     Running benches/transform_point_simd.rs (target/debug/deps/transform_point_simd-cfb9d953d45201d5)
+Gnuplot not found, using plotters backend
+Testing transform_point_single/simd_optimized
+Success
+Testing transform_point_single/scalar_baseline
+Success
+
+     Running benches/transform_points_bench.rs (target/debug/deps/transform_points_bench-abb6ae36c62c0dc1)
+Gnuplot not found, using plotters backend
+Testing transform_points_scalar_1000
+Success
+
+Testing transform_points_manual_loop_1000
+Success
+
+Testing transform_points_scalar_500
+Success
+
+Testing transform_points_parallel_500
+Success
+
+Testing transform_points_scalar_100k
+Success
+
+Testing transform_points_parallel_100k
+Success
+
+     Running benches/transparency_bench.rs (target/debug/deps/transparency_bench-66042fe8f5cf126f)
+Gnuplot not found, using plotters backend
+Testing textured_transparency_opaque
+Success
+
+Testing textured_transparency_transparent
+Success
+
+Testing textured_transparency_blended
+Success
+
+Testing textured_transparency_mixed
+Success
+
+Testing flat_transparency_opaque
+Success
+
+Testing flat_transparency_transparent
+Success
+
+Testing flat_transparency_blended
+Success
+
+     Running benches/trilinear_scanline.rs (target/debug/deps/trilinear_scanline-964e7fb1d280f81e)
+Gnuplot not found, using plotters backend
+Testing draw_scanline_trilinear_100px
+Success
+
+     Running benches/tunnel_bench.rs (target/debug/deps/tunnel_bench-15a0ce51aec95077)
+Gnuplot not found, using plotters backend
+Testing tunnel_800x600
+Success
+
+     Running benches/vec2_bench.rs (target/debug/deps/vec2_bench-aae7e2f679916f13)
+Gnuplot not found, using plotters backend
+Testing vec2_length
+Success
+
+     Running benches/vec3_bench.rs (target/debug/deps/vec3_bench-90e55c0359930ae0)
+Gnuplot not found, using plotters backend
+Testing vec3_dot
+Success
+
+Testing vec3_cross
+Success
+
+Testing vec3_normalize
+Success
+
+Testing vec3_fast_normalize
+Success
+
+     Running benches/vec3_reflect_bench.rs (target/debug/deps/vec3_reflect_bench-c89aafc7d86bb79f)
+Gnuplot not found, using plotters backend
+Testing vec3_reflect/reflect
+Success
+
+     Running benches/vignette_bench.rs (target/debug/deps/vignette_bench-97ecd83f0ca7afaa)
+Gnuplot not found, using plotters backend
+Testing apply_vignette 1080p
+Success
+
+     Running benches/vision_bench.rs (target/debug/deps/vision_bench-d0ffa48f4d35ed03)
+Gnuplot not found, using plotters backend
+Testing vision_post_process/apply_vision_night_mode_720p
+Success
+
+     Running benches/voronoi_bench.rs (target/debug/deps/voronoi_bench-17a11218a1793e72)
+Gnuplot not found, using plotters backend
+Testing voronoi 800x600 200 seeds (Euclidean)
+Success
+
+Testing voronoi 800x600 200 seeds (Minkowski 4)
+Success
+
+     Running benches/voxelizer_bench.rs (target/debug/deps/voxelizer_bench-675f61a032524089)
+Gnuplot not found, using plotters backend
+Testing voxelizer_to_mesh_10x10x10
+Success
+
+     Running benches/water_ripple_bench.rs (target/debug/deps/water_ripple_bench-975d2444634e150b)
+Gnuplot not found, using plotters backend
+Testing water_ripple_800x600
+Success
+
+     Running benches/z_cull.rs (target/debug/deps/z_cull-3eea3c45dfa38d94)
+Gnuplot not found, using plotters backend
+Testing z_cull/fully_occluded
+Success
+Testing z_cull/fully_visible
+Success
+
+     Running benches/zbuffer_bench.rs (target/debug/deps/zbuffer_bench-242b381f8e10e546)
+Gnuplot not found, using plotters backend
+Testing zbuffer/clear_1080p
+Success
+Testing zbuffer/clear_4k
+Success
+Testing zbuffer/clear_rect_1080p
+Success
+Testing zbuffer/clear_rect_4k
+Success
+
+     Running benches/zbuffer_clear_rect_extreme_bench.rs (target/debug/deps/zbuffer_clear_rect_extreme_bench-de4f63d715747b6a)
+Gnuplot not found, using plotters backend
+Testing zbuffer_extreme/clear_rect_extreme_1080p
+Success
+
+     Running unittests examples/anaglyph_demo.rs (target/debug/examples/anaglyph_demo-ba15c92d38071c8a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/arboretum_cli.rs (target/debug/examples/arboretum_cli-c6958923d9e6fd4a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/ascii_display_demo.rs (target/debug/examples/ascii_display_demo-4a3cb8b7ce6c9126)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/attractor_demo.rs (target/debug/examples/attractor_demo-23b82ea62c1ad575)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/bench_tile_render.rs (target/debug/examples/bench_tile_render-f3d0f977d74eef13)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/black_hole_demo.rs (target/debug/examples/black_hole_demo-4773b1c76d37e8ee)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/brickify_demo.rs (target/debug/examples/brickify_demo-53a07249e3aad9aa)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/cel_shade_demo.rs (target/debug/examples/cel_shade_demo-bb74f9fc782dcec9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/chroma_key_demo.rs (target/debug/examples/chroma_key_demo-6b508489911d6fef)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/chromatic_aberration_demo.rs (target/debug/examples/chromatic_aberration_demo-391c992710a1ad38)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/cloth_demo.rs (target/debug/examples/cloth_demo-2c4c3d9e4559c3c8)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/color_splash_demo.rs (target/debug/examples/color_splash_demo-b54737cbf6e9c1f1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/conway_demo.rs (target/debug/examples/conway_demo-cb1786aeddbca1bb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/cross_stitch_demo.rs (target/debug/examples/cross_stitch_demo-1d97d9484f184e91)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/cube_3d.rs (target/debug/examples/cube_3d-c757c8ac0dedf7cb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/depth_fog_demo.rs (target/debug/examples/depth_fog_demo-d18d3a344e18904d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/digital_rain_demo.rs (target/debug/examples/digital_rain_demo-7be76ba75b030bbf)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/directional_blur_demo.rs (target/debug/examples/directional_blur_demo-02396c4d520af151)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/dither_demo.rs (target/debug/examples/dither_demo-7d43d9d229ef98b4)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/droste_demo.rs (target/debug/examples/droste_demo-fb87e5b7ae3d1729)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/edge_glow_demo.rs (target/debug/examples/edge_glow_demo-9ffd95966400dccc)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/emboss_demo.rs (target/debug/examples/emboss_demo-7b7ceb4f7ed7f672)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/fire_demo.rs (target/debug/examples/fire_demo-bb338c84a5d1a20e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/fisheye_demo.rs (target/debug/examples/fisheye_demo-193e0cc9443520af)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/fractal_demo.rs (target/debug/examples/fractal_demo-97967f8a83f98b8d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/frosted_glass_demo.rs (target/debug/examples/frosted_glass_demo-36ae5b63e1751907)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/gamma_demo.rs (target/debug/examples/gamma_demo-76de0d433dd01374)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/glitch_demo.rs (target/debug/examples/glitch_demo-5bc8ca050324ac95)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/gltf_viewer.rs (target/debug/examples/gltf_viewer-358bfb723049543f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/god_rays_demo.rs (target/debug/examples/god_rays_demo-92e2f69682ef12b2)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/gpu_cube.rs (target/debug/examples/gpu_cube-0eced633d8f47e1d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/gpu_deferred_showcase.rs (target/debug/examples/gpu_deferred_showcase-5de9039b411acfc0)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/gpu_mvp_cube.rs (target/debug/examples/gpu_mvp_cube-c4f5d0dd958d5d07)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/gpu_obj.rs (target/debug/examples/gpu_obj-d4519aecdd69d655)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/gpu_pyramid.rs (target/debug/examples/gpu_pyramid-1cb99d98d45a6db0)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/halftone_demo.rs (target/debug/examples/halftone_demo-71bd9530c2a28e6a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/heat_vision.rs (target/debug/examples/heat_vision-ade58c36eb11f072)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/hologram_demo.rs (target/debug/examples/hologram_demo-2823932aa00a42a8)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/infinite_grid_demo.rs (target/debug/examples/infinite_grid_demo-3a56c18962c6b810)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/jelly_demo.rs (target/debug/examples/jelly_demo-1b3835631f182e1b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/laplacian_blend_demo.rs (target/debug/examples/laplacian_blend_demo-948aca78e49be06e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/led_matrix_demo.rs (target/debug/examples/led_matrix_demo-cc27dff3c5054a65)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/lit_cube.rs (target/debug/examples/lit_cube-12bbce1adf39eb8a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/magnifying_glass_demo.rs (target/debug/examples/magnifying_glass_demo-b9a96a5ab1a61d55)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/mandelbrot_demo.rs (target/debug/examples/mandelbrot_demo-e275721124abab3b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/melt_demo.rs (target/debug/examples/melt_demo-8217ac3952f666bb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/metaballs_demo.rs (target/debug/examples/metaballs_demo-1b7bded406753fac)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/mode7_demo.rs (target/debug/examples/mode7_demo-c2e15f883ae63d52)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/mosaic_demo.rs (target/debug/examples/mosaic_demo-cadf6a14ebd655ea)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/night_vision_demo.rs (target/debug/examples/night_vision_demo-8b408701c8d54106)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/normal_mapping_demo.rs (target/debug/examples/normal_mapping_demo-a36054087d20c521)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/obj_viewer.rs (target/debug/examples/obj_viewer-2eb264063544143b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/particles.rs (target/debug/examples/particles-44c3a801ad066dd1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/pencil_sketch_demo.rs (target/debug/examples/pencil_sketch_demo-630cf949d32fff5f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/physarum_demo.rs (target/debug/examples/physarum_demo-1f5181135f0a14eb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/pixel_sort_demo.rs (target/debug/examples/pixel_sort_demo-aa213cfb87efda11)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/plasma_demo.rs (target/debug/examples/plasma_demo-7baa23342013a113)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/pop_art_demo.rs (target/debug/examples/pop_art_demo-3bf42f43bbc2c6fe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/posterize_demo.rs (target/debug/examples/posterize_demo-cfe46118de7569bd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/raycast_demo.rs (target/debug/examples/raycast_demo-3cf53456358565c9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/raytracer_demo.rs (target/debug/examples/raytracer_demo-c7715424fc821fab)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/reaction_diffusion_demo.rs (target/debug/examples/reaction_diffusion_demo-736fee63a6e31e30)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/reflection_demo.rs (target/debug/examples/reflection_demo-8454beee28ef82d9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/selective_color_demo.rs (target/debug/examples/selective_color_demo-270ff4e15809f998)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/skybox_demo.rs (target/debug/examples/skybox_demo-76ebe42977137473)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/slitscan_demo.rs (target/debug/examples/slitscan_demo-dfdea15f19b1c595)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/sonar_demo.rs (target/debug/examples/sonar_demo-bd5dafff7061fe25)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/speed_lines_demo.rs (target/debug/examples/speed_lines_demo-d782092afb8de107)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/ssao_demo.rs (target/debug/examples/ssao_demo-15937958b2543a75)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/starfield_demo.rs (target/debug/examples/starfield_demo-4806d7711e70dd2f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/steganography_demo.rs (target/debug/examples/steganography_demo-6719c7c1a92c20b6)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/swirl_demo.rs (target/debug/examples/swirl_demo-c8f133caab6fb18b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/tilt_shift_demo.rs (target/debug/examples/tilt_shift_demo-7ecb4b04212327bd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/topography_demo.rs (target/debug/examples/topography_demo-759fe8f0e66be7a0)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/tunnel_demo.rs (target/debug/examples/tunnel_demo-ff34ea9cb571cbd9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/vhs_demo.rs (target/debug/examples/vhs_demo-1a5e2d6afc870538)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/vignette_demo.rs (target/debug/examples/vignette_demo-a6fccb0fff7d43c1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/vision_demo.rs (target/debug/examples/vision_demo-30ca4a52faf8d99d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/voronoi_demo.rs (target/debug/examples/voronoi_demo-40e037ab0d8cef8c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/wasm_cube_3d.rs (target/debug/examples/wasm_cube_3d-ad4d99ab2399cf6a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/wobble_demo.rs (target/debug/examples/wobble_demo-e25422ac228314be)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
