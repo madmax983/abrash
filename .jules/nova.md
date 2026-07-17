@@ -101,3 +101,7 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+## [Terminal Braille Exporter]
+**Concept:** A feature that converts the framebuffer into a string of high-density Unicode Braille characters, allowing 3D scenes and effects to be output directly into the terminal without specialized UI libraries. It maps a 2x4 pixel grid into single characters based on luminance.
+**Fate:** Implemented
+**Lesson:** Iterating through the target character grid and sampling the underlying pixel grid effectively condenses visual data into dense text, allowing graphical output in constrained environments like terminal emulators or text files.
