@@ -132,21 +132,25 @@ impl TuiWindow {
     }
 
     #[must_use]
-    pub const fn is_open(&self) -> bool {
+    /// Returns true if the TUI is currently open and running.
+pub const fn is_open(&self) -> bool {
         self.is_open
     }
 
     #[must_use]
-    pub const fn width(&self) -> u32 {
+    /// Returns the width of the TUI window.
+pub const fn width(&self) -> u32 {
         self.width
     }
 
     #[must_use]
-    pub const fn height(&self) -> u32 {
+    /// Returns the height of the TUI window.
+pub const fn height(&self) -> u32 {
         self.height
     }
 
-    pub fn poll_events(&mut self) -> Vec<Event> {
+    /// Polls for incoming events from the terminal.
+pub fn poll_events(&mut self) -> Vec<Event> {
         self.frame_start = Instant::now();
         let mut events = Vec::new();
 
@@ -169,7 +173,8 @@ impl TuiWindow {
         events
     }
 
-    pub fn blit_framebuffer(&mut self, framebuffer: &Framebuffer) {
+    /// Blits the provided framebuffer onto the terminal display.
+pub fn blit_framebuffer(&mut self, framebuffer: &Framebuffer) {
         self.frame_count += 1;
         self.frames_since_update += 1;
 
