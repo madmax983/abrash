@@ -240,3 +240,7 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+
+**Optimization: clear_rect bounds calculation and chunking**
+**Learning:** In 2D buffer clearing hot loops (e.g., `clear_rect`), replacing manual row offset iteration with safe iterator-based chunking (`.chunks_exact_mut()`) combined with inner-loop `unsafe { row.get_unchecked_mut(...) }` improves SIMD alignment, reduces instructions, simplifies code, and yields measurable performance gains. Additionally, replacing intermediate `i64` casts with `saturating_add_unsigned` prevents integer overflow panics and improves efficiency.
+**Action:** Applied chunking optimization and saturating addition to `Framebuffer::clear_rect` and `ZBuffer::clear_rect`.
