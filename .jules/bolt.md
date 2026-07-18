@@ -240,3 +240,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+**Environment Map Uploading**
+**Learning:** When performing pixel format conversions (like ARGB to RGBA) for GPU texture uploads, iterating over a vector and repeatedly calling `extend_from_slice` incurs significant bounds checking and capacity reallocation overhead in the hot path.
+**Action:** Pre-allocate a zeroed vector `vec![0u8; len]` and use `.chunks_exact_mut(4).zip(...)` to safely elide bounds checks and write directly into memory chunks.
