@@ -74,3 +74,6 @@
 **[Missing Tests for Handle Error Propagation]**
 **Learning:** Even when errors like `StaleHandle` are correctly propagated from internal handle lookup failure via `ok_or()`, there might not be explicit tests verifying the exact enum variant of the returned `Result`. The existing test suite was heavily verifying stale `Mesh` handles, but silently lacked mirror tests for `Material` handles, leaving a logic path untested.
 **Action:** Audit functions that interact with multiple types of resource handles (e.g. `Mesh` and `Material`) to ensure that *every* handle type has a corresponding failure test, rather than relying on a single representative test case.
+**[Out-of-Bounds Texture Access and Fast-Path Drawing Tests]
+**Learning:** Testing functions like `get_pixel_texel` in textures with out-of-bound arguments verifies their fallback or error-handling correctness (e.g. edge clamping). Similarly, testing unchecked internal functions (e.g. `draw_rect_outline` or `draw_vertical_line_unchecked`) with potentially overflowing or out-of-bounds parameters ensures the calling guards protect the unchecked blocks correctly, averting panics.
+**Action:** Added dedicated boundary tests `sentry_texture_oob.rs` and `sentry_rect.rs` that exercise explicit negative/out-of-bounds inputs to ensure safety boundaries work.
