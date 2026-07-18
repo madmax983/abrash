@@ -66,30 +66,17 @@ impl ZBuffer {
             return;
         }
 
-        let x1 = x;
-        let y1 = y;
+        let start_x = x.max(0).min(self.width as i32) as u32;
+        let start_y = y.max(0).min(self.height as i32) as u32;
 
-        // Prevent overflow when adding width to x
-        // Use i64 for intermediate calculation to avoid wrapping
-        let x2_i64 = i64::from(x) + i64::from(width);
-        let y2_i64 = i64::from(y) + i64::from(height);
-
-        let x2 = if x2_i64 > i64::from(i32::MAX) {
-            i32::MAX
-        } else {
-            x2_i64 as i32
-        };
-        let y2 = if y2_i64 > i64::from(i32::MAX) {
-            i32::MAX
-        } else {
-            y2_i64 as i32
-        };
-
-        let start_x = x1.max(0).min(self.width as i32) as u32;
-        let start_y = y1.max(0).min(self.height as i32) as u32;
-
-        let end_x = x2.max(0).min(self.width as i32) as u32;
-        let end_y = y2.max(0).min(self.height as i32) as u32;
+        let end_x = x
+            .saturating_add_unsigned(width)
+            .max(0)
+            .min(self.width as i32) as u32;
+        let end_y = y
+            .saturating_add_unsigned(height)
+            .max(0)
+            .min(self.height as i32) as u32;
 
         if start_x >= end_x || start_y >= end_y {
             return;
