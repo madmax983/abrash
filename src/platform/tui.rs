@@ -130,22 +130,27 @@ impl TuiWindow {
             target_frame_time,
         })
     }
-
     #[must_use]
+    /// Returns `true` if the terminal UI is currently open and responding to events.
     pub const fn is_open(&self) -> bool {
         self.is_open
     }
 
     #[must_use]
+    /// Returns the width of the terminal UI in character cells.
     pub const fn width(&self) -> u32 {
         self.width
     }
 
     #[must_use]
+    /// Returns the height of the terminal UI in character cells.
     pub const fn height(&self) -> u32 {
         self.height
     }
 
+    /// Polls for terminal events (like keyboard input or resizing) without blocking.
+    ///
+    /// Returns a `Vec<Event>` containing all events that occurred since the last poll.
     pub fn poll_events(&mut self) -> Vec<Event> {
         self.frame_start = Instant::now();
         let mut events = Vec::new();
@@ -169,6 +174,11 @@ impl TuiWindow {
         events
     }
 
+    /// Blits a [`Framebuffer`] to the terminal screen.
+    ///
+    /// This method scales and renders the provided `framebuffer` into the
+    /// terminal window, using a half-block character (`▀`) approach to achieve
+    /// a perceived vertical resolution twice that of the physical terminal height.
     pub fn blit_framebuffer(&mut self, framebuffer: &Framebuffer) {
         self.frame_count += 1;
         self.frames_since_update += 1;

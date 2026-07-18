@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2024-05-20 - [TUI Window Undocumented Methods]
+**Confusion:** The `TuiWindow` struct had several undocumented public methods like `is_open`, `width`, `height`, `poll_events`, and `blit_framebuffer`, and `FramebufferWidget` was also missing docs for its internal field, leading to `cargo doc` failures.
+**Clarification:** Added missing method-level documentation for all of them explaining their behavior, and added field documentation.

@@ -12,6 +12,7 @@ use ratatui::{buffer::Buffer, layout::Rect, style::Color, widgets::Widget};
 /// Each terminal cell represents two vertical pixels: the foreground color is the
 /// top pixel, the background color is the bottom pixel.
 pub struct FramebufferWidget<'a> {
+    /// A reference to the [`Framebuffer`] to render.
     pub framebuffer: &'a Framebuffer,
 }
 
