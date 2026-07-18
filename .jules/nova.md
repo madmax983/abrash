@@ -101,3 +101,8 @@
 **Concept:** A screen-space effect that evaluates a 2D implicit surface distance field to render smooth, merging blobs or "goo". It simulates balls bouncing around the screen and accumulating inverse squared distances per pixel.
 **Fate:** Implemented
 **Lesson:** Extracting the x/y positions and sizes into separate cache vectors before running the per-pixel nested loops makes iteration significantly cleaner and potentially faster than repeatedly accessing the inner properties of a complex struct during a hot loop.
+
+## [Strange Attractor Generator]
+**Concept:** A procedural generator that renders 2D strange attractors (like Clifford or Peter de Jong) by simulating millions of iterations and accumulating pixel hits into a histogram, mapping the density to a color scale for wispy, chaotic visuals.
+**Fate:** Implemented
+**Lesson:** Using a flat 2D histogram buffer and applying logarithmic density mapping after batching millions of iterations creates stunning, organic-looking chaotic structures entirely in software. Batching the hot-loop helps the compiler unroll and auto-vectorize the math.
