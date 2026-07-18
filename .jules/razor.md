@@ -21,3 +21,7 @@
 **Bloat:** Deeply nested 'Pyramid of Doom' (9+ levels of indentation) duplicated across serial and parallel code paths in `apply_kuwahara`.
 **Cut:** Extracted the inner region processing loop into a single flat `process_kuwahara_region` helper function, shared by both execution paths.
 **Saved:** Reduced max indentation from 10 levels to 3 levels, eliminated 100+ lines of exact code duplication.
+## [Reduction]
+**Bloat:** A function missing `clippy::missing_errors_doc` docs and variables not using directly in a `format!` string as reported by `clippy::uninlined_format_args`. Also removing redundant width/height coordinate validation that was already checked implicitly by `Texture::new()` invocation.
+**Cut:** Formatted the static inline variable so the block isn't interrupting the doc string to properly attach `/// # Errors`. Inlined format args in benches, and deleted the unnecessary initial dimension check in `plasma()`.
+**Saved:** Lints resolved across `cargo clippy --all-targets --all-features -- -D warnings`, removed 3 lines of useless dimension verification logic.
