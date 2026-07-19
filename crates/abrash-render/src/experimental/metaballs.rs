@@ -43,14 +43,19 @@ impl Default for MetaballsConfig {
 /// A single metaball entity.
 #[derive(Debug, Clone)]
 pub struct Metaball {
+    /// The 2D coordinates representing the center of this metaball.
     pub position: Vec2,
+    /// The directional velocity vector for simulating movement.
     pub velocity: Vec2,
+    /// The radius of influence for the metaball's density field.
     pub size: f32,
 }
 
 /// State for the Metaballs simulation.
 pub struct Metaballs {
+    /// The overarching configuration governing thresholds and appearance.
     pub config: MetaballsConfig,
+    /// The collection of active metaballs participating in the simulation.
     pub balls: Vec<Metaball>,
     initialized: bool,
 }
@@ -63,6 +68,7 @@ impl Default for Metaballs {
 
 impl Metaballs {
     #[must_use]
+    /// Initializes a new, empty metaball simulation with the provided settings.
     pub const fn new(config: MetaballsConfig) -> Self {
         Self {
             config,

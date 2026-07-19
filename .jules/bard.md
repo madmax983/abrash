@@ -23,3 +23,6 @@
 ## 2024-05-19 - [TuiWindow Documentation]
 **Confusion:** The `TuiWindow` struct in the platform module lacked documentation, which could cause confusion regarding its role as a terminal backend window manager.
 **Clarification:** Added a struct-level documentation explaining that it manages a terminal backend using `ratatui` + `crossterm`.
+## 2024-05-19 - [Workspace Missing Docs & Errors Docs]
+**Confusion:** Dozens of public structs across experimental render paths, the GPU backend, and the raycaster backend were missing field documentation. Further, `procedural::plasma` and `cpu_renderer::create_texture` were missing `/// # Errors` sections detailing why they might fail, causing warnings and confusion for users relying on those failure modes.
+**Clarification:** Mass-documented all missing structs, fields, and enum variants using meaningful, descriptive lore that explains *what* a property configures instead of just repeating its name. Added `/// # Errors` sections to the fallible methods to satisfy `clippy::missing_errors_doc`.

@@ -131,21 +131,27 @@ impl TuiWindow {
         })
     }
 
+    /// Indicates if the application loop should continue, returning `false` upon user exit requests (e.g., Q or Escape).
     #[must_use]
     pub const fn is_open(&self) -> bool {
         self.is_open
     }
 
+    /// Logical horizontal resolution of the display window, determining how many render cells are available horizontally.
     #[must_use]
     pub const fn width(&self) -> u32 {
         self.width
     }
 
+    /// Logical vertical resolution of the display window, representing the number of vertical render blocks available.
     #[must_use]
     pub const fn height(&self) -> u32 {
         self.height
     }
 
+    /// Processes pending system and user interactions without halting the main application thread.
+    ///
+    /// Must be called periodically to maintain application responsiveness and dispatch keyboard commands.
     pub fn poll_events(&mut self) -> Vec<Event> {
         self.frame_start = Instant::now();
         let mut events = Vec::new();
@@ -169,6 +175,10 @@ impl TuiWindow {
         events
     }
 
+    /// Flushes the pixel data array to the terminal output buffer.
+    ///
+    /// Translates raw rastered data into terminal cells via half-block characters,
+    /// and orchestrates timing to hit the target vsync threshold.
     pub fn blit_framebuffer(&mut self, framebuffer: &Framebuffer) {
         self.frame_count += 1;
         self.frames_since_update += 1;

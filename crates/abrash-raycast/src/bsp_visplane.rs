@@ -20,10 +20,15 @@ const UNUSED_BOTTOM: i32 = i32::MIN;
 /// `i32::MIN` for bottom).
 #[derive(Clone, Debug)]
 pub struct Visplane {
+    /// The uniform height (floor or ceiling) at which this visplane is drawn.
     pub height: i16,
+    /// The texture index used to render the surface of the visplane.
     pub texture: u16,
+    /// The lighting value applied across the visplane, affecting shading.
     pub light_level: u16,
+    /// The leftmost screen column where this visplane begins rendering.
     pub min_x: i32,
+    /// The rightmost screen column where this visplane stops rendering.
     pub max_x: i32,
     top: Vec<i32>,
     bottom: Vec<i32>,

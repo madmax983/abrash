@@ -53,6 +53,7 @@ impl<T: Animatable + Send + Sync> Sequence<T> {
 
 impl<T: Animatable + Send + Sync> Sequence<T> {
     #[must_use]
+    /// Computes the sample for the entire sequence at the given global `phase`.
     pub fn evaluate(&self, phase: f32) -> Sample<T> {
         let phase = phase.clamp(0.0, 1.0);
 
@@ -74,6 +75,7 @@ impl<T: Animatable + Send + Sync> Sequence<T> {
     }
 
     #[must_use]
+    /// Returns the sum of the natural durations of all elements in the sequence.
     pub const fn natural_duration(&self) -> f32 {
         self.total_duration
     }

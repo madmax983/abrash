@@ -46,10 +46,13 @@ struct Cell {
 
 /// A 2D grid for the reaction-diffusion simulation.
 pub struct ReactionDiffusion {
+    /// The horizontal resolution of the diffusion grid.
     pub width: usize,
+    /// The vertical resolution of the diffusion grid.
     pub height: usize,
     grid: Vec<Cell>,
     next_grid: Vec<Cell>,
+    /// The chemical parameters dictating the pattern generation.
     pub config: ReactionDiffusionConfig,
 }
 

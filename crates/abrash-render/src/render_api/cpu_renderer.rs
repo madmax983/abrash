@@ -439,6 +439,11 @@ impl CpuRenderer {
     }
 
     #[allow(clippy::missing_errors_doc)]
+    /// Registers a new texture with the CPU renderer and returns a handle for future drawing operations.
+    ///
+    /// # Errors
+    ///
+    /// Returns `RenderError` if the internal texture pool has reached its maximum capacity.
     pub fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, RenderError> {
         Ok(to_texture_handle(self.textures.insert(texture.clone())))
     }

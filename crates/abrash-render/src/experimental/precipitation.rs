@@ -12,35 +12,55 @@ use std::cell::RefCell;
 /// The state of a single precipitation drop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DropState {
+    /// The drop is currently airborne and descending.
     Falling,
+    /// The drop has hit the ground and is rendering its splash animation.
     Splashing,
 }
 
 /// A single drop of precipitation.
 #[derive(Debug, Clone, Copy)]
 pub struct Drop {
+    /// The horizontal X position of the drop.
     pub x: f32,
+    /// The vertical Y position (often depth/perspective).
     pub y: f32,
+    /// The Z altitude of the drop relative to the ground.
     pub z: f32,
+    /// Horizontal movement speed due to wind.
     pub velocity_x: f32,
+    /// Vertical movement speed.
     pub velocity_y: f32,
+    /// Whether the drop is falling or splashing.
     pub state: DropState,
-    pub life: f32, // Frames remaining for splash
+    /// Remaining animation frames, typically used for splash decay.
+    pub life: f32,
+    /// The ARGB color of this individual drop.
     pub color: u32,
 }
 
 /// Configuration for the precipitation effect.
 #[derive(Debug, Clone, Copy)]
 pub struct PrecipitationConfig {
+    /// The maximum number of simultaneous drops allowed.
     pub max_drops: usize,
+    /// The default color assigned to new falling drops.
     pub drop_color: u32,
+    /// The color assigned to drops that transition to the splash state.
     pub splash_color: u32,
+    /// The downward acceleration applied per frame.
     pub gravity: f32,
+    /// The horizontal acceleration applied per frame.
     pub wind: f32,
+    /// The lowest possible initial downward velocity.
     pub drop_speed_min: f32,
+    /// The highest possible initial downward velocity.
     pub drop_speed_max: f32,
+    /// The nearest bounds for drop generation.
     pub z_min: f32,
+    /// The furthest bounds for drop generation.
     pub z_max: f32,
+    /// The number of frames a splash animation lasts.
     pub splash_duration: f32,
 }
 
@@ -63,7 +83,9 @@ impl Default for PrecipitationConfig {
 
 /// The state of the precipitation simulation.
 pub struct PrecipitationState {
+    /// The active pool of simulated drops.
     pub drops: Vec<Drop>,
+    /// The pseudo-random number generator for drop spawning and variation.
     pub rng: XorShift32,
 }
 

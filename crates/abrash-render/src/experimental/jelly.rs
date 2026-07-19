@@ -126,8 +126,11 @@ unsafe fn gather_vec3s_avx(
 /// A spring connecting two vertices.
 #[derive(Debug, Clone, Copy)]
 pub struct Spring {
+    /// The index of the first mass point linked by this spring.
     pub index_a: usize,
+    /// The index of the second mass point linked by this spring.
     pub index_b: usize,
+    /// The equilibrium distance the spring attempts to return to.
     pub rest_length: f32,
 }
 

@@ -10,8 +10,11 @@ use abrash_core::utils::XorShift32;
 
 /// A classic 3D starfield simulator.
 pub struct Starfield {
+    /// The 3D coordinates of all stars in the field.
     pub stars: Vec<Vec3>,
+    /// The velocity multiplier dictating how fast stars approach the camera.
     pub speed: f32,
+    /// The maximum Z-distance before a star is culled and respawned.
     pub max_depth: f32,
     prng: XorShift32,
 }

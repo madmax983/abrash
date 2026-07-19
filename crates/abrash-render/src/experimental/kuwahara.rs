@@ -133,6 +133,9 @@ fn process_kuwahara_region(
     }
 }
 
+/// Applies a non-linear Kuwahara filter to the framebuffer to create an oil-painting or watercolor effect.
+///
+/// It analyzes four surrounding quadrants to find the area of lowest variance, maintaining sharp edges while flattening color regions.
 pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
     if radius <= 0 {
         return;
