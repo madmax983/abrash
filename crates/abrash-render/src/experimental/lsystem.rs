@@ -191,13 +191,20 @@ struct TurtleState {
 /// A stateful 3D Turtle for interpreting strings into meshes.
 #[derive(Debug, Clone)]
 pub struct Turtle {
+    /// The 3D turtle coordinate in space.
     pub position: Vec3,
+    /// The forward-facing orientation vector.
     pub direction: Vec3,
+    /// The vertical orientation vector, defining the local 'ceiling'.
     pub up: Vec3,
+    /// The horizontal orientation vector, completing the basis triad.
     pub right: Vec3,
+    /// The length drawn for each `F` symbol instruction.
     pub segment_length: f32,
+    /// The thickness (radius) of the drawn tubular segments.
     pub segment_radius: f32,
-    pub turn_angle: f32, // in radians
+    /// The angle (in radians) to rotate when encountering turn symbols like `+` or `-`.
+    pub turn_angle: f32,
     stack: Vec<TurtleState>,
 }
 

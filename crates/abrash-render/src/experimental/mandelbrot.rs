@@ -6,9 +6,13 @@ use rayon::prelude::*;
 
 /// Configuration for rendering the Mandelbrot set.
 pub struct MandelbrotConfig {
+    /// The real component of the coordinate targeted by the camera.
     pub center_x: f64,
+    /// The imaginary component of the coordinate targeted by the camera.
     pub center_y: f64,
+    /// The scaling factor controlling how deep into the fractal the view is set.
     pub zoom: f64,
+    /// The maximum escape limit for the recursive sequence, directly affecting rendering detail.
     pub max_iterations: u32,
 }
 

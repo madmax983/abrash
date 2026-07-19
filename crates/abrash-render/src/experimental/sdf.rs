@@ -13,26 +13,43 @@ use crate::zbuffer::ZBuffer;
 /// Supported SDF Primitives.
 #[derive(Clone, Copy, Debug)]
 pub enum SdfPrimitive {
+    /// A perfect sphere defined by a radius.
     Sphere {
+        /// The distance from the center to the surface.
         radius: f32,
+        /// The 3D coordinate of the sphere's origin.
         center: Vec3,
     },
+    /// An axis-aligned bounding box.
     Box {
+        /// The half-extents (width, height, depth) of the box.
         size: Vec3,
+        /// The 3D coordinate of the box's origin.
         center: Vec3,
     },
+    /// A donut-like shape.
     Torus {
+        /// The distance from the center of the hole to the center of the tube.
         major_radius: f32,
+        /// The radius of the tube itself.
         minor_radius: f32,
+        /// The 3D coordinate of the torus's origin.
         center: Vec3,
     },
+    /// An infinite flat surface.
     Plane {
+        /// The normalized directional vector pointing away from the surface.
         normal: Vec3,
+        /// The offset from the origin along the normal vector.
         distance: f32,
     },
+    /// A cylinder with hemispherical ends.
     Capsule {
+        /// The coordinate of the first endpoint of the inner line segment.
         start: Vec3,
+        /// The coordinate of the second endpoint of the inner line segment.
         end: Vec3,
+        /// The thickness radius expanding outward from the line segment.
         radius: f32,
     },
 }
@@ -40,7 +57,9 @@ pub enum SdfPrimitive {
 /// An object in the SDF scene.
 #[derive(Clone, Copy, Debug)]
 pub struct SdfObject {
+    /// The geometric shape defining the bounds of this object.
     pub primitive: SdfPrimitive,
+    /// The ARGB color applied to the surface when rendered.
     pub color: u32,
 }
 
@@ -87,6 +106,7 @@ fn vec3_max(v: Vec3, val: f32) -> Vec3 {
 
 /// A scene containing SDF objects.
 pub struct SdfScene {
+    /// The collection of all shapes present in the scene.
     pub objects: Vec<SdfObject>,
 }
 
@@ -98,12 +118,14 @@ impl Default for SdfScene {
 
 impl SdfScene {
     #[must_use]
+    /// Initializes a new, empty SDF scene.
     pub const fn new() -> Self {
         Self {
             objects: Vec::new(),
         }
     }
 
+    /// Inserts a new signed distance field object into the scene graph.
     pub fn add(&mut self, object: SdfObject) {
         self.objects.push(object);
     }

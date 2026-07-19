@@ -16,14 +16,23 @@ use rayon::prelude::*;
 /// Configuration parameters for the Boids simulation.
 #[derive(Clone, Debug)]
 pub struct FlockConfig {
+    /// How strongly boids steer away from crowded local flockmates to avoid collisions.
     pub separation_weight: f32,
+    /// How strongly boids steer towards the average heading of local flockmates.
     pub alignment_weight: f32,
+    /// How strongly boids steer towards the average position of local flockmates.
     pub cohesion_weight: f32,
+    /// The force applied to push boids back towards the center of the simulation boundary.
     pub bound_weight: f32,
+    /// The maximum distance a boid can see its neighbors for alignment and cohesion.
     pub perception_radius: f32,
+    /// The critical distance at which boids actively start pushing away from each other.
     pub separation_radius: f32,
+    /// The absolute maximum velocity magnitude a boid can achieve.
     pub max_speed: f32,
+    /// The minimum velocity magnitude to prevent boids from stopping completely.
     pub min_speed: f32,
+    /// The 3D extents defining the safe zone the flock must remain within.
     pub bounds: Vec3,
 }
 
@@ -46,12 +55,15 @@ impl Default for FlockConfig {
 /// A single simulated entity.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Boid {
+    /// The current 3D spatial coordinate of this entity.
     pub position: Vec3,
+    /// The current directional movement vector determining where it will go next frame.
     pub velocity: Vec3,
 }
 
 impl Boid {
     #[must_use]
+    /// Spawns a new boid entity with an initial position and starting trajectory.
     pub const fn new(position: Vec3, velocity: Vec3) -> Self {
         Self { position, velocity }
     }
@@ -59,14 +71,17 @@ impl Boid {
 
 /// A manager for a collection of Boids.
 pub struct Flock {
+    /// The collection of all active boid entities participating in the flock.
     pub boids: Vec<Boid>,
     /// Pre-allocated buffer to store the previous state of the flock without per-frame allocations.
     pub old_boids: Vec<Boid>,
+    /// The rule weights governing how the flock behaves and clumps together.
     pub config: FlockConfig,
 }
 
 impl Flock {
     #[must_use]
+    /// Initializes a new, empty flock simulation governed by the given rule configuration.
     pub const fn new(config: FlockConfig) -> Self {
         Self {
             boids: Vec::new(),
@@ -75,6 +90,7 @@ impl Flock {
         }
     }
 
+    /// Injects an external boid entity into the active simulation.
     pub fn add_boid(&mut self, boid: Boid) {
         self.boids.push(boid);
     }

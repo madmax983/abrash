@@ -21,6 +21,7 @@ pub struct DrosteConfig {
     pub scale: f32,
     /// Offset of the inner picture relative to the center, normalized (e.g., (0.0, 0.0) is centered).
     pub offset_x: f32,
+    /// The vertical phase shift applied to the fractal mapping, useful for animating the infinite descent.
     pub offset_y: f32,
 }
 

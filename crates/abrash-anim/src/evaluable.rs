@@ -12,7 +12,9 @@ use crate::sequence::Sequence;
 /// future velocity-preserving spring interruption.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Sample<T: Animatable> {
+    /// The interpolated value at a given phase.
     pub value: T,
+    /// The rate of change of the value at this moment.
     pub velocity: T,
 }
 
@@ -38,8 +40,11 @@ impl<T: Animatable> Sample<T> {
 /// This is the core animation abstraction. Evaluables are composable:
 /// `Keyframe`, `Hold`, and `Sequence` are available variants.
 pub enum Evaluable<T: Animatable> {
+    /// An interpolation between two distinct values over time.
     Keyframe(Keyframe<T>),
+    /// A static value held for a duration of time.
     Hold(Hold<T>),
+    /// A series of evaluables played back-to-back.
     Sequence(Sequence<T>),
 }
 

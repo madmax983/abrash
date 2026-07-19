@@ -9,6 +9,7 @@ use crate::mesh::Mesh;
 
 /// A modifiable volumetric object.
 pub struct Volume {
+    /// The 3D array of volume data used for raymarching.
     pub grid: VoxelGrid,
 }
 
