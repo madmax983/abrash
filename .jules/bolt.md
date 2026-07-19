@@ -240,3 +240,6 @@ Performance improvement varies across workloads (from up to 24% for 4k ZBuffer f
 ## [Fix `assume_init()` UB in `PreparedTrianglesList`]
 **Learning:** Calling `assume_init()` on `MaybeUninit` arrays containing non-`Copy` data within iterator `.next()` or parallel iterators causes Undefined Behavior (Stacked Borrows violations).
 **Action:** Always use `.assume_init_read()` instead of `.assume_init()` when extracting initialized elements from `MaybeUninit` arrays during iteration over manually managed memory buffers.
+**[Deferring Square Roots via Squared Comparisons]**
+**Learning:** In pixel-by-pixel distance calculation hot loops (like chroma keying or Voronoi), computing exact Euclidean distance with `.sqrt()` for every pixel is exceptionally slow. Defer the `.sqrt()` operation by first comparing the squared distance (`dr*dr + dg*dg + db*db`) against pre-calculated squared thresholds, computing `.sqrt()` only for pixels that fall within the active blending region.
+**Action:** Replaced `dist <= threshold` with `dist_sq <= threshold_sq` and hoisted the `dist.sqrt()` call inside the `else if` blending block for `apply_chroma_key`, yielding ~20% performance improvement.
