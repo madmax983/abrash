@@ -1681,6 +1681,17 @@ struct CoarseBinContext<'a> {
     hiz_buffer_ref: Option<&'a HiZBuffer>,
 }
 
+/// Tests a single vertex against the view frustum's 6 planes in homogeneous clip space.
+///
+/// Mirrors exactly the per-lane condition `clip_triangle_to_frustum`'s trivial-accept
+/// path checks for each vertex, so a triangle whose 3 vertices all pass this test is
+/// guaranteed to hit that trivial-accept branch (and thus be returned unchanged) if it
+/// were passed to `clip_triangle_to_frustum`.
+#[inline]
+fn vertex_inside_frustum((p, w): (Vec3, f32)) -> bool {
+    p.x >= -w && p.x <= w && p.y >= -w && p.y <= w && p.z >= -w && p.z <= w
+}
+
 impl TileRenderer {
     /// Create a new tile renderer for the given framebuffer dimensions.
     ///
@@ -1850,6 +1861,26 @@ impl TileRenderer {
             if all_inside {
                 self.submit_mesh_unclipped(indices, vertices, color);
             } else {
+                // Bolt: The mesh-level `all_inside` check above is all-or-nothing, so a
+                // single boundary vertex sends every triangle in the mesh through
+                // `prepare_triangle` -> `clip_triangle_to_frustum`, even triangles whose
+                // own 3 vertices are individually inside the frustum. Profiling
+                // (callgrind on the full scene-render pipeline) showed this per-triangle
+                // clip path costing roughly 2x the fast unclipped path for the same
+                // triangle count, mostly from `clip_triangle_to_frustum`'s call/SIMD-setup
+                // overhead and `prepare_triangle`'s `ClippedTriangles` round-trip.
+                //
+                // Mirror `clip_triangle_to_frustum`'s own trivial-accept test (same 6
+                // plane inequalities) per triangle: when it would hold, its trivial-accept
+                // branch just returns the 3 input vertices unchanged, so calling
+                // `finalize_clipped_triangle` directly on them here produces bit-identical
+                // output while skipping the clip call entirely.
+                let ctx = ScreenSpaceContext {
+                    width: self.width,
+                    height: self.height,
+                    half_width: self.half_width,
+                    half_height: self.half_height,
+                };
                 for &[i0, i1, i2] in indices {
                     if i0 >= vertices.len() || i1 >= vertices.len() || i2 >= vertices.len() {
                         continue;
@@ -1857,7 +1888,17 @@ impl TileRenderer {
                     let v0 = vertices[i0];
                     let v1 = vertices[i1];
                     let v2 = vertices[i2];
-                    self.prepare_triangle(v0, v1, v2, color);
+                    if vertex_inside_frustum(v0)
+                        && vertex_inside_frustum(v1)
+                        && vertex_inside_frustum(v2)
+                    {
+                        if let Some(tri) = Self::finalize_clipped_triangle(v0, v1, v2, color, &ctx)
+                        {
+                            self.prepared.push(tri);
+                        }
+                    } else {
+                        self.prepare_triangle(v0, v1, v2, color);
+                    }
                 }
             }
         }
