@@ -6,6 +6,7 @@ use std::f32::consts::PI;
 use std::path::Path;
 
 use abrash::math::{Mat4, Vec3};
+use abrash::mesh::Mesh;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
@@ -87,6 +88,11 @@ struct GltfViewerApp {
     mesh_handle: Option<MeshHandle>,
     material_handle: Option<MaterialHandle>,
     skinned_positions: Vec<Vec3>,
+    // Scratch mesh reused every frame for the skinned-position update: only
+    // `.vertices` changes frame to frame, so this is cloned from
+    // `skinned_mesh` once at load time instead of every frame (the other
+    // four fields — indices/uvs/normals/tangents — never change).
+    updated_mesh: Option<Mesh>,
 
     // Camera orbit
     camera_angle: f32,
@@ -148,6 +154,8 @@ impl GltfViewerApp {
                 .map(|clip| SkeletonAnimator::new(skel, clip, PlaybackMode::Loop))
         });
 
+        let updated_mesh = skinned_mesh.as_ref().map(|sm| sm.mesh.clone());
+
         Ok(Self {
             presenter: None,
             renderer,
@@ -158,6 +166,7 @@ impl GltfViewerApp {
             mesh_handle,
             material_handle,
             skinned_positions,
+            updated_mesh,
             camera_angle: 0.0,
             model_center,
             camera_distance,
@@ -228,12 +237,16 @@ impl WindowApp for GltfViewerApp {
                 let skin_mats = skeleton.compute_skin_matrices(&globals);
                 skin_vertices(sm, &skin_mats, &mut self.skinned_positions);
 
-                // Build an updated mesh with the skinned positions
-                if let Some(mh) = self.mesh_handle {
-                    let mut updated_mesh = sm.mesh.clone();
+                // Update the reused scratch mesh with the skinned positions.
+                // Only `.vertices` changes frame to frame, so we overwrite it
+                // in place instead of re-cloning the whole mesh (indices,
+                // uvs, normals, tangents never change after load).
+                if let (Some(mh), Some(updated_mesh)) =
+                    (self.mesh_handle, self.updated_mesh.as_mut())
+                {
                     updated_mesh.vertices.clone_from(&self.skinned_positions);
                     self.renderer
-                        .update_mesh(mh, &updated_mesh)
+                        .update_mesh(mh, updated_mesh)
                         .map_err(render_err_to_host)?;
                 }
             }

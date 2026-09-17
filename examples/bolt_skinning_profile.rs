@@ -13,17 +13,23 @@
 //! Mirrors `GltfViewerApp::update()` exactly for the CPU-side work: forward
 //! kinematics via the allocating `compute_global_transforms` /
 //! `compute_skin_matrices` (the same calls the real app makes), `skin_vertices`,
-//! then `sm.mesh.clone()` + `vertices.clone_from(...)` — the exact sequence
-//! built right before `renderer.update_mesh(mh, &updated_mesh)`. The actual
-//! GPU/device upload is skipped (it needs a window/softbuffer surface and
-//! isn't part of the CPU cost under test); everything up to the `Mesh` that
-//! would be handed to it is reproduced faithfully.
-use abrash::mesh::Mesh;
+//! then updating the scratch mesh's vertices via `clone_from(...)` — the exact
+//! sequence built right before `renderer.update_mesh(mh, updated_mesh)`. The
+//! actual GPU/device upload is skipped (it needs a window/softbuffer surface
+//! and isn't part of the CPU cost under test); everything up to the `Mesh`
+//! that would be handed to it is reproduced faithfully.
+//!
+//! `updated_mesh` is cloned from `skinned_mesh.mesh` once, outside the frame
+//! loop, and only its `.vertices` field is overwritten per frame — this
+//! harness originally cloned the whole mesh inside the loop every frame (see
+//! the baseline commit that added this file); that was the bug this harness
+//! exists to catch a regression of.
 use abrash::math::{Vec2, Vec3, Vec4};
+use abrash::mesh::Mesh;
 use abrash::quat::Quat;
-use abrash::skeletal::skin::{SkinData, SkinnedMesh};
-use abrash::skeletal::skeleton::{Joint, JointId, Skeleton};
 use abrash::skeletal::pose::Pose;
+use abrash::skeletal::skeleton::{Joint, JointId, Skeleton};
+use abrash::skeletal::skin::{SkinData, SkinnedMesh};
 use abrash::skeletal::skinning::skin_vertices;
 use abrash::transform::Transform;
 use rand::rngs::StdRng;
@@ -39,7 +45,11 @@ fn make_skeleton() -> Skeleton {
     for i in 0..JOINT_COUNT {
         joints.push(Joint {
             name: format!("joint{i}"),
-            parent: if i == 0 { None } else { Some(JointId((i - 1) as u16)) },
+            parent: if i == 0 {
+                None
+            } else {
+                Some(JointId((i - 1) as u16))
+            },
             inverse_bind_matrix: abrash::math::Mat4::identity(),
             bind_transform: Transform::from_position(Vec3::new(0.0, i as f32 * 0.1, 0.0)),
         });
@@ -60,7 +70,8 @@ fn make_skinned_mesh(rng: &mut StdRng) -> SkinnedMesh {
             rng.gen_range(-1.0..1.0),
             rng.gen_range(-1.0..1.0),
         ));
-        mesh.uvs.push(Vec2::new(rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0)));
+        mesh.uvs
+            .push(Vec2::new(rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0)));
         mesh.tangents.push(Vec4::new(
             rng.gen_range(-1.0..1.0),
             rng.gen_range(-1.0..1.0),
@@ -101,7 +112,10 @@ fn make_skinned_mesh(rng: &mut StdRng) -> SkinnedMesh {
 
     SkinnedMesh {
         mesh,
-        skin: SkinData { joint_indices, weights },
+        skin: SkinData {
+            joint_indices,
+            weights,
+        },
     }
 }
 
@@ -118,6 +132,11 @@ fn main() {
     let bind_pose = Pose::from_bind(&skeleton);
     let mut pose = bind_pose.clone();
     let mut skinned_positions = vec![Vec3::ZERO; VERTEX_COUNT];
+
+    // Scratch mesh reused every frame: only `.vertices` changes frame to
+    // frame, so it's cloned once here instead of inside the loop (matches
+    // the fix in `examples/gltf_viewer.rs`'s `GltfViewerApp::update()`).
+    let mut updated_mesh = skinned_mesh.mesh.clone();
 
     let mut checksum: u64 = 0;
 
@@ -136,9 +155,8 @@ fn main() {
         skin_vertices(&skinned_mesh, &skin_mats, &mut skinned_positions);
 
         // Exactly what `GltfViewerApp::update()` does right before
-        // `renderer.update_mesh(mh, &updated_mesh)`: clone the whole mesh,
-        // then immediately overwrite its vertices with the skinned positions.
-        let mut updated_mesh = skinned_mesh.mesh.clone();
+        // `renderer.update_mesh(mh, &updated_mesh)`: overwrite the reused
+        // scratch mesh's vertices with the skinned positions in place.
         updated_mesh.vertices.clone_from(&skinned_positions);
         black_box(&updated_mesh);
 
