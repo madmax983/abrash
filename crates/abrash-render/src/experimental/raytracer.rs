@@ -257,6 +257,14 @@ impl RayTracer {
         // Pre-calculate World AABBs
         thread_local! {
             static AABB_BUFFER: std::cell::RefCell<Vec<AABB>> = const { std::cell::RefCell::new(Vec::new()) };
+            // ⚡ Bolt: Per-object world-space vertex cache. `trace_ray`/`check_shadow` used to
+            // call `obj.transform.transform_point(vertex)` for every one of a triangle's 3
+            // vertices on every single ray-triangle test (primary ray, shadow ray, and each
+            // reflection bounce), even though `obj.transform` is constant for the whole frame
+            // and shared vertices are re-transformed once per adjacent triangle. Pre-transform
+            // each object's mesh once per frame with the batch `transform_points_affine` API
+            // instead, and have ray tracing index into the cached world-space positions.
+            static WORLD_VERTS_BUFFER: std::cell::RefCell<Vec<Vec<Vec3>>> = const { std::cell::RefCell::new(Vec::new()) };
         }
 
         // Reconstruct Camera Vectors from View Matrix.
@@ -313,30 +321,58 @@ impl RayTracer {
             }
         });
 
-        AABB_BUFFER.with(|buffer| {
-            let world_aabbs = buffer.borrow();
-
-            // Extract immutable slices to satisfy the parallel iterator
-            let objects_slice: &[SceneObject] = &scene.objects;
-            let aabbs_slice: &[AABB] = &world_aabbs;
-
-            iter.for_each(|(y, row)| {
-                let ndc_y = start_y - (y as f32 + 0.5) * pixel_height;
-                for (x, pixel) in row.iter_mut().enumerate() {
-                    let ndc_x = start_x + (x as f32 + 0.5) * pixel_width;
-
-                    // Ray Direction
-                    let direction =
-                        (cam_forward + cam_right * ndc_x + cam_up * ndc_y).fast_normalize();
-                    let ray = Ray::new(eye, direction);
-
-                    *pixel = self.trace_ray(&ray, objects_slice, aabbs_slice, 0);
+        WORLD_VERTS_BUFFER.with(|buffer| {
+            let mut world_verts = buffer.borrow_mut();
+            if world_verts.len() < scene.objects.len() {
+                world_verts.resize_with(scene.objects.len(), Vec::new);
+            }
+            for (obj, verts) in scene.objects.iter().zip(world_verts.iter_mut()) {
+                let vertex_count = obj.mesh.vertices.len();
+                if verts.len() != vertex_count {
+                    verts.resize(vertex_count, Vec3::default());
                 }
+                obj.transform
+                    .transform_points_affine(&obj.mesh.vertices, verts);
+            }
+        });
+
+        AABB_BUFFER.with(|aabb_buffer| {
+            let world_aabbs = aabb_buffer.borrow();
+
+            WORLD_VERTS_BUFFER.with(|verts_buffer| {
+                let world_verts = verts_buffer.borrow();
+
+                // Extract immutable slices to satisfy the parallel iterator
+                let objects_slice: &[SceneObject] = &scene.objects;
+                let aabbs_slice: &[AABB] = &world_aabbs;
+                let world_verts_slice: &[Vec<Vec3>] = &world_verts;
+
+                iter.for_each(|(y, row)| {
+                    let ndc_y = start_y - (y as f32 + 0.5) * pixel_height;
+                    for (x, pixel) in row.iter_mut().enumerate() {
+                        let ndc_x = start_x + (x as f32 + 0.5) * pixel_width;
+
+                        // Ray Direction
+                        let direction =
+                            (cam_forward + cam_right * ndc_x + cam_up * ndc_y).fast_normalize();
+                        let ray = Ray::new(eye, direction);
+
+                        *pixel =
+                            self.trace_ray(&ray, objects_slice, aabbs_slice, world_verts_slice, 0);
+                    }
+                });
             });
         });
     }
 
-    fn trace_ray(&self, ray: &Ray, objects: &[SceneObject], aabbs: &[AABB], depth: u32) -> u32 {
+    fn trace_ray(
+        &self,
+        ray: &Ray,
+        objects: &[SceneObject],
+        aabbs: &[AABB],
+        world_verts: &[Vec<Vec3>],
+        depth: u32,
+    ) -> u32 {
         if depth > self.max_bounces {
             return self.background_color;
         }
@@ -344,21 +380,18 @@ impl RayTracer {
         let mut closest_hit: Option<(Hit, &SceneObject)> = None;
         let mut closest_t = f32::MAX;
 
-        for (obj, world_aabb) in objects.iter().zip(aabbs.iter()) {
+        for (i, (obj, world_aabb)) in objects.iter().zip(aabbs.iter()).enumerate() {
             if !ray.intersect_aabb(world_aabb, 0.001, closest_t) {
                 continue;
             }
 
             let mesh = &obj.mesh;
+            let verts = &world_verts[i];
             for indices in &mesh.indices {
-                // Transform vertices to World Space
-                let v0_local = mesh.vertices[indices[0]];
-                let v1_local = mesh.vertices[indices[1]];
-                let v2_local = mesh.vertices[indices[2]];
-
-                let (v0, _) = obj.transform.transform_point(v0_local);
-                let (v1, _) = obj.transform.transform_point(v1_local);
-                let (v2, _) = obj.transform.transform_point(v2_local);
+                // Already in World Space (pre-transformed once per frame in `render`).
+                let v0 = verts[indices[0]];
+                let v1 = verts[indices[1]];
+                let v2 = verts[indices[2]];
 
                 if let Some(hit) = ray.intersect_triangle(v0, v1, v2, 0.001, closest_t) {
                     closest_t = hit.t;
@@ -393,7 +426,7 @@ impl RayTracer {
 
             // Shadow Ray
             let shadow_ray = Ray::new(hit.point + hit.normal * 0.001, light_dir * -1.0);
-            let in_shadow = Self::check_shadow(&shadow_ray, objects, aabbs);
+            let in_shadow = Self::check_shadow(&shadow_ray, objects, aabbs, world_verts);
             let shadow_factor = if in_shadow { 0.2 } else { 1.0 };
 
             let final_color = (ambient + (diffuse + specular) * shadow_factor) * material_color;
@@ -406,7 +439,7 @@ impl RayTracer {
                     hit.point + hit.normal * 0.001,
                     ray.direction.reflect(hit.normal),
                 );
-                let r_col_u32 = self.trace_ray(&r_ray, objects, aabbs, depth + 1);
+                let r_col_u32 = self.trace_ray(&r_ray, objects, aabbs, world_verts, depth + 1);
                 let rr = ((r_col_u32 >> 16) & 0xFF) as f32 / 255.0;
                 let rg = ((r_col_u32 >> 8) & 0xFF) as f32 / 255.0;
                 let rb = (r_col_u32 & 0xFF) as f32 / 255.0;
@@ -427,20 +460,23 @@ impl RayTracer {
         self.background_color
     }
 
-    fn check_shadow(ray: &Ray, objects: &[SceneObject], aabbs: &[AABB]) -> bool {
-        for (obj, world_aabb) in objects.iter().zip(aabbs.iter()) {
+    fn check_shadow(
+        ray: &Ray,
+        objects: &[SceneObject],
+        aabbs: &[AABB],
+        world_verts: &[Vec<Vec3>],
+    ) -> bool {
+        for (i, (obj, world_aabb)) in objects.iter().zip(aabbs.iter()).enumerate() {
             if !ray.intersect_aabb(world_aabb, 0.001, 1000.0) {
                 continue;
             }
             let mesh = &obj.mesh;
+            let verts = &world_verts[i];
             for indices in &mesh.indices {
-                let v0_local = mesh.vertices[indices[0]];
-                let v1_local = mesh.vertices[indices[1]];
-                let v2_local = mesh.vertices[indices[2]];
-
-                let (v0, _) = obj.transform.transform_point(v0_local);
-                let (v1, _) = obj.transform.transform_point(v1_local);
-                let (v2, _) = obj.transform.transform_point(v2_local);
+                // Already in World Space (pre-transformed once per frame in `render`).
+                let v0 = verts[indices[0]];
+                let v1 = verts[indices[1]];
+                let v2 = verts[indices[2]];
 
                 if ray.intersect_triangle(v0, v1, v2, 0.001, 1000.0).is_some() {
                     return true;
