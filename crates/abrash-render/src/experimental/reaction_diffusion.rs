@@ -185,6 +185,11 @@ impl ReactionDiffusion {
 
         let pixels = fb.as_mut_slice();
 
+        // color1/color2 are loop-invariant; from_argb_u32 does an sRGB->linear conversion
+        // (a powf call per channel above the threshold), so it must not be re-run per pixel.
+        let c1 = color::Color::from_argb_u32(color1);
+        let c2 = color::Color::from_argb_u32(color2);
+
         for y in 0..h {
             let row_start = y * fb_w;
             let grid_start = y * self.width;
@@ -197,8 +202,6 @@ impl ReactionDiffusion {
                 // Let's use a nice color gradient based on B
                 let t = (b_val * 2.0).clamp(0.0, 1.0);
 
-                let c1 = color::Color::from_argb_u32(color1);
-                let c2 = color::Color::from_argb_u32(color2);
                 let c = c1.lerp(c2, t).to_argb_u32();
 
                 pixels[row_start + x] = c;
