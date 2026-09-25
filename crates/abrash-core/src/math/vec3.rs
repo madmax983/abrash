@@ -199,9 +199,7 @@ impl Vec3 {
     #[must_use]
     #[inline]
     pub fn length(self) -> f32 {
-        self.x
-            .mul_add(self.x, self.y.mul_add(self.y, self.z * self.z))
-            .sqrt()
+        self.length_sq().sqrt()
     }
 
     /// Returns a normalized unit vector (length of 1.0).
