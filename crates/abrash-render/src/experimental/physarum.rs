@@ -271,15 +271,17 @@ pub fn apply_physarum(fb: &mut Framebuffer, config: &PhysarumConfig) {
 
                 // Step 3: Render trail map to framebuffer
                 let fb_slice = fb.as_mut_slice();
+                // The trail RGB is constant; only alpha varies per pixel, so decode
+                // the sRGB channels once instead of once per pixel.
+                let fg_base = Color::from_argb_u32(config.trail_color & 0x00_FF_FF_FF);
                 for i in 0..grid_size {
                     let intensity = trail_borrow[i];
                     if intensity > 0.01 {
                         // Map intensity to alpha 0-255
                         let alpha = (intensity * 255.0).clamp(0.0, 255.0) as u32;
-                        let color_with_alpha = (alpha << 24) | (config.trail_color & 0x00_FF_FF_FF);
 
                         let bg = Color::from_argb_u32(fb_slice[i]);
-                        let fg = Color::from_argb_u32(color_with_alpha);
+                        let fg = fg_base.with_alpha(alpha as f32 * (1.0 / 255.0));
 
                         let blend = Color::blend_over(fg, bg);
 
