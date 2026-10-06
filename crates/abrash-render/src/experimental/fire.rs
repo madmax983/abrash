@@ -53,33 +53,38 @@ pub fn apply_fire(fb: &mut Framebuffer, cooling_map: &[u8]) {
             .enumerate();
 
         chunk_iter.for_each(|(y, row)| {
-            for x in 0..width {
-                let left_x = x.saturating_sub(1);
-                let right_x = (x + 1).min(width - 1);
-                let below_y = y + 1;
+            // Row slices of exactly `width` elements let the interior loop
+            // run without per-pixel bounds checks or edge clamping.
+            let below = &src_pixels[(y + 1) * width..(y + 2) * width];
+            let below2 = if y + 2 < height {
+                &src_pixels[(y + 2) * width..(y + 3) * width]
+            } else {
+                below
+            };
+            let cool = &cooling_map[y * width..(y + 1) * width];
 
-                // Read from the row below in the source buffer
-                let p_center = src_pixels[below_y * width + x];
-                let p_left = src_pixels[below_y * width + left_x];
-                let p_right = src_pixels[below_y * width + right_x];
-                let p_below2 = if below_y + 1 < height {
-                    src_pixels[(below_y + 1) * width + x]
-                } else {
-                    p_center
-                };
+            let heat = |p: u32| (p >> 16) & 0xFF;
+            // Shift by 2 is equivalent to divide by 4, but significantly faster
+            let shade = |h_sum: u32, cooling: u8| {
+                let new_heat = (h_sum >> 2).saturating_sub(u32::from(cooling));
+                (new_heat << 16) | (new_heat << 8) | new_heat // greyscale for now
+            };
 
-                let h_center = (p_center >> 16) & 0xFF;
-                let h_left = (p_left >> 16) & 0xFF;
-                let h_right = (p_right >> 16) & 0xFF;
-                let h_below2 = (p_below2 >> 16) & 0xFF;
-
-                // Shift by 2 is equivalent to divide by 4, but significantly faster
-                let avg_heat = (h_center + h_left + h_right + h_below2) >> 2;
-
-                let cooling = u32::from(cooling_map[y * width + x]);
-                let new_heat = avg_heat.saturating_sub(cooling);
-
-                row[x] = (new_heat << 16) | (new_heat << 8) | new_heat; // greyscale for now
+            // Edge columns clamp the left/right neighbour to the row bounds.
+            let edge = |x: usize| {
+                let h = heat(below[x])
+                    + heat(below[x.saturating_sub(1)])
+                    + heat(below[(x + 1).min(width - 1)])
+                    + heat(below2[x]);
+                shade(h, cool[x])
+            };
+            row[0] = edge(0);
+            if width > 1 {
+                row[width - 1] = edge(width - 1);
+            }
+            for x in 1..width.saturating_sub(1) {
+                let h = heat(below[x - 1]) + heat(below[x]) + heat(below[x + 1]) + heat(below2[x]);
+                row[x] = shade(h, cool[x]);
             }
         });
     });
