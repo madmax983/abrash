@@ -4899,7 +4899,7 @@ pub fn xyz_to_linear_rgb(x: f32, y: f32, z: f32) -> (f32, f32, f32) {
 /// ```
 /// use abrash_core::math::{quat_rotation_between, Vec3};
 /// let q = quat_rotation_between(Vec3::X, Vec3::Y);
-/// let rotated = q.rotate(Vec3::X);
+/// let rotated = q.rotate_vec3(Vec3::X);
 /// assert!((rotated.x).abs() < 1e-5 && (rotated.y - 1.0).abs() < 1e-5);
 /// ```
 #[must_use]
