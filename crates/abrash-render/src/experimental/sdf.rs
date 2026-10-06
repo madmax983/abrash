@@ -9,6 +9,7 @@
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, Vec2, Vec3};
 use crate::zbuffer::ZBuffer;
+use abrash_core::sdf::{ambient_occlusion_estimate, soft_shadow_estimate};
 
 /// Supported SDF Primitives.
 #[derive(Clone, Copy, Debug)]
@@ -230,11 +231,21 @@ pub fn render_sdf(
 
                 // Check against existing Z-Buffer
                 if zb.test_and_set(x as i32, y as i32, depth) {
-                    // Lighting
+                    // Lighting: Lambert diffuse attenuated by SDF penumbra
+                    // soft shadows, plus ambient modulated by SDF AO.
                     let normal = scene.normal(hit_pos);
-                    let diff = normal.dot(light_dir).max(0.0);
-                    let ambient = 0.2;
-                    let intensity = (diff + ambient).min(1.0);
+                    let sdf = |q: Vec3| scene.map(q).0;
+                    let shadow = soft_shadow_estimate(
+                        hit_pos + normal * 0.01,
+                        light_dir,
+                        0.01,
+                        25.0,
+                        16.0,
+                        sdf,
+                    );
+                    let ao = ambient_occlusion_estimate(hit_pos, normal, 0.05, sdf);
+                    let diff = normal.dot(light_dir).max(0.0) * shadow;
+                    let intensity = (diff + 0.2 * ao).min(1.0);
 
                     // Apply lighting to color
                     let r = ((hit_color >> 16) & 0xFF) as f32 * intensity;
