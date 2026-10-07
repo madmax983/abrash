@@ -130,36 +130,30 @@ impl Metaballs {
         let num_balls = self.balls.len();
 
         // Cache ball positions and square sizes to avoid repeated property access in hot loop
-        let mut b_xs = Vec::with_capacity(num_balls);
-        let mut b_ys = Vec::with_capacity(num_balls);
-        let mut b_r_sqs = Vec::with_capacity(num_balls);
+        let b_xs: Vec<f32> = self.balls.iter().map(|b| b.position.x).collect();
+        let b_ys: Vec<f32> = self.balls.iter().map(|b| b.position.y).collect();
+        let b_r_sqs: Vec<f32> = self.balls.iter().map(|b| b.size * b.size).collect();
 
-        for ball in &self.balls {
-            b_xs.push(ball.position.x);
-            b_ys.push(ball.position.y);
-            b_r_sqs.push(ball.size * ball.size);
-        }
-
-        #[cfg(feature = "parallel")]
-        let iter = pixels.par_chunks_exact_mut(width_u).enumerate();
-        #[cfg(not(feature = "parallel"))]
-        let iter = pixels.chunks_exact_mut(width_u).enumerate();
-
-        iter.for_each(|(y, row)| {
+        let render_row = |dy_sqs: &mut Vec<f32>, y: usize, row: &mut [u32]| {
+            // dy^2 per ball is constant across the row's pixels.
             let fy = y as f32;
+            dy_sqs.clear();
+            dy_sqs.extend(b_ys.iter().map(|&by| {
+                let dy = fy - by;
+                dy * dy
+            }));
             for (x, pixel) in row.iter_mut().enumerate() {
                 let fx = x as f32;
 
                 let mut sum = 0.0;
-                for i in 0..num_balls {
-                    let dx = fx - b_xs[i];
-                    let dy = fy - b_ys[i];
-                    let dist_sq = dx * dx + dy * dy;
+                for ((&bx, &dy_sq), &r_sq) in b_xs.iter().zip(dy_sqs.iter()).zip(&b_r_sqs) {
+                    let dx = fx - bx;
+                    let dist_sq = dx * dx + dy_sq;
 
                     // Prevent divide by zero if exactly on center
                     if dist_sq > 0.001 {
                         // Formula: f(x, y) = r^2 / d^2
-                        sum += b_r_sqs[i] / dist_sq;
+                        sum += r_sq / dist_sq;
                     }
                 }
 
@@ -169,7 +163,23 @@ impl Metaballs {
                     *pixel = bg;
                 }
             }
-        });
+        };
+
+        #[cfg(feature = "parallel")]
+        pixels
+            .par_chunks_exact_mut(width_u)
+            .enumerate()
+            .for_each_init(
+                || Vec::with_capacity(num_balls),
+                |dy_sqs, (y, row)| render_row(dy_sqs, y, row),
+            );
+        #[cfg(not(feature = "parallel"))]
+        {
+            let mut dy_sqs = Vec::with_capacity(num_balls);
+            for (y, row) in pixels.chunks_exact_mut(width_u).enumerate() {
+                render_row(&mut dy_sqs, y, row);
+            }
+        }
     }
 }
 
