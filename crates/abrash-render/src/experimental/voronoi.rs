@@ -337,30 +337,36 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
             });
         }
     } else {
+        // ⚡ Bolt: Pixel and seed coordinates are integers, so |dx| and |dy| only take values
+        // in 0..width and 0..height. Tabulate `d^metric` once per call instead of calling
+        // `powf` twice per (pixel, seed) pair, and compare the monotone power sums,
+        // applying the outer `powf(1/metric)` only to the winner and runner-up.
+        let pow_x: Vec<f32> = (0..width).map(|d| (d as f32).powf(metric)).collect();
+        let pow_y: Vec<f32> = (0..height).map(|d| (d as f32).powf(metric)).collect();
+        let seed_xy: Vec<(usize, usize)> =
+            seeds.iter().map(|s| (s.x as usize, s.y as usize)).collect();
+        let (pow_x, pow_y, seed_xy) = (&pow_x[..], &pow_y[..], &seed_xy[..]);
+
         if config.border_thickness > 0.0 {
             chunk_iter.enumerate().for_each(|(y, row)| {
-                let fy = y as f32;
                 for (x, pixel) in row.iter_mut().enumerate() {
-                    let fx = x as f32;
-                    let mut min_dist = f32::MAX;
-                    let mut second_min_dist = f32::MAX;
+                    let mut min_sum = f32::MAX;
+                    let mut second_min_sum = f32::MAX;
                     let mut closest_idx = 0;
 
-                    for (i, seed) in seeds.iter().enumerate() {
-                        let dx = fx - seed.x;
-                        let dy = fy - seed.y;
-                        let dx = dx.abs();
-                        let dy = dy.abs();
-                        let dist = (dx.powf(metric) + dy.powf(metric)).powf(inv_metric);
-                        if dist < min_dist {
-                            second_min_dist = min_dist;
-                            min_dist = dist;
+                    for (i, &(sx, sy)) in seed_xy.iter().enumerate() {
+                        let sum = pow_x[x.abs_diff(sx)] + pow_y[y.abs_diff(sy)];
+                        if sum < min_sum {
+                            second_min_sum = min_sum;
+                            min_sum = sum;
                             closest_idx = i;
-                        } else if dist < second_min_dist {
-                            second_min_dist = dist;
+                        } else if sum < second_min_sum {
+                            second_min_sum = sum;
                         }
                     }
 
+                    let min_dist = min_sum.powf(inv_metric);
+                    let second_min_dist = second_min_sum.powf(inv_metric);
                     let diff = (second_min_dist - min_dist).abs();
                     if diff <= config.border_thickness {
                         *pixel = config.border_color;
@@ -371,20 +377,14 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
             });
         } else {
             chunk_iter.enumerate().for_each(|(y, row)| {
-                let fy = y as f32;
                 for (x, pixel) in row.iter_mut().enumerate() {
-                    let fx = x as f32;
-                    let mut min_dist = f32::MAX;
+                    let mut min_sum = f32::MAX;
                     let mut closest_idx = 0;
 
-                    for (i, seed) in seeds.iter().enumerate() {
-                        let dx = fx - seed.x;
-                        let dy = fy - seed.y;
-                        let dx = dx.abs();
-                        let dy = dy.abs();
-                        let dist = (dx.powf(metric) + dy.powf(metric)).powf(inv_metric);
-                        if dist < min_dist {
-                            min_dist = dist;
+                    for (i, &(sx, sy)) in seed_xy.iter().enumerate() {
+                        let sum = pow_x[x.abs_diff(sx)] + pow_y[y.abs_diff(sy)];
+                        if sum < min_sum {
+                            min_sum = sum;
                             closest_idx = i;
                         }
                     }
@@ -487,5 +487,71 @@ mod tests {
         // Check that at least some pixels are border colored
         let has_borders = fb.as_slice().iter().any(|&p| p == border_color);
         assert!(has_borders, "Voronoi borders should be drawn");
+    }
+
+    /// Reference: the straightforward per-pair `powf` formulation.
+    fn reference_generic(fb: &mut Framebuffer, config: &VoronoiConfig) {
+        let (w, h) = (fb.width() as usize, fb.height() as usize);
+        let mut rng = XorShift32::new(config.seed);
+        let mut seeds = Vec::new();
+        let mut colors = Vec::new();
+        for _ in 0..config.num_seeds {
+            let x = (rng.next_u32() as usize) % w;
+            let y = (rng.next_u32() as usize) % h;
+            seeds.push((x as f32, y as f32));
+            colors.push(fb.get_pixel(x as i32, y as i32).unwrap());
+        }
+        let m = config.metric;
+        let dest = fb.as_mut_slice();
+        for y in 0..h {
+            for x in 0..w {
+                let (mut d1, mut d2, mut idx) = (f32::MAX, f32::MAX, 0);
+                for (i, s) in seeds.iter().enumerate() {
+                    let dx = (x as f32 - s.0).abs();
+                    let dy = (y as f32 - s.1).abs();
+                    let d = (dx.powf(m) + dy.powf(m)).powf(1.0 / m);
+                    if d < d1 {
+                        d2 = d1;
+                        d1 = d;
+                        idx = i;
+                    } else if d < d2 {
+                        d2 = d;
+                    }
+                }
+                dest[y * w + x] = if config.border_thickness > 0.0
+                    && (d2 - d1).abs() <= config.border_thickness
+                {
+                    config.border_color
+                } else {
+                    colors[idx]
+                };
+            }
+        }
+    }
+
+    #[test]
+    fn test_voronoi_generic_metric_matches_reference() {
+        for &(metric, border) in &[(1.3_f32, 0.0_f32), (1.3, 1.5), (1.77, 2.0), (2.5, 0.0)] {
+            let mut a = Framebuffer::new(97, 61).unwrap();
+            for (i, p) in a.as_mut_slice().iter_mut().enumerate() {
+                *p = 0xFF00_0000 | (i as u32).wrapping_mul(2_654_435_761) >> 8;
+            }
+            let mut b = Framebuffer::new(97, 61).unwrap();
+            b.as_mut_slice().copy_from_slice(a.as_slice());
+            let config = VoronoiConfig {
+                num_seeds: 40,
+                metric,
+                border_thickness: border,
+                seed: 7,
+                ..Default::default()
+            };
+            apply_voronoi(&mut a, &config);
+            reference_generic(&mut b, &config);
+            assert_eq!(
+                a.as_slice(),
+                b.as_slice(),
+                "metric {metric} border {border}"
+            );
+        }
     }
 }
