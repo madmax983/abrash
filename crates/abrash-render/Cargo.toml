@@ -41,6 +41,11 @@ name = "paper_cutout_demo"
 path = "examples/paper_cutout_demo.rs"
 required-features = ["nova"]
 
+[[example]]
+name = "sdf_soft_shadow_demo"
+path = "examples/sdf_soft_shadow_demo.rs"
+required-features = ["nova"]
+
 [[bench]]
 name = "paper_cutout_bench"
 harness = false
