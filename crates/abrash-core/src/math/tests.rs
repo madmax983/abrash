@@ -3503,7 +3503,7 @@ mod tests_pass_28 {
 
     #[test]
     fn identity_rotates_nothing() {
-        let v = Quat::identity().rotate(Vec3::new(1.0, 2.0, 3.0));
+        let v = Quat::identity().rotate_vec3(Vec3::new(1.0, 2.0, 3.0));
         assert!((v.x - 1.0).abs() < 1e-5);
         assert!((v.y - 2.0).abs() < 1e-5);
         assert!((v.z - 3.0).abs() < 1e-5);
@@ -3514,7 +3514,7 @@ mod tests_pass_28 {
     fn rotate_90_about_y() {
         // +X rotated 90° about +Y → -Z
         let q = Quat::from_axis_angle(Vec3::Y, FRAC_PI_2);
-        let v = q.rotate(Vec3::X);
+        let v = q.rotate_vec3(Vec3::X);
         assert!(v.x.abs() < 1e-5, "x: {}", v.x);
         assert!(v.y.abs() < 1e-5, "y: {}", v.y);
         assert!((v.z + 1.0).abs() < 1e-5, "z: {}", v.z);
@@ -3523,7 +3523,7 @@ mod tests_pass_28 {
     #[test]
     fn rotate_180_about_y() {
         let q = Quat::from_axis_angle(Vec3::Y, PI);
-        let v = q.rotate(Vec3::X);
+        let v = q.rotate_vec3(Vec3::X);
         assert!((v.x + 1.0).abs() < 1e-5, "x: {}", v.x);
     }
 
@@ -3551,7 +3551,7 @@ mod tests_pass_28 {
         // 90° about Y twice = 180° about Y: +X → -X
         let q90 = Quat::from_axis_angle(Vec3::Y, FRAC_PI_2);
         let q180 = q90 * q90;
-        let v = q180.rotate(Vec3::X);
+        let v = q180.rotate_vec3(Vec3::X);
         assert!((v.x + 1.0).abs() < 1e-5, "x: {}", v.x);
     }
 
@@ -3560,8 +3560,8 @@ mod tests_pass_28 {
     fn conjugate_undoes_rotation() {
         let q = Quat::from_axis_angle(Vec3::Z, FRAC_PI_2);
         let v = Vec3::new(1.0, 0.0, 0.0);
-        let rotated = q.rotate(v);
-        let back = q.conjugate().rotate(rotated);
+        let rotated = q.rotate_vec3(v);
+        let back = q.conjugate().rotate_vec3(rotated);
         assert!((back.x - v.x).abs() < 1e-5, "back.x: {}", back.x);
         assert!((back.y - v.y).abs() < 1e-5, "back.y: {}", back.y);
     }
@@ -3571,7 +3571,7 @@ mod tests_pass_28 {
     fn slerp_t0_is_start() {
         let q0 = Quat::identity();
         let q1 = Quat::from_axis_angle(Vec3::Y, PI);
-        let s = q0.slerp(q1, 0.0);
+        let s = q0.slerp(&q1, 0.0);
         assert!((s.w - q0.w).abs() < 1e-5, "w: {}", s.w);
     }
 
@@ -3579,10 +3579,10 @@ mod tests_pass_28 {
     fn slerp_t1_is_end() {
         let q0 = Quat::identity();
         let q1 = Quat::from_axis_angle(Vec3::Y, PI);
-        let s = q0.slerp(q1, 1.0);
+        let s = q0.slerp(&q1, 1.0);
         // q and -q represent the same rotation; verify via rotate rather than components.
-        let v = s.rotate(Vec3::X);
-        let v1 = q1.rotate(Vec3::X);
+        let v = s.rotate_vec3(Vec3::X);
+        let v1 = q1.rotate_vec3(Vec3::X);
         assert!((v.x - v1.x).abs() < 1e-4, "x: {} vs {}", v.x, v1.x);
         assert!((v.z - v1.z).abs() < 1e-4, "z: {} vs {}", v.z, v1.z);
     }
@@ -3591,7 +3591,7 @@ mod tests_pass_28 {
     fn slerp_midpoint_is_half_angle() {
         let q0 = Quat::identity();
         let q1 = Quat::from_axis_angle(Vec3::Y, FRAC_PI_2);
-        let mid = q0.slerp(q1, 0.5);
+        let mid = q0.slerp(&q1, 0.5);
         assert!(
             (mid.angle() - FRAC_PI_2 / 2.0).abs() < 1e-4,
             "angle: {}",
@@ -3617,7 +3617,7 @@ mod tests_pass_28 {
     fn to_mat3_consistent_with_rotate() {
         let q = Quat::from_axis_angle(Vec3::new(1.0, 1.0, 0.0).normalize(), 1.1);
         let v = Vec3::new(0.5, -0.3, 0.8);
-        let via_quat = q.rotate(v);
+        let via_quat = q.rotate_vec3(v);
         let via_mat = q.to_mat3() * v;
         assert!((via_quat.x - via_mat.x).abs() < 1e-5, "x diff");
         assert!((via_quat.y - via_mat.y).abs() < 1e-5, "y diff");
@@ -4224,7 +4224,7 @@ mod tests_pass_33 {
     #[test]
     fn rotation_between_x_to_y() {
         let q = quat_rotation_between(Vec3::X, Vec3::Y);
-        let r = q.rotate(Vec3::X);
+        let r = q.rotate_vec3(Vec3::X);
         assert!((r.x).abs() < 1e-5, "x: {}", r.x);
         assert!((r.y - 1.0).abs() < 1e-5, "y: {}", r.y);
         assert!((r.z).abs() < 1e-5, "z: {}", r.z);
@@ -4233,7 +4233,7 @@ mod tests_pass_33 {
     #[test]
     fn rotation_between_identity_when_parallel() {
         let q = quat_rotation_between(Vec3::Z, Vec3::Z);
-        let r = q.rotate(Vec3::X);
+        let r = q.rotate_vec3(Vec3::X);
         assert!((r.x - 1.0).abs() < 1e-5 && r.y.abs() < 1e-5 && r.z.abs() < 1e-5);
     }
 
@@ -4241,7 +4241,7 @@ mod tests_pass_33 {
     fn rotation_between_antiparallel_is_180() {
         // Rotation from +X to −X must produce a vector at −X.
         let q = quat_rotation_between(Vec3::X, Vec3::new(-1.0, 0.0, 0.0));
-        let r = q.rotate(Vec3::X);
+        let r = q.rotate_vec3(Vec3::X);
         assert!((r.x + 1.0).abs() < 1e-4, "antiparallel x: {}", r.x);
     }
 
@@ -7354,7 +7354,7 @@ mod tests_pass_57 {
         let q = quat_look_at(Vec3::new(0.0, 0.0, 1.0), Vec3::new(0.0, 1.0, 0.0));
         // Rotating +Z by identity should still give +Z.
         let z = Vec3::new(0.0, 0.0, 1.0);
-        let rotated = q.rotate(z);
+        let rotated = q.rotate_vec3(z);
         assert!((rotated.x).abs() < 0.01, "x={}", rotated.x);
         assert!((rotated.y).abs() < 0.01, "y={}", rotated.y);
         assert!((rotated.z - 1.0).abs() < 0.01, "z={}", rotated.z);
