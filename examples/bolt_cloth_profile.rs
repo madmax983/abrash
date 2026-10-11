@@ -112,9 +112,12 @@ fn main() {
         }
 
         black_box(&fb);
-        checksum = checksum.wrapping_add(cloth.particles.iter().fold(0u64, |acc: u64, p| {
-            acc.wrapping_add(p.pos.x.to_bits() as u64)
-        }));
+        checksum = checksum.wrapping_add(
+            cloth
+                .particles
+                .iter()
+                .fold(0u64, |acc: u64, p| acc.wrapping_add(p.pos.x.to_bits() as u64)),
+        );
     }
 
     println!("frames={frames} checksum={checksum}");
