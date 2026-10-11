@@ -26,6 +26,15 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
         return;
     }
 
+    // x_sin depends only on the column, so compute it once per frame instead
+    // of once per pixel (bit-identical to the per-pixel computation).
+    let x_sins: Vec<f32> = (0..width)
+        .map(|x| {
+            let x_scaled_time = (x as f32 * scale + time) % std::f32::consts::TAU;
+            fast_sin_cos(x_scaled_time).0
+        })
+        .collect();
+
     let pixels = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
@@ -38,11 +47,7 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
         let y_scaled_time = (y_f32 * scale + time) % std::f32::consts::TAU;
         let (y_sin, y_cos) = fast_sin_cos(y_scaled_time);
 
-        for (x, pixel) in row.iter_mut().enumerate().take(width) {
-            let x_f32 = x as f32;
-            let x_scaled_time = (x_f32 * scale + time) % std::f32::consts::TAU;
-            let (x_sin, _) = fast_sin_cos(x_scaled_time);
-
+        for (pixel, &x_sin) in row.iter_mut().zip(x_sins.iter()) {
             // Calculate plasma value using multiple sine waves
             let mut v = 0.0;
             v += x_sin;
@@ -58,8 +63,22 @@ pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
             // Map the normalized value to RGB colors
             // Simple color palette generation based on the phase
             let r = ((c * 255.0) as u32).min(255);
-            let g = (((c + 0.33) % 1.0 * 255.0) as u32).min(255);
-            let b = (((c + 0.66) % 1.0 * 255.0) as u32).min(255);
+            // c is in [0, 1], so `% 1.0` of c + offset (offset < 1) is exactly
+            // a conditional subtract; avoids a libm fmodf call per channel.
+            let g_phase = c + 0.33;
+            let b_phase = c + 0.66;
+            let g_phase = if g_phase >= 1.0 {
+                g_phase - 1.0
+            } else {
+                g_phase
+            };
+            let b_phase = if b_phase >= 1.0 {
+                b_phase - 1.0
+            } else {
+                b_phase
+            };
+            let g = ((g_phase * 255.0) as u32).min(255);
+            let b = ((b_phase * 255.0) as u32).min(255);
 
             *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
         }
