@@ -8,6 +8,14 @@
 use abrash_core::framebuffer::Framebuffer;
 use abrash_core::texture::Texture;
 
+/// Fractional part (`x - trunc(x)`), bit-identical to `f32::fract` for finite
+/// `|x| < 2^63`. The integer round-trip compiles to `cvttss2si`/`cvtsi2ss`,
+/// whereas `f32::fract` calls libm `truncf` on baseline x86-64 (no SSE4.1).
+#[inline(always)]
+fn fract(x: f32) -> f32 {
+    x - (x as i64) as f32
+}
+
 /// Applies an infinite 3D tunnel effect.
 ///
 /// # Arguments
@@ -59,8 +67,8 @@ pub fn apply_tunnel(framebuffer: &mut Framebuffer, time: f32, texture: &Texture)
                 // Calculate a simple shading based on distance (darker further away)
                 let shade = (distance / depth_scale).clamp(0.0, 1.0);
 
-                let u_norm = u.fract();
-                let v_norm = v.fract();
+                let u_norm = fract(u);
+                let v_norm = fract(v);
 
                 let u_val = if u_norm < 0.0 { u_norm + 1.0 } else { u_norm };
                 let v_val = if v_norm < 0.0 { v_norm + 1.0 } else { v_norm };
