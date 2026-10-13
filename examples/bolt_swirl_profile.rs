@@ -23,7 +23,11 @@ fn main() {
     for y in 0..HEIGHT {
         for x in 0..WIDTH {
             let is_white = (x / 50 + y / 50) % 2 == 0;
-            let mut color = if is_white { 0xFF_FF_FF_FF } else { 0xFF_00_00_AA };
+            let mut color = if is_white {
+                0xFF_FF_FF_FF
+            } else {
+                0xFF_00_00_AA
+            };
             if (x == 400 && y > 100 && y < 500) || (y == 300 && x > 100 && x < 700) {
                 color = 0xFF_FF_00_00;
             }
