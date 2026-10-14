@@ -81,7 +81,21 @@ pub fn apply_swirl(fb: &mut Framebuffer, config: &SwirlConfig) {
             let dy = y as f32 - cy;
             let dy2 = dy * dy;
 
-            for (x, pixel) in row.iter_mut().enumerate() {
+            // `row` already holds the source pixels, so pixels outside the
+            // radius need no write. Only visit the x-span that can lie inside
+            // the circle (padded by 2px; the exact test below still decides).
+            if dy2 >= radius2 {
+                return;
+            }
+            let half = (radius2 - dy2).sqrt();
+            let x_lo = (cx - half - 2.0).max(0.0) as usize;
+            let x_hi = ((cx + half + 2.0).max(0.0) as usize).min(width);
+            if x_lo >= x_hi {
+                return;
+            }
+
+            for (x, pixel) in row[x_lo..x_hi].iter_mut().enumerate() {
+                let x = x + x_lo;
                 let dx = x as f32 - cx;
                 let distance2 = dx * dx + dy2;
 
@@ -108,9 +122,6 @@ pub fn apply_swirl(fb: &mut Framebuffer, config: &SwirlConfig) {
                     } else {
                         *pixel = 0xFF_00_00_00; // Black out of bounds
                     }
-                } else {
-                    // Outside the radius, pixel is unchanged
-                    *pixel = source_pixels[y * width + x];
                 }
             }
         });
@@ -164,5 +175,55 @@ mod tests {
 
         let p = fb.get_pixel(2, 2).unwrap();
         assert_eq!(p, 0xFF_FF_00_00, "Pixel should not move with 0 angle");
+    }
+
+    #[test]
+    fn test_apply_swirl_matches_per_pixel_reference() {
+        let (w, h) = (97usize, 61usize);
+        let mut src = Framebuffer::new(w as u32, h as u32).unwrap();
+        for y in 0..h {
+            for x in 0..w {
+                src.set_pixel(x as i32, y as i32, 0xFF00_0000 | ((y * w + x) as u32));
+            }
+        }
+        for (cxf, cyf, radius, angle) in [
+            (0.5, 0.5, 30.0, 2.0),
+            (0.1, 0.9, 45.5, -1.3),
+            (1.2, -0.2, 40.0, 3.0),
+            (0.5, 0.5, 500.0, 1.0),
+            (0.5, 0.5, 0.5, 1.0),
+        ] {
+            let config = SwirlConfig {
+                center_x: cxf,
+                center_y: cyf,
+                radius,
+                angle,
+            };
+            let mut fb = Framebuffer::new(w as u32, h as u32).unwrap();
+            fb.as_mut_slice().copy_from_slice(src.as_slice());
+            apply_swirl(&mut fb, &config);
+
+            let (cx, cy) = (cxf * w as f32, cyf * h as f32);
+            for y in 0..h {
+                for x in 0..w {
+                    let (dx, dy) = (x as f32 - cx, y as f32 - cy);
+                    let d2 = dx * dx + dy * dy;
+                    let expected = if d2 < radius * radius {
+                        let pct = (radius - d2.sqrt()) * (1.0 / radius);
+                        let (s, c) = (pct * pct * angle).sin_cos();
+                        let sx = (cx + (dx * c - dy * s)) as i32;
+                        let sy = (cy + (dx * s + dy * c)) as i32;
+                        if sx >= 0 && (sx as usize) < w && sy >= 0 && (sy as usize) < h {
+                            src.as_slice()[sy as usize * w + sx as usize]
+                        } else {
+                            0xFF_00_00_00
+                        }
+                    } else {
+                        src.as_slice()[y * w + x]
+                    };
+                    assert_eq!(fb.as_slice()[y * w + x], expected, "({x},{y}) {config:?}");
+                }
+            }
+        }
     }
 }
