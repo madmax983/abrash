@@ -51,37 +51,14 @@ pub fn apply_frosted_glass(fb: &mut Framebuffer, intensity: f32, seed: u64) {
         {
             use rayon::prelude::*;
 
-            let chunk_size = width as usize;
-
             dest_pixels
-                .par_chunks_exact_mut(chunk_size)
+                .par_chunks_exact_mut(width as usize)
                 .enumerate()
                 .for_each(|(y, row)| {
-                    let y = y as i32;
-
                     // Seed based on row and user seed, making it deterministic per-pixel for a given seed
                     // and avoiding thread-local RNG synchronization overhead.
                     let mut rng = Rng::seeded(seed.wrapping_add((y as u64) * 1_000_000));
-
-                    for x in 0..width {
-                        // Generate random offsets in [-intensity, +intensity]
-                        let dx = rng.i32_range(-intensity_i, intensity_i);
-                        let dy = rng.i32_range(-intensity_i, intensity_i);
-
-                        let sx = x + dx;
-                        let sy = y + dy;
-
-                        // ⚡ Bolt: Optimization
-                        // `std::cmp::Ord::clamp` performs a panic-inducing bounds check (`assert!(min <= max)`).
-                        // In tight per-pixel loops, this safety check adds significant branching overhead.
-                        // Replacing `.clamp(0, max)` with `.max(0).min(max)` produces identical
-                        // clamped bounds safely while eliding the panic logic, yielding ~10% performance gain.
-                        let sx = sx.max(0).min(width - 1);
-                        let sy = sy.max(0).min(height - 1);
-
-                        let src_idx = (sy * width + sx) as usize;
-                        row[x as usize] = src_buf[src_idx];
-                    }
+                    frost_row(row, y as i32, height, intensity_i, src_buf, &mut rng);
                 });
         }
 
@@ -89,27 +66,50 @@ pub fn apply_frosted_glass(fb: &mut Framebuffer, intensity: f32, seed: u64) {
         {
             let mut rng = Rng::seeded(seed);
 
-            for y in 0..height {
-                let row_start = (y * width) as usize;
-                for x in 0..width {
-                    let dx = rng.i32_range(-intensity_i, intensity_i);
-                    let dy = rng.i32_range(-intensity_i, intensity_i);
-
-                    let sx = x + dx;
-                    let sy = y + dy;
-
-                    // ⚡ Bolt: Optimization
-                    // Replacing `.clamp(0, max)` with `.max(0).min(max)` avoids the `assert!(min <= max)`
-                    // panic branch in `Ord::clamp`, improving performance in this hot loop without sacrificing readability.
-                    let sx = sx.max(0).min(width - 1);
-                    let sy = sy.max(0).min(height - 1);
-
-                    let src_idx = (sy * width + sx) as usize;
-                    dest_pixels[row_start + x as usize] = src_buf[src_idx];
-                }
+            for (y, row) in dest_pixels.chunks_exact_mut(width as usize).enumerate() {
+                frost_row(row, y as i32, height, intensity_i, src_buf, &mut rng);
             }
         }
     });
+}
+
+/// Fills one destination row by sampling `src_buf` at random offsets in
+/// `[-intensity_i, +intensity_i]` on both axes, clamped to the framebuffer.
+///
+/// The RNG is drawn in the same order for every pixel (dx then dy), so output
+/// is independent of which branch below handles the pixel. Pixels at least
+/// `intensity_i` away from every edge cannot leave the buffer, so they skip the
+/// clamps.
+fn frost_row(
+    row: &mut [u32],
+    y: i32,
+    height: i32,
+    intensity_i: i32,
+    src_buf: &[u32],
+    rng: &mut Rng,
+) {
+    let width = row.len() as i32;
+    let row_interior = y >= intensity_i && y + intensity_i < height;
+    let x_lo = intensity_i.min(width);
+    let x_hi = (width - intensity_i).max(x_lo);
+
+    for (x, pixel) in row.iter_mut().enumerate() {
+        let x = x as i32;
+        let dx = rng.i32_range(-intensity_i, intensity_i);
+        let dy = rng.i32_range(-intensity_i, intensity_i);
+
+        let sx = x + dx;
+        let sy = y + dy;
+
+        // `.max(0).min(max)` instead of `Ord::clamp` avoids its `min <= max` assert.
+        let (sx, sy) = if row_interior && x >= x_lo && x < x_hi {
+            (sx, sy)
+        } else {
+            (sx.max(0).min(width - 1), sy.max(0).min(height - 1))
+        };
+
+        *pixel = src_buf[(sy * width + sx) as usize];
+    }
 }
 
 #[cfg(test)]
@@ -156,5 +156,40 @@ mod tests {
         let modified = fb.as_slice().to_vec();
 
         assert_eq!(original, modified);
+    }
+
+    #[test]
+    fn test_frosted_glass_matches_clamp_everywhere_reference() {
+        for &(w, h, intensity) in &[
+            (37u32, 29u32, 4.0f32),
+            (8, 8, 10.0),
+            (50, 3, 2.5),
+            (1, 9, 3.0),
+        ] {
+            let mut fb = Framebuffer::new(w, h).unwrap();
+            for (i, p) in fb.as_mut_slice().iter_mut().enumerate() {
+                *p = 0xFF00_0000 | (i as u32).wrapping_mul(2_654_435_761);
+            }
+            let src = fb.as_slice().to_vec();
+            apply_frosted_glass(&mut fb, intensity, 99);
+
+            let k = intensity.ceil() as i32;
+            let (wi, hi) = (w as i32, h as i32);
+            #[cfg(not(feature = "parallel"))]
+            let mut rng = Rng::seeded(99);
+            for y in 0..hi {
+                #[cfg(feature = "parallel")]
+                let mut rng = Rng::seeded(99u64.wrapping_add((y as u64) * 1_000_000));
+                for x in 0..wi {
+                    let sx = (x + rng.i32_range(-k, k)).max(0).min(wi - 1);
+                    let sy = (y + rng.i32_range(-k, k)).max(0).min(hi - 1);
+                    assert_eq!(
+                        fb.as_slice()[(y * wi + x) as usize],
+                        src[(sy * wi + sx) as usize],
+                        "{w}x{h} k={k} at ({x},{y})"
+                    );
+                }
+            }
+        }
     }
 }
