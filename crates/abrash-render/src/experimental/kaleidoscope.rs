@@ -11,6 +11,27 @@ thread_local! {
     static KALEIDOSCOPE_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
+/// Bit-exact `theta % segment_angle` for non-negative `theta`, given
+/// `quotient = (theta / segment_angle) as usize` (an f32-rounded estimate that
+/// can be off by one near a segment boundary).
+///
+/// The f64 multiply and subtract are exact for these operands, so the result
+/// equals the correctly-rounded `fmodf` without its per-pixel libm call.
+#[inline(always)]
+fn wrap_to_segment(theta: f32, segment_angle: f32, quotient: usize) -> f32 {
+    if quotient >= 1 << 20 || !(theta >= 0.0) {
+        return theta % segment_angle;
+    }
+    let m = f64::from(segment_angle);
+    let mut r = f64::from(theta) - quotient as f64 * m;
+    if r < 0.0 {
+        r += m;
+    } else if r >= m {
+        r -= m;
+    }
+    r as f32
+}
+
 /// Applies a kaleidoscope effect to the framebuffer.
 ///
 /// Divides the screen into `segments` radially, and mirrors the content
@@ -117,10 +138,10 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
 
                         // Apply modulo to find the angle within the first segment
                         let original_theta = theta;
-                        theta %= segment_angle;
+                        let segment_index = (original_theta / segment_angle) as usize;
+                        theta = wrap_to_segment(theta, segment_angle, segment_index);
 
                         // Mirror every other segment for true kaleidoscope symmetry
-                        let segment_index = (original_theta / segment_angle) as usize;
                         if segment_index % 2 == 1 {
                             // Mirror it
                             theta = segment_angle - theta;
@@ -157,10 +178,10 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
 
                     // Apply modulo to find the angle within the first segment
                     let original_theta = theta;
-                    theta %= segment_angle;
+                    let segment_index = (original_theta / segment_angle) as usize;
+                    theta = wrap_to_segment(theta, segment_angle, segment_index);
 
                     // Mirror every other segment for true kaleidoscope symmetry
-                    let segment_index = (original_theta / segment_angle) as usize;
                     if segment_index % 2 == 1 {
                         // Mirror it
                         theta = segment_angle - theta;
@@ -186,6 +207,31 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
 #[cfg(feature = "nova")]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_wrap_to_segment_matches_fmod() {
+        for segments in [2usize, 3, 5, 6, 7, 12, 100, 1000] {
+            let seg = std::f32::consts::TAU / segments as f32;
+            let mut x = 0.0f32;
+            // Dense sweep plus every exact multiple of seg and its neighbours.
+            while x < std::f32::consts::TAU + 0.01 {
+                let q = (x / seg) as usize;
+                assert_eq!(wrap_to_segment(x, seg, q).to_bits(), (x % seg).to_bits());
+                x += 0.000_37;
+            }
+            for k in 0..=segments {
+                let m = seg * k as f32;
+                for v in [
+                    m,
+                    f32::from_bits(m.to_bits() + 1),
+                    f32::from_bits(m.to_bits().saturating_sub(1)),
+                ] {
+                    let q = (v / seg) as usize;
+                    assert_eq!(wrap_to_segment(v, seg, q).to_bits(), (v % seg).to_bits());
+                }
+            }
+        }
+    }
 
     #[test]
     fn test_fast_atan2_cardinal_directions() {
