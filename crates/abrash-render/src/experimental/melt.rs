@@ -112,52 +112,40 @@ pub fn apply_melt(fb: &mut Framebuffer, config: &mut MeltConfig) {
 
         let dest_pixels = fb.as_mut_slice();
 
-        // Process column by column
+        // The drop depends only on the column, so compute it once per column
+        // instead of once per pixel.
+        let drops: Vec<i32> = offsets
+            .iter()
+            .map(|&o| (o + time * speed).max(0.0) as i32)
+            .collect();
+        let drops = drops.as_slice();
+        let src_fb: &[u32] = src_fb;
+
+        let fill_row = |y: usize, row: &mut [u32]| {
+            let y_i32 = y as i32;
+            for (x, (pixel, &column_drop)) in row.iter_mut().zip(drops).enumerate() {
+                let source_y = y_i32 - column_drop;
+                *pixel = if source_y >= 0 {
+                    src_fb[(source_y as usize) * width + x]
+                } else {
+                    bg_color
+                };
+            }
+        };
+
         #[cfg(feature = "parallel")]
         {
             use rayon::prelude::*;
-
-            // We iterate over the destination pixels row by row, but the shift logic
-            // means we look "up" in the source buffer.
             dest_pixels
                 .par_chunks_exact_mut(width)
                 .enumerate()
-                .for_each(|(y, row)| {
-                    for (x, pixel) in row.iter_mut().enumerate() {
-                        // How far down has this column moved?
-                        // Offset starts negative, so it waits a bit before dropping.
-                        let column_drop = (offsets[x] + time * speed).max(0.0) as i32;
-
-                        // Where did this pixel come from in the original image?
-                        let source_y = y as i32 - column_drop;
-
-                        if source_y >= 0 {
-                            // Pixel comes from higher up
-                            *pixel = src_fb[(source_y as usize) * width + x];
-                        } else {
-                            // Empty space left behind by the melt
-                            *pixel = bg_color;
-                        }
-                    }
-                });
+                .for_each(|(y, row)| fill_row(y, row));
         }
 
         #[cfg(not(feature = "parallel"))]
         {
-            for y in 0..height {
-                let dest_row_start = y * width;
-                let y_i32 = y as i32;
-
-                for x in 0..width {
-                    let column_drop = (offsets[x] + time * speed).max(0.0) as i32;
-                    let source_y = y_i32 - column_drop;
-
-                    if source_y >= 0 {
-                        dest_pixels[dest_row_start + x] = src_fb[(source_y as usize) * width + x];
-                    } else {
-                        dest_pixels[dest_row_start + x] = bg_color;
-                    }
-                }
+            for (y, row) in dest_pixels.chunks_exact_mut(width).enumerate() {
+                fill_row(y, row);
             }
         }
     });
