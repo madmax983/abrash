@@ -5,7 +5,7 @@
 
 use std::ops::Mul;
 
-use crate::math::{Mat4, Vec3, fast_inv_sqrt};
+use crate::math::{Mat3, Mat4, Vec3, fast_inv_sqrt};
 
 /// A unit quaternion representing a 3D rotation.
 ///
@@ -86,6 +86,21 @@ impl Quat {
         let qx = Self::from_axis_angle(Vec3::new(1.0, 0.0, 0.0), pitch);
         let qz = Self::from_axis_angle(Vec3::new(0.0, 0.0, 1.0), roll);
         qy * qx * qz
+    }
+
+    /// Create a quaternion from Euler angles `(yaw, pitch, roll)` in radians,
+    /// applied in ZYX order: roll (Z) first, then pitch (X), then yaw (Y).
+    ///
+    /// This is the intrinsic Z-X-Y sequence (each rotation about the freshly
+    /// rotated axes), expressed with the engine's own left-to-right
+    /// multiplication order; see [`Quat::from_euler`] for the YXZ variant.
+    #[must_use]
+    #[inline]
+    pub fn from_euler_zyx(yaw: f32, pitch: f32, roll: f32) -> Self {
+        let qy = Self::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), yaw);
+        let qx = Self::from_axis_angle(Vec3::new(1.0, 0.0, 0.0), pitch);
+        let qz = Self::from_axis_angle(Vec3::new(0.0, 0.0, 1.0), roll);
+        qz * qx * qy
     }
 
     /// Create a quaternion from the upper-left 3x3 portion of a rotation matrix.
@@ -408,6 +423,24 @@ impl Quat {
         )
     }
 
+    /// Rotation angle in radians (convenience over [`Quat::to_axis_angle`]).
+    #[must_use]
+    #[inline]
+    pub fn angle(self) -> f32 {
+        self.to_axis_angle().1
+    }
+
+    /// Normalised rotation axis (convenience over [`Quat::to_axis_angle`]).
+    ///
+    /// For the identity (or near-identity) rotation the axis is degenerate;
+    /// this returns `Vec3::X` with an angle of `0.0`, matching
+    /// [`Quat::to_axis_angle`].
+    #[must_use]
+    #[inline]
+    pub fn axis(self) -> Vec3 {
+        self.to_axis_angle().0
+    }
+
     /// Convert to a 4x4 rotation matrix (row-major, row-vector convention).
     #[must_use]
     pub fn to_mat4(self) -> Mat4 {
@@ -434,6 +467,52 @@ impl Quat {
         }
     }
 
+    /// Convert to a 3x3 rotation matrix for use with the [`Mat3`] `*` operator.
+    ///
+    /// **Convention note:** this is the transpose of [`Quat::to_mat4`]'s
+    /// upper 3x3 block, deliberately. The engine's [`Mat4`] math follows the
+    /// row-vector convention (`v' = v * m`), but the only `Mat3`-vector
+    /// operator in the codebase is `Mat3 * Vec3`, which multiplies
+    /// column-style (`m * v`). This returns the matrix that operator needs:
+    /// `q.to_mat3() * v == q.rotate_vec3(v)`. Do not "fix" it to match
+    /// `to_mat4` — that transposition is the actual bug in the other direction.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::quat::Quat;
+    /// let m = Quat::identity().to_mat3();
+    /// assert!((m.m[0][0] - 1.0).abs() < 1e-6);
+    /// assert!((m.m[1][1] - 1.0).abs() < 1e-6);
+    /// assert!((m.m[2][2] - 1.0).abs() < 1e-6);
+    /// ```
+    #[must_use]
+    pub fn to_mat3(self) -> Mat3 {
+        let (x, y, z, w) = (self.x, self.y, self.z, self.w);
+        let x2 = x + x;
+        let y2 = y + y;
+        let z2 = z + z;
+        let xx = x * x2;
+        let xy = x * y2;
+        let xz = x * z2;
+        let yy = y * y2;
+        let yz = y * z2;
+        let zz = z * z2;
+        let wx = w * x2;
+        let wy = w * y2;
+        let wz = w * z2;
+        // Column-style multiply form: (to_mat3() * v) == rotate_vec3(v).
+        // This is the transpose of to_mat4's upper block, deliberately —
+        // see the convention note on this method.
+        Mat3 {
+            m: [
+                [1.0 - (yy + zz), xy - wz, xz + wy], // row 0
+                [xy + wz, 1.0 - (xx + zz), yz - wx], // row 1
+                [xz - wy, yz + wx, 1.0 - (xx + yy)], // row 2
+            ],
+        }
+    }
+
     /// The conjugate (inverse for unit quaternions).
     #[must_use]
     #[inline]
@@ -446,6 +525,13 @@ impl Quat {
     #[inline]
     pub fn length_sq(self) -> f32 {
         self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w
+    }
+
+    /// Magnitude of the quaternion (should be ≈ 1.0 for unit quaternions).
+    #[must_use]
+    #[inline]
+    pub fn length(self) -> f32 {
+        self.length_sq().sqrt()
     }
 
     /// Quaternion inverse.
@@ -1182,5 +1268,74 @@ mod tests {
         let mid = a.lerp(&b, 0.5);
         let out = mid.transform_point(Vec3::ZERO);
         assert!((out.x - 1.0).abs() < 1e-4, "x: {}", out.x);
+    }
+
+    #[test]
+    fn length_of_unit_quat_is_one() {
+        let q = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), 1.0).normalize();
+        assert!((q.length() - 1.0).abs() < EPSILON);
+        assert!((q.length_sq() - 1.0).abs() < EPSILON);
+    }
+
+    #[test]
+    fn angle_and_axis_recover_construction() {
+        let axis = Vec3::new(0.3, -0.4, 0.5).normalize();
+        let angle = 1.234;
+        let q = Quat::from_axis_angle(axis, angle).normalize();
+        assert!((q.angle() - angle).abs() < 1e-4, "angle: {}", q.angle());
+        let out_axis = q.axis();
+        assert!((out_axis.x - axis.x).abs() < 1e-4, "axis.x: {}", out_axis.x);
+        assert!((out_axis.y - axis.y).abs() < 1e-4, "axis.y: {}", out_axis.y);
+        assert!((out_axis.z - axis.z).abs() < 1e-4, "axis.z: {}", out_axis.z);
+    }
+
+    #[test]
+    fn from_euler_zyx_matches_legacy_closed_form() {
+        // The legacy math::Quat ZYX closed form, preserved verbatim: the
+        // composition qz * qx * qy must reproduce it exactly (up to the
+        // q/-q sign ambiguity, so compare via rotated vectors).
+        let (yaw, pitch, roll) = (0.7, 0.3, 0.5);
+        let q = Quat::from_euler_zyx(yaw, pitch, roll);
+        let (sy, cy) = (yaw * 0.5).sin_cos();
+        let (sp, cp) = (pitch * 0.5).sin_cos();
+        let (sr, cr) = (roll * 0.5).sin_cos();
+        let legacy = Quat::new(
+            cy * sp * cr + sy * cp * sr,
+            sy * cp * cr - cy * sp * sr,
+            cy * cp * sr - sy * sp * cr,
+            cy * cp * cr + sy * sp * sr,
+        );
+        let v = Vec3::new(0.4, 0.2, -0.8);
+        let a = q.rotate_vec3(v);
+        let b = legacy.rotate_vec3(v);
+        assert!((a.x - b.x).abs() < 1e-5, "x: {} vs {}", a.x, b.x);
+        assert!((a.y - b.y).abs() < 1e-5, "y: {} vs {}", a.y, b.y);
+        assert!((a.z - b.z).abs() < 1e-5, "z: {} vs {}", a.z, b.z);
+    }
+
+    #[test]
+    fn to_mat3_is_transpose_of_to_mat4_block() {
+        // to_mat3 serves the column-style `Mat3 * Vec3` operator, so its
+        // block must be the transpose of to_mat4's row-vector block.
+        let q = Quat::from_euler_zyx(0.7, 0.3, 0.5).normalize();
+        let m3 = q.to_mat3();
+        let m4 = q.to_mat4();
+        for r in 0..3 {
+            for c in 0..3 {
+                assert!(
+                    (m3.m[r][c] - m4.m[c][r]).abs() < 1e-6,
+                    "m3[{r}][{c}]: {} vs m4[{c}][{r}]: {}",
+                    m3.m[r][c],
+                    m4.m[c][r]
+                );
+            }
+        }
+        // And the operator path must agree with rotate_vec3.
+        let v = Vec3::new(0.4, 0.2, -0.8);
+        let via_mat = m3 * v;
+        let via_quat = q.rotate_vec3(v);
+        assert!((via_mat.x - via_quat.x).abs() < 1e-5);
+        assert!((via_mat.y - via_quat.y).abs() < 1e-5);
+        assert!((via_mat.z - via_quat.z).abs() < 1e-5);
     }
 }
