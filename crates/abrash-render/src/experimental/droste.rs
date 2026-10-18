@@ -35,6 +35,21 @@ impl Default for DrosteConfig {
     }
 }
 
+/// `v.round() as i32` (half away from zero, saturating, NaN -> 0) without the
+/// libm `roundf` call that `f32::round` lowers to on baseline x86-64.
+#[inline(always)]
+fn round_to_i32(v: f32) -> i32 {
+    let i = v as i32;
+    let frac = v - i as f32;
+    if frac >= 0.5 {
+        i.saturating_add(1)
+    } else if frac <= -0.5 {
+        i.saturating_sub(1)
+    } else {
+        i
+    }
+}
+
 /// Applies the Droste effect to the framebuffer.
 ///
 /// This effect recursively shrinks and overlays the image onto itself.
@@ -85,8 +100,8 @@ pub fn apply_droste(fb: &mut Framebuffer, config: &DrosteConfig) {
                     let unscaled_x = sample_x / config.scale;
                     let unscaled_y = sample_y / config.scale;
 
-                    let px = (unscaled_x + cx).round() as i32;
-                    let py = (unscaled_y + cy).round() as i32;
+                    let px = round_to_i32(unscaled_x + cx);
+                    let py = round_to_i32(unscaled_y + cy);
 
                     if px >= 0 && px < width as i32 && py >= 0 && py < height as i32 {
                         // The point falls inside the bounds of the original image when unscaled,
@@ -124,6 +139,40 @@ pub fn apply_droste(fb: &mut Framebuffer, config: &DrosteConfig) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn round_to_i32_matches_f32_round() {
+        let mut cases = vec![
+            0.0,
+            -0.0,
+            0.5,
+            -0.5,
+            0.49999997,
+            -0.49999997,
+            1.5,
+            -1.5,
+            2.5,
+            8_388_607.5,
+            8_388_608.0,
+            2.147_483_6e9,
+            -2.147_483_6e9,
+            3.0e9,
+            -3.0e9,
+            f32::MAX,
+            f32::MIN,
+            f32::INFINITY,
+            f32::NEG_INFINITY,
+            f32::NAN,
+        ];
+        let mut x = -2000.0f32;
+        while x < 2000.0 {
+            cases.push(x);
+            x += 0.173;
+        }
+        for v in cases {
+            assert_eq!(super::round_to_i32(v), v.round() as i32, "v = {v}");
+        }
+    }
+
     use super::*;
 
     #[test]
