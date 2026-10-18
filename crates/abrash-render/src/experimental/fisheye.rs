@@ -52,18 +52,23 @@ pub fn apply_fisheye(fb: &mut Framebuffer, strength: f32) {
         #[cfg(not(feature = "parallel"))]
         let row_iter = dst_pixels.chunks_exact_mut(width).enumerate();
 
+        // Bolt Performance Optimization:
+        // `nx` and `nx * nx` depend only on the column, so compute them once per call
+        // (width entries) instead of a divide and multiply per pixel.
+        let cols: Vec<(f32, f32)> = (0..width)
+            .map(|x| {
+                let nx = ((x as f32) - half_w) / min_dim;
+                (nx, nx * nx)
+            })
+            .collect();
+
         row_iter.for_each(|(y, row)| {
-            let dy = (y as f32) - half_h;
+            let ny = ((y as f32) - half_h) / min_dim;
+            let ny_sq = ny * ny;
 
-            for (x, pixel) in row.iter_mut().enumerate().take(width) {
-                let dx = (x as f32) - half_w;
-
-                // Convert to normalized coordinates based on the shortest dimension
-                let nx = dx / min_dim;
-                let ny = dy / min_dim;
-
+            for (pixel, &(nx, nx_sq)) in row.iter_mut().zip(cols.iter()) {
                 // Calculate distance from center
-                let r_sq = nx * nx + ny * ny;
+                let r_sq = nx_sq + ny_sq;
 
                 // Apply Fisheye (Barrel) Distortion formula: r' = r * (1 + strength * r^2)
                 // By factoring out the `r`, we can compute the scaling factor directly.
