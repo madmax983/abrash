@@ -146,8 +146,8 @@ mod tests {
             -0.0,
             0.5,
             -0.5,
-            0.49999997,
-            -0.49999997,
+            0.499_999_97,
+            -0.499_999_97,
             1.5,
             -1.5,
             2.5,
@@ -163,11 +163,7 @@ mod tests {
             f32::NEG_INFINITY,
             f32::NAN,
         ];
-        let mut x = -2000.0f32;
-        while x < 2000.0 {
-            cases.push(x);
-            x += 0.173;
-        }
+        cases.extend((-11_560..11_560).map(|i| i as f32 * 0.173));
         for v in cases {
             assert_eq!(super::round_to_i32(v), v.round() as i32, "v = {v}");
         }
