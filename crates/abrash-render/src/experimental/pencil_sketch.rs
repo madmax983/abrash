@@ -60,14 +60,16 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
     let hatch_threshold = (config.hatch_intensity * 100.0) as u32;
 
     // ⚡ Bolt: Eliminate per-frame heap allocation by using a thread-local static buffer.
+    // It holds one luminance byte per pixel so each pixel's luminance is computed once
+    // instead of once per Sobel tap (9x per interior pixel).
     thread_local! {
-        static SOURCE_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+        static LUMA_PLANE: std::cell::RefCell<Vec<u8>> = const { std::cell::RefCell::new(Vec::new()) };
     }
 
-    let mut src_pixels = SOURCE_PIXELS.with(std::cell::RefCell::take);
-    src_pixels.clear();
-    src_pixels.extend_from_slice(fb.as_slice());
-    let source_buffer = src_pixels.as_slice();
+    let mut luma = LUMA_PLANE.with(std::cell::RefCell::take);
+    luma.clear();
+    luma.extend(fb.as_slice().iter().map(|&p| pixel_luminance(p)));
+    let luma_plane = luma.as_slice();
 
     let pixels = fb.as_mut_slice();
 
@@ -77,44 +79,44 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
     let iter = pixels.chunks_exact_mut(width).enumerate();
 
     iter.for_each(|(y, row)| {
-        for (x, pixel) in row.iter_mut().enumerate() {
-            // Bounds check for Sobel 3x3
-            if x == 0 || y == 0 || x >= width - 1 || y >= height - 1 {
-                *pixel = config.paper_color;
-                continue;
-            }
+        // Border rows (and any row too narrow for a 3x3 kernel) are plain paper.
+        if y == 0 || y >= height - 1 || width < 3 {
+            row.fill(config.paper_color);
+            return;
+        }
+        row[0] = config.paper_color;
+        row[width - 1] = config.paper_color;
 
+        let above = &luma_plane[(y - 1) * width..y * width];
+        let mid = &luma_plane[y * width..(y + 1) * width];
+        let below = &luma_plane[(y + 1) * width..(y + 2) * width];
+
+        for x in 1..width - 1 {
             // --- 1. Edge Detection (Sobel) ---
-            // Fetch 3x3 neighborhood luminance using unchecked indexing for speed
-            let idx = y * width + x;
-            let tl = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx - width - 1) });
-            let tc = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx - width) });
-            let tr = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx - width + 1) });
-            let cl = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx - 1) });
-            let cr = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx + 1) });
-            let bl = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx + width - 1) });
-            let bc = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx + width) });
-            let br = pixel_luminance(unsafe { *source_buffer.get_unchecked(idx + width + 1) });
+            let tl = i32::from(above[x - 1]);
+            let tc = i32::from(above[x]);
+            let tr = i32::from(above[x + 1]);
+            let cl = i32::from(mid[x - 1]);
+            let cr = i32::from(mid[x + 1]);
+            let bl = i32::from(below[x - 1]);
+            let bc = i32::from(below[x]);
+            let br = i32::from(below[x + 1]);
 
             // Sobel X
-            let gx = (i32::from(tr) + 2 * i32::from(cr) + i32::from(br))
-                - (i32::from(tl) + 2 * i32::from(cl) + i32::from(bl));
+            let gx = (tr + 2 * cr + br) - (tl + 2 * cl + bl);
 
             // Sobel Y
-            let gy = (i32::from(bl) + 2 * i32::from(bc) + i32::from(br))
-                - (i32::from(tl) + 2 * i32::from(tc) + i32::from(tr));
+            let gy = (bl + 2 * bc + br) - (tl + 2 * tc + tr);
 
             // Approximate gradient magnitude
             let magnitude = (gx.abs() + gy.abs()) as u32;
 
-            let is_edge = magnitude > config.edge_threshold;
-
-            if is_edge {
+            if magnitude > config.edge_threshold {
                 // Draw strong stroke
-                *pixel = config.stroke_color;
+                row[x] = config.stroke_color;
             } else {
                 // --- 2. Tonal Hatching ---
-                let luminance = unsafe { pixel_luminance(*source_buffer.get_unchecked(idx)) };
+                let luminance = mid[x];
 
                 // Simple procedural hatching pattern
                 let mut is_hatch = false;
@@ -135,26 +137,26 @@ pub fn apply_pencil_sketch(fb: &mut Framebuffer, config: &PencilSketchConfig) {
                     }
                 }
 
-                if is_hatch {
+                row[x] = if is_hatch {
                     // Add some noise to hatching
                     // Use a simple pseudo-random hash based on coordinates
                     let hash =
                         ((x * 3_266_489_917) ^ (y * 2_654_435_761)).wrapping_mul(0x85eb_ca6b);
 
                     if ((hash % 100) as u32) < hatch_threshold {
-                        *pixel = blended_stroke_color;
+                        blended_stroke_color
                     } else {
-                        *pixel = config.paper_color;
+                        config.paper_color
                     }
                 } else {
-                    *pixel = config.paper_color;
-                }
+                    config.paper_color
+                };
             }
         }
     });
 
-    SOURCE_PIXELS.with(|buf| {
-        buf.replace(src_pixels);
+    LUMA_PLANE.with(|buf| {
+        buf.replace(luma);
     });
 }
 
