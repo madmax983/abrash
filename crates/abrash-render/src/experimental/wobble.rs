@@ -87,15 +87,15 @@ pub fn apply_wobble(fb: &mut Framebuffer, config: &WobbleConfig) {
         let src_row_start = y * width;
         let src_row = &src[src_row_start..src_row_start + width];
 
-        for (x, pixel) in row.iter_mut().enumerate() {
-            // Calculate the source X coordinate.
-            // If the pixel is shifted to the right, we need to read from the left.
-            let src_x = x as i32 - shift;
-
-            // Handle horizontal bounds via clamping (or wrapping, but clamping is safer).
-            let clamped_src_x = src_x.clamp(0, width as i32 - 1) as usize;
-
-            *pixel = src_row[clamped_src_x];
+        // Every pixel reads `src_row[(x - shift).clamp(0, width - 1)]`, so the row is a
+        // clamped fill on one edge and a straight copy of the rest.
+        let edge = (shift.unsigned_abs() as usize).min(width);
+        if shift >= 0 {
+            row[..edge].fill(src_row[0]);
+            row[edge..].copy_from_slice(&src_row[..width - edge]);
+        } else {
+            row[..width - edge].copy_from_slice(&src_row[edge..]);
+            row[width - edge..].fill(src_row[width - 1]);
         }
     });
 
@@ -139,5 +139,40 @@ mod tests {
             pixel_at_5, 0xFF00_0000,
             "Original pixel position should be empty/black"
         );
+    }
+
+    #[test]
+    fn test_apply_wobble_matches_per_pixel_clamp() {
+        let (width, height) = (7u32, 64u32);
+        for amplitude in [0.5_f32, 3.0, 6.0, 7.0, 20.0, 1.0e12] {
+            let mut fb = Framebuffer::new(width, height).unwrap();
+            for (i, p) in fb.as_mut_slice().iter_mut().enumerate() {
+                *p = 0xFF00_0000 | i as u32;
+            }
+            let original = fb.as_slice().to_vec();
+            let config = WobbleConfig {
+                amplitude,
+                frequency: 3.0,
+                time: 0.7,
+            };
+            apply_wobble(&mut fb, &config);
+
+            let freq_scale = std::f32::consts::TAU * config.frequency / height as f32;
+            for y in 0..height as usize {
+                let shift_f = amplitude * (y as f32 * freq_scale + config.time).sin();
+                let shift = if shift_f >= 0.0 {
+                    (shift_f + 0.5) as i64
+                } else {
+                    (shift_f - 0.5) as i64
+                };
+                for x in 0..width as usize {
+                    let sx = (x as i64 - shift).clamp(0, i64::from(width) - 1) as usize;
+                    assert_eq!(
+                        fb.as_slice()[y * width as usize + x],
+                        original[y * width as usize + sx]
+                    );
+                }
+            }
+        }
     }
 }
