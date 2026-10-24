@@ -69,13 +69,33 @@ pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
         #[cfg(not(feature = "parallel"))]
         let iter = dest_buffer.chunks_exact_mut(width as usize).enumerate();
 
+        // |amount| <= |amplitude| (|sin| <= 1, damping in (0, 1]) and |dir| <= 1 up
+        // to rounding, so pixels at least `margin` from every edge never clamp.
+        let margin = config.amplitude.abs() + 2.0;
+        let max_margin = margin.min(i32::MAX as f32 / 2.0) as i32 + 1;
+        let (x_lo, x_hi) = (
+            (max_margin as usize).min(width as usize),
+            (width - max_margin).max(0) as usize,
+        );
+        let (x_lo, x_hi) = if x_lo <= x_hi {
+            (x_lo, x_hi)
+        } else {
+            (width as usize, width as usize)
+        };
+
         iter.for_each(|(y, row)| {
             let y_f32 = y as f32;
             let dy = y_f32 - center_y_px;
             let dy_sq = dy * dy;
             let max_radius_px_sq = max_radius_px * max_radius_px;
+            let y_interior = (y as i32) >= max_margin && (y as i32) < height - max_margin;
+            let (lo, hi) = if y_interior {
+                (x_lo, x_hi)
+            } else {
+                (width as usize, width as usize)
+            };
 
-            for (x, pixel) in row.iter_mut().enumerate() {
+            let mut ripple_px = |x: usize, pixel: &mut u32, clamp: bool| {
                 let x_f32 = x as f32;
                 let dx = x_f32 - center_x_px;
                 let dist_sq = dx * dx + dy_sq;
@@ -94,16 +114,30 @@ pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
                     let dir_y = dy * inv_dist;
 
                     // Calculate source pixel coordinates using fast float-to-int cast
-                    let src_x = (x_f32 + dir_x * amount) as i32;
-                    let src_y = (y_f32 + dir_y * amount) as i32;
+                    let mut src_x = (x_f32 + dir_x * amount) as i32;
+                    let mut src_y = (y_f32 + dir_y * amount) as i32;
 
-                    // Clamp to screen boundaries
-                    let src_x = src_x.max(0).min(width - 1);
-                    let src_y = src_y.max(0).min(height - 1);
+                    if clamp {
+                        // Clamp to screen boundaries
+                        src_x = src_x.max(0).min(width - 1);
+                        src_y = src_y.max(0).min(height - 1);
+                    }
 
                     let src_idx = (src_y * width + src_x) as usize;
                     *pixel = src_buffer[src_idx];
                 }
+            };
+
+            let (left, rest) = row.split_at_mut(lo);
+            let (mid, right) = rest.split_at_mut(hi - lo);
+            for (x, pixel) in left.iter_mut().enumerate() {
+                ripple_px(x, pixel, true);
+            }
+            for (i, pixel) in mid.iter_mut().enumerate() {
+                ripple_px(lo + i, pixel, false);
+            }
+            for (i, pixel) in right.iter_mut().enumerate() {
+                ripple_px(hi + i, pixel, true);
             }
         });
     });
