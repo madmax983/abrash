@@ -107,14 +107,7 @@ pub fn apply_hologram(fb: &mut Framebuffer, config: &HologramConfig) {
 
             let combined_intensity = flicker * scanline;
 
-            for (x, pixel) in row.iter_mut().enumerate() {
-                // Apply horizontal shift safely
-                let mut src_x = x as i32 + x_shift;
-                src_x = src_x.clamp(0, width as i32 - 1);
-
-                let src_idx = y * width + (src_x as usize);
-                let p = src_pixels[src_idx];
-
+            let shade = |p: u32| -> u32 {
                 let r = ((p >> 16) & 0xFF) as f32;
                 let g = ((p >> 8) & 0xFF) as f32;
                 let b = (p & 0xFF) as f32;
@@ -127,8 +120,28 @@ pub fn apply_hologram(fb: &mut Framebuffer, config: &HologramConfig) {
                 let final_g = (lum * tc_g / 255.0 * combined_intensity).clamp(0.0, 255.0) as u32;
                 let final_b = (lum * tc_b / 255.0 * combined_intensity).clamp(0.0, 255.0) as u32;
 
-                *pixel = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
+                0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b
+            };
+
+            // ⚡ Bolt: Only the first/last `|x_shift|` pixels need the edge clamp.
+            // Split the row into a left clamp run, a contiguous in-bounds middle
+            // (zipped slices, no per-pixel index clamp) and a right clamp run.
+            let src_row = &src_pixels[y * width..(y + 1) * width];
+            let w = width as i64;
+            let shift = i64::from(x_shift);
+            let lo = (-shift).clamp(0, w) as usize;
+            let hi = ((w - shift).clamp(0, w) as usize).max(lo);
+
+            let left_color = shade(src_row[0]);
+            row[..lo].fill(left_color);
+            if lo < hi {
+                let src_mid = &src_row[(lo as i64 + shift) as usize..(hi as i64 + shift) as usize];
+                for (pixel, &p) in row[lo..hi].iter_mut().zip(src_mid) {
+                    *pixel = shade(p);
+                }
             }
+            let right_color = shade(src_row[width - 1]);
+            row[hi..].fill(right_color);
         });
     });
 }
@@ -172,5 +185,74 @@ mod tests {
         let b = p & 0xFF;
         assert!(g > r);
         assert!(g > b);
+    }
+
+    /// Straightforward per-pixel-clamp reference, as the filter was originally written.
+    fn reference(fb: &Framebuffer, config: &HologramConfig) -> Vec<u32> {
+        let (width, height) = (fb.width() as usize, fb.height() as usize);
+        let src = fb.as_slice();
+        let tc = [
+            ((config.color >> 16) & 0xFF) as f32,
+            ((config.color >> 8) & 0xFF) as f32,
+            (config.color & 0xFF) as f32,
+        ];
+        let flicker =
+            1.0 - config.flicker_intensity * (config.time * config.flicker_speed).sin().abs();
+        let mut out = vec![0; width * height];
+        for y in 0..height {
+            let yf = y as f32;
+            let scanline = 1.0
+                - config.scanline_intensity * (0.5 + 0.5 * (yf * 0.1 - config.time * 5.0).sin());
+            let phase = yf * 0.05 + config.time * 20.0;
+            let x_shift = if config.interference_strength > 0.0 {
+                let amt = phase.sin() * (width as f32 * config.interference_strength);
+                if (phase * 0.5).cos() > 0.95 {
+                    (amt * 2.0) as i32
+                } else {
+                    amt as i32
+                }
+            } else {
+                0
+            };
+            let ci = flicker * scanline;
+            for x in 0..width {
+                let sx = (x as i32 + x_shift).clamp(0, width as i32 - 1) as usize;
+                let p = src[y * width + sx];
+                let lum = 0.299 * ((p >> 16) & 0xFF) as f32
+                    + 0.587 * ((p >> 8) & 0xFF) as f32
+                    + 0.114 * (p & 0xFF) as f32;
+                let c = |t: f32| (lum * t / 255.0 * ci).clamp(0.0, 255.0) as u32;
+                out[y * width + x] = 0xFF00_0000 | (c(tc[0]) << 16) | (c(tc[1]) << 8) | c(tc[2]);
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn test_apply_hologram_matches_reference_for_all_shifts() {
+        // Narrow widths with large strength force shifts >= width in both directions.
+        for &(w, h) in &[(1u32, 7u32), (3, 40), (17, 64), (64, 48)] {
+            for &strength in &[0.0f32, 0.02, 0.5, 3.0] {
+                for &time in &[0.0f32, 0.37, 1.9, 5.5] {
+                    let mut fb = Framebuffer::new(w, h).unwrap();
+                    for (i, px) in fb.as_mut_slice().iter_mut().enumerate() {
+                        let v = (i as u32).wrapping_mul(2_654_435_761);
+                        *px = 0xFF00_0000 | (v >> 8);
+                    }
+                    let config = HologramConfig {
+                        time,
+                        interference_strength: strength,
+                        ..HologramConfig::default()
+                    };
+                    let expected = reference(&fb, &config);
+                    apply_hologram(&mut fb, &config);
+                    assert_eq!(
+                        fb.as_slice(),
+                        expected.as_slice(),
+                        "{w}x{h} s={strength} t={time}"
+                    );
+                }
+            }
+        }
     }
 }
