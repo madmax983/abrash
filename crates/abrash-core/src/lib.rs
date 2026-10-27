@@ -40,6 +40,7 @@ pub mod ivec;
 pub mod msdf;
 #[cfg(test)]
 pub mod obj_loader_havoc;
+pub mod occluder_hiz;
 pub mod random;
 pub mod sdf;
 pub mod sdf_ui;
