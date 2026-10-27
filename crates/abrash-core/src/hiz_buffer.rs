@@ -12,9 +12,13 @@
 //!
 //! ## The Algorithm
 //! 1. **Build:** After rendering a base pass (or using depth from the previous frame), we build a pyramid
-//!    where each level stores the minimum (closest) depth from a 2×2 region of the level below it.
+//!    where each level stores the maximum (farthest) depth from a 2×2 region of the level below it.
+//!    The maximum is the only sound aggregate for a whole-box cull: the box is hidden only if its
+//!    closest point is farther than *every* stored depth under its footprint, i.e. farther than the
+//!    maximum. (An earlier version reduced with the minimum and could false-cull boxes whose
+//!    footprint covered cells with differing depths.)
 //! 2. **Query:** When testing an `AABB3D`, we find the pyramid level where the box covers roughly 2×2 pixels.
-//!    We compare the box's closest depth against those 4 pixels.
+//!    We compare the box's closest depth against the maximum of those cells.
 //! 3. **Result:** If the box is behind the known depth, it is discarded. This process is conservative:
 //!    false positives (drawing something that ends up hidden) are acceptable, but false negatives are forbidden.
 //!
@@ -246,7 +250,7 @@ impl HiZBuffer {
 
     /// Build the entire pyramid from a zbuffer
     ///
-    /// This performs 2×2 min-reductions from level 0 (zbuffer) up to the top.
+    /// This performs 2×2 max-reductions from level 0 (zbuffer) up to the top.
     /// Time complexity: O(width × height) for full scan
     ///
     /// # Panics
@@ -295,14 +299,14 @@ impl HiZBuffer {
             let dest_width = self.levels[1].width;
             let dest_height = self.levels[1].height;
             let dest = &mut self.levels[1].depths;
-            Self::min_reduce_2x2(dest, dest_width, dest_height, level0, self.width);
+            Self::max_reduce_2x2(dest, dest_width, dest_height, level0, self.width);
 
             for level_idx in 2..self.level_count as usize {
                 let (lower_levels, higher_levels) = self.levels.split_at_mut(level_idx);
                 let prev_level = &lower_levels[level_idx - 1];
                 let curr_level = &mut higher_levels[0];
 
-                Self::min_reduce_2x2(
+                Self::max_reduce_2x2(
                     &mut curr_level.depths,
                     curr_level.width,
                     curr_level.height,
@@ -315,13 +319,13 @@ impl HiZBuffer {
         self.valid = true;
     }
 
-    /// Optimized scalar 2×2 min-reduction implementation
+    /// Optimized scalar 2×2 max-reduction implementation
     ///
     /// # SIMD Note
     /// SIMD was attempted but found to be slower due to memory bandwidth saturation,
     /// excessive shuffle operations for horizontal reduction, and small working sets.
     /// See `SIMD_PROFILING_ANALYSIS.md` for details.
-    fn min_reduce_2x2(
+    fn max_reduce_2x2(
         dest: &mut [f32],
         dest_width: u32,
         dest_height: u32,
@@ -364,7 +368,7 @@ impl HiZBuffer {
                 let d01 = row1[sx];
                 let d11 = row1[sx + 1];
 
-                dst_row[x as usize] = d00.min(d10).min(d01).min(d11);
+                dst_row[x as usize] = d00.max(d10).max(d01).max(d11);
             }
 
             // Handle last column if odd width
@@ -374,7 +378,7 @@ impl HiZBuffer {
                 let d00 = row0[sx];
                 let d01 = row1[sx];
                 // Clamp to left column
-                dst_row[x as usize] = d00.min(d01);
+                dst_row[x as usize] = d00.max(d01);
             }
         }
 
@@ -391,7 +395,7 @@ impl HiZBuffer {
                 let d00 = row0[sx];
                 let d10 = row0[sx + 1];
                 // Clamp to top row
-                dst_row[x as usize] = d00.min(d10);
+                dst_row[x as usize] = d00.max(d10);
             }
 
             if odd_width {
@@ -411,7 +415,8 @@ impl HiZBuffer {
     /// # Algorithm
     /// 1. Find starting level where AABB fits in ≤4 cells (2×2)
     /// 2. Descend from coarse to fine, testing at each level
-    /// 3. If AABB's closest point is farther than pyramid's closest point → occluded
+    /// 3. If AABB's closest point is farther than the pyramid's farthest point
+    ///    under the footprint → occluded
     ///
     /// # Performance
     /// - Single query: <100ns (cache hit)
@@ -460,17 +465,22 @@ impl HiZBuffer {
             let lx1 = ((max_x as u32 / scale).min(level.width - 1)) as usize;
             let ly1 = ((max_y as u32 / scale).min(level.height - 1)) as usize;
 
-            // Find minimum depth in covered pyramid cells
-            let mut pyramid_min = f32::INFINITY;
+            // Find maximum depth in covered pyramid cells. The maximum is
+            // what makes the cull sound: covered cells may extend past the
+            // footprint, which can only inflate the maximum (fewer culls,
+            // never false culls). Empty pixels store INFINITY, so any
+            // footprint touching one has maximum INFINITY and is kept.
+            let mut pyramid_max = f32::NEG_INFINITY;
             for ly in ly0..=ly1 {
                 for lx in lx0..=lx1 {
-                    pyramid_min = pyramid_min.min(level.depths[ly * level.width as usize + lx]);
+                    pyramid_max = pyramid_max.max(level.depths[ly * level.width as usize + lx]);
                 }
             }
 
-            // Conservative test: If AABB's closest point is farther than
-            // pyramid's closest point, AABB is fully occluded
-            if aabb.min_depth > pyramid_min {
+            // Conservative test: the AABB is fully occluded only if its
+            // closest point is farther than the farthest stored depth under
+            // its footprint — every pixel in the footprint is in front of it.
+            if aabb.min_depth > pyramid_max {
                 return false; // Fully occluded
             }
         }
@@ -502,8 +512,8 @@ impl HiZBuffer {
     /// # Algorithm
     /// 1. Convert bin AABB to pyramid level 2 coordinates (128×128 = 32 * 2^2)
     /// 2. Sample all pyramid cells covering the bin region
-    /// 3. Find minimum depth across all samples
-    /// 4. Compare bin's `min_depth` against pyramid's `min_depth`
+    /// 3. Find maximum depth across all samples
+    /// 4. Compare bin's `min_depth` against the samples' maximum depth
     ///
     /// # Returns
     /// - `true` if the bin is potentially visible (must be subdivided)
@@ -581,17 +591,19 @@ impl HiZBuffer {
         let lx1 = ((max_x as u32 / scale).min(level.width - 1)) as usize;
         let ly1 = ((max_y as u32 / scale).min(level.height - 1)) as usize;
 
-        // Find minimum depth in covered pyramid cells
-        let mut pyramid_min = f32::INFINITY;
+        // Find maximum depth in covered pyramid cells (see
+        // `is_potentially_visible` for why the maximum is the sound
+        // aggregate for a whole-region cull)
+        let mut pyramid_max = f32::NEG_INFINITY;
         for ly in ly0..=ly1 {
             for lx in lx0..=lx1 {
-                pyramid_min = pyramid_min.min(level.depths[ly * level.width as usize + lx]);
+                pyramid_max = pyramid_max.max(level.depths[ly * level.width as usize + lx]);
             }
         }
 
-        // Conservative test: If bin's closest point is farther than
-        // pyramid's closest point, bin is fully occluded
-        bin_aabb.min_depth <= pyramid_min
+        // Conservative test: the bin is fully occluded only if its closest
+        // point is farther than the farthest stored depth in its footprint
+        bin_aabb.min_depth <= pyramid_max
     }
 }
 
@@ -750,7 +762,7 @@ mod tests {
     }
 
     #[test]
-    fn test_min_reduction_simple() {
+    fn test_max_reduction_simple() {
         // 4×4 input with known pattern
         let mut zb = ZBuffer::new(4, 4).unwrap();
 
@@ -767,25 +779,28 @@ mod tests {
         let mut hiz = HiZBuffer::new(4, 4);
         hiz.build_pyramid(&zb);
 
-        // Level 1 should be 2×2 with mins of each 2×2 quad:
-        // Top-left (0,0)-(1,1): min(1,2,5,6) = 1.0
-        // Top-right (2,0)-(3,1): min(3,4,7,8) = 3.0
-        // Bottom-left (0,2)-(1,3): min(9,10,13,14) = 9.0
-        // Bottom-right (2,2)-(3,3): min(11,12,15,16) = 11.0
+        // Level 1 should be 2×2 with maxes of each 2×2 quad. (The pyramid
+        // stores the farthest depth per region: that is the aggregate a
+        // sound whole-box occlusion cull compares against. It used to store
+        // minimums, which made the cull unsound over mixed-depth footprints.)
+        // Top-left (0,0)-(1,1): max(1,2,5,6) = 6.0
+        // Top-right (2,0)-(3,1): max(3,4,7,8) = 8.0
+        // Bottom-left (0,2)-(1,3): max(9,10,13,14) = 14.0
+        // Bottom-right (2,2)-(3,3): max(11,12,15,16) = 16.0
         let level1 = &hiz.levels[1];
         assert_eq!(level1.width, 2);
         assert_eq!(level1.height, 2);
-        assert!((level1.depths[0] - 1.0).abs() < f32::EPSILON); // Top-left quad
-        assert!((level1.depths[1] - 3.0).abs() < f32::EPSILON); // Top-right quad
-        assert!((level1.depths[2] - 9.0).abs() < f32::EPSILON); // Bottom-left quad
-        assert!((level1.depths[3] - 11.0).abs() < f32::EPSILON); // Bottom-right quad
+        assert!((level1.depths[0] - 6.0).abs() < f32::EPSILON); // Top-left quad
+        assert!((level1.depths[1] - 8.0).abs() < f32::EPSILON); // Top-right quad
+        assert!((level1.depths[2] - 14.0).abs() < f32::EPSILON); // Bottom-left quad
+        assert!((level1.depths[3] - 16.0).abs() < f32::EPSILON); // Bottom-right quad
     }
 
     #[test]
-    fn test_min_reduction_propagates_to_top() {
+    fn test_max_reduction_propagates_to_top() {
         let mut zb = ZBuffer::new(4, 4).unwrap();
 
-        // Fill with gradient, smallest value at (0,0)
+        // Fill with gradient, largest value at (3,3)
         let slice = zb.as_mut_slice();
         for y in 0..4 {
             for x in 0..4 {
@@ -796,11 +811,11 @@ mod tests {
         let mut hiz = HiZBuffer::new(4, 4);
         hiz.build_pyramid(&zb);
 
-        // Level 2 should be 1×1 with global minimum
+        // Level 2 should be 1×1 with global maximum
         let level2 = &hiz.levels[2];
         assert_eq!(level2.width, 1);
         assert_eq!(level2.height, 1);
-        assert!((level2.depths[0] - 0.0).abs() < f32::EPSILON); // Minimum of entire zbuffer
+        assert!((level2.depths[0] - 6.0).abs() < f32::EPSILON); // Maximum of entire zbuffer
     }
 
     #[test]
@@ -950,7 +965,7 @@ mod tests {
     }
 
     #[test]
-    fn test_partially_occluded_aabb_returns_false() {
+    fn test_partially_occluded_aabb_returns_true() {
         let mut zb = ZBuffer::new(800, 600).unwrap();
 
         // Fill zbuffer with depth 10.0, except one region with 5.0 (closer)
@@ -979,8 +994,14 @@ mod tests {
             max_depth: 12.0,
         };
 
-        // Should be occluded because there's closer geometry in the AABB's region
-        assert!(!hiz.is_potentially_visible(aabb));
+        // CORRECTED EXPECTATION (was: assert occluded). The old test codified
+        // an unsound cull: only the part of the footprint overlapping the 5.0
+        // patch is occluded. Over the rest of the footprint the stored depth
+        // is 10.0, which is *behind* the box's front face (7.0), so the box
+        // is visible there. A whole-box cull requires the box's front to be
+        // behind the MAXIMUM depth over the footprint (10.0), not the minimum
+        // (5.0). Comparing against the minimum false-culls this box.
+        assert!(hiz.is_potentially_visible(aabb));
     }
 
     #[test]
@@ -1114,8 +1135,12 @@ mod tests {
             max_depth: 12.0,
         };
 
-        // Should be occluded because there's closer geometry in the bin
-        assert!(!hiz.is_coarse_bin_visible(bin_aabb));
+        // CORRECTED EXPECTATION (was: assert occluded). Same unsound cull as
+        // the AABB test: only the part of the bin overlapping the 5.0 patch
+        // is occluded; over the rest of the bin the stored depth is 10.0,
+        // behind the bin's front face (7.0), so the bin is visible there.
+        // A whole-bin cull needs the MAXIMUM depth over the footprint.
+        assert!(hiz.is_coarse_bin_visible(bin_aabb));
     }
 
     #[test]
@@ -1258,5 +1283,132 @@ mod tests {
 
         // Should be visible (conservative: equal depth treated as visible)
         assert!(hiz.is_coarse_bin_visible(bin_aabb));
+    }
+
+    /// Brute-force reference: a box is occluded only if *every* pixel of its
+    /// (clamped) footprint holds a stored depth strictly closer than the
+    /// box's front face. Smaller depth = closer; equal depth is visible.
+    fn reference_occluded(depths: &[f32], width: u32, aabb: AABB3D) -> bool {
+        let min_x = aabb.min_x.max(0);
+        let max_x = aabb.max_x.min(width as i32 - 1);
+        let min_y = aabb.min_y.max(0);
+        let max_y = aabb.max_y.min((depths.len() as u32 / width) as i32 - 1);
+        for y in min_y..=max_y {
+            for x in min_x..=max_x {
+                if depths[y as usize * width as usize + x as usize] >= aabb.min_depth {
+                    return false; // stored surface at/behind box front: visible here
+                }
+            }
+        }
+        true
+    }
+
+    #[test]
+    fn test_mixed_depth_footprint_is_not_false_culled() {
+        // Regression scene for the min-pyramid bug: the left half of the
+        // footprint is covered by a close occluder (5.0), the right half by
+        // a far one (15.0). A box whose front (10.0) sits between the two is
+        // visible over the right half. The old query compared the box front
+        // against the footprint MINIMUM (5.0) and culled it anyway.
+        let mut zb = ZBuffer::new(8, 8).unwrap();
+        let slice = zb.as_mut_slice();
+        for y in 0..8 {
+            for x in 0..8 {
+                slice[y * 8 + x] = if x < 4 { 5.0 } else { 15.0 };
+            }
+        }
+
+        let mut hiz = HiZBuffer::new(8, 8);
+        hiz.build_pyramid(&zb);
+
+        let aabb = AABB3D::new(0, 7, 0, 7, 10.0, 12.0);
+        assert!(hiz.is_potentially_visible(aabb));
+
+        // Same scene through the coarse-bin path.
+        assert!(hiz.is_coarse_bin_visible(aabb));
+    }
+
+    #[test]
+    fn test_heterogeneous_occluder_still_culls_when_box_behind_farthest() {
+        // Depths vary across the footprint (5.0..8.0) but every pixel is in
+        // front of the box front (10.0): the cull must still fire. Guards
+        // against "fixing" the false cull by never culling at all.
+        let mut zb = ZBuffer::new(8, 8).unwrap();
+        let slice = zb.as_mut_slice();
+        for y in 0..8 {
+            for x in 0..8 {
+                slice[y * 8 + x] = 5.0 + ((x + y) % 4) as f32;
+            }
+        }
+
+        let mut hiz = HiZBuffer::new(8, 8);
+        hiz.build_pyramid(&zb);
+
+        let aabb = AABB3D::new(0, 7, 0, 7, 10.0, 12.0);
+        assert!(!hiz.is_potentially_visible(aabb));
+        assert!(!hiz.is_coarse_bin_visible(aabb));
+    }
+
+    #[test]
+    fn test_aabb_verdict_never_false_culls_randomized() {
+        // Property: for randomized depth buffers and boxes, a "culled"
+        // verdict from either query must agree with the brute-force
+        // per-pixel reference. False "visible" verdicts are acceptable
+        // (conservative); false culls are not.
+        // Deterministic xorshift64* so failures reproduce exactly.
+        let mut state = 0x9E37_79B9_7F4A_7C15u64;
+        let mut next_u32 = move || {
+            state ^= state >> 12;
+            state ^= state << 25;
+            state ^= state >> 27;
+            (state.wrapping_mul(0x2545_F491_4F6C_DD1D) >> 32) as u32
+        };
+
+        let (w, h) = (24u32, 18u32); // non-power-of-two on purpose
+        for case in 0..500u32 {
+            let mut zb = ZBuffer::new(w, h).unwrap();
+            {
+                let slice = zb.as_mut_slice();
+                for d in slice.iter_mut() {
+                    // Depths 1..=20 in 0.5 steps, plus empty (INFINITY) cells.
+                    let r = next_u32() % 45;
+                    *d = if r == 44 {
+                        f32::INFINITY
+                    } else {
+                        1.0 + (r % 40) as f32 * 0.5
+                    };
+                }
+            }
+            let depths_snapshot = zb.as_slice().to_vec();
+
+            let mut hiz = HiZBuffer::new(w, h);
+            hiz.build_pyramid(&zb);
+
+            for _ in 0..20 {
+                let x0 = (next_u32() % w) as i32;
+                let y0 = (next_u32() % h) as i32;
+                let x1 = x0 + (next_u32() % 12) as i32;
+                let y1 = y0 + (next_u32() % 12) as i32;
+                let front = 0.5 + (next_u32() % 44) as f32 * 0.5;
+                let aabb = AABB3D::new(
+                    x0,
+                    x1.min(w as i32 - 1),
+                    y0,
+                    y1.min(h as i32 - 1),
+                    front,
+                    front + 5.0,
+                );
+
+                let occluded_ref = reference_occluded(&depths_snapshot, w, aabb);
+                assert!(
+                    hiz.is_potentially_visible(aabb) || occluded_ref,
+                    "case {case}: is_potentially_visible false-culled {aabb:?}"
+                );
+                assert!(
+                    hiz.is_coarse_bin_visible(aabb) || occluded_ref,
+                    "case {case}: is_coarse_bin_visible false-culled {aabb:?}"
+                );
+            }
+        }
     }
 }
