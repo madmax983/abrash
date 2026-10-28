@@ -6132,3 +6132,44 @@ mod tests_pass_37_sdf {
         assert!(s < 0.05, "ray blocked by sphere: {s}");
     }
 }
+
+#[cfg(test)]
+mod tests_gap1_softshadow_ao {
+    use super::*;
+    use crate::math::Vec3;
+
+    fn unit_sphere(p: Vec3) -> f32 {
+        sphere_3d(p, Vec3::ZERO, 1.0)
+    }
+
+    #[test]
+    fn penumbra_widens_with_smaller_k() {
+        // Ray grazing past the sphere: closest approach misses the surface
+        // by ~0.2, so the shadow factor is partial and k-controlled.
+        let ro = Vec3::new(3.0, 1.21, 0.0);
+        let rd = Vec3::new(-1.0, 0.0, 0.0);
+        let s_soft = soft_shadow_estimate(ro, rd, 0.01, 10.0, 8.0, unit_sphere);
+        let s_hard = soft_shadow_estimate(ro, rd, 0.01, 10.0, 32.0, unit_sphere);
+        assert!(s_soft < 0.8, "k=8 should give a wide penumbra: {s_soft}");
+        assert!(s_hard > 0.95, "k=32 should be nearly hard: {s_hard}");
+        assert!(s_soft < s_hard, "{s_soft} should be < {s_hard}");
+    }
+
+    #[test]
+    fn ao_drops_in_crevice() {
+        // Inside corner: floor (y=0) meeting wall (x=0). Samples along the
+        // normal see the wall, so occlusion must accumulate.
+        let corner = |p: Vec3| p.y.min(p.x);
+        let ao = ambient_occlusion_estimate(Vec3::new(0.05, 0.001, 0.0), Vec3::Y, 0.05, corner);
+        assert!(ao < 0.9, "crevice AO should drop: {ao}");
+    }
+
+    #[test]
+    fn ao_open_floor_is_one() {
+        // Flat open plane: every sample sits exactly h above the surface,
+        // so no occlusion accumulates.
+        let floor = |p: Vec3| p.y;
+        let ao = ambient_occlusion_estimate(Vec3::new(0.0, 0.001, 0.0), Vec3::Y, 0.05, floor);
+        assert!(ao > 0.99, "open floor AO: {ao}");
+    }
+}
