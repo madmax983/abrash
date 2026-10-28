@@ -37,6 +37,7 @@ pub mod easing;
 pub mod gradient;
 pub mod irect;
 pub mod ivec;
+pub mod jump_flood;
 pub mod msdf;
 #[cfg(test)]
 pub mod obj_loader_havoc;
