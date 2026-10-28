@@ -25,6 +25,15 @@ impl Default for MandelbrotConfig {
 
 #[inline(always)]
 fn calculate_mandelbrot_iterations(c_re: f64, c_im: f64, max_iterations: u32) -> u32 {
+    // Points in the main cardioid or the period-2 bulb never escape, so they
+    // would burn every iteration only to return `max_iterations`.
+    let c_im_sq = c_im * c_im;
+    let x_shift = c_re - 0.25;
+    let q = x_shift * x_shift + c_im_sq;
+    if q * (q + x_shift) <= 0.25 * c_im_sq || (c_re + 1.0) * (c_re + 1.0) + c_im_sq <= 0.0625 {
+        return max_iterations;
+    }
+
     let mut z_re = 0.0;
     let mut z_im = 0.0;
     let mut iteration = 0;
@@ -95,6 +104,28 @@ pub fn render_mandelbrot(fb: &mut Framebuffer, config: &MandelbrotConfig) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_interior_shortcut_matches_plain_iteration() {
+        let max_iterations = 100;
+        for yi in -60..=60 {
+            for xi in -110..=40 {
+                let (c_re, c_im) = (f64::from(xi) / 50.0, f64::from(yi) / 50.0);
+                let (mut z_re, mut z_im, mut n) = (0.0, 0.0, 0);
+                while z_re * z_re + z_im * z_im <= 4.0 && n < max_iterations {
+                    let t = z_re * z_re - z_im * z_im + c_re;
+                    z_im = 2.0 * z_re * z_im + c_im;
+                    z_re = t;
+                    n += 1;
+                }
+                assert_eq!(
+                    calculate_mandelbrot_iterations(c_re, c_im, max_iterations),
+                    n,
+                    "c = {c_re} + {c_im}i"
+                );
+            }
+        }
+    }
 
     #[test]
     fn test_mandelbrot_basic() {
