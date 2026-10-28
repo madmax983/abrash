@@ -45,3 +45,4 @@ pub mod occluder_hiz;
 pub mod random;
 pub mod sdf;
 pub mod sdf_ui;
+pub mod visibility_buffer;
