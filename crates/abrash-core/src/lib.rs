@@ -42,9 +42,10 @@ pub mod jump_flood;
 pub mod msdf;
 #[cfg(test)]
 pub mod obj_loader_havoc;
-pub mod radiance_cascades;
 pub mod occluder_hiz;
+pub mod radiance_cascades;
 pub mod random;
 pub mod sdf;
 pub mod sdf_ui;
+pub mod taa;
 pub mod visibility_buffer;
