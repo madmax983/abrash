@@ -43,3 +43,4 @@ pub mod obj_loader_havoc;
 pub mod random;
 pub mod sdf;
 pub mod sdf_ui;
+pub mod visibility_buffer;
