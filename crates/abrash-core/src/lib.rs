@@ -48,4 +48,5 @@ pub mod radiance_cascades;
 pub mod random;
 pub mod sdf;
 pub mod sdf_ui;
+pub mod taa;
 pub mod visibility_buffer;
