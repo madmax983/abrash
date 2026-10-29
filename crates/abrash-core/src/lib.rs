@@ -32,6 +32,7 @@ pub mod quat;
 pub mod ray;
 pub mod transform;
 
+pub mod analytic_sdf_grid;
 pub mod blitter;
 pub mod easing;
 pub mod gaussian_splat;
@@ -42,8 +43,8 @@ pub mod jump_flood;
 pub mod msdf;
 #[cfg(test)]
 pub mod obj_loader_havoc;
-pub mod radiance_cascades;
 pub mod occluder_hiz;
+pub mod radiance_cascades;
 pub mod random;
 pub mod sdf;
 pub mod sdf_ui;
