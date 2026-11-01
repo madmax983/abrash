@@ -146,20 +146,25 @@ pub fn apply_vhs(fb: &mut Framebuffer, config: &VhsConfig) {
                 (h_shift, 0, 0)
             };
 
-            for (x, pixel) in row.iter_mut().enumerate() {
-                let base_x = x as i32 - horizontal_shift;
+            // Bolt: sample offsets are constant across the row, so only the
+            // first/last few pixels can clamp. Run the middle without clamps.
+            let src_row = &src_pixels[y * width..(y + 1) * width];
+            let (off_r, off_g, off_b) = (
+                -horizontal_shift - r_shift,
+                -horizontal_shift,
+                -horizontal_shift - b_shift,
+            );
+            let min_off = off_r.min(off_g).min(off_b);
+            let max_off = off_r.max(off_g).max(off_b);
+            let w = width as i32;
+            let lo = (-min_off).clamp(0, w) as usize;
+            let hi = (w - max_off).clamp(lo as i32, w) as usize;
 
-                // Sample channels with chromatic aberration shift
-                let sample_r =
-                    get_channel_safe(src_pixels, width, height, base_x - r_shift, y as i32, 16);
-                let sample_g = get_channel_safe(src_pixels, width, height, base_x, y as i32, 8);
-                let sample_b =
-                    get_channel_safe(src_pixels, width, height, base_x - b_shift, y as i32, 0);
-
+            let mut finish = |x: usize, pixel: &mut u32, sr: u32, sg: u32, sb: u32| {
                 // Add noise
-                let mut final_r = sample_r as i32;
-                let mut final_g = sample_g as i32;
-                let mut final_b = sample_b as i32;
+                let mut final_r = sr as i32;
+                let mut final_g = sg as i32;
+                let mut final_b = sb as i32;
 
                 if config.noise_intensity > 0.0 {
                     // Fast pseudo-random value per pixel based on row noise
@@ -185,6 +190,28 @@ pub fn apply_vhs(fb: &mut Framebuffer, config: &VhsConfig) {
                     | ((final_r as u32) << 16)
                     | ((final_g as u32) << 8)
                     | (final_b as u32);
+            };
+
+            for (x, pixel) in row.iter_mut().enumerate().take(lo) {
+                let xi = x as i32;
+                let sr = get_channel_safe(src_pixels, width, height, xi + off_r, y as i32, 16);
+                let sg = get_channel_safe(src_pixels, width, height, xi + off_g, y as i32, 8);
+                let sb = get_channel_safe(src_pixels, width, height, xi + off_b, y as i32, 0);
+                finish(x, pixel, sr, sg, sb);
+            }
+            for x in lo..hi {
+                let xi = x as i32;
+                let sr = (src_row[(xi + off_r) as usize] >> 16) & 0xFF;
+                let sg = (src_row[(xi + off_g) as usize] >> 8) & 0xFF;
+                let sb = src_row[(xi + off_b) as usize] & 0xFF;
+                finish(x, &mut row[x], sr, sg, sb);
+            }
+            for (x, pixel) in row.iter_mut().enumerate().skip(hi) {
+                let xi = x as i32;
+                let sr = get_channel_safe(src_pixels, width, height, xi + off_r, y as i32, 16);
+                let sg = get_channel_safe(src_pixels, width, height, xi + off_g, y as i32, 8);
+                let sb = get_channel_safe(src_pixels, width, height, xi + off_b, y as i32, 0);
+                finish(x, pixel, sr, sg, sb);
             }
         });
     });
