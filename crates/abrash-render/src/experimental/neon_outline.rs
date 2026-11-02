@@ -13,6 +13,7 @@ use std::cell::RefCell;
 
 thread_local! {
     static NEON_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+    static LUMA_BUFFER: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
 }
 
 /// Configuration for the Neon Outline effect.
@@ -58,96 +59,108 @@ pub fn apply_neon_outline(fb: &mut Framebuffer, config: &NeonOutlineConfig) {
     let threshold_sq = u64::from(config.threshold) * u64::from(config.threshold);
 
     NEON_BUFFER.with(|buf| {
-        let mut src_fb_vec = buf.borrow_mut();
-        let size = width * height;
-        if src_fb_vec.len() < size {
-            src_fb_vec.resize(size, 0);
-        }
-
-        let src_pixels = &mut src_fb_vec[..size];
-        src_pixels.copy_from_slice(fb.as_slice());
-
-        let dest_pixels = fb.as_mut_slice();
-
-        #[cfg(feature = "parallel")]
-        let row_iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
-        #[cfg(not(feature = "parallel"))]
-        let row_iter = dest_pixels.chunks_exact_mut(width).enumerate();
-
-        row_iter.for_each(|(y, row)| {
-            for (x, pixel_out) in row.iter_mut().enumerate() {
-                // Keep the border pixels as dark background or original
-                if x == 0 || x == width - 1 || y == 0 || y == height - 1 {
-                    let original = src_pixels[y * width + x];
-                    *pixel_out = blend_color(0xFF_000000, original, config.background_blend);
-                    continue;
-                }
-
-                // Sobel Operator for luminance
-                //
-                // Gx:
-                // -1  0  1
-                // -2  0  2
-                // -1  0  1
-                //
-                // Gy:
-                // -1 -2 -1
-                //  0  0  0
-                //  1  2  1
-
-                let tl = i32::from(get_luminance(src_pixels, width, x - 1, y - 1));
-                let tc = i32::from(get_luminance(src_pixels, width, x, y - 1));
-                let tr = i32::from(get_luminance(src_pixels, width, x + 1, y - 1));
-
-                let cl = i32::from(get_luminance(src_pixels, width, x - 1, y));
-                // let cc = get_luminance(src_pixels, width, x, y) as i32;
-                let cr = i32::from(get_luminance(src_pixels, width, x + 1, y));
-
-                let bl = i32::from(get_luminance(src_pixels, width, x - 1, y + 1));
-                let bc = i32::from(get_luminance(src_pixels, width, x, y + 1));
-                let br = i32::from(get_luminance(src_pixels, width, x + 1, y + 1));
-
-                let gx = (tr + 2 * cr + br) - (tl + 2 * cl + bl);
-                let gy = (bl + 2 * bc + br) - (tl + 2 * tc + tr);
-
-                let magnitude_sq = (gx * gx + gy * gy) as u64;
-
-                if magnitude_sq > threshold_sq {
-                    let magnitude = (magnitude_sq as f32).sqrt() as u32;
-                    // Normalize gx and gy to find the edge direction
-                    let abs_gx = gx.abs() as f32;
-                    let abs_gy = gy.abs() as f32;
-
-                    let total_g = abs_gx + abs_gy + 0.0001; // Avoid divide by zero
-
-                    // We color the edge based on its direction
-                    // If Gx is dominant, it's a vertical edge
-                    let vertical_weight = abs_gx / total_g;
-                    let horizontal_weight = abs_gy / total_g;
-
-                    // The intensity of the glow depends on how far past the threshold we are
-                    let intensity = ((magnitude - config.threshold) as f32 / 100.0).clamp(0.0, 1.0);
-
-                    let color = blend_neon(
-                        config.color_horizontal,
-                        config.color_vertical,
-                        horizontal_weight,
-                        vertical_weight,
-                        intensity,
-                    );
-                    *pixel_out = color;
-                } else {
-                    let original = src_pixels[y * width + x];
-                    *pixel_out = blend_color(0xFF_000000, original, config.background_blend);
-                }
+        LUMA_BUFFER.with(|luma_buf| {
+            let mut src_fb_vec = buf.borrow_mut();
+            let mut luma_vec = luma_buf.borrow_mut();
+            let size = width * height;
+            if src_fb_vec.len() < size {
+                src_fb_vec.resize(size, 0);
             }
+
+            let src_pixels = &mut src_fb_vec[..size];
+            src_pixels.copy_from_slice(fb.as_slice());
+
+            // Compute each pixel's luminance once; the Sobel taps below would
+            // otherwise recompute it up to 8 times per pixel.
+            if luma_vec.len() < size {
+                luma_vec.resize(size, 0);
+            }
+            let luma = &mut luma_vec[..size];
+            for (l, &p) in luma.iter_mut().zip(src_pixels.iter()) {
+                *l = pixel_luminance(p);
+            }
+            let luma: &[u8] = luma;
+
+            let dest_pixels = fb.as_mut_slice();
+
+            #[cfg(feature = "parallel")]
+            let row_iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
+            #[cfg(not(feature = "parallel"))]
+            let row_iter = dest_pixels.chunks_exact_mut(width).enumerate();
+
+            row_iter.for_each(|(y, row)| {
+                for (x, pixel_out) in row.iter_mut().enumerate() {
+                    // Keep the border pixels as dark background or original
+                    if x == 0 || x == width - 1 || y == 0 || y == height - 1 {
+                        let original = src_pixels[y * width + x];
+                        *pixel_out = blend_color(0xFF_000000, original, config.background_blend);
+                        continue;
+                    }
+
+                    // Sobel Operator for luminance
+                    //
+                    // Gx:
+                    // -1  0  1
+                    // -2  0  2
+                    // -1  0  1
+                    //
+                    // Gy:
+                    // -1 -2 -1
+                    //  0  0  0
+                    //  1  2  1
+
+                    let up = (y - 1) * width + x;
+                    let mid = y * width + x;
+                    let dn = (y + 1) * width + x;
+                    let tl = i32::from(luma[up - 1]);
+                    let tc = i32::from(luma[up]);
+                    let tr = i32::from(luma[up + 1]);
+
+                    let cl = i32::from(luma[mid - 1]);
+                    let cr = i32::from(luma[mid + 1]);
+
+                    let bl = i32::from(luma[dn - 1]);
+                    let bc = i32::from(luma[dn]);
+                    let br = i32::from(luma[dn + 1]);
+
+                    let gx = (tr + 2 * cr + br) - (tl + 2 * cl + bl);
+                    let gy = (bl + 2 * bc + br) - (tl + 2 * tc + tr);
+
+                    let magnitude_sq = (gx * gx + gy * gy) as u64;
+
+                    if magnitude_sq > threshold_sq {
+                        let magnitude = (magnitude_sq as f32).sqrt() as u32;
+                        // Normalize gx and gy to find the edge direction
+                        let abs_gx = gx.abs() as f32;
+                        let abs_gy = gy.abs() as f32;
+
+                        let total_g = abs_gx + abs_gy + 0.0001; // Avoid divide by zero
+
+                        // We color the edge based on its direction
+                        // If Gx is dominant, it's a vertical edge
+                        let vertical_weight = abs_gx / total_g;
+                        let horizontal_weight = abs_gy / total_g;
+
+                        // The intensity of the glow depends on how far past the threshold we are
+                        let intensity =
+                            ((magnitude - config.threshold) as f32 / 100.0).clamp(0.0, 1.0);
+
+                        let color = blend_neon(
+                            config.color_horizontal,
+                            config.color_vertical,
+                            horizontal_weight,
+                            vertical_weight,
+                            intensity,
+                        );
+                        *pixel_out = color;
+                    } else {
+                        let original = src_pixels[y * width + x];
+                        *pixel_out = blend_color(0xFF_000000, original, config.background_blend);
+                    }
+                }
+            });
         });
     });
-}
-
-#[inline(always)]
-fn get_luminance(src: &[u32], width: usize, x: usize, y: usize) -> u8 {
-    pixel_luminance(src[y * width + x])
 }
 
 #[inline(always)]
