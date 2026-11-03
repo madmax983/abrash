@@ -3,9 +3,9 @@
 //! texture and camera config (cy 30, fov 300, horizon 200, sky-blue fog), with
 //! the demo's auto-pilot camera advancing and turning each frame, 30 frames.
 //! Not a criterion benchmark: run under `valgrind --tool=callgrind`.
-use abrash_render::experimental::mode7::{Mode7Config, render_mode7};
 use abrash::framebuffer::Framebuffer;
 use abrash::texture::Texture;
+use abrash_render::experimental::mode7::{Mode7Config, render_mode7};
 use std::hint::black_box;
 
 const WIDTH: u32 = 800;
