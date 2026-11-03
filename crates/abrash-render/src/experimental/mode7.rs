@@ -51,6 +51,15 @@ impl Default for Mode7Config {
     }
 }
 
+/// `x.floor() as i32` without the libm `floorf` call (baseline x86-64 has no
+/// `roundss`). Truncation toward zero is corrected downward for negative
+/// non-integers; saturation and NaN behave exactly as the `floor` form.
+#[inline(always)]
+fn floor_to_i32(x: f32) -> i32 {
+    let t = x as i32;
+    t - i32::from(x < t as f32)
+}
+
 /// Helper function to interpolate between two ARGB colors.
 fn lerp_color(c1: u32, c2: u32, t: f32) -> u32 {
     let t = t.clamp(0.0, 1.0);
@@ -182,8 +191,8 @@ pub fn render_mode7(fb: &mut Framebuffer, texture: &Texture, config: &Mode7Confi
         if tex_w_mask != 0 && tex_h_mask != 0 {
             if fog_factor > 0.0 {
                 for pixel in row.iter_mut() {
-                    let u = map_x.floor() as i32;
-                    let v = map_z.floor() as i32;
+                    let u = floor_to_i32(map_x);
+                    let v = floor_to_i32(map_z);
 
                     let tx = (u as usize) & tex_w_mask;
                     let ty = (v as usize) & tex_h_mask;
@@ -198,8 +207,8 @@ pub fn render_mode7(fb: &mut Framebuffer, texture: &Texture, config: &Mode7Confi
                 }
             } else {
                 for pixel in row.iter_mut() {
-                    let u = map_x.floor() as i32;
-                    let v = map_z.floor() as i32;
+                    let u = floor_to_i32(map_x);
+                    let v = floor_to_i32(map_z);
 
                     let tx = (u as usize) & tex_w_mask;
                     let ty = (v as usize) & tex_h_mask;
@@ -214,9 +223,9 @@ pub fn render_mode7(fb: &mut Framebuffer, texture: &Texture, config: &Mode7Confi
         } else {
             for pixel in row.iter_mut() {
                 // Wrap texture coordinates using euclidean remainder
-                let u = map_x.floor() as i32;
+                let u = floor_to_i32(map_x);
                 let u = u.rem_euclid(tex_w_i as i32) as usize;
-                let v = map_z.floor() as i32;
+                let v = floor_to_i32(map_z);
                 let v = v.rem_euclid(tex_h_i as i32) as usize;
 
                 let tx = u % tex_w_i;
