@@ -94,10 +94,21 @@ impl Color {
     /// Alpha is treated as linear (no gamma).
     #[must_use]
     pub fn from_srgb_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
+        // Bolt: 8-bit inputs have only 256 distinct values, so decode through a
+        // table built with the exact same `srgb_to_linear` (bit-identical
+        // results) instead of calling `powf` three times per pixel.
+        static SRGB_TO_LINEAR_LUT: std::sync::OnceLock<[f32; 256]> = std::sync::OnceLock::new();
+        let lut = SRGB_TO_LINEAR_LUT.get_or_init(|| {
+            let mut t = [0.0_f32; 256];
+            for (i, v) in t.iter_mut().enumerate() {
+                *v = srgb_to_linear(i as f32 * (1.0 / 255.0));
+            }
+            t
+        });
         Self {
-            r: srgb_to_linear(f32::from(r) * (1.0 / 255.0)),
-            g: srgb_to_linear(f32::from(g) * (1.0 / 255.0)),
-            b: srgb_to_linear(f32::from(b) * (1.0 / 255.0)),
+            r: lut[usize::from(r)],
+            g: lut[usize::from(g)],
+            b: lut[usize::from(b)],
             a: f32::from(a) * (1.0 / 255.0),
         }
     }
