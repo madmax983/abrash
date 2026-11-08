@@ -79,6 +79,28 @@ pub fn apply_speed_lines(fb: &mut Framebuffer, config: &SpeedLinesConfig) {
 
     let time_seed = (config.time * 10.0) as u32;
 
+    let density_f = config.density as f32;
+    let len_range = config.max_length - config.min_length;
+
+    // Per-sector (start_dist, thickness) depends only on the sector index and
+    // time, so evaluate both hashes once per sector instead of once per pixel.
+    // Index `density` is included because angle_normalized can round to 1.0.
+    // Very large densities fall back to the per-pixel path (and keep the
+    // table small); the values are computed with the same expressions.
+    let sector_params = |sector: u32| -> (f32, f32) {
+        let noise = hash_2d(sector, time_seed);
+        let noise2 = hash_2d(sector.wrapping_add(1337), time_seed);
+        (
+            config.inner_radius + config.min_length + noise * len_range,
+            0.1 + noise2 * 0.4,
+        )
+    };
+    let table: Vec<(f32, f32)> = if config.density <= (1 << 20) {
+        (0..=config.density).map(sector_params).collect()
+    } else {
+        Vec::new()
+    };
+
     let pixels = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
@@ -108,24 +130,24 @@ pub fn apply_speed_lines(fb: &mut Framebuffer, config: &SpeedLinesConfig) {
 
             // Normalize angle to [0, density]
             let angle_normalized = angle / std::f32::consts::TAU;
-            let sector = (angle_normalized * config.density as f32).floor() as u32;
+            let scaled = angle_normalized * density_f;
+            // `angle >= 0`, so truncation by cast equals floor.
+            let sector = scaled as u32;
 
-            // Generate a random length variation for this sector
-            let noise = hash_2d(sector, time_seed);
-
-            // Random thickness to make some lines thicker
-            let noise2 = hash_2d(sector.wrapping_add(1337), time_seed);
-
-            // Determine line start distance
-            let start_dist = config.inner_radius
-                + config.min_length
-                + noise * (config.max_length - config.min_length);
+            let (start_dist, thickness) = match table.get(sector as usize) {
+                Some(&params) => params,
+                None => sector_params(sector),
+            };
 
             if dist > start_dist {
                 // If it passes the start distance, check if we're inside the line thickness
                 // We want lines to occupy only a part of the sector
-                let sector_fraction = (angle_normalized * config.density as f32).fract();
-                let thickness = 0.1 + noise2 * 0.4; // 10% to 50% of the sector
+                let sector_fraction = if table.is_empty() {
+                    scaled.fract()
+                } else {
+                    // scaled < 2^21, so sector as f32 is exact: same as fract().
+                    scaled - sector as f32
+                };
 
                 if sector_fraction < thickness {
                     // Blend alpha (simple replace for now if alpha is 255)
