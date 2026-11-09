@@ -5,6 +5,9 @@
 //! is meant to be run under `valgrind --tool=callgrind` / `--tool=dhat` to get
 //! deterministic instruction and allocation counts for a realistic workload (100
 //! objects, 20,000 triangles, 640x480), matching `benches/scene_render.rs`.
+//!
+//! Triangles are wound so the grid faces the camera (back-face culling would otherwise
+//! discard everything); the checksum differs from the bare clear colour when pixels are drawn.
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
@@ -32,8 +35,8 @@ fn generate_grid_mesh(size: usize) -> Mesh {
             let i2 = (y + 1) * (size + 1) + x;
             let i3 = i2 + 1;
 
-            mesh.indices.push([i0, i1, i2]);
-            mesh.indices.push([i1, i3, i2]);
+            mesh.indices.push([i0, i2, i1]);
+            mesh.indices.push([i1, i2, i3]);
         }
     }
 
