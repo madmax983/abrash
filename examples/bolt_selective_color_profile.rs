@@ -7,6 +7,9 @@
 //! Not a criterion benchmark: wall-clock is unreliable on this machine. Run
 //! under `valgrind --tool=callgrind --toggle-collect='*apply_selective_color*'`
 //! to count only the effect, or without the toggle for the whole frame.
+//!
+//! Baseline (3 frames, effect only, callgrind Ir): 215,456,173.
+//! Checksum (3 frames): 12519347534138672536.
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
