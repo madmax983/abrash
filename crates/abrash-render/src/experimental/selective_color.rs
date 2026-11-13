@@ -61,20 +61,31 @@ pub fn apply_selective_color(fb: &mut Framebuffer, config: &SelectiveColorConfig
         }
     };
 
+    // Bolt: the per-pixel result is a pure function of the input pixel, and
+    // rendered scenes contain long runs of identical pixels (flat background,
+    // flat-shaded faces). Reuse the previous result when the input repeats.
+    let process_run = |run: &mut [u32]| {
+        let mut last_in = None;
+        let mut last_out = 0_u32;
+        for pixel in run {
+            if last_in != Some(*pixel) {
+                last_in = Some(*pixel);
+                last_out = process_pixel(*pixel);
+            }
+            *pixel = last_out;
+        }
+    };
+
     let pixels = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
     {
-        pixels.par_iter_mut().for_each(|pixel| {
-            *pixel = process_pixel(*pixel);
-        });
+        pixels.par_chunks_mut(4096).for_each(process_run);
     }
 
     #[cfg(not(feature = "parallel"))]
     {
-        for pixel in pixels.iter_mut() {
-            *pixel = process_pixel(*pixel);
-        }
+        process_run(pixels);
     }
 }
 
