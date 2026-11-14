@@ -3631,6 +3631,7 @@ impl TileRenderer {
         // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
         // This eliminates frequent dynamic heap allocations on the hot sorting path.
         let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
+        let mut keys: smallvec::SmallVec<[u64; 64]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
@@ -3644,13 +3645,18 @@ impl TileRenderer {
             }
 
             if indices.len() > 1 {
-                indices.sort_unstable_by(|&a, &b| {
-                    let tri_idx_a = tris[a as usize] as usize;
-                    let tri_idx_b = tris[b as usize] as usize;
-                    let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(tri_idx_b).min_depth };
-                    depth_a.total_cmp(&depth_b)
-                });
+                // Sort packed (total_cmp-ordered depth bits << 32 | bin node) keys: one
+                // native u64 compare instead of two double-indirected f32 loads per compare.
+                keys.clear();
+                keys.extend(indices.iter().map(|&n| {
+                    let bits = prepared[tris[n as usize] as usize].min_depth.to_bits() as i32;
+                    let ordered = (bits ^ (((bits >> 31) as u32) >> 1) as i32) as u32 ^ 0x8000_0000;
+                    (u64::from(ordered) << 32) | u64::from(n)
+                }));
+                keys.sort_unstable();
+                for (dst, &k) in indices.iter_mut().zip(keys.iter()) {
+                    *dst = k as u32;
+                }
 
                 *head = indices[0];
                 let len = indices.len();
