@@ -140,9 +140,10 @@ impl Color {
     /// Components are clamped to `[0.0, 1.0]` before encoding.
     #[must_use]
     pub fn to_argb_u32(self) -> u32 {
-        let r = (linear_to_srgb(self.r.clamp(0.0, 1.0)) * 255.0 + 0.5) as u32;
-        let g = (linear_to_srgb(self.g.clamp(0.0, 1.0)) * 255.0 + 0.5) as u32;
-        let b = (linear_to_srgb(self.b.clamp(0.0, 1.0)) * 255.0 + 0.5) as u32;
+        let enc = srgb_encode_table();
+        let r = enc.encode(self.r.clamp(0.0, 1.0));
+        let g = enc.encode(self.g.clamp(0.0, 1.0));
+        let b = enc.encode(self.b.clamp(0.0, 1.0));
         let a = (self.a.clamp(0.0, 1.0) * 255.0 + 0.5) as u32;
         (a << 24) | (r << 16) | (g << 8) | b
     }
@@ -1186,6 +1187,79 @@ fn linear_to_srgb(c: f32) -> f32 {
     }
 }
 
+/// Reference linear → 8-bit sRGB encode: exactly what `to_argb_u32` used to compute
+/// per channel (`c` must already be clamped to `[0, 1]`).
+#[inline]
+fn encode_srgb_u8_reference(c: f32) -> u32 {
+    (linear_to_srgb(c) * 255.0 + 0.5) as u32
+}
+
+/// Bit pattern of `1.0_f32`; every clamped, non-NaN channel is `<=` this.
+const ONE_BITS: u32 = 0x3F80_0000;
+/// Coarse bucket index shift: one bucket per 2^16 consecutive `f32` bit patterns.
+const BUCKET_SHIFT: u32 = 16;
+
+/// Exact table-driven replacement for [`encode_srgb_u8_reference`].
+///
+/// The reference encode is monotone non-decreasing in `c` and yields an integer in
+/// `0..=255`, so it is fully described by 255 thresholds: `thresholds[k]` is the
+/// smallest `f32` bit pattern whose reference result is `>= k`. `bucket_base` maps the
+/// top bits of a value to the result at the start of its bucket, so at most a
+/// couple of threshold comparisons finish the job. Results are bit-identical to the
+/// reference (see `srgb_encode_table_matches_reference`).
+struct SrgbEncodeTable {
+    /// Result at the first bit pattern of each `2^BUCKET_SHIFT`-wide bucket.
+    bucket_base: Vec<u8>,
+    /// `thresholds[k]` = first bit pattern with result `>= k`; `[0] = 0`, `[256] = u32::MAX`.
+    thresholds: [u32; 257],
+}
+
+impl SrgbEncodeTable {
+    fn build() -> Self {
+        let mut thresholds = [0_u32; 257];
+        thresholds[256] = u32::MAX;
+        for (k, t) in thresholds.iter_mut().enumerate().take(256).skip(1) {
+            // Binary search the first bit pattern in [0, ONE_BITS] with result >= k.
+            let (mut lo, mut hi) = (0_u32, ONE_BITS);
+            while lo < hi {
+                let mid = lo + (hi - lo) / 2;
+                if encode_srgb_u8_reference(f32::from_bits(mid)) >= k as u32 {
+                    hi = mid;
+                } else {
+                    lo = mid + 1;
+                }
+            }
+            *t = lo;
+        }
+        let bucket_base = (0..=(ONE_BITS >> BUCKET_SHIFT))
+            .map(|i| encode_srgb_u8_reference(f32::from_bits(i << BUCKET_SHIFT)) as u8)
+            .collect();
+        Self {
+            bucket_base,
+            thresholds,
+        }
+    }
+
+    /// `c` must be clamped to `[0, 1]` (NaN and `-0.0` map to 0, like the reference).
+    #[inline]
+    fn encode(&self, c: f32) -> u32 {
+        let bits = c.to_bits();
+        if bits > ONE_BITS {
+            return 0; // NaN or -0.0 (the reference yields 0 for both)
+        }
+        let mut code = usize::from(self.bucket_base[(bits >> BUCKET_SHIFT) as usize]);
+        while bits >= self.thresholds[code + 1] {
+            code += 1;
+        }
+        code as u32
+    }
+}
+
+fn srgb_encode_table() -> &'static SrgbEncodeTable {
+    static TABLE: std::sync::OnceLock<SrgbEncodeTable> = std::sync::OnceLock::new();
+    TABLE.get_or_init(SrgbEncodeTable::build)
+}
+
 /// HSL hue-to-RGB helper.
 #[inline]
 fn hue_to_rgb(p: f32, q: f32, mut t: f32) -> f32 {
@@ -1210,6 +1284,39 @@ fn hue_to_rgb(p: f32, q: f32, mut t: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn srgb_encode_table_matches_reference() {
+        let t = srgb_encode_table();
+        // Strided sweep over every f32 in [0, 1] plus all threshold neighbours.
+        let mut bits = 0_u32;
+        while bits <= ONE_BITS {
+            let c = f32::from_bits(bits);
+            assert_eq!(t.encode(c), encode_srgb_u8_reference(c), "bits {bits:#x}");
+            bits += 4099;
+        }
+        for &th in &t.thresholds[1..256] {
+            for b in th.saturating_sub(2)..=(th + 2).min(ONE_BITS) {
+                let c = f32::from_bits(b);
+                assert_eq!(t.encode(c), encode_srgb_u8_reference(c), "bits {b:#x}");
+            }
+        }
+        assert_eq!(
+            Color::new(f32::NAN, -0.0, 2.0, f32::NAN).to_argb_u32(),
+            0x0000_00FF
+        );
+    }
+
+    /// Every one of the ~1.06e9 f32 values in [0, 1]; run with `--ignored --release`.
+    #[test]
+    #[ignore = "exhaustive (~1e9 powf calls); run with --release --ignored"]
+    fn srgb_encode_table_matches_reference_exhaustive() {
+        let t = srgb_encode_table();
+        for bits in 0..=ONE_BITS {
+            let c = f32::from_bits(bits);
+            assert_eq!(t.encode(c), encode_srgb_u8_reference(c), "bits {bits:#x}");
+        }
+    }
 
     const TOL: f32 = 0.001;
 
