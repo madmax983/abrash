@@ -988,3 +988,8 @@ harness = false
 [[bench]]
 name = "find_min_max_simd_bench"
 harness = false
+
+[[example]]
+name = "bolt_sonar_profile"
+path = "examples/bolt_sonar_profile.rs"
+required-features = ["nova"]
