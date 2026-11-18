@@ -10,6 +10,14 @@ thread_local! {
     static RADIAL_BLUR_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
+/// True when `start + samples * step` stays within `i32`, so the per-sample
+/// running position (linear in the sample index) never saturates.
+#[inline(always)]
+const fn fits_i32(start: i32, step: i32, samples: usize) -> bool {
+    let end = start as i64 + samples as i64 * step as i64;
+    end >= i32::MIN as i64 && end <= i32::MAX as i64
+}
+
 /// Applies a radial blur effect to the framebuffer.
 ///
 /// # Arguments
@@ -87,19 +95,33 @@ pub fn apply_radial_blur(
                             let mut rb_acc = 0;
                             let mut g_acc = 0;
 
-                            for _ in 0..samples {
-                                let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
-                                let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
+                            if fits_i32(cur_x, step_x, samples) && fits_i32(cur_y, step_y, samples)
+                            {
+                                // No saturation can occur: plain adds give identical results.
+                                for _ in 0..samples {
+                                    let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
+                                    let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
+                                    let color = src_fb[y_idx * width + x_idx];
+                                    rb_acc += color & 0x00FF_00FF;
+                                    g_acc += (color >> 8) & 0x0000_00FF;
+                                    cur_x = cur_x.wrapping_add(step_x);
+                                    cur_y = cur_y.wrapping_add(step_y);
+                                }
+                            } else {
+                                for _ in 0..samples {
+                                    let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
+                                    let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 
-                                let color = src_fb[y_idx * width + x_idx];
+                                    let color = src_fb[y_idx * width + x_idx];
 
-                                // Accumulate R and B channels simultaneously. The 0x00FF00FF mask isolates R and B.
-                                rb_acc += color & 0x00FF_00FF;
-                                // Accumulate G channel separately.
-                                g_acc += (color >> 8) & 0x0000_00FF;
+                                    // Accumulate R and B channels simultaneously. The 0x00FF00FF mask isolates R and B.
+                                    rb_acc += color & 0x00FF_00FF;
+                                    // Accumulate G channel separately.
+                                    g_acc += (color >> 8) & 0x0000_00FF;
 
-                                cur_x = cur_x.saturating_add(step_x);
-                                cur_y = cur_y.saturating_add(step_y);
+                                    cur_x = cur_x.saturating_add(step_x);
+                                    cur_y = cur_y.saturating_add(step_y);
+                                }
                             }
 
                             let r = (rb_acc >> 16) / inv_samples;
@@ -152,19 +174,32 @@ pub fn apply_radial_blur(
                         let mut rb_acc = 0;
                         let mut g_acc = 0;
 
-                        for _ in 0..samples {
-                            let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
-                            let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
+                        if fits_i32(cur_x, step_x, samples) && fits_i32(cur_y, step_y, samples) {
+                            // No saturation can occur: plain adds give identical results.
+                            for _ in 0..samples {
+                                let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
+                                let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
+                                let color = src_fb[y_idx * width + x_idx];
+                                rb_acc += color & 0x00FF_00FF;
+                                g_acc += (color >> 8) & 0x0000_00FF;
+                                cur_x = cur_x.wrapping_add(step_x);
+                                cur_y = cur_y.wrapping_add(step_y);
+                            }
+                        } else {
+                            for _ in 0..samples {
+                                let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
+                                let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 
-                            let color = src_fb[y_idx * width + x_idx];
+                                let color = src_fb[y_idx * width + x_idx];
 
-                            // Accumulate R and B channels simultaneously. The 0x00FF00FF mask isolates R and B.
-                            rb_acc += color & 0x00FF_00FF;
-                            // Accumulate G channel separately.
-                            g_acc += (color >> 8) & 0x0000_00FF;
+                                // Accumulate R and B channels simultaneously. The 0x00FF00FF mask isolates R and B.
+                                rb_acc += color & 0x00FF_00FF;
+                                // Accumulate G channel separately.
+                                g_acc += (color >> 8) & 0x0000_00FF;
 
-                            cur_x = cur_x.saturating_add(step_x);
-                            cur_y = cur_y.saturating_add(step_y);
+                                cur_x = cur_x.saturating_add(step_x);
+                                cur_y = cur_y.saturating_add(step_y);
+                            }
                         }
 
                         let r = (rb_acc >> 16) / inv_samples;
@@ -200,4 +235,18 @@ pub fn apply_radial_blur(
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fits_i32;
+
+    #[test]
+    fn fits_i32_boundaries() {
+        assert!(fits_i32(0, 0, 8));
+        assert!(fits_i32(i32::MAX - 8, 1, 8));
+        assert!(!fits_i32(i32::MAX - 7, 1, 8));
+        assert!(fits_i32(i32::MIN + 8, -1, 8));
+        assert!(!fits_i32(i32::MIN + 7, -1, 8));
+    }
 }
