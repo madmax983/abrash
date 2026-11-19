@@ -993,3 +993,8 @@ harness = false
 name = "bolt_sonar_profile"
 path = "examples/bolt_sonar_profile.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "bolt_directional_blur_profile"
+path = "examples/bolt_directional_blur_profile.rs"
+required-features = ["nova"]
