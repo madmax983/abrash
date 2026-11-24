@@ -36,6 +36,9 @@ impl Default for EdgeGlowConfig {
     }
 }
 
+/// Pixels processed per vectorized Sobel/darken block.
+const BLOCK: usize = 64;
+
 /// Applies an "Edge Glow" neon filter to the framebuffer in-place.
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -102,48 +105,76 @@ pub fn apply_edge_glow(fb: &mut Framebuffer, config: &EdgeGlowConfig) {
             let prev_row_offset = row_offset - width;
             let next_row_offset = row_offset + width;
 
-            for x in 1..width - 1 {
-                let tl = i32::from(luma_slice[prev_row_offset + x - 1]);
-                let t = i32::from(luma_slice[prev_row_offset + x]);
-                let tr = i32::from(luma_slice[prev_row_offset + x + 1]);
-                let l = i32::from(luma_slice[row_offset + x - 1]);
-                let r = i32::from(luma_slice[row_offset + x + 1]);
-                let bl = i32::from(luma_slice[next_row_offset + x - 1]);
-                let b = i32::from(luma_slice[next_row_offset + x]);
-                let br = i32::from(luma_slice[next_row_offset + x + 1]);
+            let prev = &luma_slice[prev_row_offset..prev_row_offset + width];
+            let cur = &luma_slice[row_offset..row_offset + width];
+            let next = &luma_slice[next_row_offset..next_row_offset + width];
 
-                let gx = (tr + 2 * r + br) - (tl + 2 * l + bl);
-                let gy = (bl + 2 * b + br) - (tl + 2 * t + tr);
-                let mag = gx.abs() + gy.abs();
+            let mut mags = [0i32; BLOCK];
+            let mut x0 = 1;
+            while x0 < width - 1 {
+                let n = BLOCK.min(width - 1 - x0);
+                // Pass 1: branch-free Sobel magnitudes over a block, which the
+                // compiler can vectorize.
+                let end = x0 + n + 1;
+                let p = &prev[x0 - 1..end];
+                let c = &cur[x0 - 1..end];
+                let q = &next[x0 - 1..end];
+                for (i, m) in mags[..n].iter_mut().enumerate() {
+                    let tl = i32::from(p[i]);
+                    let t = i32::from(p[i + 1]);
+                    let tr = i32::from(p[i + 2]);
+                    let l = i32::from(c[i]);
+                    let r = i32::from(c[i + 2]);
+                    let bl = i32::from(q[i]);
+                    let b = i32::from(q[i + 1]);
+                    let br = i32::from(q[i + 2]);
+                    let gx = (tr + 2 * r + br) - (tl + 2 * l + bl);
+                    let gy = (bl + 2 * b + br) - (tl + 2 * t + tr);
+                    *m = gx.abs() + gy.abs();
+                }
+                // Flat blocks (no edge pixel) only need the darken, which has
+                // no data-dependent branch and vectorizes.
+                let any_edge = mags[..n]
+                    .iter()
+                    .fold(0u32, |acc, &m| acc | u32::from(m > threshold));
+                if any_edge == 0 {
+                    for px in &mut row_pixels[x0..x0 + n] {
+                        let v = *px;
+                        let rb = ((v & 0x00FF_00FF) * darken_fixed >> 8) & 0x00FF_00FF;
+                        let g = ((v & 0x0000_FF00) >> 8) * darken_fixed & 0x0000_FF00;
+                        *px = (v & 0xFF00_0000) | rb | g;
+                    }
+                    x0 += n;
+                    continue;
+                }
+                // Pass 2: per-pixel shading.
+                for (i, &mag) in mags[..n].iter().enumerate() {
+                    let x = x0 + i;
+                    let original_pixel = row_pixels[x];
+                    if mag <= threshold {
+                        // Non-edge: darken R/B in one multiply (lanes cannot carry:
+                        // 255 * 256 < 2^16), G in another.
+                        let rb = ((original_pixel & 0x00FF_00FF) * darken_fixed >> 8) & 0x00FF_00FF;
+                        let g = ((original_pixel & 0x0000_FF00) >> 8) * darken_fixed & 0x0000_FF00;
+                        row_pixels[x] = (original_pixel & 0xFF00_0000) | rb | g;
+                        continue;
+                    }
+                    let alpha = original_pixel & 0xFF00_0000;
+                    let orig_r = (original_pixel >> 16) & 0xFF;
+                    let orig_g = (original_pixel >> 8) & 0xFF;
+                    let orig_b = original_pixel & 0xFF;
 
-                let original_pixel = row_pixels[x];
-                let alpha = original_pixel & 0xFF00_0000;
-                let orig_r = (original_pixel >> 16) & 0xFF;
-                let orig_g = (original_pixel >> 8) & 0xFF;
-                let orig_b = original_pixel & 0xFF;
-
-                let (new_r, new_g, new_b) = if mag > threshold {
                     // Edge detected: Mix edge color with intensity
                     let mag_clamped = mag.min(255) as u32;
                     let glow_r = (edge_r * mag_clamped * intensity_fixed) >> 16;
                     let glow_g = (edge_g * mag_clamped * intensity_fixed) >> 16;
                     let glow_b = (edge_b * mag_clamped * intensity_fixed) >> 16;
-
-                    (
-                        (orig_r.saturating_add(glow_r)).min(255),
-                        (orig_g.saturating_add(glow_g)).min(255),
-                        (orig_b.saturating_add(glow_b)).min(255),
-                    )
-                } else {
-                    // Non-edge: Darken
-                    (
-                        (orig_r * darken_fixed) >> 8,
-                        (orig_g * darken_fixed) >> 8,
-                        (orig_b * darken_fixed) >> 8,
-                    )
-                };
-
-                row_pixels[x] = alpha | (new_r << 16) | (new_g << 8) | new_b;
+                    let new_r = orig_r.saturating_add(glow_r).min(255);
+                    let new_g = orig_g.saturating_add(glow_g).min(255);
+                    let new_b = orig_b.saturating_add(glow_b).min(255);
+                    row_pixels[x] = alpha | (new_r << 16) | (new_g << 8) | new_b;
+                }
+                x0 += n;
             }
         });
 
