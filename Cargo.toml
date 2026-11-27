@@ -1003,3 +1003,8 @@ required-features = ["nova"]
 name = "bolt_edge_glow_profile"
 path = "examples/bolt_edge_glow_profile.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "bolt_led_matrix_profile"
+path = "examples/bolt_led_matrix_profile.rs"
+required-features = ["nova"]
