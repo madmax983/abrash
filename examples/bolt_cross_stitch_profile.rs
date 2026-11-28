@@ -1,6 +1,6 @@
 //! Deterministic profiling harness for `apply_cross_stitch`: the
 //! `cross_stitch_demo` configuration (640x480 sinusoidal background,
-//! cell_size 10, canvas 0xFFEFEFEF), repeated for N frames (default 10).
+//! `cell_size` 10, canvas 0xFFEFEFEF), repeated for N frames (default 10).
 //!
 //! Not a criterion benchmark: wall-clock is unreliable on this machine. Run
 //! under `valgrind --tool=callgrind`.
@@ -37,7 +37,7 @@ fn main() {
     let original = scene();
     let mut fb = Framebuffer::new(WIDTH, HEIGHT).unwrap();
     let mut checksum: u64 = 0;
-    for f in 0..frames {
+    for _ in 0..frames {
         fb.as_mut_slice().copy_from_slice(original.as_slice());
         let config = CrossStitchConfig {
             cell_size: 10,

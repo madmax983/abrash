@@ -72,17 +72,14 @@ pub fn apply_cross_stitch(fb: &mut Framebuffer, config: &CrossStitchConfig) {
 
                 // Render the cross stitch into the row_buffer
                 for by in 0..block_height {
-                    for bx in 0..block_width {
-                        let diff_forward = (bx as isize - by as isize).abs();
-                        let diff_backward =
-                            (bx as isize - (b_size as isize - 1 - by as isize)).abs();
-
-                        // Simple 'X' shape
-                        if diff_forward <= 1 || diff_backward <= 1 {
-                            let target_idx = (by * width) + cx + bx;
-                            row_buffer[target_idx] = sample_color;
-                        }
-                    }
+                    let start = (by * width) + cx;
+                    paint_stitch_row(
+                        &mut row_buffer[start..start + block_width],
+                        by,
+                        b_size,
+                        sample_color,
+                        config.canvas_color,
+                    );
                 }
             }
 
@@ -92,28 +89,57 @@ pub fn apply_cross_stitch(fb: &mut Framebuffer, config: &CrossStitchConfig) {
 
     #[cfg(not(feature = "parallel"))]
     {
+        // One sample per cell is read before the band is filled with canvas, then
+        // only the stitch runs of each cell row are painted over the fill.
+        let mut samples: Vec<u32> = Vec::with_capacity(width.div_ceil(b_size));
         for y in (0..height).step_by(b_size) {
             let block_height = std::cmp::min(b_size, height - y);
             let row_start = y * width;
 
-            for x in (0..width).step_by(b_size) {
+            samples.clear();
+            samples.extend(pixels[row_start..row_start + width].iter().step_by(b_size));
+
+            pixels[row_start..row_start + block_height * width].fill(config.canvas_color);
+
+            for (cell, &sample_color) in samples.iter().enumerate() {
+                let x = cell * b_size;
                 let block_width = std::cmp::min(b_size, width - x);
-                let sample_color = pixels[row_start + x];
 
                 for by in 0..block_height {
-                    for bx in 0..block_width {
-                        let target_idx = row_start + (by * width) + x + bx;
-                        let diff_forward = (bx as isize - by as isize).abs();
-                        let diff_backward =
-                            (bx as isize - (b_size as isize - 1 - by as isize)).abs();
-
-                        if diff_forward <= 1 || diff_backward <= 1 {
-                            pixels[target_idx] = sample_color;
-                        } else {
-                            pixels[target_idx] = config.canvas_color;
-                        }
-                    }
+                    let start = row_start + (by * width) + x;
+                    paint_stitch_runs(
+                        &mut pixels[start..start + block_width],
+                        by,
+                        b_size,
+                        sample_color,
+                    );
                 }
+            }
+        }
+    }
+}
+
+/// Paints one row (`by`) of an 'X' cross-stitch cell into `row`.
+///
+/// A pixel at column `bx` is stitched when `|bx - by| <= 1` or
+/// `|bx - (b_size - 1 - by)| <= 1`; those are two runs of at most three pixels,
+/// so the row is filled with the canvas color and the runs are filled with the
+/// sample color instead of evaluating the predicate per pixel.
+#[inline]
+fn paint_stitch_row(row: &mut [u32], by: usize, b_size: usize, sample: u32, canvas: u32) {
+    row.fill(canvas);
+    paint_stitch_runs(row, by, b_size, sample);
+}
+
+/// Paints only the stitch runs of row `by` (see [`paint_stitch_row`]) into `row`.
+#[inline]
+fn paint_stitch_runs(row: &mut [u32], by: usize, b_size: usize, sample: u32) {
+    let mirror = b_size - 1 - by;
+    for center in [by, mirror] {
+        // Columns center-1 ..= center+1, clipped to the row.
+        for col in [center.wrapping_sub(1), center, center + 1] {
+            if let Some(p) = row.get_mut(col) {
+                *p = sample;
             }
         }
     }
@@ -140,5 +166,38 @@ mod tests {
         assert_eq!(fb.get_pixel(0, 3), Some(0xFF_FFFFFF));
         // Check center (part of X)
         assert_eq!(fb.get_pixel(4, 4), Some(0xFF_FF0000));
+    }
+
+    #[test]
+    fn test_cross_stitch_matches_reference_on_partial_cells() {
+        for &(w, h, cell) in &[(23u32, 17u32, 5u32), (10, 10, 3), (31, 9, 8), (7, 40, 10)] {
+            let mut fb = Framebuffer::new(w, h).unwrap();
+            for y in 0..h {
+                for x in 0..w {
+                    fb.set_pixel(x as i32, y as i32, 0xFF00_0000 | (y * 977 + x * 131 + 1));
+                }
+            }
+            let src = fb.as_slice().to_vec();
+            let canvas = 0xFF_DDDDDD;
+            apply_cross_stitch(
+                &mut fb,
+                &CrossStitchConfig {
+                    cell_size: cell,
+                    canvas_color: canvas,
+                },
+            );
+
+            let (w, h, b) = (w as usize, h as usize, cell as usize);
+            for y in 0..h {
+                for x in 0..w {
+                    let (bx, by) = (x % b, y % b);
+                    let sample = src[(y - by) * w + (x - bx)];
+                    let df = (bx as isize - by as isize).abs();
+                    let db = (bx as isize - (b as isize - 1 - by as isize)).abs();
+                    let want = if df <= 1 || db <= 1 { sample } else { canvas };
+                    assert_eq!(fb.as_slice()[y * w + x], want, "({x},{y}) {w}x{h} cell {b}");
+                }
+            }
+        }
     }
 }
